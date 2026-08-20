@@ -49,9 +49,9 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
 
         await using (var context = CreateContext())
         {
-            context.Exercises.Add(new Exercise { Id = exerciseId, Name = "Barbell Back Squat", Pattern = MovementPattern.Squat });
-            context.WorkoutSessions.Add(new WorkoutSession { Id = sessionId, Title = "Lower A" });
-            context.SetEntries.Add(new SetEntry
+            context.Set<Exercise>().Add(new Exercise { Id = exerciseId, Name = "Barbell Back Squat", Pattern = MovementPattern.Squat });
+            context.Set<WorkoutSession>().Add(new WorkoutSession { Id = sessionId, Title = "Lower A" });
+            context.Set<SetEntry>().Add(new SetEntry
             {
                 WorkoutSessionId = sessionId,
                 ExerciseId = exerciseId,
@@ -64,7 +64,7 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
         }
 
         await using var verify = CreateContext();
-        var set = await verify.SetEntries.SingleAsync(TestContext.Current.CancellationToken);
+        var set = await verify.Set<SetEntry>().SingleAsync(TestContext.Current.CancellationToken);
 
         // 102.5 kg is a real barbell loading. A float column could not represent it exactly,
         // which is why the column is decimal with explicit precision.
@@ -81,9 +81,9 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
 
         await using (var context = CreateContext())
         {
-            context.Exercises.Add(new Exercise { Id = exerciseId, Name = "Bench Press" });
-            context.WorkoutSessions.Add(new WorkoutSession { Id = sessionId });
-            context.SetEntries.AddRange(
+            context.Set<Exercise>().Add(new Exercise { Id = exerciseId, Name = "Bench Press" });
+            context.Set<WorkoutSession>().Add(new WorkoutSession { Id = sessionId });
+            context.Set<SetEntry>().AddRange(
                 new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 1, Load = Mass.FromKilograms(40m), Repetitions = 10, IsWarmUp = true },
                 new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 2, Load = Mass.FromKilograms(80m), Repetitions = 8 });
 
@@ -91,7 +91,7 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
         }
 
         await using var verify = CreateContext();
-        var sets = await verify.SetEntries.OrderBy(s => s.Ordinal).ToListAsync(TestContext.Current.CancellationToken);
+        var sets = await verify.Set<SetEntry>().OrderBy(s => s.Ordinal).ToListAsync(TestContext.Current.CancellationToken);
 
         // Counting warm-ups would inflate weekly volume and corrupt any fatigue calculation
         // derived from it, which in turn would corrupt deload recommendations.
@@ -106,27 +106,27 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
 
         await using (var context = CreateContext())
         {
-            context.Exercises.Add(new Exercise { Id = id, Name = "Deadlift" });
+            context.Set<Exercise>().Add(new Exercise { Id = id, Name = "Deadlift" });
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
         DateTimeOffset original;
         await using (var context = CreateContext())
         {
-            original = (await context.Exercises.SingleAsync(TestContext.Current.CancellationToken)).ModifiedUtc;
+            original = (await context.Set<Exercise>().SingleAsync(TestContext.Current.CancellationToken)).ModifiedUtc;
         }
 
         await Task.Delay(10, TestContext.Current.CancellationToken);
 
         await using (var context = CreateContext())
         {
-            var exercise = await context.Exercises.SingleAsync(TestContext.Current.CancellationToken);
+            var exercise = await context.Set<Exercise>().SingleAsync(TestContext.Current.CancellationToken);
             exercise.PrimaryMuscle = "Posterior chain";
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
         await using var verify = CreateContext();
-        (await verify.Exercises.SingleAsync(TestContext.Current.CancellationToken)).ModifiedUtc.ShouldBeGreaterThan(original);
+        (await verify.Set<Exercise>().SingleAsync(TestContext.Current.CancellationToken)).ModifiedUtc.ShouldBeGreaterThan(original);
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
     {
         await using (var context = CreateContext())
         {
-            context.Exercises.AddRange(
+            context.Set<Exercise>().AddRange(
                 new Exercise { Name = "Live movement" },
                 new Exercise { Name = "Retired movement", DeletedUtc = DateTimeOffset.UtcNow });
 
@@ -145,11 +145,11 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
 
         // The global filter means no individual query has to remember to exclude soft-deleted
         // rows. Forgetting it once would resurrect deleted data inside a progress chart.
-        var visible = await verify.Exercises.ToListAsync(TestContext.Current.CancellationToken);
+        var visible = await verify.Set<Exercise>().ToListAsync(TestContext.Current.CancellationToken);
         visible.ShouldHaveSingleItem();
         visible[0].Name.ShouldBe("Live movement");
 
-        var all = await verify.Exercises.IgnoreQueryFilters().ToListAsync(TestContext.Current.CancellationToken);
+        var all = await verify.Set<Exercise>().IgnoreQueryFilters().ToListAsync(TestContext.Current.CancellationToken);
         all.Count.ShouldBe(2);
     }
 
@@ -161,23 +161,23 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
 
         await using (var context = CreateContext())
         {
-            context.Exercises.Add(new Exercise { Id = exerciseId, Name = "Overhead Press" });
-            context.WorkoutSessions.Add(new WorkoutSession { Id = sessionId });
-            context.SetEntries.Add(new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 1, Repetitions = 5 });
+            context.Set<Exercise>().Add(new Exercise { Id = exerciseId, Name = "Overhead Press" });
+            context.Set<WorkoutSession>().Add(new WorkoutSession { Id = sessionId });
+            context.Set<SetEntry>().Add(new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 1, Repetitions = 5 });
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
         await using (var context = CreateContext())
         {
-            var session = await context.WorkoutSessions.SingleAsync(TestContext.Current.CancellationToken);
-            context.WorkoutSessions.Remove(session);
+            var session = await context.Set<WorkoutSession>().SingleAsync(TestContext.Current.CancellationToken);
+            context.Set<WorkoutSession>().Remove(session);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
         // Orphaned sets would surface in exercise history with no session context, which is
         // how phantom entries end up in a training log.
         await using var verify = CreateContext();
-        (await verify.SetEntries.IgnoreQueryFilters().CountAsync(TestContext.Current.CancellationToken)).ShouldBe(0);
+        (await verify.Set<SetEntry>().IgnoreQueryFilters().CountAsync(TestContext.Current.CancellationToken)).ShouldBe(0);
     }
 
     [Fact]
@@ -191,16 +191,16 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
         // user losing a session they cannot repeat.
         await using (var context = CreateContext())
         {
-            context.Exercises.Add(new Exercise { Id = exerciseId, Name = "Row" });
-            context.WorkoutSessions.Add(new WorkoutSession { Id = sessionId, CompletedUtc = null });
-            context.SetEntries.AddRange(
+            context.Set<Exercise>().Add(new Exercise { Id = exerciseId, Name = "Row" });
+            context.Set<WorkoutSession>().Add(new WorkoutSession { Id = sessionId, CompletedUtc = null });
+            context.Set<SetEntry>().AddRange(
                 new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 1, Load = Mass.FromKilograms(60m), Repetitions = 10 },
                 new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 2, Load = Mass.FromKilograms(60m), Repetitions = 9 });
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
         await using var recovered = CreateContext();
-        var inProgress = await recovered.WorkoutSessions
+        var inProgress = await recovered.Set<WorkoutSession>()
             .Include(s => s.Sets)
             .SingleOrDefaultAsync(s => s.CompletedUtc == null, TestContext.Current.CancellationToken);
 
