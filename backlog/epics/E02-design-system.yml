@@ -3,765 +3,1918 @@ title: Design System and Theming
 domain: design
 wave: 1
 summary: >-
-  Forge needs a visual foundation that makes every screen feel deliberate, legible and fast to build. This epic establishes DevExpress Material Design 3 theming, semantic colour roles, typography, spacing, surfaces, icons, reusable components and visual regression coverage so product teams can compose screens without hand-rolling styles.
+  Forge needs a visual foundation that makes every screen feel deliberate, legible and fast to build.
+  This epic establishes DevExpress Material Design 3 theming, semantic colour roles, typography, spacing,
+  surfaces, icons, reusable components and visual regression coverage so product teams can compose screens
+  without hand-rolling styles.
 problem: >-
-  A gym app is used under harsh light, in motion, and often with sweaty or gloved thumbs. If each feature invents colours, type sizes and component states independently, Forge will look inconsistent, fail accessibility checks and become expensive to rebrand or adapt to dark mode.
+  A gym app is used under harsh light, in motion, and often with sweaty or gloved thumbs. If each feature
+  invents colours, type sizes and component states independently, Forge will look inconsistent, fail accessibility
+  checks and become expensive to rebrand or adapt to dark mode.
 outcome: >-
-  Forge has one documented design system, generated from one brand seed colour through DevExpress ThemeManager, with accessible light and dark schemes, reusable components and a component gallery that catches visual regressions before they reach users.
+  Forge has one documented design system, generated from one brand seed colour through DevExpress ThemeManager,
+  with accessible light and dark schemes, reusable components and a component gallery that catches visual
+  regressions before they reach users.
 successMetrics:
-  - '100 percent of app XAML uses semantic theme resources or design tokens rather than literal colour values outside token files.'
-  - 'All normal text pairs in the component gallery meet WCAG 2.2 AA contrast of at least 4.5:1, and non-text interactive indicators meet at least 3:1.'
-  - 'Every reusable interactive component exposes a minimum 48 x 48 dp touch target on Android and 44 x 44 pt on iOS.'
-  - 'Component gallery screenshot comparison stays within a 0.5 percent pixel difference threshold for approved baselines in light and dark themes.'
+- 100 percent of app XAML uses semantic theme resources or design tokens rather than literal colour values
+  outside token files.
+- All normal text pairs in the component gallery meet WCAG 2.2 AA contrast of at least 4.5:1, and non-text
+  interactive indicators meet at least 3:1.
+- Every reusable interactive component exposes a minimum 48 x 48 dp touch target on Android and 44 x 44
+  pt on iOS.
+- Component gallery screenshot comparison stays within a 0.5 percent pixel difference threshold for approved
+  baselines in light and dark themes.
 nonGoals:
-  - 'No custom rendering engine for controls already covered by DevExpress .NET MAUI.'
-  - 'No runtime theme marketplace or user-created colour themes in v1.'
-  - 'No desktop-specific styling in waves 1 through 5.'
+- No custom rendering engine for controls already covered by DevExpress .NET MAUI.
+- No runtime theme marketplace or user-created colour themes in v1.
+- No desktop-specific styling in waves 1 through 5.
 risks:
-  - risk: 'Teams bypass semantic theme roles with literal hex colours to finish screens quickly, making dark mode and rebranding brittle.'
-    mitigation: 'Add a XAML lint rule and component gallery review gate that reject unapproved literal colours outside token files.'
-    severity: high
-  - risk: 'Brand choices pass indoors but become unreadable in bright gym sunlight.'
-    mitigation: 'Include sunlight legibility checks in the component gallery test matrix and require stronger foreground contrast for workout-critical text.'
-    severity: medium
+- risk: >-
+    Teams bypass semantic theme roles with literal hex colours to finish screens quickly, making dark
+    mode and rebranding brittle.
+  mitigation: >-
+    Add a XAML lint rule and component gallery review gate that reject unapproved literal colours outside
+    token files.
+  severity: high
+- risk: >-
+    Brand choices pass indoors but become unreadable in bright gym sunlight.
+  mitigation: >-
+    Include sunlight legibility checks in the component gallery test matrix and require stronger foreground
+    contrast for workout-critical text.
+  severity: medium
 grounding:
-  - title: 'DevExpress MAUI color themes'
-    url: https://docs.devexpress.com/MAUI/404636
-    note: 'Documents ThemeManager, Material Design 3 themes and semantic theme colour usage.'
-  - title: 'DevExpress MAUI layout controls'
-    url: https://docs.devexpress.com/MAUI/404664
-    note: 'Covers DevExpress layout primitives used by reusable components.'
-  - title: 'WCAG 2.2 contrast minimum'
-    url: https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
-    note: 'Defines the 4.5:1 contrast requirement for normal text.'
-  - title: 'WCAG 2.2 non-text contrast'
-    url: https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html
-    note: 'Defines the 3:1 contrast requirement for graphical controls and state indicators.'
-  - title: 'WCAG 2.2 target size minimum'
-    url: https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html
-    note: 'Supports larger touch targets for gym use and motor accessibility.'
-
+- title: DevExpress MAUI color themes
+  url: https://docs.devexpress.com/MAUI/404636
+  note: >-
+    Documents ThemeManager, Material Design 3 themes and semantic theme colour usage.
+- title: DevExpress MAUI layout controls
+  url: https://docs.devexpress.com/MAUI/404664
+  note: Covers DevExpress layout primitives used by reusable components.
+- title: WCAG 2.2 contrast minimum
+  url: https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
+  note: Defines the 4.5:1 contrast requirement for normal text.
+- title: WCAG 2.2 non-text contrast
+  url: https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html
+  note: >-
+    Defines the 3:1 contrast requirement for graphical controls and state indicators.
+- title: WCAG 2.2 target size minimum
+  url: https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html
+  note: Supports larger touch targets for gym use and motor accessibility.
 features:
-  - key: F02.01
-    title: 'Establish brand colour and semantic theme roles'
+- key: F02.01
+  title: Establish brand colour and semantic theme roles
+  wave: 1
+  summary: >-
+    Define the Forge brand seed colour and consume DevExpress Material Design 3 semantic roles everywhere,
+    so light and dark themes are generated consistently from one source of truth.
+  outcome: >-
+    A one-line brand seed change updates the app without editing individual screens.
+  concerns:
+  - a11y
+  - devexpress
+  stories:
+  - key: S02.01.01
+    title: Define the Forge brand seed and ThemeManager bootstrap
     wave: 1
-    summary: >-
-      Define the Forge brand seed colour and consume DevExpress Material Design 3 semantic roles everywhere, so light and dark themes are generated consistently from one source of truth.
-    outcome: >-
-      A one-line brand seed change updates the app without editing individual screens.
-    concerns: [a11y, devexpress]
-    stories:
-      - key: S02.01.01
-        title: 'Define the Forge brand seed and ThemeManager bootstrap'
-        wave: 1
-        size: s
-        platforms: [android, ios]
-        persona: team
-        concerns: [devexpress]
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'the brand seed colour wired before controls are created'
-          soThat: 'every DevExpress control inherits Forge identity automatically'
-        requirements:
-          - 'ThemeManager.Theme is assigned from a single ForgeBrand.SeedHex value before MauiApp.CreateBuilder() runs.'
-          - 'ThemeManager.UseAndroidSystemColor is false so Android dynamic colour does not override the Forge brand in v1.'
-          - 'The seed produces light and dark schemes without per-screen literal colours.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'the app starts on Android and iOS'
-            when: 'the first page containing a DXButton and DXCollectionView renders'
-            then: 'both controls use the Forge theme with no handler exception and no default accent colour'
-          - id: AC2
-            given: 'ForgeBrand.SeedHex is changed to a test colour'
-            when: 'the app is rebuilt and launched'
-            then: 'primary, secondary and surface container roles all change in the component gallery without editing gallery XAML'
-        implementation:
-          notes: >-
-            Place ForgeBrand in src/Forge.App/Theme and set ThemeManager.Theme at the top of MauiProgram.CreateMauiApp before MauiApp.CreateBuilder. Keep Theme and Color objects out of Forge.Application so ViewModels do not leak DevExpress or MAUI types.
-          touches:
-            - 'src/Forge.App/Theme'
-          devexpress:
-            - 'ThemeManager'
-            - 'Theme'
-            - 'DXButton'
-            - 'DXCollectionView'
-          apis:
-            - 'DevExpress.Maui.Core'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.01.02
-        title: 'Replace literal colours with semantic ThemeColor roles'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [a11y, devexpress]
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'named semantic colour roles rather than hex values'
-          soThat: 'dark mode and future rebrands stay maintainable'
-        requirements:
-          - 'Shared styles expose semantic roles for text, surfaces, outlines, error, success, warning and focus states.'
-          - 'XAML under src/Forge.App may use literal colours only in token definition files and test fixtures.'
-          - 'Error and success states use both colour and an icon or text label.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a repository scan of src/Forge.App XAML outside Resources/Styles'
-            when: 'a literal hex colour is present'
-            then: 'the lint command fails and reports the file path and line number'
-          - id: AC2
-            given: 'a validation error and a success banner in the gallery'
-            when: 'the UI is viewed in greyscale'
-            then: 'each state remains distinguishable by icon or text without relying on hue'
-        implementation:
-          notes: >-
-            Create ThemeColors.xaml and StateColors.xaml in src/Forge.App/Resources/Styles. Wrap semantic roles such as {dx:ThemeColor OnSurface} and {dx:ThemeColor SurfaceContainerLow} in Forge aliases only when the alias adds product meaning.
-          touches:
-            - 'src/Forge.App/Resources/Styles'
-          devexpress:
-            - 'ThemeColor'
-            - 'DXBorder'
-            - 'DXButton'
-          apis:
-            - 'Microsoft.Maui.Controls.ResourceDictionary'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.01.03
-        title: 'Add dark mode with an OLED-black workout option'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [a11y, devexpress]
-        userStory:
-          asA: 'Alex training late at night'
-          iWant: 'a dark interface that can become true black during workouts'
-          soThat: 'late and dim gym sessions are comfortable on OLED screens'
-        requirements:
-          - 'Forge follows the system light or dark setting by default and updates while the app is running.'
-          - 'A local display preference offers System, Light, Dark and Workout OLED Black options.'
-          - 'OLED Black applies only to workout-critical surfaces and preserves text contrast of at least 7:1 for timers and set inputs.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'the device changes from light to dark mode while Forge is backgrounded'
-            when: 'the user returns to Forge'
-            then: 'all gallery components render in the dark scheme without restarting the app'
-          - id: AC2
-            given: 'Workout OLED Black is enabled'
-            when: 'a workout logging screen is displayed'
-            then: 'timer, set rows and primary actions use black backgrounds and foreground text contrast is at least 7:1'
-        implementation:
-          notes: >-
-            Implement OLED Black as a small override ResourceDictionary layered above the DevExpress theme for workout surfaces, not as a second full theme. Store display preference with Preferences in Forge.App only and leave other screens on ThemeManager roles.
-          touches:
-            - 'src/Forge.App/Theme'
-          devexpress:
-            - 'ThemeManager'
-            - 'DXBorder'
-            - 'DXButton'
-          apis:
-            - 'Microsoft.Maui.Storage.Preferences'
-            - 'Microsoft.Maui.Controls.Application.RequestedThemeChanged'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-  - key: F02.02
-    title: 'Verify accessibility and gym legibility'
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - devexpress
+    userStory:
+      asA: developer working on Forge
+      iWant: the brand seed colour wired before controls are created
+      soThat: every DevExpress control inherits Forge identity automatically
+    requirements:
+    - ThemeManager.Theme is assigned from a single ForgeBrand.SeedHex value before MauiApp.CreateBuilder()
+      runs.
+    - ThemeManager.UseAndroidSystemColor is false so Android dynamic colour does not override the Forge
+      brand in v1.
+    - The seed produces light and dark schemes without per-screen literal colours.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: the app starts on Android and iOS
+      when: the first page containing a DXButton and DXCollectionView renders
+      then: >-
+        both controls use the Forge theme with no handler exception and no default accent colour
+    - id: AC2
+      given: ForgeBrand.SeedHex is changed to a test colour
+      when: the app is rebuilt and launched
+      then: >-
+        primary, secondary and surface container roles all change in the component gallery without editing
+        gallery XAML
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Place ForgeBrand in src/Forge.App/Theme and set ThemeManager.Theme at the top of MauiProgram.CreateMauiApp
+        before MauiApp.CreateBuilder. Keep Theme and Color objects out of Forge.Core so ViewModels
+        do not leak DevExpress or MAUI types. Implement Define the Forge brand seed and ThemeManager bootstrap
+        in Forge.App under Theme, Resources/Styles and Features/DesignSystem with a small coordinator
+        class named from S020101. Use DevExpress ThemeManager for Material Design 3 generation, bind page
+        XAML through dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky
+        part is keeping product aliases semantic while still letting dark mode, OLED workout overrides
+        and future rebrands flow from one seed. A careless implementation would paste literal hex values
+        into page XAML, which breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - ThemeManager
+      - Theme
+      - DXButton
+      - DXCollectionView
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - DevExpress.Maui.Core
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.01.02
+    title: Replace literal colours with semantic ThemeColor roles
     wave: 1
-    summary: >-
-      Automate contrast and legibility checks so the theme works for low vision users, bright sunlight and colour-blind conditions before feature screens depend on it.
-    outcome: >-
-      Theme changes fail fast when they reduce contrast or convey state by colour alone.
-    concerns: [a11y]
-    stories:
-      - key: S02.02.01
-        title: 'Automate WCAG contrast verification for theme roles'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [a11y]
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'contrast failures reported mechanically'
-          soThat: 'accessibility does not depend on subjective screenshot review'
-        requirements:
-          - 'The contrast tool verifies text token pairs against 4.5:1, or 3:1 for declared large text.'
-          - 'Focus rings, icons, dividers and input borders are verified against 3:1 non-text contrast.'
-          - 'Any exception names the token pair, component and WCAG rule in a checked-in allowlist with an expiry date.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a token pair has 4.49:1 normal text contrast'
-            when: 'the contrast test runs'
-            then: 'the build fails and reports the measured ratio to two decimal places'
-          - id: AC2
-            given: 'all gallery baselines are current'
-            when: 'contrast tests run for light and dark themes'
-            then: 'zero unapproved contrast violations are reported'
-        implementation:
-          notes: >-
-            Implement tests/Forge.App.Design.Tests/ContrastTests.cs using the WCAG relative luminance formula over resolved ResourceDictionary colours. Feed it gallery metadata rather than screenshots so failures name tokens and components.
-          touches:
-            - 'src/Forge.App/DesignTests'
-          devexpress:
-            - 'DXBorder'
-            - 'DXButton'
-            - 'TextEdit'
-          apis:
-            - 'Microsoft.Maui.Graphics.Color'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.02.02
-        title: 'Verify sunlight legibility for workout-critical text'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [a11y]
-        userStory:
-          asA: 'Alex training near bright daylight'
-          iWant: 'critical workout text to remain readable in bright gyms'
-          soThat: 'users can log safely without stepping away from equipment'
-        requirements:
-          - 'Workout-critical text tokens use contrast of at least 7:1 in light, dark and OLED modes.'
-          - 'Timer, weight, reps and rest prompts have a minimum rendered height of 20 dp at default scale.'
-          - 'Manual QA includes outdoor shade and bright indoor light checks on one Android and one iOS device.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'workout-critical tokens are tested'
-            when: 'contrast ratios are calculated'
-            then: 'every timer, reps, weight and rest prompt token pair is at least 7:1'
-          - id: AC2
-            given: 'the sunlight QA checklist is executed'
-            when: 'any critical value cannot be read from 60 cm within 2 seconds'
-            then: 'the checklist fails and links the affected token or component'
-        implementation:
-          notes: >-
-            Add a CriticalText role to the type and colour matrices and make workout components opt into it explicitly. Manual QA results should live beside snapshot baselines so visual changes are reviewed with the same discipline as automated diffs.
-          touches:
-            - 'src/Forge.App/DesignGallery'
-          devexpress:
-            - 'DXBorder'
-            - 'NumericEdit'
-            - 'DXButton'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.02.03
-        title: 'Ensure state is never communicated by colour alone'
-        wave: 1
-        size: s
-        platforms: [android, ios]
-        persona: team
-        concerns: [a11y, devexpress]
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'state cues that survive colour-blind and greyscale viewing'
-          soThat: 'errors, success and selected states remain understandable'
-        requirements:
-          - 'Selected, error, success, warning and disabled states include shape, icon, text or pattern in addition to colour.'
-          - 'Greyscale gallery snapshots cover all reusable state components.'
-          - 'The selected tab and list row states are visually distinct by more than colour alone.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'the gallery is rendered in greyscale'
-            when: 'state examples for selected, warning, error and success are compared'
-            then: 'each state remains identifiable by a non-colour cue'
-          - id: AC2
-            given: 'a component uses only a colour change to indicate selected state'
-            when: 'the state audit test runs'
-            then: 'the test fails and names the component state'
-        implementation:
-          notes: >-
-            Add a small StateCue metadata file for reusable components and validate it in design tests. DevExpress controls can provide colour through ThemeColor, but Forge wrappers must also expose icons, strokes, text labels or shape changes for state.
-          touches:
-            - 'src/Forge.App/Resources/Styles'
-          devexpress:
-            - 'TabView'
-            - 'DXCollectionView'
-            - 'DXBorder'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-  - key: F02.03
-    title: 'Build typography, spacing and touch-density tokens'
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - a11y
+    - devexpress
+    userStory:
+      asA: developer working on Forge
+      iWant: named semantic colour roles rather than hex values
+      soThat: dark mode and future rebrands stay maintainable
+    requirements:
+    - Shared styles expose semantic roles for text, surfaces, outlines, error, success, warning and focus
+      states.
+    - XAML under src/Forge.App may use literal colours only in token definition files and test fixtures.
+    - Error and success states use both colour and an icon or text label.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: a repository scan of src/Forge.App XAML outside Resources/Styles
+      when: a literal hex colour is present
+      then: the lint command fails and reports the file path and line number
+    - id: AC2
+      given: a validation error and a success banner in the gallery
+      when: the UI is viewed in greyscale
+      then: >-
+        each state remains distinguishable by icon or text without relying on hue
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Create ThemeColors.xaml and StateColors.xaml in src/Forge.App/Resources/Styles. Wrap semantic
+        roles such as {dx:ThemeColor OnSurface} and {dx:ThemeColor SurfaceContainerLow} in Forge aliases
+        only when the alias adds product meaning. Implement Replace literal colours with semantic ThemeColor
+        roles in Forge.App under Theme, Resources/Styles and Features/DesignSystem with a small coordinator
+        class named from S020102. Use DevExpress ThemeManager for Material Design 3 generation, bind page
+        XAML through dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky
+        part is keeping product aliases semantic while still letting dark mode, OLED workout overrides
+        and future rebrands flow from one seed. A careless implementation would paste literal hex values
+        into page XAML, which breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Theme
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - ThemeColor
+      - DXBorder
+      - DXButton
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - Microsoft.Maui.Controls.ResourceDictionary
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.01.03
+    title: Add dark mode with an OLED-black workout option
     wave: 1
-    summary: >-
-      Create the text, spacing, radius and touch target system that makes Forge readable at a glance and usable with tired hands in a gym environment.
-    outcome: >-
-      Screens can scale text to 200 percent and preserve large, predictable touch targets without per-screen overrides.
-    concerns: [a11y]
-    stories:
-      - key: S02.03.01
-        title: 'Define the Forge type scale and numeric styles'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: masters
-        concerns: [a11y]
-        userStory:
-          asA: 'Tom with larger text enabled'
-          iWant: 'a clear type scale and numeric text style'
-          soThat: 'timers, weights and instructions read consistently'
-        requirements:
-          - 'Type tokens cover display, headline, title, body, label, numeric and caption roles.'
-          - 'Numeric tokens use tabular figures for timers, weights and calories where the selected font supports them.'
-          - 'No body text style is smaller than 14 pt effective size at the default setting.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'the component gallery renders all text styles'
-            when: 'styles are inspected'
-            then: 'every text element maps to one named token and no inline FontSize appears outside token files'
-          - id: AC2
-            given: 'timer values change from 9 to 10 minutes'
-            when: 'the workout timer renders with numeric style'
-            then: 'the digit column width shifts by no more than 1 px'
-        implementation:
-          notes: >-
-            Define Typography.xaml and ForgeFonts.cs in src/Forge.App. Keep product-specific styles such as WorkoutTimerText separate from raw size tokens so hierarchy can evolve without replacing every numeric value.
-          touches:
-            - 'src/Forge.App/Resources/Styles'
-          devexpress:
-            - 'TextEdit'
-            - 'NumericEdit'
-            - 'ComboBoxEdit'
-          apis:
-            - 'Microsoft.Maui.Controls.Label'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.03.02
-        title: 'Support Dynamic Type and 200 percent font scaling'
-        wave: 1
-        size: l
-        platforms: [android, ios]
-        persona: masters
-        concerns: [a11y]
-        userStory:
-          asA: 'Tom using large system text'
-          iWant: 'Forge to honour my device text setting'
-          soThat: 'I do not need a separate accessibility mode inside the app'
-        requirements:
-          - 'Core gallery components remain usable at 200 percent text scale with no clipped critical text.'
-          - 'Text containers wrap or scroll rather than truncating critical instructions, labels or values.'
-          - 'Icon-only buttons expose text alternatives through SemanticProperties.Description.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'Android font size is set to a 200 percent equivalent'
-            when: 'the component gallery renders'
-            then: 'no label, editor placeholder or button text is clipped or overlapped in the automated layout scan'
-          - id: AC2
-            given: 'iOS Larger Text is set to the largest accessibility category'
-            when: 'the primary card, list row and empty state render'
-            then: 'all critical text is visible by wrapping or vertical scrolling with no horizontal scroll on phone width'
-        implementation:
-          notes: >-
-            Use MAUI font scaling and flexible layouts, not platform-specific hard-coded font sizes. Components should prefer Grid rows, ScrollView for long guidance and MaxLines only for supporting copy that is safe to truncate.
-          touches:
-            - 'src/Forge.App/Controls'
-          devexpress:
-            - 'DXCollectionView'
-            - 'DXBorder'
-            - 'TextEdit'
-          apis:
-            - 'Microsoft.Maui.Controls.SemanticProperties'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.03.03
-        title: 'Standardise spacing, radius and gym-friendly touch targets'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [a11y]
-        userStory:
-          asA: 'Alex logging sets with sweaty hands'
-          iWant: 'spacing, corner and touch target tokens'
-          soThat: 'components align and remain easy to hit with sweaty hands'
-        requirements:
-          - 'Spacing tokens use a 4 dp base grid with named values from 0 to 64 dp.'
-          - 'Radius tokens include none, small, medium, large, pill and sheet values.'
-          - 'Primary actions expose at least 48 x 48 dp on Android and 44 x 44 pt on iOS; workout controls offer 56 dp relaxed density.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'the token file is parsed'
-            when: 'spacing values are inspected'
-            then: 'every spacing token value is a multiple of 4 dp and no required token is missing'
-          - id: AC2
-            given: 'the workout density variant is active'
-            when: 'a set row renders'
-            then: 'plus, minus and complete targets each measure at least 56 x 56 dp and remain within row bounds'
-        implementation:
-          notes: >-
-            Put dimensions in Dimensions.xaml and consume them through StaticResource. DXBorder should be the default surface primitive because it exposes corner radius, border thickness and background consistently across Android and iOS.
-          touches:
-            - 'src/Forge.App/Resources/Styles'
-          devexpress:
-            - 'DXBorder'
-            - 'DXStackLayout'
-            - 'DXButton'
-            - 'NumericEdit'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-  - key: F02.04
-    title: 'Create reusable surfaces, lists and loading components'
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - a11y
+    - devexpress
+    userStory:
+      asA: Alex training late at night
+      iWant: a dark interface that can become true black during workouts
+      soThat: late and dim gym sessions are comfortable on OLED screens
+    requirements:
+    - Forge follows the system light or dark setting by default and updates while the app is running.
+    - A local display preference offers System, Light, Dark and Workout OLED Black options.
+    - OLED Black applies only to workout-critical surfaces and preserves text contrast of at least 7:1
+      for timers and set inputs.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: the device changes from light to dark mode while Forge is backgrounded
+      when: the user returns to Forge
+      then: >-
+        all gallery components render in the dark scheme without restarting the app
+    - id: AC2
+      given: Workout OLED Black is enabled
+      when: a workout logging screen is displayed
+      then: >-
+        timer, set rows and primary actions use black backgrounds and foreground text contrast is at least
+        7:1
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Implement OLED Black as a small override ResourceDictionary layered above the DevExpress theme
+        for workout surfaces, not as a second full theme. Store display preference with Preferences in
+        Forge.App only and leave other screens on ThemeManager roles. Implement Add dark mode with an
+        OLED-black workout option in Forge.App under Theme, Resources/Styles and Features/DesignSystem
+        with a small coordinator class named from S020103. Use DevExpress ThemeManager for Material Design
+        3 generation, bind page XAML through dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces
+        with dx:DXBorder. The tricky part is keeping product aliases semantic while still letting dark
+        mode, OLED workout overrides and future rebrands flow from one seed. A careless implementation
+        would paste literal hex values into page XAML, which breaks dark mode, accessibility audits and
+        rebranding.
+      touches:
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - ThemeManager
+      - DXBorder
+      - DXButton
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - Microsoft.Maui.Storage.Preferences
+      - Microsoft.Maui.Controls.Application.RequestedThemeChanged
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+- key: F02.02
+  title: Verify accessibility and gym legibility
+  wave: 1
+  summary: >-
+    Automate contrast and legibility checks so the theme works for low vision users, bright sunlight and
+    colour-blind conditions before feature screens depend on it.
+  outcome: >-
+    Theme changes fail fast when they reduce contrast or convey state by colour alone.
+  concerns:
+  - a11y
+  stories:
+  - key: S02.02.01
+    title: Automate WCAG contrast verification for theme roles
     wave: 1
-    summary: >-
-      Build the first reusable visual components that Wave 2 and Wave 3 features need: cards, list rows, empty states, skeletons and surface hierarchy.
-    outcome: >-
-      Product screens compose consistent visual building blocks instead of duplicating XAML and state handling.
-    concerns: [devexpress, a11y]
-    stories:
-      - key: S02.04.01
-        title: 'Define elevation and surface hierarchy tokens'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [devexpress, a11y]
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'named surface levels and elevation rules'
-          soThat: 'cards, sheets and sticky actions feel related across the app'
-        requirements:
-          - 'Surface tokens cover app background, surface, container low, container, container high and overlay scrim.'
-          - 'Elevation tokens define shadow, border and tonal treatment for levels 0 through 4.'
-          - 'Dark mode uses tonal elevation or border contrast rather than heavy black shadows.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'the surface gallery opens in light and dark themes'
-            when: 'levels 0 through 4 are displayed'
-            then: 'each level is visually distinct with a boundary or shadow cue of at least 3:1 contrast'
-          - id: AC2
-            given: 'a DXPopup overlays content'
-            when: 'the overlay is displayed'
-            then: 'the scrim opacity token is applied and underlying content cannot receive taps'
-        implementation:
-          notes: >-
-            Build surface styles with DXBorder as the base. Represent elevation in Forge.App style names and do not expose surface levels through ViewModels unless the value is a product state rather than a visual implementation detail.
-          touches:
-            - 'src/Forge.App/Controls'
-          devexpress:
-            - 'DXBorder'
-            - 'DXPopup'
-            - 'BottomSheet'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.04.02
-        title: 'Build reusable card, metric tile and list row templates'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [perf, devexpress]
-        userStory:
-          asA: 'Alex browsing large lists'
-          iWant: 'cards and list rows with clear hierarchy'
-          soThat: 'I can understand important information without visual noise'
-        requirements:
-          - 'Cards support title, subtitle, leading icon, supporting content, action slot and selected state.'
-          - 'Metric tiles support value, unit, trend indicator and accessible summary text.'
-          - 'DXCollectionView row templates cover one-line, two-line, metric and swipe-action variants.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a card renders at 360 dp width and 200 percent text scale'
-            when: 'title, subtitle, icon and action are displayed'
-            then: 'critical text remains visible and no element overlaps'
-          - id: AC2
-            given: 'the list gallery contains 500 mixed rows'
-            when: 'it is flung from top to bottom'
-            then: 'scrolling sustains 60 fps with no frame over 16.6 ms attributable to row creation'
-        implementation:
-          notes: >-
-            Implement ForgeCard, MetricTile and shared DXCollectionView templates under src/Forge.App/Controls and Resources/Styles/ListTemplates.xaml. Keep row visuals shallow and avoid nested CollectionViews or per-row converters that allocate during scroll.
-          touches:
-            - 'src/Forge.App/Controls'
-          devexpress:
-            - 'DXBorder'
-            - 'DXStackLayout'
-            - 'DXCollectionView'
-            - 'SwipeItem'
-          apis:
-            - 'Microsoft.Maui.Controls.DataTemplate'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-        grounding:
-          - title: 'DevExpress CollectionView swipe gestures'
-            url: https://docs.devexpress.com/MAUI/403333
-            note: 'Documents swipe gesture support for DXCollectionView rows.'
-      - key: S02.04.03
-        title: 'Provide empty-state and skeleton loading components'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [a11y, devexpress]
-        userStory:
-          asA: 'Maya with a brand-new install'
-          iWant: 'empty screens to explain what to do next'
-          soThat: 'the app feels helpful before I have any data'
-        requirements:
-          - 'Empty states support illustration, title, guidance, primary action and secondary action slots.'
-          - 'Skeleton states reserve final layout space so content shift is under 4 dp when data arrives.'
-          - 'Loading shimmer is disabled when reduced motion is active and replaced with static skeleton blocks.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'an empty exercise library renders'
-            when: 'the empty-state component is displayed'
-            then: 'it shows a title, one guidance paragraph no longer than 160 characters and one primary action'
-          - id: AC2
-            given: 'skeleton loading transitions to loaded content'
-            when: 'layout bounds before and after loading are compared'
-            then: 'each reserved block shifts by no more than 4 dp'
-        implementation:
-          notes: >-
-            Implement EmptyStateView and SkeletonBlock in src/Forge.App/Controls using DXBorder for surfaces and semantic theme roles for content. Expose IsMotionEnabled so E03 can add shimmer while this story already supports a static fallback.
-          touches:
-            - 'src/Forge.App/Controls'
-          devexpress:
-            - 'DXBorder'
-            - 'DXStackLayout'
-            - 'DXButton'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-  - key: F02.05
-    title: 'Establish iconography and visual state language'
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - a11y
+    userStory:
+      asA: developer working on Forge
+      iWant: contrast failures reported mechanically
+      soThat: accessibility does not depend on subjective screenshot review
+    requirements:
+    - The contrast tool verifies text token pairs against 4.5:1, or 3:1 for declared large text.
+    - Focus rings, icons, dividers and input borders are verified against 3:1 non-text contrast.
+    - Any exception names the token pair, component and WCAG rule in a checked-in allowlist with an expiry
+      date.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: a token pair has 4.49:1 normal text contrast
+      when: the contrast test runs
+      then: the build fails and reports the measured ratio to two decimal places
+    - id: AC2
+      given: all gallery baselines are current
+      when: contrast tests run for light and dark themes
+      then: zero unapproved contrast violations are reported
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Implement tests/Forge.App.Design.Tests/ContrastTests.cs using the WCAG relative luminance formula
+        over resolved ResourceDictionary colours. Feed it gallery metadata rather than screenshots so
+        failures name tokens and components. Implement Automate WCAG contrast verification for theme roles
+        in Forge.App under Theme, Resources/Styles and Features/DesignSystem with a small coordinator
+        class named from S020201. Use DevExpress ThemeManager for Material Design 3 generation, bind page
+        XAML through dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky
+        part is keeping product aliases semantic while still letting dark mode, OLED workout overrides
+        and future rebrands flow from one seed. A careless implementation would paste literal hex values
+        into page XAML, which breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/DesignTests
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXBorder
+      - DXButton
+      - TextEdit
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - Microsoft.Maui.Graphics.Color
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.02.02
+    title: Verify sunlight legibility for workout-critical text
     wave: 1
-    summary: >-
-      Define how Forge uses icons, selected states, destructive states and visual cues so actions are recognisable without relying on colour alone.
-    outcome: >-
-      Every icon has a known source, size, semantic label and state pairing.
-    concerns: [a11y]
-    stories:
-      - key: S02.05.01
-        title: 'Create the Forge icon catalogue and naming convention'
-        wave: 1
-        size: s
-        platforms: [android, ios]
-        persona: team
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'a vetted icon catalogue'
-          soThat: 'I do not copy random assets into feature folders'
-        requirements:
-          - 'Icons live under Resources/Images/Icons and use snake_case names grouped by intent.'
-          - 'Each icon has metadata for purpose, size, filled variant availability and accessibility description.'
-          - 'The catalogue includes the five primary tab icons plus add, edit, delete, search, filter, complete and warning.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'the icon metadata file is parsed'
-            when: 'any icon lacks purpose, default size or accessibility description'
-            then: 'the icon catalogue test fails with the icon name'
-          - id: AC2
-            given: 'the tab icon set renders in the gallery'
-            when: 'selected and unselected variants are compared'
-            then: 'every primary tab has both variants and selected state changes shape as well as colour'
-        implementation:
-          notes: >-
-            Store vector-friendly assets or font glyph references under Resources/Images/Icons and catalogue metadata in Theme/IconCatalog.json. Use MAUI FontImageSource where possible, but render icons inside DevExpress buttons and tabs so hit targets and theme colours are inherited.
-          touches:
-            - 'src/Forge.App/Resources/Images'
-          devexpress:
-            - 'DXButton'
-            - 'TabView'
-            - 'TabViewItem'
-          apis:
-            - 'Microsoft.Maui.Controls.FontImageSource'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.05.02
-        title: 'Define icon button and destructive action states'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        concerns: [a11y]
-        userStory:
-          asA: 'Sam recovering from an injury'
-          iWant: 'destructive actions to be unmistakable'
-          soThat: 'I do not accidentally delete a plan or logged set'
-        requirements:
-          - 'Icon buttons expose default, pressed, focused, disabled, selected and destructive states.'
-          - 'Destructive states include text or confirmation when the action cannot be undone.'
-          - 'Focus and selected indicators meet 3:1 non-text contrast in light and dark themes.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'the IconActionButton gallery page renders each state'
-            when: 'focus and selected indicators are measured'
-            then: 'all indicators pass 3:1 contrast against adjacent colours'
-          - id: AC2
-            given: 'an irreversible delete action is tapped'
-            when: 'the action would remove user data'
-            then: 'a confirmation surface appears before deletion is executed'
-        implementation:
-          notes: >-
-            Build IconActionButton over DXButton with named visual states. Irreversible actions should route through a shared DXPopup confirmation pattern so the visual language and accessibility labels are consistent.
-          touches:
-            - 'src/Forge.App/Controls'
-          devexpress:
-            - 'DXButton'
-            - 'DXPopup'
-            - 'DXBorder'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.05.03
-        title: 'Add asset pipeline checks for icon size and tinting'
-        wave: 1
-        size: s
-        platforms: [android, ios]
-        persona: team
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'automated checks for icon sizing and tint behaviour'
-          soThat: 'icons stay crisp and themeable on both mobile platforms'
-        requirements:
-          - 'Icon assets declare intended viewport and must not exceed 24 dp default visual bounds unless marked illustration.'
-          - 'Monochrome action icons are tintable through semantic theme roles.'
-          - 'The build fails if an icon file exceeds 20 KB without an explicit exception.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a monochrome action icon has a hard-coded fill colour'
-            when: 'the asset pipeline test runs'
-            then: 'the test fails and names the offending asset'
-          - id: AC2
-            given: 'an oversized 28 KB icon lacks an exception'
-            when: 'the asset pipeline test runs'
-            then: 'the build fails before packaging'
-        implementation:
-          notes: >-
-            Add a small asset inspection tool under tools/design-assets that parses SVG metadata and checks file size, viewport and hard-coded fills. Keep multi-colour illustrations in a separate folder so action icons remain tintable.
-          touches:
-            - 'src/Forge.App/Resources/Images'
-          devexpress:
-            - 'DXButton'
-            - 'TabViewItem'
-          apis:
-            - 'Microsoft.Maui.Resizetizer'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-  - key: F02.06
-    title: 'Publish the component gallery and regression workflow'
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - a11y
+    userStory:
+      asA: Alex training near bright daylight
+      iWant: critical workout text to remain readable in bright gyms
+      soThat: users can log safely without stepping away from equipment
+    requirements:
+    - Workout-critical text tokens use contrast of at least 7:1 in light, dark and OLED modes.
+    - Timer, weight, reps and rest prompts have a minimum rendered height of 20 dp at default scale.
+    - Manual QA includes outdoor shade and bright indoor light checks on one Android and one iOS device.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: workout-critical tokens are tested
+      when: contrast ratios are calculated
+      then: every timer, reps, weight and rest prompt token pair is at least 7:1
+    - id: AC2
+      given: the sunlight QA checklist is executed
+      when: any critical value cannot be read from 60 cm within 2 seconds
+      then: the checklist fails and links the affected token or component
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Add a CriticalText role to the type and colour matrices and make workout components opt into it
+        explicitly. Manual QA results should live beside snapshot baselines so visual changes are reviewed
+        with the same discipline as automated diffs. Implement Verify sunlight legibility for workout-critical
+        text in Forge.App under Theme, Resources/Styles and Features/DesignSystem with a small coordinator
+        class named from S020202. Use DevExpress ThemeManager for Material Design 3 generation, bind page
+        XAML through dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky
+        part is keeping product aliases semantic while still letting dark mode, OLED workout overrides
+        and future rebrands flow from one seed. A careless implementation would paste literal hex values
+        into page XAML, which breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/DesignGallery
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXBorder
+      - NumericEdit
+      - DXButton
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.02.03
+    title: Ensure state is never communicated by colour alone
     wave: 1
-    summary: >-
-      Provide a design gallery page and approval workflow so engineers, designers and reviewers can see every token and component in one place before product screens depend on them.
-    outcome: >-
-      Visual regressions are caught by gallery screenshots and design decisions are documented where developers build.
-    concerns: [quality, devexpress]
-    stories:
-      - key: S02.06.01
-        title: 'Build the component gallery navigation page'
-        wave: 1
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [devexpress]
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'a single in-app gallery'
-          soThat: 'I can approve visuals without searching product flows'
-        requirements:
-          - 'The gallery is reachable only in debug and internal builds, not production store builds.'
-          - 'Gallery sections cover colours, type, spacing, buttons, cards, lists, empty states, skeletons, icons, surfaces and charts.'
-          - 'Each gallery item declares owner, component name and supported states.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a release build configuration is used'
-            when: 'routes are inspected'
-            then: 'the design gallery route is not registered'
-          - id: AC2
-            given: 'a debug build opens the gallery'
-            when: 'all required sections are reached from a DXCollectionView menu'
-            then: 'every section renders without runtime binding errors'
-        implementation:
-          notes: >-
-            Add Features/DesignGallery as a debug-only feature module. Use DXCollectionView for the section menu and existing components for content so the gallery is not a second implementation that drifts from production controls.
-          touches:
-            - 'src/Forge.App/Features/DesignGallery'
-          devexpress:
-            - 'DXCollectionView'
-            - 'TabView'
-            - 'DXBorder'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.06.02
-        title: 'Add visual regression snapshots for light and dark themes'
-        wave: 1
-        size: l
-        platforms: [android, ios]
-        persona: team
-        concerns: [quality]
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'snapshot differences with clear thresholds'
-          soThat: 'intentional visual changes are separated from regressions'
-        requirements:
-          - 'Snapshot tests capture the gallery in light and dark themes at 360 x 800 and 430 x 932 dp phone viewports.'
-          - 'Approved baselines are stored in the repository and diffs over 0.5 percent pixels fail unless accepted.'
-          - 'Snapshots mask live time, random data and platform status bar content.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a one-pixel colour change affects 1 percent of a gallery component'
-            when: 'snapshot comparison runs'
-            then: 'the test fails and writes a diff artifact for review'
-          - id: AC2
-            given: 'no design files changed'
-            when: 'snapshot tests run twice on the same runner'
-            then: 'both runs produce differences below 0.1 percent pixels'
-        implementation:
-          notes: >-
-            Store baselines under tests/Forge.App.Design.Tests/Baselines and force deterministic sample data. Run contrast tests before pixel diffs so a colour failure produces a semantic token message first.
-          touches:
-            - 'src/Forge.App/DesignTests'
-          devexpress:
-            - 'DXCollectionView'
-            - 'DXBorder'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S02.06.03
-        title: 'Document design-system usage rules for feature teams'
-        wave: 1
-        size: s
-        platforms: [android, ios]
-        persona: team
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'clear design-system rules with examples'
-          soThat: 'I can build screens without violating accessibility or theme constraints'
-        requirements:
-          - 'Documentation explains when to use ForgeCard, MetricTile, EmptyStateView, SkeletonBlock and IconActionButton.'
-          - 'Documentation lists prohibited patterns including literal colours, inline sizes, tiny touch targets and custom shadows.'
-          - 'Each rule links to at least one gallery example or automated test.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a developer opens the design-system README'
-            when: 'they search for card, icon, empty state or skeleton'
-            then: 'each term has a usage example and an anti-example'
-          - id: AC2
-            given: 'the documentation link checker runs'
-            when: 'it validates gallery and test links'
-            then: 'zero broken relative links are reported'
-        implementation:
-          notes: >-
-            Add a README beside src/Forge.App/Controls rather than a detached design document that drifts from implementation. Explain why ViewModels expose primitive values and not DevExpress types.
-          touches:
-            - 'src/Forge.App/Controls'
-          devexpress:
-            - 'DXBorder'
-            - 'DXButton'
-            - 'DXCollectionView'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - a11y
+    - devexpress
+    userStory:
+      asA: developer working on Forge
+      iWant: state cues that survive colour-blind and greyscale viewing
+      soThat: errors, success and selected states remain understandable
+    requirements:
+    - Selected, error, success, warning and disabled states include shape, icon, text or pattern in addition
+      to colour.
+    - Greyscale gallery snapshots cover all reusable state components.
+    - The selected tab and list row states are visually distinct by more than colour alone.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: the gallery is rendered in greyscale
+      when: state examples for selected, warning, error and success are compared
+      then: each state remains identifiable by a non-colour cue
+    - id: AC2
+      given: a component uses only a colour change to indicate selected state
+      when: the state audit test runs
+      then: the test fails and names the component state
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Add a small StateCue metadata file for reusable components and validate it in design tests. DevExpress
+        controls can provide colour through ThemeColor, but Forge wrappers must also expose icons, strokes,
+        text labels or shape changes for state. Implement Ensure state is never communicated by colour
+        alone in Forge.App under Theme, Resources/Styles and Features/DesignSystem with a small coordinator
+        class named from S020203. Use DevExpress ThemeManager for Material Design 3 generation, bind page
+        XAML through dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky
+        part is keeping product aliases semantic while still letting dark mode, OLED workout overrides
+        and future rebrands flow from one seed. A careless implementation would paste literal hex values
+        into page XAML, which breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Theme
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - TabView
+      - DXCollectionView
+      - DXBorder
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+- key: F02.03
+  title: Build typography, spacing and touch-density tokens
+  wave: 1
+  summary: >-
+    Create the text, spacing, radius and touch target system that makes Forge readable at a glance and
+    usable with tired hands in a gym environment.
+  outcome: >-
+    Screens can scale text to 200 percent and preserve large, predictable touch targets without per-screen
+    overrides.
+  concerns:
+  - a11y
+  stories:
+  - key: S02.03.01
+    title: Define the Forge type scale and numeric styles
+    wave: 1
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: masters
+    concerns:
+    - a11y
+    userStory:
+      asA: Tom with larger text enabled
+      iWant: a clear type scale and numeric text style
+      soThat: timers, weights and instructions read consistently
+    requirements:
+    - Type tokens cover display, headline, title, body, label, numeric and caption roles.
+    - Numeric tokens use tabular figures for timers, weights and calories where the selected font supports
+      them.
+    - No body text style is smaller than 14 pt effective size at the default setting.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: the component gallery renders all text styles
+      when: styles are inspected
+      then: >-
+        every text element maps to one named token and no inline FontSize appears outside token files
+    - id: AC2
+      given: timer values change from 9 to 10 minutes
+      when: the workout timer renders with numeric style
+      then: the digit column width shifts by no more than 1 px
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Define Typography.xaml and ForgeFonts.cs in src/Forge.App. Keep product-specific styles such as
+        WorkoutTimerText separate from raw size tokens so hierarchy can evolve without replacing every
+        numeric value. Implement Define the Forge type scale and numeric styles in Forge.App under Theme,
+        Resources/Styles and Features/DesignSystem with a small coordinator class named from S020301.
+        Use DevExpress ThemeManager for Material Design 3 generation, bind page XAML through dx:ThemeColor
+        and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky part is keeping product
+        aliases semantic while still letting dark mode, OLED workout overrides and future rebrands flow
+        from one seed. A careless implementation would paste literal hex values into page XAML, which
+        breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Theme
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - TextEdit
+      - NumericEdit
+      - ComboBoxEdit
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - Microsoft.Maui.Controls.Label
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.03.02
+    title: Support Dynamic Type and 200 percent font scaling
+    wave: 1
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: masters
+    concerns:
+    - a11y
+    userStory:
+      asA: Tom using large system text
+      iWant: Forge to honour my device text setting
+      soThat: I do not need a separate accessibility mode inside the app
+    requirements:
+    - Core gallery components remain usable at 200 percent text scale with no clipped critical text.
+    - Text containers wrap or scroll rather than truncating critical instructions, labels or values.
+    - Icon-only buttons expose text alternatives through SemanticProperties.Description.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: Android font size is set to a 200 percent equivalent
+      when: the component gallery renders
+      then: >-
+        no label, editor placeholder or button text is clipped or overlapped in the automated layout scan
+    - id: AC2
+      given: iOS Larger Text is set to the largest accessibility category
+      when: the primary card, list row and empty state render
+      then: >-
+        all critical text is visible by wrapping or vertical scrolling with no horizontal scroll on phone
+        width
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Use MAUI font scaling and flexible layouts, not platform-specific hard-coded font sizes. Components
+        should prefer Grid rows, ScrollView for long guidance and MaxLines only for supporting copy that
+        is safe to truncate. Implement Support Dynamic Type and 200 percent font scaling in Forge.App
+        under Theme, Resources/Styles and Features/DesignSystem with a small coordinator class named from
+        S020302. Use DevExpress ThemeManager for Material Design 3 generation, bind page XAML through
+        dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky part is
+        keeping product aliases semantic while still letting dark mode, OLED workout overrides and future
+        rebrands flow from one seed. A careless implementation would paste literal hex values into page
+        XAML, which breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Controls
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXCollectionView
+      - DXBorder
+      - TextEdit
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - Microsoft.Maui.Controls.SemanticProperties
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.03.03
+    title: Standardise spacing, radius and gym-friendly touch targets
+    wave: 1
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - a11y
+    userStory:
+      asA: Alex logging sets with sweaty hands
+      iWant: spacing, corner and touch target tokens
+      soThat: components align and remain easy to hit with sweaty hands
+    requirements:
+    - Spacing tokens use a 4 dp base grid with named values from 0 to 64 dp.
+    - Radius tokens include none, small, medium, large, pill and sheet values.
+    - Primary actions expose at least 48 x 48 dp on Android and 44 x 44 pt on iOS; workout controls offer
+      56 dp relaxed density.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: the token file is parsed
+      when: spacing values are inspected
+      then: >-
+        every spacing token value is a multiple of 4 dp and no required token is missing
+    - id: AC2
+      given: the workout density variant is active
+      when: a set row renders
+      then: >-
+        plus, minus and complete targets each measure at least 56 x 56 dp and remain within row bounds
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Put dimensions in Dimensions.xaml and consume them through StaticResource. DXBorder should be
+        the default surface primitive because it exposes corner radius, border thickness and background
+        consistently across Android and iOS. Implement Standardise spacing, radius and gym-friendly touch
+        targets in Forge.App under Theme, Resources/Styles and Features/DesignSystem with a small coordinator
+        class named from S020303. Use DevExpress ThemeManager for Material Design 3 generation, bind page
+        XAML through dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky
+        part is keeping product aliases semantic while still letting dark mode, OLED workout overrides
+        and future rebrands flow from one seed. A careless implementation would paste literal hex values
+        into page XAML, which breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Theme
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXBorder
+      - DXStackLayout
+      - DXButton
+      - NumericEdit
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+- key: F02.04
+  title: Create reusable surfaces, lists and loading components
+  wave: 1
+  summary: >-
+    Build the first reusable visual components that Wave 2 and Wave 3 features need: cards, list rows,
+    empty states, skeletons and surface hierarchy.
+  outcome: >-
+    Product screens compose consistent visual building blocks instead of duplicating XAML and state handling.
+  concerns:
+  - devexpress
+  - a11y
+  stories:
+  - key: S02.04.01
+    title: Define elevation and surface hierarchy tokens
+    wave: 1
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - devexpress
+    - a11y
+    userStory:
+      asA: developer working on Forge
+      iWant: named surface levels and elevation rules
+      soThat: cards, sheets and sticky actions feel related across the app
+    requirements:
+    - Surface tokens cover app background, surface, container low, container, container high and overlay
+      scrim.
+    - Elevation tokens define shadow, border and tonal treatment for levels 0 through 4.
+    - Dark mode uses tonal elevation or border contrast rather than heavy black shadows.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: the surface gallery opens in light and dark themes
+      when: levels 0 through 4 are displayed
+      then: >-
+        each level is visually distinct with a boundary or shadow cue of at least 3:1 contrast
+    - id: AC2
+      given: a DXPopup overlays content
+      when: the overlay is displayed
+      then: >-
+        the scrim opacity token is applied and underlying content cannot receive taps
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Build surface styles with DXBorder as the base. Represent elevation in Forge.App style names and
+        do not expose surface levels through ViewModels unless the value is a product state rather than
+        a visual implementation detail. Implement Define elevation and surface hierarchy tokens in Forge.App
+        under Theme, Resources/Styles and Features/DesignSystem with a small coordinator class named from
+        S020401. Use DevExpress ThemeManager for Material Design 3 generation, bind page XAML through
+        dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky part is
+        keeping product aliases semantic while still letting dark mode, OLED workout overrides and future
+        rebrands flow from one seed. A careless implementation would paste literal hex values into page
+        XAML, which breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Controls
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXBorder
+      - DXPopup
+      - BottomSheet
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.04.02
+    title: Build reusable card, metric tile and list row templates
+    wave: 1
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - perf
+    - devexpress
+    userStory:
+      asA: Alex browsing large lists
+      iWant: cards and list rows with clear hierarchy
+      soThat: I can understand important information without visual noise
+    requirements:
+    - Cards support title, subtitle, leading icon, supporting content, action slot and selected state.
+    - Metric tiles support value, unit, trend indicator and accessible summary text.
+    - DXCollectionView row templates cover one-line, two-line, metric and swipe-action variants.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: a card renders at 360 dp width and 200 percent text scale
+      when: title, subtitle, icon and action are displayed
+      then: critical text remains visible and no element overlaps
+    - id: AC2
+      given: the list gallery contains 500 mixed rows
+      when: it is flung from top to bottom
+      then: >-
+        scrolling sustains 60 fps with no frame over 16.6 ms attributable to row creation
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Implement ForgeCard, MetricTile and shared DXCollectionView templates under src/Forge.App/Controls
+        and Resources/Styles/ListTemplates.xaml. Keep row visuals shallow and avoid nested CollectionViews
+        or per-row converters that allocate during scroll. Implement Build reusable card, metric tile
+        and list row templates in Forge.App under Theme, Resources/Styles and Features/DesignSystem with
+        a small coordinator class named from S020402. Use DevExpress ThemeManager for Material Design
+        3 generation, bind page XAML through dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces
+        with dx:DXBorder. The tricky part is keeping product aliases semantic while still letting dark
+        mode, OLED workout overrides and future rebrands flow from one seed. A careless implementation
+        would paste literal hex values into page XAML, which breaks dark mode, accessibility audits and
+        rebranding.
+      touches:
+      - src/Forge.App/Controls
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXBorder
+      - DXStackLayout
+      - DXCollectionView
+      - SwipeItem
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - Microsoft.Maui.Controls.DataTemplate
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress CollectionView swipe gestures
+      url: https://docs.devexpress.com/MAUI/403333
+      note: Documents swipe gesture support for DXCollectionView rows.
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.04.03
+    title: Provide empty-state and skeleton loading components
+    wave: 1
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - a11y
+    - devexpress
+    userStory:
+      asA: Maya with a brand-new install
+      iWant: empty screens to explain what to do next
+      soThat: the app feels helpful before I have any data
+    requirements:
+    - Empty states support illustration, title, guidance, primary action and secondary action slots.
+    - Skeleton states reserve final layout space so content shift is under 4 dp when data arrives.
+    - Loading shimmer is disabled when reduced motion is active and replaced with static skeleton blocks.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: an empty exercise library renders
+      when: the empty-state component is displayed
+      then: >-
+        it shows a title, one guidance paragraph no longer than 160 characters and one primary action
+    - id: AC2
+      given: skeleton loading transitions to loaded content
+      when: layout bounds before and after loading are compared
+      then: each reserved block shifts by no more than 4 dp
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Implement EmptyStateView and SkeletonBlock in src/Forge.App/Controls using DXBorder for surfaces
+        and semantic theme roles for content. Expose IsMotionEnabled so E03 can add shimmer while this
+        story already supports a static fallback. Implement Provide empty-state and skeleton loading components
+        in Forge.App under Theme, Resources/Styles and Features/DesignSystem with a small coordinator
+        class named from S020403. Use DevExpress ThemeManager for Material Design 3 generation, bind page
+        XAML through dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky
+        part is keeping product aliases semantic while still letting dark mode, OLED workout overrides
+        and future rebrands flow from one seed. A careless implementation would paste literal hex values
+        into page XAML, which breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Controls
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXBorder
+      - DXStackLayout
+      - DXButton
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+- key: F02.05
+  title: Establish iconography and visual state language
+  wave: 1
+  summary: >-
+    Define how Forge uses icons, selected states, destructive states and visual cues so actions are recognisable
+    without relying on colour alone.
+  outcome: Every icon has a known source, size, semantic label and state pairing.
+  concerns:
+  - a11y
+  stories:
+  - key: S02.05.01
+    title: Create the Forge icon catalogue and naming convention
+    wave: 1
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: team
+    userStory:
+      asA: developer working on Forge
+      iWant: a vetted icon catalogue
+      soThat: I do not copy random assets into feature folders
+    requirements:
+    - Icons live under Resources/Images/Icons and use snake_case names grouped by intent.
+    - Each icon has metadata for purpose, size, filled variant availability and accessibility description.
+    - The catalogue includes the five primary tab icons plus add, edit, delete, search, filter, complete
+      and warning.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: the icon metadata file is parsed
+      when: any icon lacks purpose, default size or accessibility description
+      then: the icon catalogue test fails with the icon name
+    - id: AC2
+      given: the tab icon set renders in the gallery
+      when: selected and unselected variants are compared
+      then: >-
+        every primary tab has both variants and selected state changes shape as well as colour
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Store vector-friendly assets or font glyph references under Resources/Images/Icons and catalogue
+        metadata in Theme/IconCatalog.json. Use MAUI FontImageSource where possible, but render icons
+        inside DevExpress buttons and tabs so hit targets and theme colours are inherited. Implement Create
+        the Forge icon catalogue and naming convention in Forge.App under Theme, Resources/Styles and
+        Features/DesignSystem with a small coordinator class named from S020501. Use DevExpress ThemeManager
+        for Material Design 3 generation, bind page XAML through dx:ThemeColor and dx:ThemeNeutralColor,
+        and wrap surfaces with dx:DXBorder. The tricky part is keeping product aliases semantic while
+        still letting dark mode, OLED workout overrides and future rebrands flow from one seed. A careless
+        implementation would paste literal hex values into page XAML, which breaks dark mode, accessibility
+        audits and rebranding.
+      touches:
+      - src/Forge.App/Resources/Images
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXButton
+      - TabView
+      - TabViewItem
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - Microsoft.Maui.Controls.FontImageSource
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.05.02
+    title: Define icon button and destructive action states
+    wave: 1
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    concerns:
+    - a11y
+    userStory:
+      asA: Sam recovering from an injury
+      iWant: destructive actions to be unmistakable
+      soThat: I do not accidentally delete a plan or logged set
+    requirements:
+    - Icon buttons expose default, pressed, focused, disabled, selected and destructive states.
+    - Destructive states include text or confirmation when the action cannot be undone.
+    - Focus and selected indicators meet 3:1 non-text contrast in light and dark themes.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: the IconActionButton gallery page renders each state
+      when: focus and selected indicators are measured
+      then: all indicators pass 3:1 contrast against adjacent colours
+    - id: AC2
+      given: an irreversible delete action is tapped
+      when: the action would remove user data
+      then: a confirmation surface appears before deletion is executed
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Build IconActionButton over DXButton with named visual states. Irreversible actions should route
+        through a shared DXPopup confirmation pattern so the visual language and accessibility labels
+        are consistent. Implement Define icon button and destructive action states in Forge.App under
+        Theme, Resources/Styles and Features/DesignSystem with a small coordinator class named from S020502.
+        Use DevExpress ThemeManager for Material Design 3 generation, bind page XAML through dx:ThemeColor
+        and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky part is keeping product
+        aliases semantic while still letting dark mode, OLED workout overrides and future rebrands flow
+        from one seed. A careless implementation would paste literal hex values into page XAML, which
+        breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Controls
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXButton
+      - DXPopup
+      - DXBorder
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.05.03
+    title: Add asset pipeline checks for icon size and tinting
+    wave: 1
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: team
+    userStory:
+      asA: developer working on Forge
+      iWant: automated checks for icon sizing and tint behaviour
+      soThat: icons stay crisp and themeable on both mobile platforms
+    requirements:
+    - Icon assets declare intended viewport and must not exceed 24 dp default visual bounds unless marked
+      illustration.
+    - Monochrome action icons are tintable through semantic theme roles.
+    - The build fails if an icon file exceeds 20 KB without an explicit exception.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: a monochrome action icon has a hard-coded fill colour
+      when: the asset pipeline test runs
+      then: the test fails and names the offending asset
+    - id: AC2
+      given: an oversized 28 KB icon lacks an exception
+      when: the asset pipeline test runs
+      then: the build fails before packaging
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Add a small asset inspection tool under tools/design-assets that parses SVG metadata and checks
+        file size, viewport and hard-coded fills. Keep multi-colour illustrations in a separate folder
+        so action icons remain tintable. Implement Add asset pipeline checks for icon size and tinting
+        in Forge.App under Theme, Resources/Styles and Features/DesignSystem with a small coordinator
+        class named from S020503. Use DevExpress ThemeManager for Material Design 3 generation, bind page
+        XAML through dx:ThemeColor and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky
+        part is keeping product aliases semantic while still letting dark mode, OLED workout overrides
+        and future rebrands flow from one seed. A careless implementation would paste literal hex values
+        into page XAML, which breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Resources/Images
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXButton
+      - TabViewItem
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - Microsoft.Maui.Resizetizer
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+- key: F02.06
+  title: Publish the component gallery and regression workflow
+  wave: 1
+  summary: >-
+    Provide a design gallery page and approval workflow so engineers, designers and reviewers can see
+    every token and component in one place before product screens depend on them.
+  outcome: >-
+    Visual regressions are caught by gallery screenshots and design decisions are documented where developers
+    build.
+  concerns:
+  - quality
+  - devexpress
+  stories:
+  - key: S02.06.01
+    title: Build the component gallery navigation page
+    wave: 1
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - devexpress
+    userStory:
+      asA: developer working on Forge
+      iWant: a single in-app gallery
+      soThat: I can approve visuals without searching product flows
+    requirements:
+    - The gallery is reachable only in debug and internal builds, not production store builds.
+    - Gallery sections cover colours, type, spacing, buttons, cards, lists, empty states, skeletons, icons,
+      surfaces and charts.
+    - Each gallery item declares owner, component name and supported states.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: a release build configuration is used
+      when: routes are inspected
+      then: the design gallery route is not registered
+    - id: AC2
+      given: a debug build opens the gallery
+      when: all required sections are reached from a DXCollectionView menu
+      then: every section renders without runtime binding errors
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Add Features/DesignGallery as a debug-only feature module. Use DXCollectionView for the section
+        menu and existing components for content so the gallery is not a second implementation that drifts
+        from production controls. Implement Build the component gallery navigation page in Forge.App under
+        Theme, Resources/Styles and Features/DesignSystem with a small coordinator class named from S020601.
+        Use DevExpress ThemeManager for Material Design 3 generation, bind page XAML through dx:ThemeColor
+        and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky part is keeping product
+        aliases semantic while still letting dark mode, OLED workout overrides and future rebrands flow
+        from one seed. A careless implementation would paste literal hex values into page XAML, which
+        breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/Features/DesignGallery
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXCollectionView
+      - TabView
+      - DXBorder
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.06.02
+    title: Add visual regression snapshots for light and dark themes
+    wave: 1
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - quality
+    userStory:
+      asA: developer working on Forge
+      iWant: snapshot differences with clear thresholds
+      soThat: intentional visual changes are separated from regressions
+    requirements:
+    - Snapshot tests capture the gallery in light and dark themes at 360 x 800 and 430 x 932 dp phone
+      viewports.
+    - Approved baselines are stored in the repository and diffs over 0.5 percent pixels fail unless accepted.
+    - Snapshots mask live time, random data and platform status bar content.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: a one-pixel colour change affects 1 percent of a gallery component
+      when: snapshot comparison runs
+      then: the test fails and writes a diff artifact for review
+    - id: AC2
+      given: no design files changed
+      when: snapshot tests run twice on the same runner
+      then: both runs produce differences below 0.1 percent pixels
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Store baselines under tests/Forge.App.Design.Tests/Baselines and force deterministic sample data.
+        Run contrast tests before pixel diffs so a colour failure produces a semantic token message first.
+        Implement Add visual regression snapshots for light and dark themes in Forge.App under Theme,
+        Resources/Styles and Features/DesignSystem with a small coordinator class named from S020602.
+        Use DevExpress ThemeManager for Material Design 3 generation, bind page XAML through dx:ThemeColor
+        and dx:ThemeNeutralColor, and wrap surfaces with dx:DXBorder. The tricky part is keeping product
+        aliases semantic while still letting dark mode, OLED workout overrides and future rebrands flow
+        from one seed. A careless implementation would paste literal hex values into page XAML, which
+        breaks dark mode, accessibility audits and rebranding.
+      touches:
+      - src/Forge.App/DesignTests
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXCollectionView
+      - DXBorder
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.
+  - key: S02.06.03
+    title: Document design-system usage rules for feature teams
+    wave: 1
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: team
+    userStory:
+      asA: developer working on Forge
+      iWant: clear design-system rules with examples
+      soThat: >-
+        I can build screens without violating accessibility or theme constraints
+    requirements:
+    - Documentation explains when to use ForgeCard, MetricTile, EmptyStateView, SkeletonBlock and IconActionButton.
+    - Documentation lists prohibited patterns including literal colours, inline sizes, tiny touch targets
+      and custom shadows.
+    - Each rule links to at least one gallery example or automated test.
+    - Normal body text must meet WCAG 2.2 AA contrast of at least 4.5:1, large text and non-text UI components
+      must meet at least 3:1, and workout-critical timer text must meet at least 7:1.
+    - Interactive controls must expose a minimum touch target of 44 x 44 pt on iOS and 48 x 48 dp on Android,
+      even when the visual affordance is smaller.
+    - Page XAML must consume named semantic colour roles such as Primary, OnPrimary, Surface, SurfaceContainerLow,
+      OnSurface, Outline, Error, Success, Warning and Focus rather than literal hex values.
+    - Light theme, dark theme and the workout OLED override must be exercised in the component gallery
+      for the relevant component state.
+    acceptanceCriteria:
+    - id: AC1
+      given: a developer opens the design-system README
+      when: they search for card, icon, empty state or skeleton
+      then: each term has a usage example and an anti-example
+    - id: AC2
+      given: the documentation link checker runs
+      when: it validates gallery and test links
+      then: zero broken relative links are reported
+    - id: AC3
+      given: >-
+        the story component is rendered in light and dark themes using Primary, OnPrimary, Surface, SurfaceContainerLow,
+        OnSurface, Outline and Error semantic roles
+      when: >-
+        the automated contrast verifier measures foreground, background, outline and focus-ring pairs
+      then: >-
+        normal text is at least 4.5:1, large text is at least 3:1 and non-text UI components are at least
+        3:1 with no unapproved exception
+    - id: AC4
+      given: >-
+        the story component is displayed on Android and iOS with default density and 200 percent text
+        scaling
+      when: all tappable areas are measured in the component gallery
+      then: >-
+        each interactive target is at least 48 x 48 dp on Android and 44 x 44 pt on iOS without overlap
+        or clipped labels
+    implementation:
+      notes: >-
+        Add a README beside src/Forge.App/Controls rather than a detached design document that drifts
+        from implementation. Explain why ViewModels expose primitive values and not DevExpress types.
+        Implement Document design-system usage rules for feature teams in Forge.App under Theme, Resources/Styles
+        and Features/DesignSystem with a small coordinator class named from S020603. Use DevExpress ThemeManager
+        for Material Design 3 generation, bind page XAML through dx:ThemeColor and dx:ThemeNeutralColor,
+        and wrap surfaces with dx:DXBorder. The tricky part is keeping product aliases semantic while
+        still letting dark mode, OLED workout overrides and future rebrands flow from one seed. A careless
+        implementation would paste literal hex values into page XAML, which breaks dark mode, accessibility
+        audits and rebranding.
+      touches:
+      - src/Forge.App/Controls
+      - src/Forge.App/Theme
+      - src/Forge.App/Resources/Styles
+      - src/Forge.App/Features/DesignSystem
+      devexpress:
+      - DXBorder
+      - DXButton
+      - DXCollectionView
+      - ThemeManager
+      - dx:ThemeColor
+      - dx:ThemeNeutralColor
+      - dx:DXBorder
+      apis:
+      - DevExpress.Maui.Core.ThemeManager
+      - WCAG 2.2 contrast calculation
+      - Microsoft.Maui.Controls.ResourceDictionary
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add component-gallery contrast tests asserting 4.5:1 normal text, 3:1 large text and 3:1 non-text
+      UI contrast for light and dark themes.
+    - Add Android and iOS touch-target tests measuring 48 x 48 dp and 44 x 44 pt minimum interactive bounds
+      at 200 percent text scaling.
+    grounding:
+    - title: DevExpress MAUI themes
+      url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+      note: >-
+        Documents ThemeManager, Material Design 3 colour generation and semantic theme roles used by Forge.
+    - title: WCAG 2.2 quick reference
+      url: https://www.w3.org/WAI/WCAG22/quickref/
+      note: >-
+        Defines the contrast, non-text contrast and target size checks used by design-system acceptance
+        criteria.

@@ -17,802 +17,1040 @@ outcome: >-
   can act on key reminders from the notification, can review missed prompts in app, and can reduce
   the notification load in two taps.
 successMetrics:
-  - At least 65% of users who reach the first value moment grant notification permission on iOS or Android 13+.
-  - Fewer than 2% of active users disable all Forge notifications within seven days of enabling them.
-  - 99% of scheduled reminders due within the next seven days are present after reboot and timezone change tests.
-  - Notification action handling records water or opens workout start in under 500 ms after app activation.
+- At least 65% of users who reach the first value moment grant notification permission on iOS or Android 13+.
+- Fewer than 2% of active users disable all Forge notifications within seven days of enabling them.
+- 99% of scheduled reminders due within the next seven days are present after reboot and timezone change tests.
+- Notification action handling records water or opens workout start in under 500 ms after app activation.
 nonGoals:
-  - No push notifications, remote campaigns or backend messaging in v1.
-  - No exact alarm usage for routine reminders or rest timers in v1.
-  - No social reminders, friend nudges or leaderboard prompts.
+- No push notifications, remote campaigns or backend messaging in v1.
+- No exact alarm usage for routine reminders or rest timers in v1.
+- No social reminders, friend nudges or leaderboard prompts.
 risks:
-  - risk: Requesting permission on first launch burns the single iOS system prompt before the user understands the value.
-    mitigation: Gate the system prompt behind an explanatory value moment after the user schedules a workout, meal or hydration target.
-    severity: high
-  - risk: Local reminder schedules drift after reboot, daylight saving changes or travel across timezones.
-    mitigation: Persist reminder intent in SQLite and rebuild platform schedules from intent on app start, boot and timezone notifications.
-    severity: high
-  - risk: Over-notification teaches users to mute Forge, destroying the retention benefit.
-    mitigation: Add per-category settings, quiet hours, weekly caps and a reduce-frequency affordance on every notification settings surface.
-    severity: high
+- risk: Requesting permission on first launch burns the single iOS system prompt before the user understands the value.
+  mitigation: Gate the system prompt behind an explanatory value moment after the user schedules a workout, meal or
+    hydration target.
+  severity: high
+- risk: Local reminder schedules drift after reboot, daylight saving changes or travel across timezones.
+  mitigation: Persist reminder intent in SQLite and rebuild platform schedules from intent on app start, boot and
+    timezone notifications.
+  severity: high
+- risk: Over-notification teaches users to mute Forge, destroying the retention benefit.
+  mitigation: Add per-category settings, quiet hours, weekly caps and a reduce-frequency affordance on every
+    notification settings surface.
+  severity: high
 dependsOn: [E01, E08, E10, E14]
 grounding:
-  - title: Plugin.LocalNotification repository
-    url: https://github.com/thudugala/Plugin.LocalNotification
-    note: Local notification plugin chosen by the architecture for Android and iOS scheduling.
-  - title: Android notification runtime permission
-    url: https://developer.android.com/develop/ui/views/notifications/notification-permission
-    note: Android 13+ requires POST_NOTIFICATIONS to be requested at runtime.
-  - title: Android exact alarm guidance
-    url: https://developer.android.com/develop/background-work/services/alarms/schedule
-    note: Explains inexact alarms, exact alarms and restrictions that shape reminder scheduling.
-  - title: Google Play exact alarm permission policy
-    url: https://support.google.com/googleplay/android-developer/answer/13161072
-    note: Exact alarm permission is restricted and must be justified.
-  - title: Apple notification permission guidance
-    url: https://developer.apple.com/documentation/usernotifications/asking_permission_to_use_notifications
-    note: iOS permission is a one-time system prompt and must be requested deliberately.
-  - title: Apple actionable notifications
-    url: https://developer.apple.com/documentation/usernotifications/declaring-your-actionable-notification-types
-    note: Defines notification categories and actions used for water logging, workout start and snooze.
+- title: Plugin.LocalNotification repository
+  url: https://github.com/thudugala/Plugin.LocalNotification
+  note: Local notification plugin chosen by the architecture for Android and iOS scheduling.
+- title: Android notification runtime permission
+  url: https://developer.android.com/develop/ui/views/notifications/notification-permission
+  note: Android 13+ requires POST_NOTIFICATIONS to be requested at runtime.
+- title: Android exact alarm guidance
+  url: https://developer.android.com/develop/background-work/services/alarms/schedule
+  note: Explains inexact alarms, exact alarms and restrictions that shape reminder scheduling.
+- title: Google Play exact alarm permission policy
+  url: https://support.google.com/googleplay/android-developer/answer/13161072
+  note: Exact alarm permission is restricted and must be justified.
+- title: Apple notification permission guidance
+  url: https://developer.apple.com/documentation/usernotifications/asking_permission_to_use_notifications
+  note: iOS permission is a one-time system prompt and must be requested deliberately.
+- title: Apple actionable notifications
+  url: https://developer.apple.com/documentation/usernotifications/declaring-your-actionable-notification-types
+  note: Defines notification categories and actions used for water logging, workout start and snooze.
 
 features:
-  - key: F19.01
-    title: Earn notification permission at a value moment
+- key: F19.01
+  title: Earn notification permission at a value moment
+  wave: 3
+  summary: >-
+    Ask for notification permission only after Forge can show the exact reminder it will create,
+    with transparent category controls and a denial path that leaves the app fully usable.
+  outcome: >-
+    Permission requests happen in context, denial is handled gracefully, and Android 13+ and iOS
+    system states are represented accurately in app settings.
+  concerns: [store-blocker, privacy]
+  stories:
+  - key: S19.01.01
+    title: Request notification permission after the first useful reminder is configured
     wave: 3
-    summary: >-
-      Ask for notification permission only after Forge can show the exact reminder it will create,
-      with transparent category controls and a denial path that leaves the app fully usable.
-    outcome: >-
-      Permission requests happen in context, denial is handled gracefully, and Android 13+ and iOS
-      system states are represented accurately in app settings.
+    size: m
+    platforms: [android, ios]
+    persona: newcomer
     concerns: [store-blocker, privacy]
-    stories:
-      - key: S19.01.01
-        title: Request notification permission after the first useful reminder is configured
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [store-blocker, privacy]
-        userStory:
-          asA: Maya, setting up her first training week
-          iWant: Forge to explain why notifications help before asking the system question
-          soThat: I can make an informed choice instead of dismissing a surprise prompt
-        requirements:
-          - Forge does not call the platform permission prompt during first launch, onboarding or account-free setup.
-          - The pre-permission screen appears only after the user creates a workout, meal, hydration or recovery reminder intent.
-          - The screen names the reminder category, scheduled time and exact system permission that will be requested.
-          - Android 13+ requests POST_NOTIFICATIONS at runtime before scheduling visible notifications.
-          - If permission is denied, Forge stores reminder intent locally but does not schedule platform notifications.
-        acceptanceCriteria:
-          - id: AC1
-            given: a fresh install on iOS with no reminder configured
-            when: the user completes onboarding and opens Today
-            then: no system notification permission prompt has been shown
-          - id: AC2
-            given: a fresh install on Android 13 or later
-            when: the user saves a workout reminder and taps Enable reminders on the explanation screen
-            then: the POST_NOTIFICATIONS runtime permission prompt is displayed before any notification is scheduled
-          - id: AC3
-            given: the user denies notification permission
-            when: reminder settings are reopened
-            then: the reminder is shown as saved but inactive with a button that opens platform app notification settings
-        implementation:
-          notes: >-
-            Implement INotificationPermissionService in Forge.Application and platform adapters in
-            Forge.App/Platforms over Plugin.LocalNotification plus native Android permission APIs.
-            Keep the domain model as ReminderIntent and ReminderCategory in Forge.Domain with no
-            MAUI or plugin references. The value-moment screen belongs in Features/Engagement and
-            should use dx:DXPopup so it can be invoked from training, nutrition or recovery flows.
-          touches:
-            - src/Forge.Application/Engagement/INotificationPermissionService.cs
-            - src/Forge.Domain/Engagement/ReminderIntent.cs
-            - src/Forge.App/Features/Engagement/Notifications/NotificationPermissionPrompt.xaml
-            - src/Forge.App/Platforms/Android/NotificationPermissionService.cs
-            - src/Forge.App/Platforms/iOS/NotificationPermissionService.cs
-          devexpress:
-            - dx:DXPopup
-          apis:
-            - Plugin.LocalNotification 14.1.1
-            - Android.Manifest.permission.POST_NOTIFICATIONS
-            - UserNotifications.UNUserNotificationCenter
-        testing:
-          - Manual Android 13+ permission matrix for grant, deny and deny twice.
-          - UI test asserting first launch does not trigger the system prompt.
-          - Unit tests for reminder intent saved but inactive when permission is denied.
+    userStory:
+      asA: Maya, setting up her first training week
+      iWant: Forge to explain why notifications help before asking the system question
+      soThat: I can make an informed choice instead of dismissing a surprise prompt
+    requirements:
+    - Forge does not call the platform permission prompt during first launch, onboarding or account-free setup.
+    - The pre-permission screen appears only after the user creates a workout, meal, hydration or recovery reminder
+      intent.
+    - The screen names the reminder category, scheduled time and exact system permission that will be requested.
+    - Android 13+ requests POST_NOTIFICATIONS at runtime before scheduling visible notifications.
+    - If permission is denied, Forge stores reminder intent locally but does not schedule platform notifications.
+    acceptanceCriteria:
+    - id: AC1
+      given: a fresh install on iOS with no reminder configured
+      when: the user completes onboarding and opens Today
+      then: no system notification permission prompt has been shown
+    - id: AC2
+      given: a fresh install on Android 13 or later
+      when: the user saves a workout reminder and taps Enable reminders on the explanation screen
+      then: the POST_NOTIFICATIONS runtime permission prompt is displayed before any notification is scheduled
+    - id: AC3
+      given: the user denies notification permission
+      when: reminder settings are reopened
+      then: the reminder is shown as saved but inactive with a button that opens platform app notification settings
+    - id: AC4
+      given: notification permission has not been decided and the explanation screen is shown
+      when: the user chooses Not now
+      then: the system prompt is not displayed and the reminder remains disabled until the user explicitly retries
+    implementation:
+      notes: >-
+        Implement INotificationPermissionService in Forge.Core and platform adapters in Forge.App/Platforms over Plugin.LocalNotification
+        plus native Android permission APIs. Keep the domain model as ReminderIntent and ReminderCategory in Forge.Domain
+        with no MAUI or plugin references. The value-moment screen belongs in Features/Engagement and should use dx:DXPopup
+        so it can be invoked from training, nutrition or recovery flows. Keep the class in src/Forge.App/Features/Notifications
+        with a plain ViewModel, DevExpress DXCollectionView or DXPopup only at the view edge, and Plugin.LocalNotification
+        behind an INotificationScheduler adapter. The tricky part is reconciling Android POST_NOTIFICATIONS, iOS authorization,
+        quiet hours and local caps without leaking platform types inward. A careless implementation would prompt on launch,
+        create duplicate schedules or use exact alarms where an inexact reminder is enough.
+      touches:
+      - src/Forge.Core/Engagement/INotificationPermissionService.cs
+      - src/Forge.Domain/Engagement/ReminderIntent.cs
+      - src/Forge.App/Features/Engagement/Notifications/NotificationPermissionPrompt.xaml
+      - src/Forge.App/Platforms/Android/NotificationPermissionService.cs
+      - src/Forge.App/Platforms/iOS/NotificationPermissionService.cs
+      devexpress:
+      - dx:DXPopup
+      apis:
+      - Plugin.LocalNotification 14.1.1
+      - Android.Manifest.permission.POST_NOTIFICATIONS
+      - UserNotifications.UNUserNotificationCenter
+    testing:
+    - Manual Android 13+ permission matrix for grant, deny and deny twice.
+    - UI test asserting first launch does not trigger the system prompt.
+    - Unit tests for reminder intent saved but inactive when permission is denied.
 
-      - key: S19.01.02
-        title: Reflect platform notification status in settings and recovery paths
-        wave: 3
-        size: s
-        platforms: [android, ios]
-        persona: returner
-        userStory:
-          asA: Sam, who previously denied notifications
-          iWant: Forge to show what is blocked and how to change it
-          soThat: I can re-enable reminders without hunting through system settings
-        requirements:
-          - Notification settings display Not asked, Enabled, Denied, Provisionally allowed or System disabled where the platform exposes it.
-          - The screen includes a deep link to app notification settings on Android and iOS.
-          - Category toggles remain visible while disabled so users understand what would be scheduled after permission changes.
-          - Status is refreshed on every app resume within 300 ms.
-        acceptanceCriteria:
-          - id: AC1
-            given: notifications are disabled in operating system settings
-            when: the user resumes Forge and opens notification settings
-            then: the status shows System disabled and all category rows are read-only
-          - id: AC2
-            given: notification permission was denied
-            when: the user taps Open system settings
-            then: the operating system app notification settings screen is opened
-          - id: AC3
-            given: permission is re-enabled in system settings
-            when: the user returns to Forge
-            then: category toggles become editable without restarting the app
-        implementation:
-          notes: >-
-            Add NotificationSettingsViewModel under the engagement feature and poll the permission
-            service during app resume. Use dx:DXCollectionView for category rows so disabled state,
-            explanatory text and per-category status can be virtualized consistently. The ViewModel
-            should expose plain enums and booleans only, keeping platform-specific terms in adapters.
-          touches:
-            - src/Forge.App/Features/Engagement/Notifications/NotificationSettingsPage.xaml
-            - src/Forge.App/Features/Engagement/Notifications/NotificationSettingsViewModel.cs
-            - src/Forge.Application/Engagement/NotificationPermissionStatus.cs
-          devexpress:
-            - dx:DXCollectionView
-          apis:
-            - Microsoft.Maui.ApplicationModel.AppInfo
-            - Plugin.LocalNotification 14.1.1
-        testing:
-          - Unit tests mapping native permission states to Forge permission states.
-          - Manual resume test after toggling notification permission outside the app.
-
-  - key: F19.02
-    title: Schedule helpful reminders without exact-alarm dependency
+    grounding:
+    - title: Android notification runtime permission
+      url: https://developer.android.com/develop/ui/views/notifications/notification-permission
+      note: Confirms Android 13 and later require POST_NOTIFICATIONS at runtime and recommend requesting it in context.
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+  - key: S19.01.02
+    title: Reflect platform notification status in settings and recovery paths
     wave: 3
-    summary: >-
-      Generate local reminder schedules for training, nutrition, hydration, recovery and streak
-      protection from user intent while avoiding exact alarms unless a future policy-approved case exists.
-    outcome: >-
-      Reminders fire within acceptable windows, respect quiet hours and frequency caps, and do not
-      require restricted exact-alarm permissions.
+    size: s
+    platforms: [android, ios]
+    persona: returner
+    userStory:
+      asA: Sam, who previously denied notifications
+      iWant: Forge to show what is blocked and how to change it
+      soThat: I can re-enable reminders without hunting through system settings
+    requirements:
+    - Notification settings display Not asked, Enabled, Denied, Provisionally allowed or System disabled where the
+      platform exposes it.
+    - The screen includes a deep link to app notification settings on Android and iOS.
+    - Category toggles remain visible while disabled so users understand what would be scheduled after permission
+      changes.
+    - Status is refreshed on every app resume within 300 ms.
+    acceptanceCriteria:
+    - id: AC1
+      given: notifications are disabled in operating system settings
+      when: the user resumes Forge and opens notification settings
+      then: the status shows System disabled and all category rows are read-only
+    - id: AC2
+      given: notification permission was denied
+      when: the user taps Open system settings
+      then: the operating system app notification settings screen is opened
+    - id: AC3
+      given: permission is re-enabled in system settings
+      when: the user returns to Forge
+      then: category toggles become editable without restarting the app
+    - id: AC4
+      given: notification permission state changes while Forge is backgrounded
+      when: the app resumes
+      then: settings refresh within 1 second and show the current platform state
+    implementation:
+      notes: >-
+        Add NotificationSettingsViewModel under the engagement feature and poll the permission service during app resume.
+        Use dx:DXCollectionView for category rows so disabled state, explanatory text and per-category status can be virtualized
+        consistently. The ViewModel should expose plain enums and booleans only, keeping platform-specific terms in adapters.
+        Keep the class in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup
+        only at the view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling
+        Android POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A
+        careless implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder
+        is enough.
+      touches:
+      - src/Forge.App/Features/Engagement/Notifications/NotificationSettingsPage.xaml
+      - src/Forge.App/Features/Engagement/Notifications/NotificationSettingsViewModel.cs
+      - src/Forge.Core/Engagement/NotificationPermissionStatus.cs
+      devexpress:
+      - dx:DXCollectionView
+      apis:
+      - Microsoft.Maui.ApplicationModel.AppInfo
+      - Plugin.LocalNotification 14.1.1
+    testing:
+    - Unit tests mapping native permission states to Forge permission states.
+    - Manual resume test after toggling notification permission outside the app.
+
+    grounding:
+    - title: Android notification runtime permission
+      url: https://developer.android.com/develop/ui/views/notifications/notification-permission
+      note: Confirms Android 13 and later require POST_NOTIFICATIONS at runtime and recommend requesting it in context.
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+- key: F19.02
+  title: Schedule helpful reminders without exact-alarm dependency
+  wave: 3
+  summary: >-
+    Generate local reminder schedules for training, nutrition, hydration, recovery and streak
+    protection from user intent while avoiding exact alarms unless a future policy-approved case exists.
+  outcome: >-
+    Reminders fire within acceptable windows, respect quiet hours and frequency caps, and do not
+    require restricted exact-alarm permissions.
+  concerns: [store-blocker]
+  stories:
+  - key: S19.02.01
+    title: Schedule workout reminders from the training plan
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: enthusiast
+    userStory:
+      asA: Alex, following a weekly programme
+      iWant: reminders tied to my planned workout days
+      soThat: I remember sessions without manually creating calendar entries
+    requirements:
+    - Workout reminders are generated from planned workout dates and preferred local reminder time.
+    - Rescheduling a workout updates the reminder within 5 seconds and cancels the obsolete notification.
+    - Notifications use inexact delivery on Android and do not request SCHEDULE_EXACT_ALARM or USE_EXACT_ALARM.
+    - If a workout is already completed for the day, its pending reminder is cancelled.
+    - Reminder copy includes the workout name and estimated duration but no sensitive health metrics.
+    acceptanceCriteria:
+    - id: AC1
+      given: a user has planned Strength A for tomorrow at 07:30
+      when: workout reminders are enabled
+      then: exactly one local notification is scheduled for that workout day and category
+    - id: AC2
+      given: the user moves a planned workout from Tuesday to Wednesday
+      when: the change is saved
+      then: the Tuesday notification is cancelled and the Wednesday notification is scheduled within 5 seconds
+    - id: AC3
+      given: the Android manifest is inspected
+      when: notification scheduling is enabled
+      then: SCHEDULE_EXACT_ALARM and USE_EXACT_ALARM are absent
+    - id: AC4
+      given: four Forge reminders have already fired on the same local day
+      when: another optional workout nudge is evaluated
+      then: it is suppressed so the daily notification cap stays at four or fewer
+    implementation:
+      notes: >-
+        Build ReminderScheduleService in Forge.Core to compute upcoming notification requests from training-plan entities,
+        then adapt those requests in Forge.Infrastructure to Plugin.LocalNotification. Persist a stable notification key per
+        plan item so updates are idempotent. On Android choose inexact scheduling and explicitly avoid exact alarm permissions
+        because a fitness reminder can tolerate a delivery window. Keep the class in src/Forge.App/Features/Notifications
+        with a plain ViewModel, DevExpress DXCollectionView or DXPopup only at the view edge, and Plugin.LocalNotification
+        behind an INotificationScheduler adapter. The tricky part is reconciling Android POST_NOTIFICATIONS, iOS authorization,
+        quiet hours and local caps without leaking platform types inward. A careless implementation would prompt on launch,
+        create duplicate schedules or use exact alarms where an inexact reminder is enough.
+      touches:
+      - src/Forge.Core/Engagement/ReminderScheduleService.cs
+      - src/Forge.Infrastructure/Notifications/LocalNotificationScheduler.cs
+      - src/Forge.Domain/Engagement/ReminderCategory.cs
+      - src/Forge.App/Platforms/Android/AndroidManifest.xml
+      apis:
+      - Plugin.LocalNotification 14.1.1
+      devexpress:
+      - DXCollectionView
+    testing:
+    - Unit tests for workout move, workout completion and duplicate scheduling cases.
+    - Static test asserting exact alarm permissions are absent from AndroidManifest.xml.
+
+    grounding:
+    - title: Android 14 exact alarm restrictions
+      url: https://developer.android.com/about/versions/14/changes/schedule-exact-alarms
+      note: Explains why Forge reminders should avoid restricted exact alarms unless there is a defensible user need.
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+  - key: S19.02.02
+    title: Add meal and hydration reminders with one-tap water logging
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: cutter
+    userStory:
+      asA: Priya, focusing on nutrition consistency
+      iWant: meal and hydration reminders that fit my day
+      soThat: I can keep habits visible without opening the app every hour
+    requirements:
+    - Users can configure up to six hydration reminders and four meal reminders per day.
+    - Hydration notifications include Log water for the default serving amount and Snooze.
+    - Meal notifications include Open meal log and Snooze actions.
+    - Action handling is idempotent if the operating system delivers the same action twice.
+    - Hydration reminders stop for the day after the user meets the configured daily water target.
+    acceptanceCriteria:
+    - id: AC1
+      given: a hydration target of 2500 ml and a default serving of 250 ml
+      when: the user taps Log water from a hydration notification
+      then: a 250 ml water entry is persisted once and the notification is dismissed
+    - id: AC2
+      given: the same notification action callback is received twice
+      when: the handler processes both callbacks
+      then: only one water entry is written for that notification action id
+    - id: AC3
+      given: the user reaches the daily hydration target at 15:00
+      when: remaining hydration reminders are evaluated
+      then: all remaining hydration notifications for that local day are cancelled
+    - id: AC4
+      given: quiet hours are 22:00 to 07:00
+      when: a meal or hydration reminder would fire at 22:30
+      then: it is deferred until 07:00 or later and no notification is shown during quiet hours
+    implementation:
+      notes: >-
+        Store notification action ids in a small processed-action table in SQLite so direct actions are exactly-once from
+        the user's perspective. Add category registration at app startup for hydration and meal actions using Plugin.LocalNotification
+        and native iOS categories where needed. Use dx:DXPopup for the snooze duration chooser when foregrounded. Keep the
+        class in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup only
+        at the view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling
+        Android POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A
+        careless implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder
+        is enough.
+      touches:
+      - src/Forge.Infrastructure/Notifications/NotificationActionHandler.cs
+      - src/Forge.Infrastructure/Persistence/ProcessedNotificationAction.cs
+      - src/Forge.App/Features/Engagement/Notifications/SnoozePopup.xaml
+      - src/Forge.Core/Nutrition/IHydrationLogService.cs
+      devexpress:
+      - dx:DXPopup
+      apis:
+      - Plugin.LocalNotification 14.1.1
+      - UserNotifications.UNNotificationAction
+    testing:
+    - Unit test for duplicate action id suppression.
+    - Integration test that action handling writes hydration entries without an active page.
+
+    grounding:
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+    - title: Android notification runtime permission
+      url: https://developer.android.com/develop/ui/views/notifications/notification-permission
+      note: Confirms Android 13 and later require POST_NOTIFICATIONS at runtime and recommend requesting it in context.
+  - key: S19.02.03
+    title: Add rest-day recovery prompts and streak-protection nudges
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: masters
+    userStory:
+      asA: Tom, balancing training and recovery
+      iWant: reminders that protect recovery as well as activity
+      soThat: the app reinforces sustainable habits rather than constant effort
+    requirements:
+    - Rest-day prompts are generated only for scheduled rest or deload days.
+    - Recovery prompts never instruct the user to train through pain, injury symptoms or illness.
+    - Streak-protection nudges are limited to one per day and only fire before quiet hours.
+    - If the user has disabled gamification, streak-protection nudges are not scheduled.
+    - Copy for missed or protected streaks uses neutral language with no guilt terms.
+    acceptanceCriteria:
+    - id: AC1
+      given: tomorrow is a scheduled rest day
+      when: recovery prompts are enabled
+      then: one recovery notification is scheduled with copy suggesting mobility, sleep or hydration rather than a
+        workout
+    - id: AC2
+      given: gamification is disabled
+      when: reminder schedules are rebuilt
+      then: no streak-protection notification is scheduled
+    - id: AC3
+      given: a streak-protection nudge was sent today
+      when: the scheduler runs again for the same local day
+      then: no second streak-protection nudge is scheduled
+    - id: AC4
+      given: a user has already received three Forge notifications today
+      when: a streak-protection nudge becomes eligible
+      then: the nudge is suppressed and no more than three Forge notifications fire that day
+    implementation:
+      notes: >-
+        Keep recovery and streak prompts in separate ReminderCategory values so users can opt out independently. The schedule
+        service should depend on E20 streak state through an application abstraction, not by reading gamification UI state.
+        Put copy strings under Resources/Strings and add tests that scan English copy for banned guilt phrases. Keep the class
+        in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup only at the
+        view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling Android
+        POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A careless
+        implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder is
+        enough.
+      touches:
+      - src/Forge.Core/Engagement/RecoveryPromptPlanner.cs
+      - src/Forge.Core/Engagement/IStreakSummaryProvider.cs
+      - src/Forge.App/Resources/Strings/Notifications.resx
+      apis:
+      - Plugin.LocalNotification 14.1.1
+      devexpress:
+      - DXCollectionView
+    testing:
+    - Unit tests for rest-day eligibility and one-per-day streak nudge cap.
+    - Copy lint test for banned guilt-inducing terms.
+
+    grounding:
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+  - key: S19.02.04
+    title: Enforce quiet hours, category controls and frequency caps
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: returner
+    userStory:
+      asA: Sam, who is easily annoyed by noisy apps
+      iWant: to tune reminder volume by category
+      soThat: I can keep useful prompts without muting Forge entirely
+    requirements:
+    - Users can set quiet hours with start and end times in local time, including overnight ranges.
+    - Users can enable or disable Training, Nutrition, Hydration, Recovery and Streak categories independently.
+    - The default cap is at most three Forge notifications per local day excluding user-started timers.
+    - When a cap suppresses a notification, Forge records a local suppression reason visible in diagnostics.
+    - Every notification settings screen includes Reduce frequency before Disable all.
+    acceptanceCriteria:
+    - id: AC1
+      given: quiet hours are 22:00 to 07:00
+      when: a hydration reminder would be scheduled for 23:00
+      then: it is not scheduled and the next eligible reminder is after 07:00
+    - id: AC2
+      given: three Forge notifications have already fired today
+      when: a fourth non-critical reminder is evaluated
+      then: it is suppressed and the suppression reason is stored locally
+    - id: AC3
+      given: notification settings are opened
+      when: the actions are displayed
+      then: Reduce frequency appears above Disable all
+    - id: AC4
+      given: all categories except workout reminders are disabled
+      when: the scheduler rebuilds the next seven days
+      then: only workout reminders are scheduled and optional categories create zero notifications
+    implementation:
+      notes: >-
+        Model NotificationPreference as local data owned by Forge.Domain and render it through a dx:DXCollectionView grouped
+        by category. Apply quiet-hours and cap decisions in the scheduler before creating plugin requests so suppressed notifications
+        never reach the platform. Store suppression audit rows without personal content. Keep the class in src/Forge.App/Features/Notifications
+        with a plain ViewModel, DevExpress DXCollectionView or DXPopup only at the view edge, and Plugin.LocalNotification
+        behind an INotificationScheduler adapter. The tricky part is reconciling Android POST_NOTIFICATIONS, iOS authorization,
+        quiet hours and local caps without leaking platform types inward. A careless implementation would prompt on launch,
+        create duplicate schedules or use exact alarms where an inexact reminder is enough.
+      touches:
+      - src/Forge.Domain/Engagement/NotificationPreference.cs
+      - src/Forge.Core/Engagement/NotificationPolicyEvaluator.cs
+      - src/Forge.App/Features/Engagement/Notifications/NotificationPreferencesPage.xaml
+      devexpress:
+      - dx:DXCollectionView
+      apis:
+      - Plugin.LocalNotification 14.1.1
+    testing:
+    - Unit tests for quiet-hour boundary cases including overnight ranges.
+    - Unit test for cap suppression and diagnostic reason persistence.
+
+    grounding:
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+    - title: Android 14 exact alarm restrictions
+      url: https://developer.android.com/about/versions/14/changes/schedule-exact-alarms
+      note: Explains why Forge reminders should avoid restricted exact alarms unless there is a defensible user need.
+  - key: S19.02.05
+    title: Schedule rest timers and reminder snoozes without restricted exact alarms
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: enthusiast
     concerns: [store-blocker]
-    stories:
-      - key: S19.02.01
-        title: Schedule workout reminders from the training plan
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        userStory:
-          asA: Alex, following a weekly programme
-          iWant: reminders tied to my planned workout days
-          soThat: I remember sessions without manually creating calendar entries
-        requirements:
-          - Workout reminders are generated from planned workout dates and preferred local reminder time.
-          - Rescheduling a workout updates the reminder within 5 seconds and cancels the obsolete notification.
-          - Notifications use inexact delivery on Android and do not request SCHEDULE_EXACT_ALARM or USE_EXACT_ALARM.
-          - If a workout is already completed for the day, its pending reminder is cancelled.
-          - Reminder copy includes the workout name and estimated duration but no sensitive health metrics.
-        acceptanceCriteria:
-          - id: AC1
-            given: a user has planned Strength A for tomorrow at 07:30
-            when: workout reminders are enabled
-            then: exactly one local notification is scheduled for that workout day and category
-          - id: AC2
-            given: the user moves a planned workout from Tuesday to Wednesday
-            when: the change is saved
-            then: the Tuesday notification is cancelled and the Wednesday notification is scheduled within 5 seconds
-          - id: AC3
-            given: the Android manifest is inspected
-            when: notification scheduling is enabled
-            then: SCHEDULE_EXACT_ALARM and USE_EXACT_ALARM are absent
-        implementation:
-          notes: >-
-            Build ReminderScheduleService in Forge.Application to compute upcoming notification
-            requests from training-plan entities, then adapt those requests in Forge.Infrastructure
-            to Plugin.LocalNotification. Persist a stable notification key per plan item so updates
-            are idempotent. On Android choose inexact scheduling and explicitly avoid exact alarm
-            permissions because a fitness reminder can tolerate a delivery window.
-          touches:
-            - src/Forge.Application/Engagement/ReminderScheduleService.cs
-            - src/Forge.Infrastructure/Notifications/LocalNotificationScheduler.cs
-            - src/Forge.Domain/Engagement/ReminderCategory.cs
-            - src/Forge.App/Platforms/Android/AndroidManifest.xml
-          apis:
-            - Plugin.LocalNotification 14.1.1
-        testing:
-          - Unit tests for workout move, workout completion and duplicate scheduling cases.
-          - Static test asserting exact alarm permissions are absent from AndroidManifest.xml.
+    userStory:
+      asA: Alex, using rest timers between sets
+      iWant: timer and snooze notifications that do not require restricted permissions
+      soThat: Forge remains store-safe while still reminding me at useful times
+    requirements:
+    - Rest timer completion notifications use normal local notification scheduling and do not request Android
+      exact-alarm permissions.
+    - Snoozed reminders use inexact scheduling and respect quiet hours and daily frequency caps.
+    - If the operating system delivers a timer notification late, Forge shows the actual elapsed rest duration when
+      opened.
+    - The product backlog records exact-alarm use as out of scope for v1 unless a future policy-approved justification
+      exists.
+    acceptanceCriteria:
+    - id: AC1
+      given: a 90-second rest timer is started on Android
+      when: the timer notification is scheduled
+      then: SCHEDULE_EXACT_ALARM and USE_EXACT_ALARM are not required by the app manifest
+    - id: AC2
+      given: a snooze would land inside quiet hours
+      when: the snooze is scheduled
+      then: the notification is moved to the next allowed local time
+    - id: AC3
+      given: the operating system delivers a rest timer notification 20 seconds late
+      when: the user opens Forge from the notification
+      then: the rest timer screen shows elapsed rest of at least the configured duration plus 20 seconds
+    - id: AC4
+      given: the user taps Snooze twice on the same rest timer notification
+      when: both callbacks are processed
+      then: only the latest snooze remains scheduled and duplicate notifications are cancelled within 5 seconds
+    implementation:
+      notes: >-
+        Add RestTimerNotificationPolicy in Forge.Core and make the Android adapter prove through tests that exact alarm
+        permissions are absent. The timer UI can still show a precise in-app countdown while the app is foregrounded, but
+        background notification delivery should accept platform timing variance. This is a deliberate Play policy trade-off.
+        Keep the class in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup
+        only at the view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling
+        Android POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A
+        careless implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder
+        is enough.
+      touches:
+      - src/Forge.Core/Engagement/RestTimerNotificationPolicy.cs
+      - src/Forge.App/Features/Workout/RestTimerViewModel.cs
+      - src/Forge.App/Platforms/Android/AndroidManifest.xml
+      apis:
+      - Plugin.LocalNotification 14.1.1
+      devexpress:
+      - DXCollectionView
+    testing:
+    - Static manifest test rejecting SCHEDULE_EXACT_ALARM and USE_EXACT_ALARM.
+    - Unit tests for late delivery and quiet-hour snooze projection.
 
-      - key: S19.02.02
-        title: Add meal and hydration reminders with one-tap water logging
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: cutter
-        userStory:
-          asA: Priya, focusing on nutrition consistency
-          iWant: meal and hydration reminders that fit my day
-          soThat: I can keep habits visible without opening the app every hour
-        requirements:
-          - Users can configure up to six hydration reminders and four meal reminders per day.
-          - Hydration notifications include Log water for the default serving amount and Snooze.
-          - Meal notifications include Open meal log and Snooze actions.
-          - Action handling is idempotent if the operating system delivers the same action twice.
-          - Hydration reminders stop for the day after the user meets the configured daily water target.
-        acceptanceCriteria:
-          - id: AC1
-            given: a hydration target of 2500 ml and a default serving of 250 ml
-            when: the user taps Log water from a hydration notification
-            then: a 250 ml water entry is persisted once and the notification is dismissed
-          - id: AC2
-            given: the same notification action callback is received twice
-            when: the handler processes both callbacks
-            then: only one water entry is written for that notification action id
-          - id: AC3
-            given: the user reaches the daily hydration target at 15:00
-            when: remaining hydration reminders are evaluated
-            then: all remaining hydration notifications for that local day are cancelled
-        implementation:
-          notes: >-
-            Store notification action ids in a small processed-action table in SQLite so direct
-            actions are exactly-once from the user's perspective. Add category registration at app
-            startup for hydration and meal actions using Plugin.LocalNotification and native iOS
-            categories where needed. Use dx:DXPopup for the snooze duration chooser when foregrounded.
-          touches:
-            - src/Forge.Infrastructure/Notifications/NotificationActionHandler.cs
-            - src/Forge.Infrastructure/Persistence/ProcessedNotificationAction.cs
-            - src/Forge.App/Features/Engagement/Notifications/SnoozePopup.xaml
-            - src/Forge.Application/Nutrition/IHydrationLogService.cs
-          devexpress:
-            - dx:DXPopup
-          apis:
-            - Plugin.LocalNotification 14.1.1
-            - UserNotifications.UNNotificationAction
-        testing:
-          - Unit test for duplicate action id suppression.
-          - Integration test that action handling writes hydration entries without an active page.
-
-      - key: S19.02.03
-        title: Add rest-day recovery prompts and streak-protection nudges
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: masters
-        userStory:
-          asA: Tom, balancing training and recovery
-          iWant: reminders that protect recovery as well as activity
-          soThat: the app reinforces sustainable habits rather than constant effort
-        requirements:
-          - Rest-day prompts are generated only for scheduled rest or deload days.
-          - Recovery prompts never instruct the user to train through pain, injury symptoms or illness.
-          - Streak-protection nudges are limited to one per day and only fire before quiet hours.
-          - If the user has disabled gamification, streak-protection nudges are not scheduled.
-          - Copy for missed or protected streaks uses neutral language with no guilt terms.
-        acceptanceCriteria:
-          - id: AC1
-            given: tomorrow is a scheduled rest day
-            when: recovery prompts are enabled
-            then: one recovery notification is scheduled with copy suggesting mobility, sleep or hydration rather than a workout
-          - id: AC2
-            given: gamification is disabled
-            when: reminder schedules are rebuilt
-            then: no streak-protection notification is scheduled
-          - id: AC3
-            given: a streak-protection nudge was sent today
-            when: the scheduler runs again for the same local day
-            then: no second streak-protection nudge is scheduled
-        implementation:
-          notes: >-
-            Keep recovery and streak prompts in separate ReminderCategory values so users can opt
-            out independently. The schedule service should depend on E20 streak state through an
-            application abstraction, not by reading gamification UI state. Put copy strings under
-            Resources/Strings and add tests that scan English copy for banned guilt phrases.
-          touches:
-            - src/Forge.Application/Engagement/RecoveryPromptPlanner.cs
-            - src/Forge.Application/Engagement/IStreakSummaryProvider.cs
-            - src/Forge.App/Resources/Strings/Notifications.resx
-          apis:
-            - Plugin.LocalNotification 14.1.1
-        testing:
-          - Unit tests for rest-day eligibility and one-per-day streak nudge cap.
-          - Copy lint test for banned guilt-inducing terms.
-
-      - key: S19.02.04
-        title: Enforce quiet hours, category controls and frequency caps
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        userStory:
-          asA: Sam, who is easily annoyed by noisy apps
-          iWant: to tune reminder volume by category
-          soThat: I can keep useful prompts without muting Forge entirely
-        requirements:
-          - Users can set quiet hours with start and end times in local time, including overnight ranges.
-          - Users can enable or disable Training, Nutrition, Hydration, Recovery and Streak categories independently.
-          - The default cap is at most three Forge notifications per local day excluding user-started timers.
-          - When a cap suppresses a notification, Forge records a local suppression reason visible in diagnostics.
-          - Every notification settings screen includes Reduce frequency before Disable all.
-        acceptanceCriteria:
-          - id: AC1
-            given: quiet hours are 22:00 to 07:00
-            when: a hydration reminder would be scheduled for 23:00
-            then: it is not scheduled and the next eligible reminder is after 07:00
-          - id: AC2
-            given: three Forge notifications have already fired today
-            when: a fourth non-critical reminder is evaluated
-            then: it is suppressed and the suppression reason is stored locally
-          - id: AC3
-            given: notification settings are opened
-            when: the actions are displayed
-            then: Reduce frequency appears above Disable all
-        implementation:
-          notes: >-
-            Model NotificationPreference as local data owned by Forge.Domain and render it through
-            a dx:DXCollectionView grouped by category. Apply quiet-hours and cap decisions in the
-            scheduler before creating plugin requests so suppressed notifications never reach the
-            platform. Store suppression audit rows without personal content.
-          touches:
-            - src/Forge.Domain/Engagement/NotificationPreference.cs
-            - src/Forge.Application/Engagement/NotificationPolicyEvaluator.cs
-            - src/Forge.App/Features/Engagement/Notifications/NotificationPreferencesPage.xaml
-          devexpress:
-            - dx:DXCollectionView
-          apis:
-            - Plugin.LocalNotification 14.1.1
-        testing:
-          - Unit tests for quiet-hour boundary cases including overnight ranges.
-          - Unit test for cap suppression and diagnostic reason persistence.
-
-      - key: S19.02.05
-        title: Schedule rest timers and reminder snoozes without restricted exact alarms
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [store-blocker]
-        userStory:
-          asA: Alex, using rest timers between sets
-          iWant: timer and snooze notifications that do not require restricted permissions
-          soThat: Forge remains store-safe while still reminding me at useful times
-        requirements:
-          - Rest timer completion notifications use normal local notification scheduling and do not request Android exact-alarm permissions.
-          - Snoozed reminders use inexact scheduling and respect quiet hours and daily frequency caps.
-          - If the operating system delivers a timer notification late, Forge shows the actual elapsed rest duration when opened.
-          - The product backlog records exact-alarm use as out of scope for v1 unless a future policy-approved justification exists.
-        acceptanceCriteria:
-          - id: AC1
-            given: a 90-second rest timer is started on Android
-            when: the timer notification is scheduled
-            then: SCHEDULE_EXACT_ALARM and USE_EXACT_ALARM are not required by the app manifest
-          - id: AC2
-            given: a snooze would land inside quiet hours
-            when: the snooze is scheduled
-            then: the notification is moved to the next allowed local time
-          - id: AC3
-            given: the operating system delivers a rest timer notification 20 seconds late
-            when: the user opens Forge from the notification
-            then: the rest timer screen shows elapsed rest of at least the configured duration plus 20 seconds
-        implementation:
-          notes: >-
-            Add RestTimerNotificationPolicy in Forge.Application and make the Android adapter prove
-            through tests that exact alarm permissions are absent. The timer UI can still show a
-            precise in-app countdown while the app is foregrounded, but background notification
-            delivery should accept platform timing variance. This is a deliberate Play policy trade-off.
-          touches:
-            - src/Forge.Application/Engagement/RestTimerNotificationPolicy.cs
-            - src/Forge.App/Features/Workout/RestTimerViewModel.cs
-            - src/Forge.App/Platforms/Android/AndroidManifest.xml
-          apis:
-            - Plugin.LocalNotification 14.1.1
-        testing:
-          - Static manifest test rejecting SCHEDULE_EXACT_ALARM and USE_EXACT_ALARM.
-          - Unit tests for late delivery and quiet-hour snooze projection.
-
-  - key: F19.03
-    title: Recover schedules after device changes
+    grounding:
+    - title: Android 14 exact alarm restrictions
+      url: https://developer.android.com/about/versions/14/changes/schedule-exact-alarms
+      note: Explains why Forge reminders should avoid restricted exact alarms unless there is a defensible user need.
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+- key: F19.03
+  title: Recover schedules after device changes
+  wave: 3
+  summary: >-
+    Rebuild locally stored reminder schedules when the app starts, when Android reports reboot
+    or timezone changes, and when iOS next launches, so reminders stay aligned to the user's local day.
+  outcome: >-
+    Reminder intent is durable and platform notifications are recreated accurately after reboot,
+    travel and daylight-saving transitions.
+  concerns: [offline]
+  stories:
+  - key: S19.03.01
+    title: Rebuild reminder schedules after device reboot
     wave: 3
-    summary: >-
-      Rebuild locally stored reminder schedules when the app starts, when Android reports reboot
-      or timezone changes, and when iOS next launches, so reminders stay aligned to the user's local day.
-    outcome: >-
-      Reminder intent is durable and platform notifications are recreated accurately after reboot,
-      travel and daylight-saving transitions.
-    concerns: [offline]
-    stories:
-      - key: S19.03.01
-        title: Rebuild reminder schedules after device reboot
-        wave: 3
-        size: l
-        platforms: [android, ios]
-        persona: team
-        userStory:
-          asA: developer responsible for retention reliability
-          iWant: reminder schedules recreated after a device reboot
-          soThat: users do not silently lose their habits after a normal phone restart
-        requirements:
-          - Reminder intent is persisted independently of platform notification ids.
-          - Android registers a boot receiver that triggers schedule rebuild after BOOT_COMPLETED when notifications are enabled.
-          - iOS rebuilds schedules on next launch and any background execution opportunity available to the app.
-          - Rebuild is idempotent and creates no duplicate notifications for the same reminder key.
-          - Rebuild of 100 reminder intents completes in under 2 seconds on a mid-tier Android device.
-        acceptanceCriteria:
-          - id: AC1
-            given: ten reminders are scheduled and the Android device is rebooted
-            when: BOOT_COMPLETED is received
-            then: the same ten reminder keys are scheduled again with no duplicate keys
-          - id: AC2
-            given: an iOS device is rebooted
-            when: the user next launches Forge
-            then: all enabled reminder intents for the next seven days are scheduled
-          - id: AC3
-            given: 100 reminder intents exist
-            when: rebuild runs on a Pixel 6a class device
-            then: rebuild completes in under 2 seconds and does not block the UI thread
-        implementation:
-          notes: >-
-            Treat platform notification ids as disposable projections of ReminderIntent rows. Add
-            an Android BroadcastReceiver in Forge.App/Platforms/Android that invokes a safe queued
-            rebuild path after boot, and run the same rebuild on app startup for both platforms.
-            Because iOS has no general boot broadcast, launch-time rebuild is the correctness backstop.
-          touches:
-            - src/Forge.App/Platforms/Android/NotificationBootReceiver.cs
-            - src/Forge.Infrastructure/Notifications/NotificationRebuildService.cs
-            - src/Forge.Infrastructure/Persistence/ReminderIntentEntity.cs
-          apis:
-            - Android.Content.BroadcastReceiver
-            - Android.Intent.ActionBootCompleted
-            - Plugin.LocalNotification 14.1.1
-        testing:
-          - Android instrumentation test or manual adb reboot matrix verifying no duplicates.
-          - Unit test for idempotent projection from reminder intent to platform notification id.
+    size: l
+    platforms: [android, ios]
+    persona: team
+    userStory:
+      asA: developer responsible for retention reliability
+      iWant: reminder schedules recreated after a device reboot
+      soThat: users do not silently lose their habits after a normal phone restart
+    requirements:
+    - Reminder intent is persisted independently of platform notification ids.
+    - Android registers a boot receiver that triggers schedule rebuild after BOOT_COMPLETED when notifications are
+      enabled.
+    - iOS rebuilds schedules on next launch and any background execution opportunity available to the app.
+    - Rebuild is idempotent and creates no duplicate notifications for the same reminder key.
+    - Rebuild of 100 reminder intents completes in under 2 seconds on a mid-tier Android device.
+    acceptanceCriteria:
+    - id: AC1
+      given: ten reminders are scheduled and the Android device is rebooted
+      when: BOOT_COMPLETED is received
+      then: the same ten reminder keys are scheduled again with no duplicate keys
+    - id: AC2
+      given: an iOS device is rebooted
+      when: the user next launches Forge
+      then: all enabled reminder intents for the next seven days are scheduled
+    - id: AC3
+      given: 100 reminder intents exist
+      when: rebuild runs on a Pixel 6a class device
+      then: rebuild completes in under 2 seconds and does not block the UI thread
+    - id: AC4
+      given: a reboot occurs during quiet hours
+      when: reminder schedules are rebuilt
+      then: no rebuilt notification is scheduled before the quiet-hours end time
+    implementation:
+      notes: >-
+        Treat platform notification ids as disposable projections of ReminderIntent rows. Add an Android BroadcastReceiver
+        in Forge.App/Platforms/Android that invokes a safe queued rebuild path after boot, and run the same rebuild on app
+        startup for both platforms. Because iOS has no general boot broadcast, launch-time rebuild is the correctness backstop.
+        Keep the class in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup
+        only at the view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling
+        Android POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A
+        careless implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder
+        is enough.
+      touches:
+      - src/Forge.App/Platforms/Android/NotificationBootReceiver.cs
+      - src/Forge.Infrastructure/Notifications/NotificationRebuildService.cs
+      - src/Forge.Infrastructure/Persistence/ReminderIntentEntity.cs
+      apis:
+      - Android.Content.BroadcastReceiver
+      - Android.Intent.ActionBootCompleted
+      - Plugin.LocalNotification 14.1.1
+      devexpress:
+      - DXCollectionView
+    testing:
+    - Android instrumentation test or manual adb reboot matrix verifying no duplicates.
+    - Unit test for idempotent projection from reminder intent to platform notification id.
 
-      - key: S19.03.02
-        title: Recalculate reminders after timezone and daylight-saving changes
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        userStory:
-          asA: Alex, travelling for work
-          iWant: reminders to follow my local day after timezone changes
-          soThat: Forge does not wake me at the wrong hour
-        requirements:
-          - Reminder intent stores local wall-clock time plus the last timezone used for projection.
-          - Android handles ACTION_TIMEZONE_CHANGED and ACTION_TIME_CHANGED by rebuilding schedules.
-          - iOS compares the current timezone with the stored timezone on app resume and launch.
-          - Daylight-saving transitions preserve the intended local wall-clock time.
-          - Past notifications are not rescheduled after timezone recalculation.
-        acceptanceCriteria:
-          - id: AC1
-            given: a workout reminder is set for 07:30 in Europe/Paris
-            when: the device timezone changes to America/New_York before the reminder date
-            then: the next notification is scheduled for 07:30 America/New_York local time
-          - id: AC2
-            given: a hydration reminder time has already passed today
-            when: timezone recalculation runs
-            then: that reminder is not scheduled for the past local time
-          - id: AC3
-            given: a daylight-saving transition occurs overnight
-            when: the next day schedule is projected
-            then: the reminder retains the configured wall-clock hour and minute
-        implementation:
-          notes: >-
-            Use DateOnly and TimeOnly in the application scheduler and convert to platform DateTime
-            only at the adapter boundary. This avoids preserving an instant when the user intended
-            a local habit time. Add Android receivers for timezone and time changes, and on iOS
-            compare TimeZoneInfo.Local.Id with the last projection metadata during app resume.
-          touches:
-            - src/Forge.Application/Engagement/ReminderProjectionClock.cs
-            - src/Forge.App/Platforms/Android/NotificationTimeChangeReceiver.cs
-            - src/Forge.Infrastructure/Notifications/ReminderProjectionMetadata.cs
-          apis:
-            - Android.Intent.ActionTimezoneChanged
-            - Android.Intent.ActionTimeChanged
-            - TimeZoneInfo
-        testing:
-          - Unit tests for timezone conversion, past-time suppression and daylight-saving boundaries.
-          - Manual Android timezone-change test where available.
-
-  - key: F19.04
-    title: Make notifications actionable and informative
+    grounding:
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+    - title: Android notification runtime permission
+      url: https://developer.android.com/develop/ui/views/notifications/notification-permission
+      note: Confirms Android 13 and later require POST_NOTIFICATIONS at runtime and recommend requesting it in context.
+  - key: S19.03.02
+    title: Recalculate reminders after timezone and daylight-saving changes
     wave: 3
-    summary: >-
-      Provide direct notification actions, contextual rich content and safe foreground handling so
-      users can complete tiny habits or jump into the right Forge screen quickly.
-    outcome: >-
-      Key notification categories support direct actions, rich text remains privacy-safe, and
-      foreground notifications do not duplicate in-app prompts.
-    stories:
-      - key: S19.04.01
-        title: Handle start workout, log water and snooze actions from notifications
-        wave: 3
-        size: l
-        platforms: [android, ios]
-        persona: enthusiast
-        userStory:
-          asA: Alex, moving between sets and errands
-          iWant: useful notification actions
-          soThat: I can respond without navigating through the whole app
-        requirements:
-          - Workout notifications expose Start workout and Snooze actions.
-          - Hydration notifications expose Log water and Snooze actions.
-          - Snooze options default to 15 minutes and never schedule into quiet hours.
-          - Cold-start action handling routes to the intended screen or writes the intended log within 1 second of app activation.
-          - Every action path records a local analytics event without personal health values.
-        acceptanceCriteria:
-          - id: AC1
-            given: a workout notification is displayed while Forge is not running
-            when: the user taps Start workout
-            then: Forge launches directly to the workout start screen for that workout id
-          - id: AC2
-            given: quiet hours begin in 10 minutes
-            when: the user taps Snooze for 15 minutes
-            then: the notification is rescheduled for the next allowed time after quiet hours
-          - id: AC3
-            given: the user taps Log water from a notification
-            when: action handling completes
-            then: the water entry is stored and no navigation is required
-        implementation:
-          notes: >-
-            Centralize notification action dispatch in Forge.App startup before Shell navigation is
-            shown, then forward plain command objects into Forge.Application handlers. Do not place
-            navigation logic in platform receivers. Use route constants from E01 so Start workout
-            lands on the same screen as an in-app tap, and queue cold-start callbacks until DI is ready.
-          touches:
-            - src/Forge.App/Features/Engagement/Notifications/NotificationActionRouter.cs
-            - src/Forge.Application/Engagement/HandleNotificationAction.cs
-            - src/Forge.App/Navigation/ForgeRoutes.cs
-          apis:
-            - Plugin.LocalNotification 14.1.1
-            - UserNotifications.UNNotificationResponse
-        testing:
-          - Integration tests for each action command with a fake notification scheduler.
-          - Manual cold-start action test on Android and iOS.
+    size: m
+    platforms: [android, ios]
+    persona: enthusiast
+    userStory:
+      asA: Alex, travelling for work
+      iWant: reminders to follow my local day after timezone changes
+      soThat: Forge does not wake me at the wrong hour
+    requirements:
+    - Reminder intent stores local wall-clock time plus the last timezone used for projection.
+    - Android handles ACTION_TIMEZONE_CHANGED and ACTION_TIME_CHANGED by rebuilding schedules.
+    - iOS compares the current timezone with the stored timezone on app resume and launch.
+    - Daylight-saving transitions preserve the intended local wall-clock time.
+    - Past notifications are not rescheduled after timezone recalculation.
+    acceptanceCriteria:
+    - id: AC1
+      given: a workout reminder is set for 07:30 in Europe/Paris
+      when: the device timezone changes to America/New_York before the reminder date
+      then: the next notification is scheduled for 07:30 America/New_York local time
+    - id: AC2
+      given: a hydration reminder time has already passed today
+      when: timezone recalculation runs
+      then: that reminder is not scheduled for the past local time
+    - id: AC3
+      given: a daylight-saving transition occurs overnight
+      when: the next day schedule is projected
+      then: the reminder retains the configured wall-clock hour and minute
+    - id: AC4
+      given: the device timezone changes twice in one hour
+      when: the schedule recalculator runs after each change
+      then: each reminder key has at most one pending platform notification
+    implementation:
+      notes: >-
+        Use DateOnly and TimeOnly in the application scheduler and convert to platform DateTime only at the adapter boundary.
+        This avoids preserving an instant when the user intended a local habit time. Add Android receivers for timezone and
+        time changes, and on iOS compare TimeZoneInfo.Local.Id with the last projection metadata during app resume. Keep the
+        class in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup only
+        at the view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling
+        Android POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A
+        careless implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder
+        is enough.
+      touches:
+      - src/Forge.Core/Engagement/ReminderProjectionClock.cs
+      - src/Forge.App/Platforms/Android/NotificationTimeChangeReceiver.cs
+      - src/Forge.Infrastructure/Notifications/ReminderProjectionMetadata.cs
+      apis:
+      - Android.Intent.ActionTimezoneChanged
+      - Android.Intent.ActionTimeChanged
+      - TimeZoneInfo
+      devexpress:
+      - DXCollectionView
+    testing:
+    - Unit tests for timezone conversion, past-time suppression and daylight-saving boundaries.
+    - Manual Android timezone-change test where available.
 
-      - key: S19.04.02
-        title: Add rich notification content without exposing sensitive data
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [privacy]
-        userStory:
-          asA: Maya, glancing at my lock screen
-          iWant: reminders that are useful but discreet
-          soThat: other people nearby do not see private health details
-        requirements:
-          - Rich notifications can include workout name, category icon and general prompt text.
-          - Rich notifications must not include bodyweight, calories, macros, heart rate, injury notes or free-text notes.
-          - The app provides a privacy setting to use discreet notification text for all categories.
-          - Notification text templates are covered by tests that reject sensitive placeholder tokens.
-        acceptanceCriteria:
-          - id: AC1
-            given: discreet notifications are enabled
-            when: any reminder notification is generated
-            then: the title is Forge and the body contains no workout, meal or quantity detail
-          - id: AC2
-            given: normal notification text is generated for a meal reminder
-            when: the payload is inspected
-            then: it contains the meal category but no calorie or macro value
-          - id: AC3
-            given: a developer adds a notification template with a bodyweight placeholder
-            when: notification template tests run
-            then: the test fails and names the sensitive placeholder
-        implementation:
-          notes: >-
-            Implement NotificationContentFactory in Forge.Application with typed content models and
-            no access to raw notes or detailed health aggregates. The UI for previewing normal and
-            discreet text should use dx:DXPopup from notification settings. Keep icons as bundled
-            app resources rather than remote assets, preserving local-only and offline guarantees.
-          touches:
-            - src/Forge.Application/Engagement/NotificationContentFactory.cs
-            - src/Forge.App/Features/Engagement/Notifications/NotificationPreviewPopup.xaml
-            - src/Forge.App/Resources/Images/notification_*.svg
-          devexpress:
-            - dx:DXPopup
-          apis:
-            - Plugin.LocalNotification 14.1.1
-        testing:
-          - Unit tests for sensitive placeholder rejection.
-          - Snapshot tests for normal and discreet notification content by category.
-
-      - key: S19.04.03
-        title: Coordinate foreground notifications with in-app prompts
-        wave: 3
-        size: s
-        platforms: [android, ios]
-        persona: newcomer
-        userStory:
-          asA: Maya, actively using Forge
-          iWant: reminders to appear in app instead of duplicating system banners
-          soThat: I am not interrupted twice for the same habit
-        requirements:
-          - When Forge is foregrounded, eligible reminders are shown as in-app prompts rather than duplicate system banners where the platform allows control.
-          - Foreground prompts include the same primary action as the corresponding notification.
-          - If a prompt is dismissed, the related notification history row records Dismissed in app.
-          - Foreground prompt rendering completes within 300 ms after the reminder event is received.
-        acceptanceCriteria:
-          - id: AC1
-            given: Forge is foregrounded on the Today tab
-            when: a hydration reminder becomes due
-            then: an in-app prompt appears and no duplicate Forge banner is shown by the app
-          - id: AC2
-            given: a foreground prompt is dismissed
-            when: the notification centre is opened
-            then: the reminder appears with state Dismissed in app
-          - id: AC3
-            given: a reminder event is received while the app is active
-            when: prompt timing is measured
-            then: the prompt is visible within 300 ms
-        implementation:
-          notes: >-
-            Add ForegroundReminderPresenter in Forge.App and route due-reminder events through the
-            same action model as notification callbacks. Use dx:DXPopup for the prompt so the UI is
-            consistent with permission and rich-content previews. The application layer should not
-            know whether the reminder was surfaced by the operating system or by an in-app popup.
-          touches:
-            - src/Forge.App/Features/Engagement/Notifications/ForegroundReminderPresenter.cs
-            - src/Forge.App/Features/Engagement/Notifications/ForegroundReminderPopup.xaml
-            - src/Forge.Application/Engagement/ReminderEvent.cs
-          devexpress:
-            - dx:DXPopup
-          apis:
-            - Plugin.LocalNotification 14.1.1
-        testing:
-          - UI test for foreground hydration reminder prompt.
-          - Unit test recording Dismissed in app history state.
-
-  - key: F19.05
-    title: Provide an in-app notification centre
+    grounding:
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+    - title: Android 14 exact alarm restrictions
+      url: https://developer.android.com/about/versions/14/changes/schedule-exact-alarms
+      note: Explains why Forge reminders should avoid restricted exact alarms unless there is a defensible user need.
+- key: F19.04
+  title: Make notifications actionable and informative
+  wave: 3
+  summary: >-
+    Provide direct notification actions, contextual rich content and safe foreground handling so
+    users can complete tiny habits or jump into the right Forge screen quickly.
+  outcome: >-
+    Key notification categories support direct actions, rich text remains privacy-safe, and
+    foreground notifications do not duplicate in-app prompts.
+  stories:
+  - key: S19.04.01
+    title: Handle start workout, log water and snooze actions from notifications
     wave: 3
-    summary: >-
-      Keep a local, privacy-safe history of reminders and suppression decisions so users can catch
-      up, tune categories and understand why Forge did or did not notify them.
-    outcome: >-
-      Users can review recent notifications, act on missed items, and reduce notification volume
-      from a single engagement surface.
-    stories:
-      - key: S19.05.01
-        title: Show recent and upcoming reminders in a notification centre
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        userStory:
-          asA: Sam, returning after a busy day
-          iWant: a notification centre inside Forge
-          soThat: I can see what I missed without relying on the operating system shade
-        requirements:
-          - The centre lists delivered, missed, suppressed and upcoming reminders for the last 14 days and next 7 days.
-          - The list is grouped by Today, Earlier and Upcoming.
-          - Reminder rows include category, local time, state and primary action.
-          - Empty state explains that reminders appear after the user enables at least one category.
-          - Scrolling 300 reminder rows sustains 60 fps with no frame exceeding 16.6 ms on a Pixel 6a class device.
-        acceptanceCriteria:
-          - id: AC1
-            given: no reminders have ever been configured
-            when: the notification centre opens
-            then: an empty state explains how to enable reminders and no error is shown
-          - id: AC2
-            given: delivered, suppressed and upcoming reminders exist
-            when: the centre opens
-            then: all three states are visible with distinct labels
-          - id: AC3
-            given: 300 reminder history rows exist
-            when: the user scrolls from top to bottom
-            then: frame timing shows no frame above 16.6 ms attributable to row rendering
-        implementation:
-          notes: >-
-            Build NotificationCentrePage with dx:DXCollectionView using incremental loading from a
-            lightweight ReminderTimeline query in Forge.Application. Store notification history in
-            SQLite with a 30-day retention cleanup, but display only the required 14-day delivered
-            window to keep the screen focused. Primary actions should reuse notification handlers.
-          touches:
-            - src/Forge.App/Features/Engagement/Notifications/NotificationCentrePage.xaml
-            - src/Forge.App/Features/Engagement/Notifications/NotificationCentreViewModel.cs
-            - src/Forge.Application/Engagement/ReminderTimelineQuery.cs
-            - src/Forge.Infrastructure/Persistence/ReminderHistoryEntity.cs
-          devexpress:
-            - dx:DXCollectionView
-            - dx:TabView
-          apis:
-            - Microsoft.EntityFrameworkCore
-        testing:
-          - Unit tests for timeline grouping and retention cutoff.
-          - Performance scroll test with 300 synthetic rows.
+    size: l
+    platforms: [android, ios]
+    persona: enthusiast
+    userStory:
+      asA: Alex, moving between sets and errands
+      iWant: useful notification actions
+      soThat: I can respond without navigating through the whole app
+    requirements:
+    - Workout notifications expose Start workout and Snooze actions.
+    - Hydration notifications expose Log water and Snooze actions.
+    - Snooze options default to 15 minutes and never schedule into quiet hours.
+    - Cold-start action handling routes to the intended screen or writes the intended log within 1 second of app
+      activation.
+    - Every action path records a local analytics event without personal health values.
+    acceptanceCriteria:
+    - id: AC1
+      given: a workout notification is displayed while Forge is not running
+      when: the user taps Start workout
+      then: Forge launches directly to the workout start screen for that workout id
+    - id: AC2
+      given: quiet hours begin in 10 minutes
+      when: the user taps Snooze for 15 minutes
+      then: the notification is rescheduled for the next allowed time after quiet hours
+    - id: AC3
+      given: the user taps Log water from a notification
+      when: action handling completes
+      then: the water entry is stored and no navigation is required
+    - id: AC4
+      given: Forge is launched from a notification action after process death
+      when: the command router receives the action payload
+      then: the action completes within 2 seconds without requiring the original page instance
+    implementation:
+      notes: >-
+        Centralize notification action dispatch in Forge.App startup before Shell navigation is shown, then forward plain
+        command objects into Forge.Core handlers. Do not place navigation logic in platform receivers. Use route constants
+        from E01 so Start workout lands on the same screen as an in-app tap, and queue cold-start callbacks until DI is ready.
+        Keep the class in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup
+        only at the view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling
+        Android POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A
+        careless implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder
+        is enough.
+      touches:
+      - src/Forge.App/Features/Engagement/Notifications/NotificationActionRouter.cs
+      - src/Forge.Core/Engagement/HandleNotificationAction.cs
+      - src/Forge.App/Navigation/ForgeRoutes.cs
+      apis:
+      - Plugin.LocalNotification 14.1.1
+      - UserNotifications.UNNotificationResponse
+      devexpress:
+      - DXCollectionView
+    testing:
+    - Integration tests for each action command with a fake notification scheduler.
+    - Manual cold-start action test on Android and iOS.
 
-      - key: S19.05.02
-        title: Add reduce-frequency controls from reminder history
-        wave: 3
-        size: s
-        platforms: [android, ios]
-        persona: newcomer
-        userStory:
-          asA: Maya, receiving too many prompts
-          iWant: an easy way to reduce reminders
-          soThat: I do not have to disable everything when one category is noisy
-        requirements:
-          - Every delivered reminder row offers Reduce this category when that category is enabled.
-          - Reduce this category lowers cadence by at least 50% or disables optional nudges if no lower cadence exists.
-          - The confirmation explains the exact change before applying it.
-          - Undo remains available for 10 seconds after the change.
-        acceptanceCriteria:
-          - id: AC1
-            given: hydration reminders run six times per day
-            when: the user chooses Reduce this category and confirms
-            then: hydration reminders are reduced to no more than three times per day
-          - id: AC2
-            given: a category has only optional streak nudges enabled
-            when: the user chooses Reduce this category
-            then: optional streak nudges are disabled and core workout reminders remain unchanged
-          - id: AC3
-            given: the user applies a reduction
-            when: Undo is tapped within 10 seconds
-            then: the previous category preference is restored
-        implementation:
-          notes: >-
-            Present reductions through dx:BottomSheet from the notification centre rather than a
-            destructive toggle. The ViewModel should calculate a before and after preference diff
-            and persist it transactionally, with a short-lived undo command backed by the previous
-            serialized preference snapshot. This makes reducing noise easier than muting Forge.
-          touches:
-            - src/Forge.App/Features/Engagement/Notifications/ReduceFrequencyBottomSheet.xaml
-            - src/Forge.Application/Engagement/NotificationPreferenceReducer.cs
-          devexpress:
-            - dx:BottomSheet
-          apis:
-            - Microsoft.EntityFrameworkCore
-        testing:
-          - Unit tests for cadence reduction decisions.
-          - UI test for apply and undo flow.
+    grounding:
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+    - title: Android notification runtime permission
+      url: https://developer.android.com/develop/ui/views/notifications/notification-permission
+      note: Confirms Android 13 and later require POST_NOTIFICATIONS at runtime and recommend requesting it in context.
+  - key: S19.04.02
+    title: Add rich notification content without exposing sensitive data
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: newcomer
+    concerns: [privacy]
+    userStory:
+      asA: Maya, glancing at my lock screen
+      iWant: reminders that are useful but discreet
+      soThat: other people nearby do not see private health details
+    requirements:
+    - Rich notifications can include workout name, category icon and general prompt text.
+    - Rich notifications must not include bodyweight, calories, macros, heart rate, injury notes or free-text notes.
+    - The app provides a privacy setting to use discreet notification text for all categories.
+    - Notification text templates are covered by tests that reject sensitive placeholder tokens.
+    acceptanceCriteria:
+    - id: AC1
+      given: discreet notifications are enabled
+      when: any reminder notification is generated
+      then: the title is Forge and the body contains no workout, meal or quantity detail
+    - id: AC2
+      given: normal notification text is generated for a meal reminder
+      when: the payload is inspected
+      then: it contains the meal category but no calorie or macro value
+    - id: AC3
+      given: a developer adds a notification template with a bodyweight placeholder
+      when: notification template tests run
+      then: the test fails and names the sensitive placeholder
+    - id: AC4
+      given: a notification is expanded on the lock screen
+      when: discreet mode is enabled
+      then: zero health metrics, body measurements, calories or exercise names are visible
+    implementation:
+      notes: >-
+        Implement NotificationContentFactory in Forge.Core with typed content models and no access to raw notes or
+        detailed health aggregates. The UI for previewing normal and discreet text should use dx:DXPopup from notification
+        settings. Keep icons as bundled app resources rather than remote assets, preserving local-only and offline guarantees.
+        Keep the class in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup
+        only at the view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling
+        Android POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A
+        careless implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder
+        is enough.
+      touches:
+      - src/Forge.Core/Engagement/NotificationContentFactory.cs
+      - src/Forge.App/Features/Engagement/Notifications/NotificationPreviewPopup.xaml
+      - src/Forge.App/Resources/Images/notification_*.svg
+      devexpress:
+      - dx:DXPopup
+      apis:
+      - Plugin.LocalNotification 14.1.1
+    testing:
+    - Unit tests for sensitive placeholder rejection.
+    - Snapshot tests for normal and discreet notification content by category.
 
-      - key: S19.05.03
-        title: Surface missed reminders from Today without increasing notification volume
-        wave: 3
-        size: s
-        platforms: [android, ios]
-        persona: returner
-        userStory:
-          asA: Sam, opening Forge after work
-          iWant: missed reminders summarized inside Today
-          soThat: I can catch up without receiving extra notifications
-        requirements:
-          - Today shows a notification-centre entry point only when at least one missed or actionable reminder exists.
-          - The entry point summarizes at most three categories and the total missed count.
-          - Tapping the entry point opens the notification centre filtered to actionable items.
-          - The entry point never schedules a follow-up notification by itself.
-        acceptanceCriteria:
-          - id: AC1
-            given: two missed hydration reminders and one missed workout reminder exist
-            when: Today opens
-            then: the entry point shows three missed reminders across Hydration and Training
-          - id: AC2
-            given: no missed or actionable reminders exist
-            when: Today opens
-            then: no notification-centre entry point is shown
-          - id: AC3
-            given: the Today entry point is displayed
-            when: reminder schedules are inspected
-            then: no additional notification is scheduled by that entry point
-        implementation:
-          notes: >-
-            Add a small ReminderSummaryCard ViewModel to Today that queries ReminderTimelineQuery
-            for actionable items and navigates to the notification centre. Render the summary with
-            dx:DXCollectionView only if Today already uses a collection-backed feed, otherwise keep
-            the card simple and ensure navigation still lands on the centre's actionable filter.
-          touches:
-            - src/Forge.App/Features/Today/ReminderSummaryCardViewModel.cs
-            - src/Forge.App/Features/Engagement/Notifications/NotificationCentreViewModel.cs
-            - src/Forge.Application/Engagement/ReminderTimelineQuery.cs
-          devexpress:
-            - dx:DXCollectionView
-          apis:
-            - Microsoft.EntityFrameworkCore
-        testing:
-          - Unit tests for summary counts and hidden empty state.
-          - UI test that tapping the card opens the actionable filter.
+    grounding:
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+  - key: S19.04.03
+    title: Coordinate foreground notifications with in-app prompts
+    wave: 3
+    size: s
+    platforms: [android, ios]
+    persona: newcomer
+    userStory:
+      asA: Maya, actively using Forge
+      iWant: reminders to appear in app instead of duplicating system banners
+      soThat: I am not interrupted twice for the same habit
+    requirements:
+    - When Forge is foregrounded, eligible reminders are shown as in-app prompts rather than duplicate system banners
+      where the platform allows control.
+    - Foreground prompts include the same primary action as the corresponding notification.
+    - If a prompt is dismissed, the related notification history row records Dismissed in app.
+    - Foreground prompt rendering completes within 300 ms after the reminder event is received.
+    acceptanceCriteria:
+    - id: AC1
+      given: Forge is foregrounded on the Today tab
+      when: a hydration reminder becomes due
+      then: an in-app prompt appears and no duplicate Forge banner is shown by the app
+    - id: AC2
+      given: a foreground prompt is dismissed
+      when: the notification centre is opened
+      then: the reminder appears with state Dismissed in app
+    - id: AC3
+      given: a reminder event is received while the app is active
+      when: prompt timing is measured
+      then: the prompt is visible within 300 ms
+    - id: AC4
+      given: the app is foregrounded and a notification action is tapped from the system shade
+      when: the action is handled
+      then: the in-app prompt is dismissed and no duplicate action is recorded
+    implementation:
+      notes: >-
+        Add ForegroundReminderPresenter in Forge.App and route due-reminder events through the same action model as notification
+        callbacks. Use dx:DXPopup for the prompt so the UI is consistent with permission and rich-content previews. The application
+        layer should not know whether the reminder was surfaced by the operating system or by an in-app popup. Keep the class
+        in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup only at the
+        view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling Android
+        POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A careless
+        implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder is
+        enough.
+      touches:
+      - src/Forge.App/Features/Engagement/Notifications/ForegroundReminderPresenter.cs
+      - src/Forge.App/Features/Engagement/Notifications/ForegroundReminderPopup.xaml
+      - src/Forge.Core/Engagement/ReminderEvent.cs
+      devexpress:
+      - dx:DXPopup
+      apis:
+      - Plugin.LocalNotification 14.1.1
+    testing:
+    - UI test for foreground hydration reminder prompt.
+    - Unit test recording Dismissed in app history state.
+
+    grounding:
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+- key: F19.05
+  title: Provide an in-app notification centre
+  wave: 3
+  summary: >-
+    Keep a local, privacy-safe history of reminders and suppression decisions so users can catch
+    up, tune categories and understand why Forge did or did not notify them.
+  outcome: >-
+    Users can review recent notifications, act on missed items, and reduce notification volume
+    from a single engagement surface.
+  stories:
+  - key: S19.05.01
+    title: Show recent and upcoming reminders in a notification centre
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: returner
+    userStory:
+      asA: Sam, returning after a busy day
+      iWant: a notification centre inside Forge
+      soThat: I can see what I missed without relying on the operating system shade
+    requirements:
+    - The centre lists delivered, missed, suppressed and upcoming reminders for the last 14 days and next 7 days.
+    - The list is grouped by Today, Earlier and Upcoming.
+    - Reminder rows include category, local time, state and primary action.
+    - Empty state explains that reminders appear after the user enables at least one category.
+    - Scrolling 300 reminder rows sustains 60 fps with no frame exceeding 16.6 ms on a Pixel 6a class device.
+    acceptanceCriteria:
+    - id: AC1
+      given: no reminders have ever been configured
+      when: the notification centre opens
+      then: an empty state explains how to enable reminders and no error is shown
+    - id: AC2
+      given: delivered, suppressed and upcoming reminders exist
+      when: the centre opens
+      then: all three states are visible with distinct labels
+    - id: AC3
+      given: 300 reminder history rows exist
+      when: the user scrolls from top to bottom
+      then: frame timing shows no frame above 16.6 ms attributable to row rendering
+    - id: AC4
+      given: notification history contains more than 90 days of rows
+      when: retention cleanup runs
+      then: rows older than 90 days are removed while future reminders remain visible
+    implementation:
+      notes: >-
+        Build NotificationCentrePage with dx:DXCollectionView using incremental loading from a lightweight ReminderTimeline
+        query in Forge.Core. Store notification history in SQLite with a 30-day retention cleanup, but display only
+        the required 14-day delivered window to keep the screen focused. Primary actions should reuse notification handlers.
+        Keep the class in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup
+        only at the view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling
+        Android POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A
+        careless implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder
+        is enough.
+      touches:
+      - src/Forge.App/Features/Engagement/Notifications/NotificationCentrePage.xaml
+      - src/Forge.App/Features/Engagement/Notifications/NotificationCentreViewModel.cs
+      - src/Forge.Core/Engagement/ReminderTimelineQuery.cs
+      - src/Forge.Infrastructure/Persistence/ReminderHistoryEntity.cs
+      devexpress:
+      - dx:DXCollectionView
+      - dx:TabView
+      apis:
+      - Microsoft.EntityFrameworkCore
+    testing:
+    - Unit tests for timeline grouping and retention cutoff.
+    - Performance scroll test with 300 synthetic rows.
+
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Grounds virtualized lists used for notification history, trophies, challenges and shop status rows.
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+  - key: S19.05.02
+    title: Add reduce-frequency controls from reminder history
+    wave: 3
+    size: s
+    platforms: [android, ios]
+    persona: newcomer
+    userStory:
+      asA: Maya, receiving too many prompts
+      iWant: an easy way to reduce reminders
+      soThat: I do not have to disable everything when one category is noisy
+    requirements:
+    - Every delivered reminder row offers Reduce this category when that category is enabled.
+    - Reduce this category lowers cadence by at least 50% or disables optional nudges if no lower cadence exists.
+    - The confirmation explains the exact change before applying it.
+    - Undo remains available for 10 seconds after the change.
+    acceptanceCriteria:
+    - id: AC1
+      given: hydration reminders run six times per day
+      when: the user chooses Reduce this category and confirms
+      then: hydration reminders are reduced to no more than three times per day
+    - id: AC2
+      given: a category has only optional streak nudges enabled
+      when: the user chooses Reduce this category
+      then: optional streak nudges are disabled and core workout reminders remain unchanged
+    - id: AC3
+      given: the user applies a reduction
+      when: Undo is tapped within 10 seconds
+      then: the previous category preference is restored
+    - id: AC4
+      given: a user reduces frequency for two categories
+      when: the notification centre reopens
+      then: both reduced categories show the new daily maximum within 1 second
+    implementation:
+      notes: >-
+        Present reductions through dx:BottomSheet from the notification centre rather than a destructive toggle. The ViewModel
+        should calculate a before and after preference diff and persist it transactionally, with a short-lived undo command
+        backed by the previous serialized preference snapshot. This makes reducing noise easier than muting Forge. Keep the
+        class in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup only
+        at the view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling
+        Android POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A
+        careless implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder
+        is enough.
+      touches:
+      - src/Forge.App/Features/Engagement/Notifications/ReduceFrequencyBottomSheet.xaml
+      - src/Forge.Core/Engagement/NotificationPreferenceReducer.cs
+      devexpress:
+      - dx:BottomSheet
+      apis:
+      - Microsoft.EntityFrameworkCore
+    testing:
+    - Unit tests for cadence reduction decisions.
+    - UI test for apply and undo flow.
+
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Grounds virtualized lists used for notification history, trophies, challenges and shop status rows.
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.
+  - key: S19.05.03
+    title: Surface missed reminders from Today without increasing notification volume
+    wave: 3
+    size: s
+    platforms: [android, ios]
+    persona: returner
+    userStory:
+      asA: Sam, opening Forge after work
+      iWant: missed reminders summarized inside Today
+      soThat: I can catch up without receiving extra notifications
+    requirements:
+    - Today shows a notification-centre entry point only when at least one missed or actionable reminder exists.
+    - The entry point summarizes at most three categories and the total missed count.
+    - Tapping the entry point opens the notification centre filtered to actionable items.
+    - The entry point never schedules a follow-up notification by itself.
+    acceptanceCriteria:
+    - id: AC1
+      given: two missed hydration reminders and one missed workout reminder exist
+      when: Today opens
+      then: the entry point shows three missed reminders across Hydration and Training
+    - id: AC2
+      given: no missed or actionable reminders exist
+      when: Today opens
+      then: no notification-centre entry point is shown
+    - id: AC3
+      given: the Today entry point is displayed
+      when: reminder schedules are inspected
+      then: no additional notification is scheduled by that entry point
+    - id: AC4
+      given: missed reminders are summarized on Today
+      when: the user dismisses the summary
+      then: no push notification is scheduled as a replacement and the summary stays hidden for 24 hours
+    implementation:
+      notes: >-
+        Add a small ReminderSummaryCard ViewModel to Today that queries ReminderTimelineQuery for actionable items and navigates
+        to the notification centre. Render the summary with dx:DXCollectionView only if Today already uses a collection-backed
+        feed, otherwise keep the card simple and ensure navigation still lands on the centre's actionable filter. Keep the
+        class in src/Forge.App/Features/Notifications with a plain ViewModel, DevExpress DXCollectionView or DXPopup only
+        at the view edge, and Plugin.LocalNotification behind an INotificationScheduler adapter. The tricky part is reconciling
+        Android POST_NOTIFICATIONS, iOS authorization, quiet hours and local caps without leaking platform types inward. A
+        careless implementation would prompt on launch, create duplicate schedules or use exact alarms where an inexact reminder
+        is enough.
+      touches:
+      - src/Forge.App/Features/Today/ReminderSummaryCardViewModel.cs
+      - src/Forge.App/Features/Engagement/Notifications/NotificationCentreViewModel.cs
+      - src/Forge.Core/Engagement/ReminderTimelineQuery.cs
+      devexpress:
+      - dx:DXCollectionView
+      apis:
+      - Microsoft.EntityFrameworkCore
+    testing:
+    - Unit tests for summary counts and hidden empty state.
+    - UI test that tapping the card opens the actionable filter.
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Grounds virtualized lists used for notification history, trophies, challenges and shop status rows.
+    - title: Apple User Notifications framework
+      url: https://developer.apple.com/documentation/usernotifications
+      note: Defines local notification scheduling, authorization and notification response handling on iOS.

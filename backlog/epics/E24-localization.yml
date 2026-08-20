@@ -2,742 +2,938 @@ key: E24
 title: Localisation and Internationalisation
 domain: compliance
 wave: 4
-summary: >-
-  Forge needs an internationalisation foundation before launch copy, units, store listings and
-  food content harden. This epic makes strings, formatting, units, right-to-left layouts and
-  translator workflow deliberate rather than retrofitted after English screens are complete.
-problem: >-
-  A fitness app can be technically translated and still feel unusable if weights, heights,
-  hydration, dates, food catalogues, plural forms and store screenshots remain US-centric. Hard-coded
-  strings and fixed English layouts would make localisation slow, expensive and error-prone.
-outcome: >-
-  All user-facing text flows through resource infrastructure, measurements and dates respect
-  locale and user preference, right-to-left layouts can be tested, and the launch language plan is
-  ready for translators and store submission.
+summary: Forge needs an internationalisation foundation before launch copy, units, store listings and food content harden.
+  This epic makes strings, formatting, units, right-to-left layouts and translator workflow deliberate rather than retrofitted
+  after English screens are complete.
+problem: A fitness app can be technically translated and still feel unusable if weights, heights, hydration, dates, food catalogues,
+  plural forms and store screenshots remain US-centric. Hard-coded strings and fixed English layouts would make localisation
+  slow, expensive and error-prone.
+outcome: All user-facing text flows through resource infrastructure, measurements and dates respect locale and user preference,
+  right-to-left layouts can be tested, and the launch language plan is ready for translators and store submission.
 successMetrics:
-  - Zero launch-critical user-facing strings are hard-coded outside approved resource files.
-  - Unit formatting supports kg, lb, cm, ft-in, ml, fl-oz, kcal and kJ with round-trip-safe storage in canonical units.
-  - Pseudo-localisation and right-to-left smoke tests run in CI and fail on clipped primary actions.
+- Zero launch-critical user-facing strings are hard-coded outside approved resource files.
+- Unit formatting supports kg, lb, cm, ft-in, ml, fl-oz, kcal and kJ with round-trip-safe storage in canonical units.
+- Pseudo-localisation and right-to-left smoke tests run in CI and fail on clipped primary actions.
 nonGoals:
-  - No machine-translated production copy without human review.
-  - No desktop localisation work in v1.
-  - No region-specific backend catalogue service, because Forge has no backend in v1.
+- No machine-translated production copy without human review.
+- No desktop localisation work in v1.
+- No region-specific backend catalogue service, because Forge has no backend in v1.
 risks:
-  - risk: Unit conversion is treated as translation and corrupts stored training or nutrition data.
-    mitigation: Store canonical metric values in domain models and localise only formatting and input adapters.
-    severity: critical
-  - risk: DevExpress localisation resources are enabled late and increase cold-start time unexpectedly.
-    mitigation: Measure startup with UseDevExpress(useLocalization:true) before enabling it in release builds.
-    severity: medium
-  - risk: Food database content remains US-centric and reduces nutrition usefulness in Europe or Asia.
-    mitigation: Select regional data packs and expose source coverage limitations before launch.
-    severity: high
+- risk: Unit conversion is treated as translation and corrupts stored training or nutrition data.
+  mitigation: Store canonical metric values in domain models and localise only formatting and input adapters.
+  severity: critical
+- risk: DevExpress localisation resources are enabled late and increase cold-start time unexpectedly.
+  mitigation: Measure startup with UseDevExpress(useLocalization:true) before enabling it in release builds.
+  severity: medium
+- risk: Food database content remains US-centric and reduces nutrition usefulness in Europe or Asia.
+  mitigation: Select regional data packs and expose source coverage limitations before launch.
+  severity: high
 grounding:
-  - title: .NET MAUI localization
-    url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
-    note: Official MAUI guidance for localised strings, images and app names.
-  - title: ASP.NET Core localization and IStringLocalizer
-    url: https://learn.microsoft.com/aspnet/core/fundamentals/localization
-    note: Documents IStringLocalizer and resource-based string lookup used across .NET projects.
-  - title: .NET globalization and ICU
-    url: https://learn.microsoft.com/dotnet/core/extensions/globalization-icu
-    note: Grounds culture-aware formatting and ICU behaviour in .NET.
-  - title: Unicode CLDR plural rules
-    url: https://cldr.unicode.org/index/cldr-spec/plural-rules
-    note: Pluralisation differs by locale and cannot be implemented with English-only singular and plural logic.
-  - title: DevExpress localization for .NET MAUI controls
-    url: https://docs.devexpress.com/MAUI/404120/common-concepts/localization
-    note: DevExpress control resources and startup registration need explicit handling.
-
+- title: .NET MAUI localization
+  url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+  note: Official MAUI guidance for localised strings, images and app names.
+- title: ASP.NET Core localization and IStringLocalizer
+  url: https://learn.microsoft.com/aspnet/core/fundamentals/localization
+  note: Documents IStringLocalizer and resource-based string lookup used across .NET projects.
+- title: .NET globalization and ICU
+  url: https://learn.microsoft.com/dotnet/core/extensions/globalization-icu
+  note: Grounds culture-aware formatting and ICU behaviour in .NET.
+- title: Unicode CLDR plural rules
+  url: https://cldr.unicode.org/index/cldr-spec/plural-rules
+  note: Pluralisation differs by locale and cannot be implemented with English-only singular and plural logic.
+- title: DevExpress localization for .NET MAUI controls
+  url: https://docs.devexpress.com/MAUI/404120/common-concepts/localization
+  note: DevExpress control resources and startup registration need explicit handling.
 features:
-  - key: F24.01
-    title: Establish resource-backed string architecture
+- key: F24.01
+  title: Establish resource-backed string architecture
+  wave: 4
+  summary: Route every user-facing string through .NET RESX resources and IStringLocalizer so screens, validation messages
+    and legal copy can be translated consistently.
+  outcome: Developers cannot add hard-coded user-facing text to launch-critical UI without a failing check, and translators
+    receive stable resource keys.
+  concerns:
+  - i18n
+  stories:
+  - key: S24.01.01
+    title: Configure RESX resources and IStringLocalizer
     wave: 4
-    summary: >-
-      Route every user-facing string through .NET RESX resources and IStringLocalizer so screens,
-      validation messages and legal copy can be translated consistently.
-    outcome: >-
-      Developers cannot add hard-coded user-facing text to launch-critical UI without a failing
-      check, and translators receive stable resource keys.
-    concerns: [i18n]
-    stories:
-      - key: S24.01.01
-        title: Configure RESX resources and IStringLocalizer
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [i18n]
-        userStory:
-          asA: developer adding Forge copy
-          iWant: one localisation service for views and ViewModels
-          soThat: strings can be translated without rewriting feature code
-        requirements:
-          - Shared resource files live under src/Forge.App/Resources/Strings with neutral English and locale-specific RESX files.
-          - ViewModels receive an abstraction over IStringLocalizer rather than referencing MAUI controls.
-          - Validation messages in Forge.Application use resource keys passed to the app layer for display.
-        acceptanceCriteria:
-          - id: AC1
-            given: the app is launched in the default culture
-            when: Today, Workout, Nutrition and Settings render
-            then: their visible labels come from resource keys rather than string literals in XAML or C# files
-          - id: AC2
-            given: a test culture with translated resource values is selected
-            when: a validation error is displayed
-            then: the translated resource value appears without changing domain or application code
-        implementation:
-          notes: >-
-            Add a ForgeStringLocalizer wrapper in Forge.App that adapts IStringLocalizer for
-            ViewModels while keeping Forge.Domain and Forge.Application free of MAUI and
-            DevExpress types. Use stable semantic keys such as Workout.RestTimer.Extend rather
-            than English text as keys. Keep legal long-form documents as markdown resources with
-            locale-specific variants where needed.
-          touches:
-            - src/Forge.App/Resources/Strings/AppResources.resx
-            - src/Forge.App/Localization/ForgeStringLocalizer.cs
-            - src/Forge.Application/Validation
-          apis:
-            - Microsoft.Extensions.Localization.IStringLocalizer
-        testing:
-          - Unit test verifies a sample ViewModel reads translated strings through the localisation abstraction.
-          - Static check fails hard-coded strings in launch-critical XAML text properties.
-        grounding:
-          - title: .NET MAUI localization
-            url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
-            note: Official MAUI resource localisation guidance.
-
-      - key: S24.01.02
-        title: Block hard-coded user-facing strings in CI
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [i18n]
-        userStory:
-          asA: localisation reviewer
-          iWant: automated checks for hard-coded copy
-          soThat: English-only strings do not leak into release screens
-        requirements:
-          - CI scans XAML and C# in Forge.App for user-facing string literals outside approved resource, test and diagnostic folders.
-          - Each suppression requires a reason and expires before release candidate.
-          - The check reports file path, line and suggested resource key.
-        acceptanceCriteria:
-          - id: AC1
-            given: a Label Text value is added as a literal in a launch-critical XAML file
-            when: the localisation check runs
-            then: CI fails and reports the XAML path and literal value
-          - id: AC2
-            given: a suppression has an expiry date before the current date
-            when: CI runs
-            then: the suppression is treated as invalid and the check fails
-        implementation:
-          notes: >-
-            Build a small Roslyn and XAML scanner under tools/localization. Start with known
-            user-facing properties such as Text, Title, Placeholder, Hint and ErrorText, and allow
-            literals only in resource files, tests and diagnostics where they are not product
-            copy. Suggestions can be generated from control name plus property.
-          touches:
-            - tools/localization/HardCodedStringCheck.cs
-            - .github/workflows
-            - src/Forge.App
-        testing:
-          - Scanner fixtures cover XAML literals, C# literals, resource references and approved suppressions.
-
-      - key: S24.01.03
-        title: Localise legal, safety and notification copy consistently
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [i18n, store-blocker]
-        dependsOn: [E25]
-        userStory:
-          asA: user reading important safety and privacy copy
-          iWant: legal and warning text in my selected language where Forge supports it
-          soThat: I understand consent, disclaimers and reminders before acting
-        requirements:
-          - Privacy, terms, medical disclaimer, age gate and accessibility statement have locale-specific source files for every launch language.
-          - Local notification text uses resource keys and formats dynamic values with the target culture.
-          - Missing legal translations block enabling that locale for store release.
-        acceptanceCriteria:
-          - id: AC1
-            given: German is enabled as a launch locale
-            when: the medical disclaimer is opened
-            then: the German approved text is shown and the English fallback is not used
-          - id: AC2
-            given: a locale lacks translated privacy policy content
-            when: release validation runs
-            then: that locale is blocked from store submission until the document is translated or the locale is disabled
-        implementation:
-          notes: >-
-            Treat E25 legal content as translation-controlled source, not as ad hoc XAML strings.
-            Store long-form markdown per locale and share the same resource keys for summaries,
-            buttons and notification text. The release validator should know which locales are
-            enabled and require translated legal assets for each one.
-          touches:
-            - docs/legal
-            - src/Forge.App/Resources/Strings
-            - src/Forge.Infrastructure/Notifications
-          apis:
-            - Plugin.LocalNotification
-        testing:
-          - Release validation fixture fails when an enabled locale lacks privacy or disclaimer text.
-        grounding:
-          - title: Google Play Store Listing translations
-            url: https://support.google.com/googleplay/android-developer/answer/9844778
-            note: Store content and in-app language availability should be aligned.
-
-  - key: F24.02
-    title: Format dates, numbers and fitness units by locale and preference
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - i18n
+    userStory:
+      asA: developer adding Forge copy
+      iWant: one localisation service for views and ViewModels
+      soThat: strings can be translated without rewriting feature code
+    requirements:
+    - Shared resource files live under src/Forge.App/Resources/Strings with neutral English and locale-specific RESX files.
+    - ViewModels receive an abstraction over IStringLocalizer rather than referencing MAUI controls.
+    - Validation messages in Forge.Core use resource keys passed to the app layer for display.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: the app is launched in the default culture
+      when: Today, Workout, Nutrition and Settings render
+      then: their visible labels come from resource keys rather than string literals in XAML or C# files
+    - id: AC2
+      given: a test culture with translated resource values is selected
+      when: a validation error is displayed
+      then: the translated resource value appears without changing domain or application code
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.01.01 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Add a ForgeStringLocalizer wrapper in Forge.App that adapts IStringLocalizer for ViewModels while keeping Forge.Domain
+        and Forge.Core free of MAUI and DevExpress types. Use stable semantic keys such as Workout.RestTimer.Extend
+        rather than English text as keys. Keep legal long-form documents as markdown resources with locale-specific variants
+        where needed. Implementation should keep the primary code in src/Forge.App/Resources/Strings/AppResources.resx, src/Forge.App/Localization/ForgeStringLocalizer.cs,
+        src/Forge.Core/Validation and use Microsoft.Extensions.Localization.IStringLocalizer. The tricky part is keeping
+        storage canonical while formatting, parsing, plurals and flow direction adapt at the edge. A careless implementation
+        would store localized strings, concatenate English fragments, forget mirrored icons or let unit conversions drift.
+      touches:
+      - src/Forge.App/Resources/Strings/AppResources.resx
+      - src/Forge.App/Localization/ForgeStringLocalizer.cs
+      - src/Forge.Core/Validation
+      apis:
+      - Microsoft.Extensions.Localization.IStringLocalizer
+    testing:
+    - Unit test verifies a sample ViewModel reads translated strings through the localisation abstraction.
+    - Static check fails hard-coded strings in launch-critical XAML text properties.
+    grounding:
+    - title: .NET MAUI localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+      note: Official MAUI resource localisation guidance.
+  - key: S24.01.02
+    title: Block hard-coded user-facing strings in CI
     wave: 4
-    summary: >-
-      Separate canonical stored values from localised display so Forge can handle metric and
-      imperial users without corrupting training, body metrics or nutrition records.
-    outcome: >-
-      Users see dates, numbers and units in familiar formats while SQLite stores consistent
-      canonical values for calculation and export.
-    concerns: [i18n]
-    stories:
-      - key: S24.02.01
-        title: Store canonical values and display preferred units
-        wave: 4
-        size: l
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [i18n]
-        userStory:
-          asA: lifter who switches between kg and lb
-          iWant: display units to change without changing my underlying records
-          soThat: my history, charts and exports stay accurate
-        requirements:
-          - Domain models store canonical metric values for mass, length, volume and energy.
-          - Display supports kg, lb, cm, ft-in, ml, fl-oz, kcal and kJ.
-          - Unit preference can be automatic by region or manually overridden per category.
-          - Conversions round display values predictably without accumulating error in stored values.
-        acceptanceCriteria:
-          - id: AC1
-            given: a workout set is stored as 100 kg
-            when: the user switches display preference to lb
-            then: the displayed value is 220.5 lb and the stored canonical value remains 100 kg
-          - id: AC2
-            given: a user enters height as 5 ft 11 in
-            when: the profile is saved
-            then: the canonical stored value is 180.34 cm within 0.01 cm tolerance
-          - id: AC3
-            given: the user toggles kcal to kJ
-            when: nutrition targets are displayed
-            then: energy values convert using 1 kcal equals 4.184 kJ and do not change stored targets
-        implementation:
-          notes: >-
-            Add value objects or converters in Forge.Domain for canonical units and keep all
-            persistence in canonical metric values. Formatting belongs in Forge.App via an
-            IMeasurementFormatter that takes culture and user preference. Never store the
-            formatted string in SQLite, because that makes export, comparison and charting
-            locale-dependent.
-          touches:
-            - src/Forge.Domain/Measurements
-            - src/Forge.App/Localization/MeasurementFormatter.cs
-            - tests/Forge.Domain.Tests/Measurements
-        testing:
-          - Unit tests cover kg/lb, cm/ft-in, ml/fl-oz and kcal/kJ conversions with round-trip tolerances.
-
-      - key: S24.02.02
-        title: Format dates, times and numbers with culture-aware services
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        concerns: [i18n]
-        userStory:
-          asA: user outside the United States
-          iWant: dates, times and numbers to look familiar
-          soThat: I do not misread workout history or nutrition entries
-        requirements:
-          - Dates and times use CultureInfo and platform locale unless the user chooses an override.
-          - Decimal and thousands separators follow the active culture in display and input parsing.
-          - Week start day follows locale for calendars unless overridden by the user.
-        acceptanceCriteria:
-          - id: AC1
-            given: the active culture is de-DE
-            when: a bodyweight of 82.5 kg is displayed
-            then: Forge shows 82,5 kg and parses 82,5 as eighty-two and a half kilograms
-          - id: AC2
-            given: the active culture starts weeks on Monday
-            when: the training calendar opens
-            then: the week row starts on Monday unless the user has set a manual override
-        implementation:
-          notes: >-
-            Centralise culture selection in a LocalePreferences service and expose formatting
-            helpers for dates, numbers and week metadata. DevExpress SchedulerView and DateEdit
-            should receive culture-aware values through bindings rather than page-level string
-            formatting. Keep parsing strict enough to reject ambiguous entries with a clear error.
-          touches:
-            - src/Forge.App/Localization/LocalePreferences.cs
-            - src/Forge.App/Features/TrainingCalendar
-            - src/Forge.App/Features/Profile
-          devexpress:
-            - SchedulerView
-            - DateEdit
-            - NumericEdit
-          apis:
-            - System.Globalization.CultureInfo
-        testing:
-          - Unit tests parse and format representative values in en-US, en-GB, de-DE and ar-SA cultures.
-        grounding:
-          - title: .NET standard date and time format strings
-            url: https://learn.microsoft.com/dotnet/standard/base-types/standard-date-and-time-format-strings
-            note: Date formatting must use culture-aware .NET APIs rather than literals.
-
-      - key: S24.02.03
-        title: Add unit and locale preferences to settings and onboarding
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [i18n]
-        userStory:
-          asA: new user
-          iWant: Forge to choose sensible units and let me change them
-          soThat: I do not start with unfamiliar measurements
-        requirements:
-          - Onboarding suggests unit defaults from region but makes the choice visible before first body metric or workout entry.
-          - Settings exposes independent preferences for weight, height, volume and energy.
-          - Changing a unit preference updates visible screens immediately without rewriting existing records.
-        acceptanceCriteria:
-          - id: AC1
-            given: a device region commonly using imperial body measurements
-            when: onboarding reaches unit setup
-            then: lb and ft-in are suggested but the user can switch to metric before saving any profile value
-          - id: AC2
-            given: workout history is visible in kg
-            when: the user changes weight preference to lb
-            then: visible history updates to lb within one second and stored records remain unchanged
-        implementation:
-          notes: >-
-            Add a Units step to onboarding and mirror it in Settings. Preferences should live in a
-            small application service backed by local storage, with change notifications consumed
-            by ViewModels. Avoid region stereotypes by suggesting defaults while always allowing
-            explicit override before first data entry.
-          touches:
-            - src/Forge.App/Features/Onboarding/UnitsPage.xaml
-            - src/Forge.App/Features/Settings/UnitsSettingsPage.xaml
-            - src/Forge.App/Localization/UnitPreferences.cs
-          devexpress:
-            - ComboBoxEdit
-            - DXCollectionView
-        testing:
-          - UI test verifies unit preference changes update workout history without process restart.
-
-  - key: F24.03
-    title: Support right-to-left layout and real plural rules
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - i18n
+    userStory:
+      asA: localisation reviewer
+      iWant: automated checks for hard-coded copy
+      soThat: English-only strings do not leak into release screens
+    requirements:
+    - CI scans XAML and C# in Forge.App for user-facing string literals outside approved resource, test and diagnostic folders.
+    - Each suppression requires a reason and expires before release candidate.
+    - The check reports file path, line and suggested resource key.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: a Label Text value is added as a literal in a launch-critical XAML file
+      when: the localisation check runs
+      then: CI fails and reports the XAML path and literal value
+    - id: AC2
+      given: a suppression has an expiry date before the current date
+      when: CI runs
+      then: the suppression is treated as invalid and the check fails
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.01.02 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Build a small Roslyn and XAML scanner under tools/localization. Start with known user-facing properties such
+        as Text, Title, Placeholder, Hint and ErrorText, and allow literals only in resource files, tests and diagnostics
+        where they are not product copy. Suggestions can be generated from control name plus property. Implementation should
+        keep the primary code in tools/localization/HardCodedStringCheck.cs, .github/workflows, src/Forge.App and use IStringLocalizer,
+        System.Globalization.CultureInfo. The tricky part is keeping storage canonical while formatting, parsing, plurals
+        and flow direction adapt at the edge. A careless implementation would store localized strings, concatenate English
+        fragments, forget mirrored icons or let unit conversions drift.
+      touches:
+      - tools/localization/HardCodedStringCheck.cs
+      - .github/workflows
+      - src/Forge.App
+      apis:
+      - IStringLocalizer
+      - System.Globalization.CultureInfo
+    testing:
+    - Scanner fixtures cover XAML literals, C# literals, resource references and approved suppressions.
+    grounding:
+    - title: .NET MAUI localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+      note: Official MAUI guidance for resources, culture selection and right-to-left localization.
+  - key: S24.01.03
+    title: Localise legal, safety and notification copy consistently
     wave: 4
-    summary: >-
-      Prepare Forge for languages whose layout direction and grammar differ from English, so
-      Arabic, Hebrew and other future locales are not blocked by assumptions baked into the UI.
-    outcome: >-
-      Right-to-left smoke tests and CLDR plural rules work before production translation begins.
-    concerns: [i18n]
-    stories:
-      - key: S24.03.01
-        title: Mirror layouts, icons and gestures for RTL cultures
-        wave: 4
-        size: l
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [i18n, a11y]
-        userStory:
-          asA: Arabic or Hebrew user
-          iWant: Forge layout and navigation direction to match my language
-          soThat: the app feels native rather than reversed English
-        requirements:
-          - App root FlowDirection follows the active culture unless explicitly overridden for testing.
-          - Directional icons such as back, next, trends and swipe hints are mirrored or replaced in RTL.
-          - Gesture instructions describe the correct physical direction for the active layout.
-        acceptanceCriteria:
-          - id: AC1
-            given: the active culture is ar
-            when: the app launches
-            then: primary layout flows right to left and the tab order starts from the right edge
-          - id: AC2
-            given: an RTL culture is active
-            when: a back icon and a next icon are displayed
-            then: both icons point in the culturally correct direction and their accessible labels remain correct
-        implementation:
-          notes: >-
-            Set FlowDirection at the application root from LocalePreferences and audit custom
-            controls for hard-coded left and right margins. Directional icon resources should have
-            logical names such as NavigateBack rather than ArrowLeft, allowing the resource layer
-            to select mirrored assets. Gesture copy must use resource strings so E24 can localise
-            it per direction.
-          touches:
-            - src/Forge.App/App.xaml
-            - src/Forge.App/Resources/Images
-            - src/Forge.App/Controls
-          apis:
-            - Microsoft.Maui.FlowDirection
-        testing:
-          - RTL screenshot smoke test covers shell, workout, nutrition and settings screens.
-          - Unit test verifies directional icon resolver returns mirrored assets for ar and he cultures.
-        grounding:
-          - title: .NET MAUI right-to-left localization
-            url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization#right-to-left-localization
-            note: MAUI supports right-to-left layout through FlowDirection.
-
-      - key: S24.03.02
-        title: Implement CLDR-based pluralisation for counts and durations
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [i18n]
-        userStory:
-          asA: user in a language with more than two plural forms
-          iWant: set counts, meals and durations to read grammatically
-          soThat: Forge does not sound broken outside English
-        requirements:
-          - Plural messages support zero, one, two, few, many and other categories where the locale uses them.
-          - English two-form helpers are not used for production user-facing count messages.
-          - Automated tests cover English, Polish and Arabic plural categories.
-        acceptanceCriteria:
-          - id: AC1
-            given: the active culture is ar
-            when: the app formats 0, 1, 2, 3 and 11 workouts
-            then: each value selects the CLDR plural category expected for Arabic
-          - id: AC2
-            given: a developer tries to call an English-only plural helper from Forge.App
-            when: the localisation check runs
-            then: CI fails and points to the plural message formatter
-        implementation:
-          notes: >-
-            Add a PluralMessageFormatter that uses CLDR category rules from a small embedded data
-            table or a vetted library. Keep message templates in resources with all required
-            categories for enabled locales. Avoid concatenating numbers and nouns in ViewModels
-            because that cannot handle Slavic or Arabic plural forms.
-          touches:
-            - src/Forge.App/Localization/PluralMessageFormatter.cs
-            - src/Forge.App/Resources/Strings/AppResources.resx
-            - tests/Forge.App.Tests/Localization/PluralMessageFormatterTests.cs
-        testing:
-          - Unit tests verify plural category selection for en, pl and ar sample values.
-        grounding:
-          - title: Unicode CLDR plural rules
-            url: https://cldr.unicode.org/index/cldr-spec/plural-rules
-            note: Defines locale plural categories beyond English singular and plural.
-
-      - key: S24.03.03
-        title: Validate bidirectional text in user content and catalogues
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: cutter
-        concerns: [i18n]
-        userStory:
-          asA: multilingual user logging foods and notes
-          iWant: mixed-direction names and notes to display correctly
-          soThat: numbers, units and food names do not become confusing
-        requirements:
-          - Food names, exercise names and user notes support mixed left-to-right and right-to-left text.
-          - Numbers and units remain visually associated in RTL contexts.
-          - Search handles diacritics and locale-aware case folding for supported launch languages.
-        acceptanceCriteria:
-          - id: AC1
-            given: an Arabic food name containing Latin brand text and a numeric serving size
-            when: it is displayed in the food log
-            then: the brand, number and unit remain in the intended order and do not overlap
-          - id: AC2
-            given: a user searches with a case variant or diacritic variant in a supported language
-            when: catalogue search runs
-            then: matching foods or exercises are returned according to locale-aware comparison rules
-        implementation:
-          notes: >-
-            Use platform text rendering and Unicode-aware string comparison instead of manual
-            character reversal. For search, normalise terms through CultureInfo-aware comparison
-            and diacritic handling in Forge.Infrastructure content indexes. Add bidi examples to
-            seed-content tests so UI changes are exercised with realistic mixed strings.
-          touches:
-            - src/Forge.Infrastructure/Content/Search
-            - src/Forge.App/Features/Nutrition/FoodSearchPage.xaml
-            - tests/Forge.Infrastructure.Tests/Content
-          devexpress:
-            - DXCollectionView
-            - TextEdit
-          apis:
-            - System.Globalization.CompareInfo
-        testing:
-          - Unit tests cover mixed Arabic, Hebrew and Latin food names with numeric units.
-
-  - key: F24.04
-    title: Plan launch languages and translator workflow
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - i18n
+    - store-blocker
+    dependsOn:
+    - E25
+    userStory:
+      asA: user reading important safety and privacy copy
+      iWant: legal and warning text in my selected language where Forge supports it
+      soThat: I understand consent, disclaimers and reminders before acting
+    requirements:
+    - Privacy, terms, medical disclaimer, age gate and accessibility statement have locale-specific source files for every
+      launch language.
+    - Local notification text uses resource keys and formats dynamic values with the target culture.
+    - Missing legal translations block enabling that locale for store release.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: German is enabled as a launch locale
+      when: the medical disclaimer is opened
+      then: the German approved text is shown and the English fallback is not used
+    - id: AC2
+      given: a locale lacks translated privacy policy content
+      when: release validation runs
+      then: that locale is blocked from store submission until the document is translated or the locale is disabled
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.01.03 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: 'Treat E25 legal content as translation-controlled source, not as ad hoc XAML strings. Store long-form markdown
+        per locale and share the same resource keys for summaries, buttons and notification text. The release validator should
+        know which locales are enabled and require translated legal assets for each one. Implementation should keep the primary
+        code in docs/legal, src/Forge.App/Resources/Strings, src/Forge.Infrastructure/Notifications and use Plugin.LocalNotification.
+        The tricky part is separating translation from measurement correctness: stored values stay canonical while formatting,
+        parsing, plural rules and flow direction adapt at the edge. Validate pseudo-localized expansion and RTL before real
+        translation begins. A careless implementation would store localized strings, concatenate English fragments, forget
+        mirrored icons or let unit conversions drift over repeated edits.'
+      touches:
+      - docs/legal
+      - src/Forge.App/Resources/Strings
+      - src/Forge.Infrastructure/Notifications
+      apis:
+      - Plugin.LocalNotification
+    testing:
+    - Release validation fixture fails when an enabled locale lacks privacy or disclaimer text.
+    grounding:
+    - title: Google Play Store Listing translations
+      url: https://support.google.com/googleplay/android-developer/answer/9844778
+      note: Store content and in-app language availability should be aligned.
+- key: F24.02
+  title: Format dates, numbers and fitness units by locale and preference
+  wave: 4
+  summary: Separate canonical stored values from localised display so Forge can handle metric and imperial users without corrupting
+    training, body metrics or nutrition records.
+  outcome: Users see dates, numbers and units in familiar formats while SQLite stores consistent canonical values for calculation
+    and export.
+  concerns:
+  - i18n
+  stories:
+  - key: S24.02.01
+    title: Store canonical values and display preferred units
     wave: 4
-    summary: >-
-      Decide which languages Forge launches with, provide a repeatable translation workflow, and
-      use pseudo-localisation before translators spend time on final copy.
-    outcome: >-
-      Launch language scope is explicit, translators receive context-rich resources, and layout
-      breakage is caught early with pseudo-localised builds.
-    concerns: [i18n, long-lead]
-    stories:
-      - key: S24.04.01
-        title: Choose a realistic launch language set
-        wave: 4
-        size: s
-        platforms: [android, ios]
-        persona: team
-        concerns: [i18n, long-lead]
-        userStory:
-          asA: product owner
-          iWant: a documented launch language recommendation
-          soThat: translation scope matches quality, support and store-readiness capacity
-        requirements:
-          - Language recommendation includes English as source plus two to four additional launch candidates with rationale.
-          - Rationale considers fitness market, food database coverage, legal translation cost and support capacity.
-          - Languages not selected for v1 are documented as wave 6 candidates rather than silently ignored.
-        acceptanceCriteria:
-          - id: AC1
-            given: the language plan is reviewed
-            when: a language is listed for launch
-            then: it has rationale, food-data coverage note, legal-copy requirement and store-listing requirement
-          - id: AC2
-            given: a language lacks legal translation capacity
-            when: release validation runs
-            then: that language cannot be marked enabled for v1
-        implementation:
-          notes: >-
-            Create docs/localization/language-plan.md. A pragmatic recommendation is English
-            source plus German, Spanish and French for v1 if food coverage and legal review are
-            available, with Arabic reserved as a technical RTL test locale until full support is
-            funded. The final decision should be product-owned and evidence-based.
-          touches:
-            - docs/localization/language-plan.md
-            - docs/release/store-compliance.yml
-        testing:
-          - Release validation checks enabled locales are present in the language plan.
-
-      - key: S24.04.02
-        title: Provide translator handoff files with context
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [i18n, long-lead]
-        userStory:
-          asA: translator working on Forge
-          iWant: keys, source strings, screenshots and notes
-          soThat: I can translate fitness terms accurately and consistently
-        requirements:
-          - Export includes resource key, English source, developer note, character guidance and screenshot reference where available.
-          - Glossary covers training, nutrition, health-data consent and safety terminology.
-          - Import rejects missing required keys and preserves translator comments for review.
-        acceptanceCriteria:
-          - id: AC1
-            given: translation export runs for German
-            when: the handoff file is inspected
-            then: each required string has key, source, note and screenshot reference or an explicit no-screenshot reason
-          - id: AC2
-            given: an imported translation file omits a required key
-            when: the import validation runs
-            then: the import fails and names the missing key
-        implementation:
-          notes: >-
-            Build tooling under tools/localization to export RESX resources into a translator-friendly
-            interchange format such as XLIFF or CSV with context columns. Include screenshots from
-            pseudo-localised builds when available. Keep glossary terms versioned in the repository
-            so translators and reviewers use consistent exercise and nutrition language.
-          touches:
-            - tools/localization/TranslationExport.cs
-            - docs/localization/glossary.md
-            - src/Forge.App/Resources/Strings
-        testing:
-          - Tool tests cover export, missing-key import rejection and comment preservation.
-
-      - key: S24.04.03
-        title: Run pseudo-localisation and expansion tests
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [i18n]
-        userStory:
-          asA: designer reviewing layouts before translation
-          iWant: pseudo-localised builds with expanded text
-          soThat: clipping and hard-coded assumptions are found before real translators start
-        requirements:
-          - Pseudo-localisation expands text by at least 30 percent and wraps characters with visible markers.
-          - Pseudo locale can force right-to-left layout independently of production language support.
-          - CI captures screenshots for launch-critical screens in pseudo locale.
-        acceptanceCriteria:
-          - id: AC1
-            given: pseudo-localisation is enabled
-            when: the workout screen renders
-            then: visible strings show pseudo markers and at least 30 percent expansion where length permits
-          - id: AC2
-            given: pseudo RTL mode is enabled
-            when: the shell renders
-            then: layout flows right to left and no primary action is clipped in the captured screenshot
-        implementation:
-          notes: >-
-            Add a pseudo culture such as qps-ploc for expansion and qps-plocm for mirrored RTL.
-            Generate pseudo strings from neutral resources at build time or test time so developers
-            do not edit them manually. Pair this with screenshot tests from E23 large-text work to
-            catch compound layout failures.
-          touches:
-            - tools/localization/PseudoLocalization.cs
-            - tests/Forge.App.Tests/Localization/PseudoLocalizationTests.cs
-            - src/Forge.App/Resources/Strings
-        testing:
-          - CI screenshot smoke test runs representative pages in pseudo LTR and pseudo RTL.
-        grounding:
-          - title: W3C Internationalization Quick Tips
-            url: https://www.w3.org/International/quicktips/
-            note: Early internationalisation testing helps avoid hard-coded layout assumptions.
-
-  - key: F24.05
-    title: Localise store assets, food content and DevExpress resources
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - i18n
+    userStory:
+      asA: lifter who switches between kg and lb
+      iWant: display units to change without changing my underlying records
+      soThat: my history, charts and exports stay accurate
+    requirements:
+    - Domain models store canonical metric values for mass, length, volume and energy.
+    - Display supports kg, lb, cm, ft-in, ml, fl-oz, kcal and kJ.
+    - Unit preference can be automatic by region or manually overridden per category.
+    - Conversions round display values predictably without accumulating error in stored values.
+    acceptanceCriteria:
+    - id: AC1
+      given: a workout set is stored as 100 kg
+      when: the user switches display preference to lb
+      then: the displayed value is 220.5 lb and the stored canonical value remains 100 kg
+    - id: AC2
+      given: a user enters height as 5 ft 11 in
+      when: the profile is saved
+      then: the canonical stored value is 180.34 cm within 0.01 cm tolerance
+    - id: AC3
+      given: the user toggles kcal to kJ
+      when: nutrition targets are displayed
+      then: energy values convert using 1 kcal equals 4.184 kJ and do not change stored targets
+    implementation:
+      notes: Add value objects or converters in Forge.Domain for canonical units and keep all persistence in canonical metric
+        values. Formatting belongs in Forge.App via an IMeasurementFormatter that takes culture and user preference. Never
+        store the formatted string in SQLite, because that makes export, comparison and charting locale-dependent. Implementation
+        should keep the primary code in src/Forge.Domain/Measurements, src/Forge.App/Localization/MeasurementFormatter.cs,
+        tests/Forge.Domain.Tests/Measurements and use IStringLocalizer, System.Globalization.CultureInfo. The tricky part
+        is keeping storage canonical while formatting, parsing, plurals and flow direction adapt at the edge. A careless implementation
+        would store localized strings, concatenate English fragments, forget mirrored icons or let unit conversions drift.
+      touches:
+      - src/Forge.Domain/Measurements
+      - src/Forge.App/Localization/MeasurementFormatter.cs
+      - tests/Forge.Domain.Tests/Measurements
+      apis:
+      - IStringLocalizer
+      - System.Globalization.CultureInfo
+    testing:
+    - Unit tests cover kg/lb, cm/ft-in, ml/fl-oz and kcal/kJ conversions with round-trip tolerances.
+    grounding:
+    - title: .NET MAUI localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+      note: Official MAUI guidance for resources, culture selection and right-to-left localization.
+  - key: S24.02.02
+    title: Format dates, times and numbers with culture-aware services
     wave: 4
-    summary: >-
-      Finish the user-visible launch surface beyond app strings: store listings, screenshots,
-      regional food data and DevExpress control resources.
-    outcome: >-
-      Enabled locales have matching store assets, useful regional nutrition content and measured
-      DevExpress localisation startup cost.
-    concerns: [i18n, long-lead]
-    stories:
-      - key: S24.05.01
-        title: Prepare localised store listings and screenshots
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [i18n, store-blocker, long-lead]
-        userStory:
-          asA: release manager
-          iWant: store text and screenshots for each enabled locale
-          soThat: users do not land on an English-only listing for a translated app
-        requirements:
-          - Each enabled locale has app name, subtitle or short description, full description, keywords where applicable and screenshot captions.
-          - Screenshots are captured from the same locale and unit settings as the listing.
-          - Release validation blocks a locale when store assets are missing.
-        acceptanceCriteria:
-          - id: AC1
-            given: French is marked as enabled for release
-            when: store asset validation runs
-            then: French App Store and Google Play text plus screenshot captions are present
-          - id: AC2
-            given: a German screenshot uses lb while the German listing says kg
-            when: asset validation inspects screenshot metadata
-            then: the locale is flagged for review before submission
-        implementation:
-          notes: >-
-            Store listing source under docs/release/store-listings/<locale> and keep screenshot
-            metadata beside generated assets. The release tool should not upload to stores yet,
-            but it must prove that a human has the correct files. Capture screenshots through
-            deterministic app states using the selected locale and unit preferences.
-          touches:
-            - docs/release/store-listings
-            - docs/release/screenshots
-            - tools/release/StoreAssetCheck.cs
-        testing:
-          - Release validation fixture fails for an enabled locale with missing screenshot captions.
-        grounding:
-          - title: App Store Connect app information reference
-            url: https://developer.apple.com/help/app-store-connect/reference/app-information
-            note: App Store listing metadata must be provided for submitted locales.
-          - title: Google Play custom store listings
-            url: https://support.google.com/googleplay/android-developer/answer/9866151
-            note: Play supports locale-specific listing assets that need consistent preparation.
-
-      - key: S24.05.02
-        title: Select region-appropriate food database coverage
-        wave: 4
-        size: l
-        platforms: [android, ios]
-        persona: cutter
-        concerns: [i18n, long-lead, offline]
-        userStory:
-          asA: user outside the United States
-          iWant: foods, brands and serving units that match my region
-          soThat: nutrition logging is useful without constant manual custom entries
-        requirements:
-          - Food seed content records source, region coverage, licence and update date for each data pack.
-          - Launch language plan includes a food-coverage assessment before enabling that locale.
-          - Search prioritises region-appropriate foods while still allowing global results.
-          - Missing regional coverage is disclosed in the food search empty state and help text.
-        acceptanceCriteria:
-          - id: AC1
-            given: the active region is Germany
-            when: the user searches for a common German food present in the regional pack
-            then: regional results appear before generic global results
-          - id: AC2
-            given: a locale is proposed for launch without adequate food database coverage
-            when: the language plan is validated
-            then: the locale is flagged long-lead and cannot be marked ready without mitigation
-          - id: AC3
-            given: no regional result exists for a search
-            when: the empty state appears
-            then: it explains coverage limits and offers custom food creation
-        implementation:
-          notes: >-
-            Extend content manifests in Forge.Infrastructure to include region and licence
-            metadata. The nutrition search index should score local region, selected language and
-            global fallback separately. Be honest in the UI about coverage because a US-centric
-            food database is poor experience in Europe or Asia and creates trust issues.
-          touches:
-            - src/Forge.Infrastructure/Content/FoodDataManifest.cs
-            - src/Forge.Infrastructure/Content/FoodSearchIndex.cs
-            - src/Forge.App/Features/Nutrition/FoodSearchPage.xaml
-          devexpress:
-            - DXCollectionView
-            - TextEdit
-        testing:
-          - Search ranking tests verify regional results are ordered ahead of global fallbacks.
-          - Manifest validation fails data packs without source, licence, region and update date.
-
-      - key: S24.05.03
-        title: Enable DevExpress localisation resources with startup budget
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [i18n, devexpress, perf]
-        userStory:
-          asA: developer using DevExpress controls
-          iWant: built-in control text localised without hurting cold start
-          soThat: picker, editor and scheduler chrome match the selected language
-        requirements:
-          - DevExpress control resources are enabled only after measuring cold-start impact against the 2.0 second budget.
-          - MauiProgram documents the chosen UseDevExpress(useLocalization:) setting and why it is safe.
-          - Built-in editor, scheduler and collection-view UI text appears in the active supported locale where DevExpress provides resources.
-        acceptanceCriteria:
-          - id: AC1
-            given: DevExpress localisation is enabled for a release candidate
-            when: cold start is measured on the benchmark Android device
-            then: startup to interactive remains under 2.0 seconds or the change is blocked
-          - id: AC2
-            given: the active culture is French
-            when: a DevExpress DateEdit or SchedulerView built-in picker opens
-            then: built-in labels appear in French where provided by DevExpress resources
-        implementation:
-          notes: >-
-            E01 intentionally keeps UseDevExpress(useLocalization:false) until this epic. Change
-            it only with a measured startup comparison and a comment in MauiProgram because
-            loading localisation resources can add startup work. If a DevExpress built-in string
-            is missing for a locale, record it as a known limitation or override through the
-            supported DevExpress localisation mechanism rather than hard-coding around it.
-          touches:
-            - src/Forge.App/MauiProgram.cs
-            - tests/Forge.App.Tests/Performance/StartupBudgetTests.cs
-            - docs/localization/devexpress-localization.md
-          devexpress:
-            - DateEdit
-            - SchedulerView
-            - DXCollectionView
-          apis:
-            - DevExpress.Maui.Core
-        testing:
-          - Startup benchmark compares useLocalization false and true on the benchmark Android device.
-          - Manual locale smoke test opens DateEdit and SchedulerView in each enabled launch locale.
-        grounding:
-          - title: DevExpress localization for .NET MAUI controls
-            url: https://docs.devexpress.com/MAUI/404120/common-concepts/localization
-            note: Documents DevExpress localisation resources and registration.
-
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    concerns:
+    - i18n
+    userStory:
+      asA: user outside the United States
+      iWant: dates, times and numbers to look familiar
+      soThat: I do not misread workout history or nutrition entries
+    requirements:
+    - Dates and times use CultureInfo and platform locale unless the user chooses an override.
+    - Decimal and thousands separators follow the active culture in display and input parsing.
+    - Week start day follows locale for calendars unless overridden by the user.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: the active culture is de-DE
+      when: a bodyweight of 82.5 kg is displayed
+      then: Forge shows 82,5 kg and parses 82,5 as eighty-two and a half kilograms
+    - id: AC2
+      given: the active culture starts weeks on Monday
+      when: the training calendar opens
+      then: the week row starts on Monday unless the user has set a manual override
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.02.02 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Centralise culture selection in a LocalePreferences service and expose formatting helpers for dates, numbers
+        and week metadata. DevExpress SchedulerView and DateEdit should receive culture-aware values through bindings rather
+        than page-level string formatting. Keep parsing strict enough to reject ambiguous entries with a clear error. Implementation
+        should keep the primary code in src/Forge.App/Localization/LocalePreferences.cs, src/Forge.App/Features/TrainingCalendar,
+        src/Forge.App/Features/Profile and use SchedulerView, DateEdit, NumericEdit, System.Globalization.CultureInfo. The
+        tricky part is keeping storage canonical while formatting, parsing, plurals and flow direction adapt at the edge.
+        A careless implementation would store localized strings, concatenate English fragments, forget mirrored icons or let
+        unit conversions drift.
+      touches:
+      - src/Forge.App/Localization/LocalePreferences.cs
+      - src/Forge.App/Features/TrainingCalendar
+      - src/Forge.App/Features/Profile
+      devexpress:
+      - SchedulerView
+      - DateEdit
+      - NumericEdit
+      apis:
+      - System.Globalization.CultureInfo
+    testing:
+    - Unit tests parse and format representative values in en-US, en-GB, de-DE and ar-SA cultures.
+    grounding:
+    - title: .NET standard date and time format strings
+      url: https://learn.microsoft.com/dotnet/standard/base-types/standard-date-and-time-format-strings
+      note: Date formatting must use culture-aware .NET APIs rather than literals.
+  - key: S24.02.03
+    title: Add unit and locale preferences to settings and onboarding
+    wave: 4
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - i18n
+    userStory:
+      asA: new user
+      iWant: Forge to choose sensible units and let me change them
+      soThat: I do not start with unfamiliar measurements
+    requirements:
+    - Onboarding suggests unit defaults from region but makes the choice visible before first body metric or workout entry.
+    - Settings exposes independent preferences for weight, height, volume and energy.
+    - Changing a unit preference updates visible screens immediately without rewriting existing records.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: a device region commonly using imperial body measurements
+      when: onboarding reaches unit setup
+      then: lb and ft-in are suggested but the user can switch to metric before saving any profile value
+    - id: AC2
+      given: workout history is visible in kg
+      when: the user changes weight preference to lb
+      then: visible history updates to lb within one second and stored records remain unchanged
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.02.03 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Add a Units step to onboarding and mirror it in Settings. Preferences should live in a small application service
+        backed by local storage, with change notifications consumed by ViewModels. Avoid region stereotypes by suggesting
+        defaults while always allowing explicit override before first data entry. Implementation should keep the primary code
+        in src/Forge.App/Features/Onboarding/UnitsPage.xaml, src/Forge.App/Features/Settings/UnitsSettingsPage.xaml, src/Forge.App/Localization/UnitPreferences.cs
+        and use ComboBoxEdit, DXCollectionView, IStringLocalizer, System.Globalization.CultureInfo. The tricky part is keeping
+        storage canonical while formatting, parsing, plurals and flow direction adapt at the edge. A careless implementation
+        would store localized strings, concatenate English fragments, forget mirrored icons or let unit conversions drift.
+      touches:
+      - src/Forge.App/Features/Onboarding/UnitsPage.xaml
+      - src/Forge.App/Features/Settings/UnitsSettingsPage.xaml
+      - src/Forge.App/Localization/UnitPreferences.cs
+      devexpress:
+      - ComboBoxEdit
+      - DXCollectionView
+      apis:
+      - IStringLocalizer
+      - System.Globalization.CultureInfo
+    testing:
+    - UI test verifies unit preference changes update workout history without process restart.
+    grounding:
+    - title: .NET MAUI localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+      note: Official MAUI guidance for resources, culture selection and right-to-left localization.
+- key: F24.03
+  title: Support right-to-left layout and real plural rules
+  wave: 4
+  summary: Prepare Forge for languages whose layout direction and grammar differ from English, so Arabic, Hebrew and other
+    future locales are not blocked by assumptions baked into the UI.
+  outcome: Right-to-left smoke tests and CLDR plural rules work before production translation begins.
+  concerns:
+  - i18n
+  stories:
+  - key: S24.03.01
+    title: Mirror layouts, icons and gestures for RTL cultures
+    wave: 4
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - i18n
+    - a11y
+    userStory:
+      asA: Arabic or Hebrew user
+      iWant: Forge layout and navigation direction to match my language
+      soThat: the app feels native rather than reversed English
+    requirements:
+    - App root FlowDirection follows the active culture unless explicitly overridden for testing.
+    - Directional icons such as back, next, trends and swipe hints are mirrored or replaced in RTL.
+    - Gesture instructions describe the correct physical direction for the active layout.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: the active culture is ar
+      when: the app launches
+      then: primary layout flows right to left and the tab order starts from the right edge
+    - id: AC2
+      given: an RTL culture is active
+      when: a back icon and a next icon are displayed
+      then: both icons point in the culturally correct direction and their accessible labels remain correct
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.03.01 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Set FlowDirection at the application root from LocalePreferences and audit custom controls for hard-coded left
+        and right margins. Directional icon resources should have logical names such as NavigateBack rather than ArrowLeft,
+        allowing the resource layer to select mirrored assets. Gesture copy must use resource strings so E24 can localise
+        it per direction. Implementation should keep the primary code in src/Forge.App/App.xaml, src/Forge.App/Resources/Images,
+        src/Forge.App/Controls and use Microsoft.Maui.FlowDirection. The tricky part is keeping storage canonical while formatting,
+        parsing, plurals and flow direction adapt at the edge. A careless implementation would store localized strings, concatenate
+        English fragments, forget mirrored icons or let unit conversions drift.
+      touches:
+      - src/Forge.App/App.xaml
+      - src/Forge.App/Resources/Images
+      - src/Forge.App/Controls
+      apis:
+      - Microsoft.Maui.FlowDirection
+    testing:
+    - RTL screenshot smoke test covers shell, workout, nutrition and settings screens.
+    - Unit test verifies directional icon resolver returns mirrored assets for ar and he cultures.
+    grounding:
+    - title: .NET MAUI right-to-left localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization#right-to-left-localization
+      note: MAUI supports right-to-left layout through FlowDirection.
+  - key: S24.03.02
+    title: Implement CLDR-based pluralisation for counts and durations
+    wave: 4
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - i18n
+    userStory:
+      asA: user in a language with more than two plural forms
+      iWant: set counts, meals and durations to read grammatically
+      soThat: Forge does not sound broken outside English
+    requirements:
+    - Plural messages support zero, one, two, few, many and other categories where the locale uses them.
+    - English two-form helpers are not used for production user-facing count messages.
+    - Automated tests cover English, Polish and Arabic plural categories.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: the active culture is ar
+      when: the app formats 0, 1, 2, 3 and 11 workouts
+      then: each value selects the CLDR plural category expected for Arabic
+    - id: AC2
+      given: a developer tries to call an English-only plural helper from Forge.App
+      when: the localisation check runs
+      then: CI fails and points to the plural message formatter
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.03.02 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Add a PluralMessageFormatter that uses CLDR category rules from a small embedded data table or a vetted library.
+        Keep message templates in resources with all required categories for enabled locales. Avoid concatenating numbers
+        and nouns in ViewModels because that cannot handle Slavic or Arabic plural forms. Implementation should keep the primary
+        code in src/Forge.App/Localization/PluralMessageFormatter.cs, src/Forge.App/Resources/Strings/AppResources.resx, tests/Forge.App.Tests/Localization/PluralMessageFormatterTests.cs
+        and use IStringLocalizer, System.Globalization.CultureInfo. The tricky part is keeping storage canonical while formatting,
+        parsing, plurals and flow direction adapt at the edge. A careless implementation would store localized strings, concatenate
+        English fragments, forget mirrored icons or let unit conversions drift.
+      touches:
+      - src/Forge.App/Localization/PluralMessageFormatter.cs
+      - src/Forge.App/Resources/Strings/AppResources.resx
+      - tests/Forge.App.Tests/Localization/PluralMessageFormatterTests.cs
+      apis:
+      - IStringLocalizer
+      - System.Globalization.CultureInfo
+    testing:
+    - Unit tests verify plural category selection for en, pl and ar sample values.
+    grounding:
+    - title: Unicode CLDR plural rules
+      url: https://cldr.unicode.org/index/cldr-spec/plural-rules
+      note: Defines locale plural categories beyond English singular and plural.
+  - key: S24.03.03
+    title: Validate bidirectional text in user content and catalogues
+    wave: 4
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    concerns:
+    - i18n
+    userStory:
+      asA: multilingual user logging foods and notes
+      iWant: mixed-direction names and notes to display correctly
+      soThat: numbers, units and food names do not become confusing
+    requirements:
+    - Food names, exercise names and user notes support mixed left-to-right and right-to-left text.
+    - Numbers and units remain visually associated in RTL contexts.
+    - Search handles diacritics and locale-aware case folding for supported launch languages.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: an Arabic food name containing Latin brand text and a numeric serving size
+      when: it is displayed in the food log
+      then: the brand, number and unit remain in the intended order and do not overlap
+    - id: AC2
+      given: a user searches with a case variant or diacritic variant in a supported language
+      when: catalogue search runs
+      then: matching foods or exercises are returned according to locale-aware comparison rules
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.03.03 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Use platform text rendering and Unicode-aware string comparison instead of manual character reversal. For search,
+        normalise terms through CultureInfo-aware comparison and diacritic handling in Forge.Infrastructure content indexes.
+        Add bidi examples to seed-content tests so UI changes are exercised with realistic mixed strings. Implementation should
+        keep the primary code in src/Forge.Infrastructure/Content/Search, src/Forge.App/Features/Nutrition/FoodSearchPage.xaml,
+        tests/Forge.Infrastructure.Tests/Content and use DXCollectionView, TextEdit, System.Globalization.CompareInfo. The
+        tricky part is keeping storage canonical while formatting, parsing, plurals and flow direction adapt at the edge.
+        A careless implementation would store localized strings, concatenate English fragments, forget mirrored icons or let
+        unit conversions drift.
+      touches:
+      - src/Forge.Infrastructure/Content/Search
+      - src/Forge.App/Features/Nutrition/FoodSearchPage.xaml
+      - tests/Forge.Infrastructure.Tests/Content
+      devexpress:
+      - DXCollectionView
+      - TextEdit
+      apis:
+      - System.Globalization.CompareInfo
+    testing:
+    - Unit tests cover mixed Arabic, Hebrew and Latin food names with numeric units.
+    grounding:
+    - title: .NET MAUI localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+      note: Official MAUI guidance for resources, culture selection and right-to-left localization.
+- key: F24.04
+  title: Plan launch languages and translator workflow
+  wave: 4
+  summary: Decide which languages Forge launches with, provide a repeatable translation workflow, and use pseudo-localisation
+    before translators spend time on final copy.
+  outcome: Launch language scope is explicit, translators receive context-rich resources, and layout breakage is caught early
+    with pseudo-localised builds.
+  concerns:
+  - i18n
+  - long-lead
+  stories:
+  - key: S24.04.01
+    title: Choose a realistic launch language set
+    wave: 4
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - i18n
+    - long-lead
+    userStory:
+      asA: product owner
+      iWant: a documented launch language recommendation
+      soThat: translation scope matches quality, support and store-readiness capacity
+    requirements:
+    - Language recommendation includes English as source plus two to four additional launch candidates with rationale.
+    - Rationale considers fitness market, food database coverage, legal translation cost and support capacity.
+    - Languages not selected for v1 are documented as wave 6 candidates rather than silently ignored.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: the language plan is reviewed
+      when: a language is listed for launch
+      then: it has rationale, food-data coverage note, legal-copy requirement and store-listing requirement
+    - id: AC2
+      given: a language lacks legal translation capacity
+      when: release validation runs
+      then: that language cannot be marked enabled for v1
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.04.01 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Create docs/localization/language-plan.md. A pragmatic recommendation is English source plus German, Spanish
+        and French for v1 if food coverage and legal review are available, with Arabic reserved as a technical RTL test locale
+        until full support is funded. The final decision should be product-owned and evidence-based. Implementation should
+        keep the primary code in docs/localization/language-plan.md, docs/release/store-compliance.yml and use IStringLocalizer,
+        System.Globalization.CultureInfo. The tricky part is keeping storage canonical while formatting, parsing, plurals
+        and flow direction adapt at the edge. A careless implementation would store localized strings, concatenate English
+        fragments, forget mirrored icons or let unit conversions drift.
+      touches:
+      - docs/localization/language-plan.md
+      - docs/release/store-compliance.yml
+      apis:
+      - IStringLocalizer
+      - System.Globalization.CultureInfo
+    testing:
+    - Release validation checks enabled locales are present in the language plan.
+    grounding:
+    - title: .NET MAUI localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+      note: Official MAUI guidance for resources, culture selection and right-to-left localization.
+  - key: S24.04.02
+    title: Provide translator handoff files with context
+    wave: 4
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - i18n
+    - long-lead
+    userStory:
+      asA: translator working on Forge
+      iWant: keys, source strings, screenshots and notes
+      soThat: I can translate fitness terms accurately and consistently
+    requirements:
+    - Export includes resource key, English source, developer note, character guidance and screenshot reference where available.
+    - Glossary covers training, nutrition, health-data consent and safety terminology.
+    - Import rejects missing required keys and preserves translator comments for review.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: translation export runs for German
+      when: the handoff file is inspected
+      then: each required string has key, source, note and screenshot reference or an explicit no-screenshot reason
+    - id: AC2
+      given: an imported translation file omits a required key
+      when: the import validation runs
+      then: the import fails and names the missing key
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.04.02 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Build tooling under tools/localization to export RESX resources into a translator-friendly interchange format
+        such as XLIFF or CSV with context columns. Include screenshots from pseudo-localised builds when available. Keep glossary
+        terms versioned in the repository so translators and reviewers use consistent exercise and nutrition language. Implementation
+        should keep the primary code in tools/localization/TranslationExport.cs, docs/localization/glossary.md, src/Forge.App/Resources/Strings
+        and use IStringLocalizer, System.Globalization.CultureInfo. The tricky part is keeping storage canonical while formatting,
+        parsing, plurals and flow direction adapt at the edge. A careless implementation would store localized strings, concatenate
+        English fragments, forget mirrored icons or let unit conversions drift.
+      touches:
+      - tools/localization/TranslationExport.cs
+      - docs/localization/glossary.md
+      - src/Forge.App/Resources/Strings
+      apis:
+      - IStringLocalizer
+      - System.Globalization.CultureInfo
+    testing:
+    - Tool tests cover export, missing-key import rejection and comment preservation.
+    grounding:
+    - title: .NET MAUI localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+      note: Official MAUI guidance for resources, culture selection and right-to-left localization.
+  - key: S24.04.03
+    title: Run pseudo-localisation and expansion tests
+    wave: 4
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - i18n
+    userStory:
+      asA: designer reviewing layouts before translation
+      iWant: pseudo-localised builds with expanded text
+      soThat: clipping and hard-coded assumptions are found before real translators start
+    requirements:
+    - Pseudo-localisation expands text by at least 30 percent and wraps characters with visible markers.
+    - Pseudo locale can force right-to-left layout independently of production language support.
+    - CI captures screenshots for launch-critical screens in pseudo locale.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: pseudo-localisation is enabled
+      when: the workout screen renders
+      then: visible strings show pseudo markers and at least 30 percent expansion where length permits
+    - id: AC2
+      given: pseudo RTL mode is enabled
+      when: the shell renders
+      then: layout flows right to left and no primary action is clipped in the captured screenshot
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.04.03 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Add a pseudo culture such as qps-ploc for expansion and qps-plocm for mirrored RTL. Generate pseudo strings from
+        neutral resources at build time or test time so developers do not edit them manually. Pair this with screenshot tests
+        from E23 large-text work to catch compound layout failures. Implementation should keep the primary code in tools/localization/PseudoLocalization.cs,
+        tests/Forge.App.Tests/Localization/PseudoLocalizationTests.cs, src/Forge.App/Resources/Strings and use IStringLocalizer,
+        System.Globalization.CultureInfo. The tricky part is keeping storage canonical while formatting, parsing, plurals
+        and flow direction adapt at the edge. A careless implementation would store localized strings, concatenate English
+        fragments, forget mirrored icons or let unit conversions drift.
+      touches:
+      - tools/localization/PseudoLocalization.cs
+      - tests/Forge.App.Tests/Localization/PseudoLocalizationTests.cs
+      - src/Forge.App/Resources/Strings
+      apis:
+      - IStringLocalizer
+      - System.Globalization.CultureInfo
+    testing:
+    - CI screenshot smoke test runs representative pages in pseudo LTR and pseudo RTL.
+    grounding:
+    - title: W3C Internationalization Quick Tips
+      url: https://www.w3.org/International/quicktips/
+      note: Early internationalisation testing helps avoid hard-coded layout assumptions.
+- key: F24.05
+  title: Localise store assets, food content and DevExpress resources
+  wave: 4
+  summary: 'Finish the user-visible launch surface beyond app strings: store listings, screenshots, regional food data and
+    DevExpress control resources.'
+  outcome: Enabled locales have matching store assets, useful regional nutrition content and measured DevExpress localisation
+    startup cost.
+  concerns:
+  - i18n
+  - long-lead
+  stories:
+  - key: S24.05.01
+    title: Prepare localised store listings and screenshots
+    wave: 4
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - i18n
+    - store-blocker
+    - long-lead
+    userStory:
+      asA: release manager
+      iWant: store text and screenshots for each enabled locale
+      soThat: users do not land on an English-only listing for a translated app
+    requirements:
+    - Each enabled locale has app name, subtitle or short description, full description, keywords where applicable and screenshot
+      captions.
+    - Screenshots are captured from the same locale and unit settings as the listing.
+    - Release validation blocks a locale when store assets are missing.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: French is marked as enabled for release
+      when: store asset validation runs
+      then: French App Store and Google Play text plus screenshot captions are present
+    - id: AC2
+      given: a German screenshot uses lb while the German listing says kg
+      when: asset validation inspects screenshot metadata
+      then: the locale is flagged for review before submission
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.05.01 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: Store listing source under docs/release/store-listings/<locale> and keep screenshot metadata beside generated
+        assets. The release tool should not upload to stores yet, but it must prove that a human has the correct files. Capture
+        screenshots through deterministic app states using the selected locale and unit preferences. Implementation should
+        keep the primary code in docs/release/store-listings, docs/release/screenshots, tools/release/StoreAssetCheck.cs and
+        use IStringLocalizer, System.Globalization.CultureInfo. The tricky part is keeping storage canonical while formatting,
+        parsing, plurals and flow direction adapt at the edge. A careless implementation would store localized strings, concatenate
+        English fragments, forget mirrored icons or let unit conversions drift.
+      touches:
+      - docs/release/store-listings
+      - docs/release/screenshots
+      - tools/release/StoreAssetCheck.cs
+      apis:
+      - IStringLocalizer
+      - System.Globalization.CultureInfo
+    testing:
+    - Release validation fixture fails for an enabled locale with missing screenshot captions.
+    grounding:
+    - title: App Store Connect app information reference
+      url: https://developer.apple.com/help/app-store-connect/reference/app-information
+      note: App Store listing metadata must be provided for submitted locales.
+    - title: Google Play custom store listings
+      url: https://support.google.com/googleplay/android-developer/answer/9866151
+      note: Play supports locale-specific listing assets that need consistent preparation.
+  - key: S24.05.02
+    title: Select region-appropriate food database coverage
+    wave: 4
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    concerns:
+    - i18n
+    - long-lead
+    - offline
+    userStory:
+      asA: user outside the United States
+      iWant: foods, brands and serving units that match my region
+      soThat: nutrition logging is useful without constant manual custom entries
+    requirements:
+    - Food seed content records source, region coverage, licence and update date for each data pack.
+    - Launch language plan includes a food-coverage assessment before enabling that locale.
+    - Search prioritises region-appropriate foods while still allowing global results.
+    - Missing regional coverage is disclosed in the food search empty state and help text.
+    acceptanceCriteria:
+    - id: AC1
+      given: the active region is Germany
+      when: the user searches for a common German food present in the regional pack
+      then: regional results appear before generic global results
+    - id: AC2
+      given: a locale is proposed for launch without adequate food database coverage
+      when: the language plan is validated
+      then: the locale is flagged long-lead and cannot be marked ready without mitigation
+    - id: AC3
+      given: no regional result exists for a search
+      when: the empty state appears
+      then: it explains coverage limits and offers custom food creation
+    implementation:
+      notes: Extend content manifests in Forge.Infrastructure to include region and licence metadata. The nutrition search
+        index should score local region, selected language and global fallback separately. Be honest in the UI about coverage
+        because a US-centric food database is poor experience in Europe or Asia and creates trust issues. Implementation should
+        keep the primary code in src/Forge.Infrastructure/Content/FoodDataManifest.cs, src/Forge.Infrastructure/Content/FoodSearchIndex.cs,
+        src/Forge.App/Features/Nutrition/FoodSearchPage.xaml and use DXCollectionView, TextEdit, IStringLocalizer, System.Globalization.CultureInfo.
+        The tricky part is keeping storage canonical while formatting, parsing, plurals and flow direction adapt at the edge.
+        A careless implementation would store localized strings, concatenate English fragments, forget mirrored icons or let
+        unit conversions drift.
+      touches:
+      - src/Forge.Infrastructure/Content/FoodDataManifest.cs
+      - src/Forge.Infrastructure/Content/FoodSearchIndex.cs
+      - src/Forge.App/Features/Nutrition/FoodSearchPage.xaml
+      devexpress:
+      - DXCollectionView
+      - TextEdit
+      apis:
+      - IStringLocalizer
+      - System.Globalization.CultureInfo
+    testing:
+    - Search ranking tests verify regional results are ordered ahead of global fallbacks.
+    - Manifest validation fails data packs without source, licence, region and update date.
+    grounding:
+    - title: .NET MAUI localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+      note: Official MAUI guidance for resources, culture selection and right-to-left localization.
+  - key: S24.05.03
+    title: Enable DevExpress localisation resources with startup budget
+    wave: 4
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - i18n
+    - devexpress
+    - perf
+    userStory:
+      asA: developer using DevExpress controls
+      iWant: built-in control text localised without hurting cold start
+      soThat: picker, editor and scheduler chrome match the selected language
+    requirements:
+    - DevExpress control resources are enabled only after measuring cold-start impact against the 2.0 second budget.
+    - MauiProgram documents the chosen UseDevExpress(useLocalization:) setting and why it is safe.
+    - Built-in editor, scheduler and collection-view UI text appears in the active supported locale where DevExpress provides
+      resources.
+    - Validation covers both Android and iOS with the active culture, unit preference and build SHA recorded for every locale-sensitive
+      check.
+    acceptanceCriteria:
+    - id: AC1
+      given: DevExpress localisation is enabled for a release candidate
+      when: cold start is measured on the benchmark Android device
+      then: startup to interactive remains under 2.0 seconds or the change is blocked
+    - id: AC2
+      given: the active culture is French
+      when: a DevExpress DateEdit or SchedulerView built-in picker opens
+      then: built-in labels appear in French where provided by DevExpress resources
+    - id: AC3
+      given: the locale validation report is generated
+      when: this story has missing or inconsistent localized output
+      then: the S24.05.03 gate fails with locale, platform, resource key or unit preference details
+    implementation:
+      notes: E01 intentionally keeps UseDevExpress(useLocalization:false) until this epic. Change it only with a measured
+        startup comparison and a comment in MauiProgram because loading localisation resources can add startup work. If a
+        DevExpress built-in string is missing for a locale, record it as a known limitation or override through the supported
+        DevExpress localisation mechanism rather than hard-coding around it.
+      touches:
+      - src/Forge.App/MauiProgram.cs
+      - tests/Forge.App.Tests/Performance/StartupBudgetTests.cs
+      - docs/localization/devexpress-localization.md
+      devexpress:
+      - DateEdit
+      - SchedulerView
+      - DXCollectionView
+      apis:
+      - DevExpress.Maui.Core
+    testing:
+    - Startup benchmark compares useLocalization false and true on the benchmark Android device.
+    - Manual locale smoke test opens DateEdit and SchedulerView in each enabled launch locale.
+    grounding:
+    - title: DevExpress localization for .NET MAUI controls
+      url: https://docs.devexpress.com/MAUI/404120/common-concepts/localization
+      note: Documents DevExpress localisation resources and registration.

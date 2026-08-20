@@ -2,12 +2,13 @@ key: E09
 title: Training Plan Builder and Programmes
 domain: training
 wave: 3
-summary: Forge gives newcomers a safe path from zero to a structured training week, while giving experienced lifters enough control to build periodised
-  programmes without a spreadsheet. Plans stay local, editable, schedulable and portable without any backend account.
-problem: People churn when an app asks them to design a programme before they know the movements, volume or progression rule. Experienced users
-  churn when template-only apps cannot represent the programme they already follow.
-outcome: A user can pick or build a plan, understand its weekly demand, schedule it flexibly, adapt it when life or equipment changes, and start
-  a workout from clear targets.
+summary: Forge gives newcomers a safe path from zero to a structured training week, while giving experienced lifters enough
+  control to build periodised programmes without a spreadsheet. Plans stay local, editable, schedulable and portable without
+  any backend account.
+problem: People churn when an app asks them to design a programme before they know the movements, volume or progression rule.
+  Experienced users churn when template-only apps cannot represent the programme they already follow.
+outcome: A user can pick or build a plan, understand its weekly demand, schedule it flexibly, adapt it when life or equipment
+  changes, and start a workout from clear targets.
 successMetrics:
 - 80 percent of first-run users create or select a plan and schedule the first session in under 4 minutes.
 - Plan validation calculates estimated duration and muscle-group volume for 100 exercises in under 300 ms.
@@ -18,7 +19,7 @@ nonGoals:
 - No wearable companion plan editing in v1.
 risks:
 - risk: Progression rules are encoded in ViewModels and become impossible to test or reuse.
-  mitigation: Put all programme maths in Forge.Domain and Forge.Application services, with ViewModels exposing DTOs only.
+  mitigation: Put all programme maths in Forge.Domain and Forge.Core services, with ViewModels exposing DTOs only.
   severity: high
 - risk: Flexible scheduling makes a missed workout feel like failure.
   mitigation: Model missed sessions as neutral reschedulable work and avoid guilt language.
@@ -50,8 +51,8 @@ features:
 - key: F09.01
   title: Offer ready-made programmes for common goals
   wave: 3
-  summary: Curated templates let a newcomer start training without understanding programme design, while still showing enough detail to build
-    trust before the first workout.
+  summary: Curated templates let a newcomer start training without understanding programme design, while still showing enough
+    detail to build trust before the first workout.
   outcome: The library contains goal-based templates that can be previewed, filtered and copied into an editable local plan.
   stories:
   - key: S09.01.01
@@ -67,9 +68,15 @@ features:
       iWant: to choose a proven plan for my goal
       soThat: I can start without building one from scratch
     requirements:
-    - 'Seed at least seven templates: full-body beginner, upper/lower, push-pull-legs, strength 5x5, hypertrophy, home bodyweight-only and minimal-equipment.'
+    - 'Seed at least seven templates: full-body beginner, upper/lower, push-pull-legs, strength 5x5, hypertrophy, home bodyweight-only
+      and minimal-equipment.'
     - Each template includes goal, experience level, weekly frequency, estimated duration, equipment list and safety notes.
     - Template imports are versioned and never overwrite a customized user copy.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a fresh install with an empty database
@@ -79,13 +86,28 @@ features:
       given: a user copy already exists
       when: a template version updates
       then: the user copy remains unchanged
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Store templates as versioned compressed JSON assets in Forge.Infrastructure and import them through the catalogue seed pipeline.
-        Distinguish PlanTemplate from UserTrainingPlan so editing a copied template never mutates seed content. Copy by template id through Forge.Application.
+      notes: 'Code lives in src/Forge.Infrastructure/Content/TrainingTemplates, src/Forge.Domain/Training/Plans, src/Forge.Core/Training/Plans.
+        Use dx:DXCollectionView, dx:TabView only in Forge.App while domain and application stay plain DTOs. Import versioned
+        compressed JSON templates through Forge.Infrastructure into PlanTemplate rows, then copy to UserTrainingPlan only
+        when selected. Validate every template after import: duration sums effort, rest, warm-up and cooldown; quality warns
+        when push:pull hard sets exceed 2:1. Do not reuse template row ids for user copies.'
       touches:
       - src/Forge.Infrastructure/Content/TrainingTemplates
       - src/Forge.Domain/Training/Plans
-      - src/Forge.Application/Training/Plans
+      - src/Forge.Core/Training/Plans
       devexpress:
       - dx:DXCollectionView
       - dx:TabView
@@ -96,6 +118,13 @@ features:
     - offline
     testing:
     - Unit test template import idempotence.
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
   - key: S09.01.02
     title: Preview template fit before plan creation
     wave: 3
@@ -112,6 +141,11 @@ features:
     - Preview shows weekly days, exercise count, equipment, estimated duration range and primary muscle groups.
     - Templates filter by goal, experience level, equipment and days per week.
     - Filtering 50 templates completes within 150 ms after load.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: 50 local templates
@@ -121,19 +155,46 @@ features:
       given: a template requires a barbell
       when: barbell is excluded
       then: a visible equipment mismatch warning appears before copying
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Build the browser in Forge.App/Features/Plans/Templates with dx:DXCollectionView cards and a dx:BottomSheet filter panel. Forge.Application
-        returns TemplatePreviewDto values with computed duration and equipment badges. DevExpress filter types must not leak into application
-        services.
+      notes: Code lives in src/Forge.App/Features/Plans/Templates, src/Forge.Core/Training/Plans/TemplateQueries.cs.
+        Use dx:DXCollectionView, dx:BottomSheet only in Forge.App while domain and application stay plain DTOs. Build Forge.App/Features/Plans/Templates
+        with dx:DXCollectionView cards and a dx:BottomSheet filter. Forge.Core returns TemplatePreviewDto with duration,
+        days, equipment and volume warnings. Filters compare equipment ids and integer day counts locally. Avoid hydrating
+        full plan graphs on every keystroke.
       touches:
       - src/Forge.App/Features/Plans/Templates
-      - src/Forge.Application/Training/Plans/TemplateQueries.cs
+      - src/Forge.Core/Training/Plans/TemplateQueries.cs
       devexpress:
       - dx:DXCollectionView
       - dx:BottomSheet
+      apis:
+      - SQLite EF Core
     concerns:
     - devexpress
     - perf
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    - title: DevExpress MAUI BottomSheet
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.BottomSheet
+      note: Documents the bottom sheet control used for quick actions and previews.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.01.03
     title: Copy a template into an editable personal plan
     wave: 3
@@ -150,6 +211,11 @@ features:
     - Copying creates a UserTrainingPlan with its own id and version 1.
     - The copied plan opens directly in the builder with all targets editable.
     - Copying 120 exercise rows completes within 1 s.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a template has 80 prescriptions
@@ -159,16 +225,45 @@ features:
       given: the copied plan is edited
       when: the original template is inspected
       then: no template field has changed
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Implement copy as a single SQLite transaction in Forge.Application and Infrastructure. Navigate to the builder only after commit.
-        Store sourceTemplateId on the user plan for local analytics without requiring a backend.
+      notes: Code lives in src/Forge.Core/Training/Plans/CreatePlanFromTemplateUseCase.cs, src/Forge.Infrastructure/Persistence/TrainingPlanRepository.cs.
+        Use dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. CreatePlanFromTemplateUseCase
+        copies plan, version, days, blocks, prescriptions, progression rules and schedule in one SQLite transaction. Navigate
+        only after commit. Keep sourceTemplateId for local analytics. Validation runs on the copied version so equipment gaps,
+        missed occurrences and >2:1 push-pull warnings are visible immediately.
       touches:
-      - src/Forge.Application/Training/Plans/CreatePlanFromTemplateUseCase.cs
+      - src/Forge.Core/Training/Plans/CreatePlanFromTemplateUseCase.cs
       - src/Forge.Infrastructure/Persistence/TrainingPlanRepository.cs
       apis:
       - SQLite EF Core transactions
+      - SQLite EF Core
+      devexpress:
+      - dx:DXCollectionView
     concerns:
     - offline
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    - title: SQLite EF Core database provider
+      url: https://learn.microsoft.com/ef/core/providers/sqlite/
+      note: Documents the SQLite provider used for local durable plan and workout persistence.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   concerns:
   - offline
   - devexpress
@@ -178,8 +273,8 @@ features:
 - key: F09.02
   title: Build custom plans with days and blocks
   wave: 3
-  summary: The custom builder covers training days, warm-ups, working exercises, supersets, circuits, cooldowns, rest targets and touch reordering
-    without becoming a spreadsheet.
+  summary: The custom builder covers training days, warm-ups, working exercises, supersets, circuits, cooldowns, rest targets
+    and touch reordering without becoming a spreadsheet.
   outcome: A user can construct, validate and save a complete week from scratch as a durable local plan.
   stories:
   - key: S09.02.01
@@ -198,6 +293,11 @@ features:
     - A custom plan can contain 1 to 14 training days.
     - Each day supports warm-up, exercise, superset, circuit and cooldown blocks.
     - Reordering persists within 200 ms and survives process death.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a plan with four days
@@ -207,18 +307,43 @@ features:
       given: a new plan has zero days
       when: the user taps Save
       then: save is blocked and a field error names the missing day
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Use dx:TabView for day sections and dx:DXCollectionView for ordered blocks under Forge.App/Features/Plans/PlanBuilder. Persist order
-        as SortIndex values in Forge.Domain and rewrite affected indices in one application transaction.
+      notes: Code lives in src/Forge.App/Features/Plans/PlanBuilder, src/Forge.Domain/Training/Plans/TrainingDay.cs. Use dx:TabView,
+        dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. Use dx:TabView for training days
+        and dx:DXCollectionView for blocks in Forge.App/Features/Plans/PlanBuilder. Store order as SortIndex in Forge.Domain.
+        After drag, rewrite affected indexes as 10, 20, 30 in visible order within one transaction. Do not rely on UI list
+        position because reload and process death would lose order.
       touches:
       - src/Forge.App/Features/Plans/PlanBuilder
       - src/Forge.Domain/Training/Plans/TrainingDay.cs
       devexpress:
       - dx:TabView
       - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
     concerns:
     - devexpress
     - offline
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.02.02
     title: Add exercise targets for sets, reps, load, RPE and rest
     wave: 3
@@ -235,6 +360,11 @@ features:
     - Targets support sets, rep range, load target, RPE target, rest duration and notes.
     - Ranges enforce sets 1 to 20, reps 1 to 100, RPE 1.0 to 10.0 and rest 0 to 900 seconds.
     - Invalid input displays an inline error and writes no invalid rows.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: an exercise editor
@@ -244,15 +374,41 @@ features:
       given: a target is 3 sets, 8 to 10 reps, RPE 8 and 120 s rest
       when: the plan is reopened
       then: all values match exactly
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Create ExercisePrescription value objects in Forge.Domain so validation is shared by plan builder and workout execution. Use dx:NumericEdit
-        for numeric targets. Store load as absolute weight, percentage of 1RM, bodyweight, or not specified.
+      notes: Code lives in src/Forge.Domain/Training/Plans/ExercisePrescription.cs, src/Forge.App/Features/Plans/PlanBuilder/ExerciseTargetEditor.xaml.
+        Use dx:NumericEdit, dx:BottomSheet, dx:DXCollectionView only in Forge.App while domain and application stay plain
+        DTOs. ExercisePrescription lives in Forge.Domain and is edited with dx:NumericEdit. Store rep range min and max, load
+        as absolute or percent mode, RPE in tenths and rest seconds. Percent loads use roundToIncrement(trainingMax * percent
+        / 100). Validate 1 to 20 sets, 1 to 100 reps, RPE 1.0 to 10.0 and rest 0 to 900.
       touches:
       - src/Forge.Domain/Training/Plans/ExercisePrescription.cs
       - src/Forge.App/Features/Plans/PlanBuilder/ExerciseTargetEditor.xaml
       devexpress:
       - dx:NumericEdit
       - dx:BottomSheet
+      - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
+    grounding:
+    - title: DevExpress MAUI NumericEdit
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.NumericEdit
+      note: Documents numeric input used for reps, load, RPE, rest and plan targets.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.02.03
     title: Represent supersets and circuits in the builder
     wave: 3
@@ -269,6 +425,11 @@ features:
     - A superset contains 2 to 5 exercises before shared rest.
     - A circuit contains 2 to 12 exercises and 1 to 10 rounds.
     - Grouped blocks support child add, remove and reorder.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a superset has two exercises
@@ -278,15 +439,40 @@ features:
       given: a circuit has 12 exercises
       when: the user tries to add another
       then: the add action is disabled
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Model SupersetBlock and CircuitBlock in Forge.Domain instead of tagging exercises with a group string. The UI may use one-level nested
-        dx:DXCollectionView rows but the domain must reject deeper nesting because it is hard to execute on a phone.
+      notes: Code lives in src/Forge.Domain/Training/Plans/PlanBlock.cs, src/Forge.App/Features/Plans/PlanBuilder/GroupedBlockEditor.xaml.
+        Use dx:DXCollectionView, dx:NumericEdit only in Forge.App while domain and application stay plain DTOs. Model SupersetBlock
+        and CircuitBlock in Forge.Domain, rendered with dx:DXCollectionView and dx:NumericEdit editors. Superset requires
+        2 to 5 children and sharedRestSeconds; circuit requires 2 to 12 stations and 1 to 10 rounds. Reject deeper nesting
+        so E10 can execute rounds clearly. Group labels alone are not enough.
       touches:
       - src/Forge.Domain/Training/Plans/PlanBlock.cs
       - src/Forge.App/Features/Plans/PlanBuilder/GroupedBlockEditor.xaml
       devexpress:
       - dx:DXCollectionView
       - dx:NumericEdit
+      apis:
+      - SQLite EF Core
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.02.04
     title: Adapt a plan when equipment or availability changes
     wave: 3
@@ -303,6 +489,11 @@ features:
     - The user can mark equipment unavailable and receive same-pattern substitutions.
     - Reducing weekly availability proposes moved or merged sessions without deleting history.
     - A preview lists every changed exercise and day before acceptance.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a plan contains barbell back squat
@@ -312,17 +503,42 @@ features:
       given: a 4-day plan
       when: availability changes to 3 days
       then: Forge proposes a 3-session schedule and lists moved exercises
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Implement adaptation as a proposal in Forge.Application, not direct edits. Query local exercise metadata by movement pattern, muscles
-        and equipment. Accepting a proposal creates a new plan version rather than rewriting the original.
+      notes: Code lives in src/Forge.Core/Training/Plans/AdaptPlanUseCase.cs, src/Forge.App/Features/Plans/Adaptation.
+        Use dx:BottomSheet, dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. AdaptPlanUseCase
+        creates proposals, not direct edits. For unavailable equipment, rank substitutes by movement pattern, primary muscle
+        overlap and available equipment. For fewer days, merge sessions while preserving exercise order and duration caps,
+        then accept as a new plan version. Never rewrite the historical version.
       touches:
-      - src/Forge.Application/Training/Plans/AdaptPlanUseCase.cs
+      - src/Forge.Core/Training/Plans/AdaptPlanUseCase.cs
       - src/Forge.App/Features/Plans/Adaptation
       devexpress:
       - dx:BottomSheet
       - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
     concerns:
     - offline
+    grounding:
+    - title: DevExpress MAUI BottomSheet
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.BottomSheet
+      note: Documents the bottom sheet control used for quick actions and previews.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   concerns:
   - devexpress
   - offline
@@ -333,8 +549,8 @@ features:
 - key: F09.03
   title: Apply periodisation and progression rules
   wave: 3
-  summary: Progression turns exercise lists into programmes. Forge supports simple and advanced models with explicit maths so workout execution
-    can compute next targets predictably.
+  summary: Progression turns exercise lists into programmes. Forge supports simple and advanced models with explicit maths
+    so workout execution can compute next targets predictably.
   outcome: A plan can carry tested progression rules per exercise or block, and future targets are computed locally.
   stories:
   - key: S09.03.01
@@ -353,6 +569,11 @@ features:
     - Linear progression adds a configured load increment after all target sets are completed at or below target RPE.
     - Double progression increases reps within a range first, then increases load and resets reps to the lower bound.
     - The next target preview explains the calculation in the user's units.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a 5x5 squat target at 60 kg with 2.5 kg increments
@@ -362,15 +583,40 @@ features:
       given: a 3x8-12 row target at 20 kg
       when: the user completes 12, 12 and 12 reps
       then: the next preview increases load and resets reps to 8
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: 'Place progression in Forge.Domain/Training/Progression. Linear formula: nextLoad = currentLoad + increment when every working set
-        meets reps and actualRpe <= targetRpe. Double progression increases reps until upper bound is achieved for all sets, then load increases
-        and reps reset to lower bound.'
+      notes: 'Code lives in src/Forge.Domain/Training/Progression, src/Forge.Core/Training/Progression. Use dx:NumericEdit,
+        dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. Progression rules live in Forge.Domain/Training/Progression.
+        Linear formula: nextLoad = currentLoad + increment only when every working set has reps >= target and actualRpe <=
+        targetRpe. Double progression: raise reps to upperBound first, then nextLoad = currentLoad + increment and reps reset
+        to lowerBound. Missed sets hold target.'
       touches:
       - src/Forge.Domain/Training/Progression
-      - src/Forge.Application/Training/Progression
+      - src/Forge.Core/Training/Progression
       devexpress:
       - dx:NumericEdit
+      - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
+    grounding:
+    - title: DevExpress MAUI NumericEdit
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.NumericEdit
+      note: Documents numeric input used for reps, load, RPE, rest and plan targets.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.03.02
     title: Add percentage-of-1RM and RPE autoregulation models
     wave: 3
@@ -387,6 +633,11 @@ features:
     - Percentage targets compute load as trainingMax times percentage, rounded to configured plate increment.
     - RPE autoregulation adjusts next load from -10 percent to +5 percent based on actual versus target RPE.
     - The UI shows the training max source and rounded load before saving.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: training max is 100 kg, target is 75 percent and increment is 2.5 kg
@@ -396,15 +647,41 @@ features:
       given: target RPE is 8 and actual RPE is 10
       when: the next target is calculated
       then: load decreases by at least 5 percent and no more than 10 percent
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: 'Percentage formula: prescribedLoad = roundToIncrement(trainingMax * percent / 100). RPE autoregulation should use a tested rule
-        table, not a black box: target+2 reduces 5 to 10 percent, target+1 holds or reduces 2.5 percent, easier sets may increase up to 5 percent.'
+      notes: 'Code lives in src/Forge.Domain/Training/Progression/PercentageOneRepMaxModel.cs, src/Forge.Domain/Training/Progression/RpeAutoregulationModel.cs.
+        Use dx:NumericEdit, dx:BottomSheet, dx:DXCollectionView only in Forge.App while domain and application stay plain
+        DTOs. Percentage model uses prescribedLoad = roundToIncrement(trainingMax * percent / 100). RPE rule table: target+2
+        reduces 10 percent, target+1 reduces 2.5 percent, target holds, target-1 increases 2.5 percent, target-2 or easier
+        increases 5 percent. Clamp to configured min/max and round once after adjustment.'
       touches:
       - src/Forge.Domain/Training/Progression/PercentageOneRepMaxModel.cs
       - src/Forge.Domain/Training/Progression/RpeAutoregulationModel.cs
       devexpress:
       - dx:NumericEdit
       - dx:BottomSheet
+      - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.03.03
     title: Schedule deload weeks and progression pauses
     wave: 3
@@ -421,6 +698,11 @@ features:
     - A deload week can reduce load, sets, or both by percentages.
     - A plan can pause progression for 1 to 4 sessions after a failed target or user choice.
     - Deload and pause indicators appear in calendar and target preview.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a week has 50 percent set deload and 10 percent load deload
@@ -430,14 +712,43 @@ features:
       given: progression is paused for two sessions
       when: three future workouts are generated
       then: two keep the previous target and the third resumes progression
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: 'Represent deloads as calendar-scoped modifiers on a plan version. Formula: deloadSets = max(1, round(baseSets * setMultiplier));
-        deloadLoad = roundToIncrement(baseLoad * loadMultiplier). Store progression pauses as remaining session counts on progression state.'
+      notes: 'Code lives in src/Forge.Domain/Training/Plans/DeloadRule.cs, src/Forge.Core/Training/Plans/GenerateScheduledTargetsUseCase.cs.
+        Use dx:SchedulerView, dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. Represent
+        deloads as plan-version modifiers shown in dx:SchedulerView. Arithmetic: deloadSets = max(1, round(baseSets * setMultiplier));
+        deloadLoad = roundToIncrement(baseLoad * loadMultiplier). Pause stores remaining session count and decrements per
+        generated occurrence. Never mutate base prescriptions.'
       touches:
       - src/Forge.Domain/Training/Plans/DeloadRule.cs
-      - src/Forge.Application/Training/Plans/GenerateScheduledTargetsUseCase.cs
+      - src/Forge.Core/Training/Plans/GenerateScheduledTargetsUseCase.cs
       devexpress:
       - dx:SchedulerView
+      - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
+    grounding:
+    - title: DevExpress MAUI SchedulerView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Scheduler.SchedulerView
+      note: Documents the scheduler calendar used to display plan occurrences.
+    - title: DevExpress MAUI NumericEdit
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.NumericEdit
+      note: Documents numeric input used for reps, load, RPE, rest and plan targets.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   concerns:
   - offline
   grounding:
@@ -446,9 +757,10 @@ features:
 - key: F09.04
   title: Schedule plans on the training calendar
   wave: 3
-  summary: Plan scheduling connects intention to action. Forge supports fixed-day and flexible plans, then handles missed sessions with neutral
-    rescheduling instead of guilt-heavy streak language.
-  outcome: The calendar shows upcoming sessions, lets the user reschedule missed work and provides a clear start point for workout execution.
+  summary: Plan scheduling connects intention to action. Forge supports fixed-day and flexible plans, then handles missed
+    sessions with neutral rescheduling instead of guilt-heavy streak language.
+  outcome: The calendar shows upcoming sessions, lets the user reschedule missed work and provides a clear start point for
+    workout execution.
   stories:
   - key: S09.04.01
     title: Place fixed-day sessions on a SchedulerView calendar
@@ -466,6 +778,11 @@ features:
     - Fixed schedules map each training day to weekdays with optional start time.
     - The calendar shows the next 12 weeks without pre-creating workout logs.
     - Tapping a session opens details and Start workout in no more than two taps.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a Monday, Wednesday and Friday plan
@@ -475,17 +792,41 @@ features:
       given: a scheduled session is tapped
       when: the detail sheet opens
       then: Start workout is reachable with one additional tap
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Use DevExpress scheduler views through the dx:SchedulerView alias for plan calendar placement. Project appointments from recurrence
-        rules instead of storing future logs. Starting a workout passes planVersionId and scheduledOccurrenceDate to E10.
+      notes: Code lives in src/Forge.App/Features/Plans/Schedule, src/Forge.Core/Training/Scheduling. Use dx:SchedulerView,
+        dx:BottomSheet, dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. Use dx:SchedulerView
+        in Forge.App/Features/Plans/Schedule over Forge.Core recurrence projections. Fixed weekdays generate 12 weeks
+        of appointments in local time without creating workout logs. Starting a workout passes planVersionId and occurrence
+        date to E10. Do not persist future workouts merely to show the calendar.
       touches:
       - src/Forge.App/Features/Plans/Schedule
-      - src/Forge.Application/Training/Scheduling
+      - src/Forge.Core/Training/Scheduling
       devexpress:
       - dx:SchedulerView
       - dx:BottomSheet
+      - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
     grounding:
-    - *id005
+    - title: DevExpress MAUI SchedulerView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Scheduler.SchedulerView
+      note: Documents the scheduler calendar used to display plan occurrences.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.04.02
     title: Support flexible frequency-based scheduling
     wave: 3
@@ -502,6 +843,11 @@ features:
     - Flexible schedules support 1 to 7 sessions per week with optional minimum rest days.
     - Today can suggest the next due session without assigning a fixed weekday.
     - Completing a flexible session recalculates remaining sessions for the week.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a 3x weekly plan has one minimum rest day
@@ -511,16 +857,42 @@ features:
       given: two of three sessions are complete by Sunday
       when: the calendar opens
       then: one remaining due session is shown without marking failure
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: FlexibleSchedulePolicy should be distinct from fixed weekdays. Calculate next due dates from completed workout history and rest-day
-        constraints in Forge.Application. Use neutral copy such as remaining this week rather than failed.
+      notes: Code lives in src/Forge.Domain/Training/Scheduling/FlexibleSchedulePolicy.cs, src/Forge.Core/Training/Scheduling/NextSessionQuery.cs.
+        Use dx:SchedulerView, dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. FlexibleSchedulePolicy
+        calculates due sessions from completed local-date history. If frequency is 3 and minimum rest days is 1, next candidate
+        is lastCompletedDate plus 2 local dates. dx:SchedulerView shows remaining work neutrally. Missed weeks carry reschedulable
+        occurrences, not failure states.
       touches:
       - src/Forge.Domain/Training/Scheduling/FlexibleSchedulePolicy.cs
-      - src/Forge.Application/Training/Scheduling/NextSessionQuery.cs
+      - src/Forge.Core/Training/Scheduling/NextSessionQuery.cs
       devexpress:
       - dx:SchedulerView
+      - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
     concerns:
     - offline
+    grounding:
+    - title: DevExpress MAUI SchedulerView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Scheduler.SchedulerView
+      note: Documents the scheduler calendar used to display plan occurrences.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.04.03
     title: Reschedule missed sessions without failure language
     wave: 3
@@ -537,6 +909,11 @@ features:
     - A missed session is detected only after the local day ends and no workout was completed.
     - The user can move, skip or keep the missed session from a bottom sheet.
     - Skipping takes one tap and records a neutral skip reason without breaking the plan sequence.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a Monday session has no completed workout
@@ -546,15 +923,44 @@ features:
       given: the user skips a missed session
       when: the calendar reopens
       then: the skipped occurrence remains visible in history and the next occurrence is unchanged
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: MissedSessionResolver compares scheduled occurrences to completed workout logs using local dates. Present dx:BottomSheet actions
-        with shame-free wording. A skip is an event attached to an occurrence and must not delete the scheduled occurrence.
+      notes: 'Code lives in src/Forge.Core/Training/Scheduling/MissedSessionResolver.cs, src/Forge.App/Features/Plans/Schedule/MissedSessionSheet.xaml.
+        Use dx:BottomSheet, dx:SchedulerView, dx:DXCollectionView only in Forge.App while domain and application stay plain
+        DTOs. MissedSessionResolver compares scheduled occurrences to completed workout logs after the local day ends. dx:BottomSheet
+        actions create events: Move changes occurrence date, Skip records a neutral skip reason and Keep leaves pending. No
+        action creates fake sets or deletes occurrence history.'
       touches:
-      - src/Forge.Application/Training/Scheduling/MissedSessionResolver.cs
+      - src/Forge.Core/Training/Scheduling/MissedSessionResolver.cs
       - src/Forge.App/Features/Plans/Schedule/MissedSessionSheet.xaml
       devexpress:
       - dx:BottomSheet
       - dx:SchedulerView
+      - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
+    grounding:
+    - title: DevExpress MAUI SchedulerView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Scheduler.SchedulerView
+      note: Documents the scheduler calendar used to display plan occurrences.
+    - title: DevExpress MAUI BottomSheet
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.BottomSheet
+      note: Documents the bottom sheet control used for quick actions and previews.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   concerns:
   - devexpress
   - offline
@@ -564,8 +970,8 @@ features:
 - key: F09.05
   title: Manage plan library, versions and sharing
   wave: 3
-  summary: Local-only plans still need to be portable. Users can duplicate experiments, keep historical versions, export files and use compact
-    QR payloads without accounts.
+  summary: Local-only plans still need to be portable. Users can duplicate experiments, keep historical versions, export files
+    and use compact QR payloads without accounts.
   outcome: Plans can be duplicated, versioned, exported, imported and organized with deterministic conflict handling.
   stories:
   - key: S09.05.01
@@ -584,6 +990,11 @@ features:
     - The library lists active, archived and template-derived plans with search by name and goal.
     - 200 plans scroll at 60 fps with no frame above 16.6 ms.
     - Archiving hides a plan from Start workout but keeps history and export available.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: 200 local plans exist
@@ -593,18 +1004,46 @@ features:
       given: a plan is archived
       when: the Train tab opens
       then: it is not the default start option but remains under Archived
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Use dx:DXCollectionView virtualization and query lightweight PlanLibraryItemDto projections rather than hydrating whole plans. Archive
-        is a status, not deletion. Search is local SQLite over normalized name and goal fields for v1.
+      notes: 'Code lives in src/Forge.App/Features/Plans/Library, src/Forge.Core/Training/Plans/PlanLibraryQuery.cs.
+        Use dx:DXCollectionView, dx:TabView only in Forge.App while domain and application stay plain DTOs. Plan library uses
+        dx:DXCollectionView with lightweight PlanLibraryItemDto projections: plan id, active version id, title, goal, status
+        and last used date. SQLite search normalizes name and goal. Archive is a status that hides Start workout but keeps
+        history and export. Loading full exercise trees would miss 60 fps.'
       touches:
       - src/Forge.App/Features/Plans/Library
-      - src/Forge.Application/Training/Plans/PlanLibraryQuery.cs
+      - src/Forge.Core/Training/Plans/PlanLibraryQuery.cs
       devexpress:
       - dx:DXCollectionView
       - dx:TabView
+      apis:
+      - SQLite EF Core
     concerns:
     - perf
     - offline
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    - title: SQLite EF Core database provider
+      url: https://learn.microsoft.com/ef/core/providers/sqlite/
+      note: Documents the SQLite provider used for local durable plan and workout persistence.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.05.02
     title: Duplicate plans and create immutable versions
     wave: 3
@@ -621,6 +1060,11 @@ features:
     - Duplicating creates a new plan with version 1 and no completed workout history.
     - Editing a plan with completed workouts creates a new immutable plan version.
     - Workout history remains linked to the plan version that generated it.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a plan has completed workouts
@@ -630,14 +1074,43 @@ features:
       given: a plan is duplicated
       when: the duplicate opens
       then: it has a distinct plan id and zero workout log references
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: UserTrainingPlan owns immutable PlanVersion children. Workout logs reference PlanVersionId. Draft versions can mutate until the first
-        workout completes; afterwards edits fork a new version to preserve analytics integrity.
+      notes: Code lives in src/Forge.Domain/Training/Plans/UserTrainingPlan.cs, src/Forge.Infrastructure/Persistence/PlanVersionConfiguration.cs.
+        Use dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. UserTrainingPlan owns append-only
+        PlanVersion rows. Editing a version with workouts clones prescriptions to versionNumber + 1; WorkoutSession keeps
+        its original PlanVersionId. Duplicating creates a new plan id and version 1 with no history links. In-place edits
+        would break target-versus-actual history.
       touches:
       - src/Forge.Domain/Training/Plans/UserTrainingPlan.cs
       - src/Forge.Infrastructure/Persistence/PlanVersionConfiguration.cs
       apis:
       - SQLite EF Core transactions
+      - SQLite EF Core
+      devexpress:
+      - dx:DXCollectionView
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    - title: SQLite EF Core database provider
+      url: https://learn.microsoft.com/ef/core/providers/sqlite/
+      note: Documents the SQLite provider used for local durable plan and workout persistence.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.05.03
     title: Export and import plans as files
     wave: 3
@@ -654,6 +1127,11 @@ features:
     - Export produces JSON with schemaVersion, metadata, exercises, schedule and progression rules.
     - Import validates schemaVersion and exercise references before creating rows.
     - Duplicate external ids offer Keep both or Replace and complete within 2 s for 120 prescriptions.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a plan has 120 prescriptions
@@ -663,19 +1141,48 @@ features:
       given: an import has an unknown schemaVersion
       when: the file is selected
       then: no rows are written and the error names the schemaVersion
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Implement ForgePlanPackageDto in Forge.Application and serialize with System.Text.Json. Use MAUI file picker and share APIs only
-        in Forge.App. Validate before writes, then import inside one transaction with stable catalogue ids and embedded custom exercise fallbacks.
+      notes: Code lives in src/Forge.Core/Training/Sharing, src/Forge.App/Features/Plans/Sharing. Use dx:DXCollectionView
+        only in Forge.App while domain and application stay plain DTOs. ForgePlanPackageDto serializes schemaVersion, metadata,
+        exercises, schedule and progression with System.Text.Json. Import first validates schema, ids, equipment and formulas,
+        then writes in one transaction. Duplicate external ids require Keep both or Replace before any row is written. QR
+        and file imports share this path.
       touches:
-      - src/Forge.Application/Training/Sharing
+      - src/Forge.Core/Training/Sharing
       - src/Forge.App/Features/Plans/Sharing
       apis:
       - System.Text.Json
       - Microsoft.Maui.Storage.FilePicker
       - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+      - SQLite EF Core
+      devexpress:
+      - dx:DXCollectionView
     concerns:
     - offline
     - privacy
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    - title: System.Text.Json overview
+      url: https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/overview
+      note: Documents the JSON serializer used for local plan package import and export.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.05.04
     title: Share compact plans by QR code when safe
     wave: 3
@@ -692,6 +1199,11 @@ features:
     - QR sharing is available only when compressed payload is 2 KB or smaller.
     - Plans above the QR limit route to file export.
     - QR imports use the same validation path as file imports.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a compact plan compresses to 1.8 KB
@@ -701,20 +1213,51 @@ features:
       given: a plan compresses to 3 KB
       when: Share QR is selected
       then: Forge offers file export instead
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: QR is a convenience path over the same plan package. Compress, base64url encode and cap payloads at 2 KB for reliable scanning. Use
-        shared import validation so QR cannot bypass schema or safety checks.
+      notes: Code lives in src/Forge.Core/Training/Sharing/PlanQrPayload.cs, src/Forge.App/Features/Plans/Sharing/PlanQrSheet.xaml.
+        Use dx:BottomSheet, dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. PlanQrPayload
+        compresses the normal package, base64url encodes it and allows QR only at 2048 bytes or less. Larger plans route to
+        file export. The QR scanner must call the same import validator, including equipment checks and >2:1 push-pull warning,
+        so compact sharing cannot bypass safety rules.
       touches:
-      - src/Forge.Application/Training/Sharing/PlanQrPayload.cs
+      - src/Forge.Core/Training/Sharing/PlanQrPayload.cs
       - src/Forge.App/Features/Plans/Sharing/PlanQrSheet.xaml
       devexpress:
       - dx:BottomSheet
+      - dx:DXCollectionView
       apis:
       - System.IO.Compression
+      - SQLite EF Core
     concerns:
     - offline
     openQuestions:
     - Confirm whether QR scanning ships here or in the camera and barcode scanning epic.
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    - title: DevExpress MAUI BottomSheet
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.BottomSheet
+      note: Documents the bottom sheet control used for quick actions and previews.
+    - title: System.Text.Json overview
+      url: https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/overview
+      note: Documents the JSON serializer used for local plan package import and export.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   concerns:
   - offline
   - privacy
@@ -724,8 +1267,8 @@ features:
 - key: F09.06
   title: Evaluate plan quality and training load
   wave: 3
-  summary: Forge warns when a plan is obviously lopsided or unrealistic. These checks are not medical advice, but they give users a safety and
-    quality signal.
+  summary: Forge warns when a plan is obviously lopsided or unrealistic. These checks are not medical advice, but they give
+    users a safety and quality signal.
   outcome: Every plan shows estimated duration, weekly muscle-group volume and actionable warnings for extreme imbalance.
   stories:
   - key: S09.06.01
@@ -744,6 +1287,11 @@ features:
     - Estimated duration includes warm-up, effort time, rest, circuits and cooldown.
     - The estimate displays a range no wider than 20 percent for ordinary strength sessions.
     - Editing a day with 40 sets recalculates within 200 ms.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a day has 15 sets, 90 s rest and 30 s effort per set
@@ -753,16 +1301,42 @@ features:
       given: a day has 40 sets
       when: rest changes from 60 s to 90 s
       then: duration updates within 200 ms
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Create SessionDurationEstimator in Forge.Application. Sum block overhead, effort seconds, rest seconds, timed circuit durations and
-        warm-up or cooldown minutes. Label it estimated because real rest varies.
+      notes: Code lives in src/Forge.Core/Training/Plans/SessionDurationEstimator.cs, src/Forge.App/Features/Plans/PlanQuality.
+        Use dx:NumericEdit, dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. SessionDurationEstimator
+        sums warmupSeconds + cooldownSeconds + set effort seconds + rest gaps + timed block seconds + transitions. Show a
+        +/-10 percent range, so a 30 minute estimate displays 27 to 33 minutes. Recalculate 40-set edits within 200 ms. Rest
+        is counted between sets, not after every final set.
       touches:
-      - src/Forge.Application/Training/Plans/SessionDurationEstimator.cs
+      - src/Forge.Core/Training/Plans/SessionDurationEstimator.cs
       - src/Forge.App/Features/Plans/PlanQuality
       devexpress:
       - dx:NumericEdit
+      - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
     concerns:
     - perf
+    grounding:
+    - title: DevExpress MAUI NumericEdit
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.NumericEdit
+      note: Documents numeric input used for reps, load, RPE, rest and plan targets.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.06.02
     title: Calculate weekly volume by muscle group
     wave: 3
@@ -779,6 +1353,11 @@ features:
     - Weekly volume counts hard sets per primary and secondary muscle group with secondary weighted at 0.5.
     - The view displays chest, back, quads, hamstrings, glutes, shoulders, biceps, triceps, calves and core.
     - A 150-prescription plan calculates volume within 300 ms.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: bench press has chest primary and triceps secondary for 3 sets
@@ -788,16 +1367,41 @@ features:
       given: a 150-prescription plan
       when: the volume panel opens
       then: all totals render within 300 ms
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Use exercise catalogue metadata for muscle groups and never infer muscles from names. Return MuscleGroupVolumeDto from Forge.Application.
-        Secondary weighting is deliberately simple and testable for v1.
+      notes: Code lives in src/Forge.Core/Training/Plans/WeeklyVolumeCalculator.cs, src/Forge.Domain/Training/Exercises/MuscleGroup.cs.
+        Use dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. WeeklyVolumeCalculator uses
+        catalogue muscle metadata. Hard-set credit is primary muscle +1.0 per working set and secondary muscle +0.5; warm-ups
+        and skipped sets count 0. Return MuscleGroupVolumeDto for dx:DXCollectionView. Never infer muscles from exercise names,
+        because custom names and translations will be wrong.
       touches:
-      - src/Forge.Application/Training/Plans/WeeklyVolumeCalculator.cs
+      - src/Forge.Core/Training/Plans/WeeklyVolumeCalculator.cs
       - src/Forge.Domain/Training/Exercises/MuscleGroup.cs
       devexpress:
       - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
     concerns:
     - perf
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   - key: S09.06.03
     title: Warn when a plan is badly skewed or unsafe
     wave: 3
@@ -814,6 +1418,11 @@ features:
     - Warn when push sets exceed pull sets by more than 2:1 for two consecutive weeks.
     - Warn when any major muscle group exceeds 30 hard sets per week or is below 4 sets in a hypertrophy plan.
     - Warnings include one suggested action and can be dismissed per plan version.
+    - Plan validation reruns after this change and warns when weekly push hard sets exceed pull hard sets by more than 2:1.
+    - If required equipment becomes unavailable, the screen either proposes same-pattern substitutions or marks affected sessions
+      as blocked before workout start.
+    - Missed scheduled sessions remain neutral occurrence state and are never converted into completed workouts or deleted
+      by this action.
     acceptanceCriteria:
     - id: AC1
       given: a plan has 24 push sets and 8 pull sets
@@ -823,17 +1432,42 @@ features:
       given: a warning is dismissed
       when: the same version reopens
       then: the warning remains dismissed and a new version evaluates again
+    - id: AC3
+      given: a Monday occurrence was missed and not completed
+      when: the story workflow saves or previews the plan
+      then: the missed occurrence remains visible with Move, Skip and Keep options and no workout log is created
+    - id: AC4
+      given: the plan uses barbell equipment and barbell is marked unavailable
+      when: validation runs
+      then: affected exercises show a substitute or blocked state before the user can start the workout
+    - id: AC5
+      given: a generated week has 24 push hard sets and 8 pull hard sets
+      when: plan quality is evaluated
+      then: a warning shows the push to pull ratio as 3:1 because it exceeds the 2:1 limit
     implementation:
-      notes: Implement deterministic PlanQualityRule classes in Forge.Application. Copy should say consider adding rather than must because this
-        is guidance, not diagnosis. Store dismissals keyed by planVersionId and warningCode.
+      notes: 'Code lives in src/Forge.Core/Training/Plans/QualityRules, src/Forge.App/Features/Plans/PlanQuality/PlanWarningsView.xaml.
+        Use dx:BottomSheet, dx:DXCollectionView only in Forge.App while domain and application stay plain DTOs. QualityRules
+        are deterministic: pushPullRatio = pushHardSets / max(1, pullHardSets), warn when > 2.0; major muscle warn when hard
+        sets > 30 or hypertrophy target muscles < 4. Store dismissals by planVersionId and warningCode. Copy says consider
+        adding, not must, because this is not medical advice.'
       touches:
-      - src/Forge.Application/Training/Plans/QualityRules
+      - src/Forge.Core/Training/Plans/QualityRules
       - src/Forge.App/Features/Plans/PlanQuality/PlanWarningsView.xaml
       devexpress:
       - dx:BottomSheet
       - dx:DXCollectionView
+      apis:
+      - SQLite EF Core
     concerns:
     - a11y
+    grounding:
+    - title: DevExpress MAUI DXCollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Documents the virtualized list and swipe action control used for long local lists.
+    testing:
+    - Unit test the domain or application rule for valid, invalid and boundary values.
+    - UI test the empty or first-run state and the one-handed save or preview path on Android and iOS.
+    - Regression test missed-session, equipment-unavailable and push-pull imbalance warning scenarios.
   concerns:
   - perf
   - a11y

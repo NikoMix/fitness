@@ -25,13 +25,13 @@ UI layer before the first store submission.
 ```
 src/
   Forge.Domain/          net10.0   Entities, value objects, domain rules. Zero dependencies.
-  Forge.Application/     net10.0   Use cases + abstractions (interfaces the app depends on).
+  Forge.Core/     net10.0   Use cases + abstractions (interfaces the app depends on).
   Forge.Infrastructure/  net10.0   EF Core/SQLite, repositories, content loading, billing.
   Forge.Health/          android;ios  Health Connect + HealthKit behind IHealthDataService.
   Forge.App/             android;ios  MAUI head: XAML views, ViewModels, DI, platform code.
 tests/
   Forge.Domain.Tests/
-  Forge.Application.Tests/
+  Forge.Core.Tests/
   Forge.Infrastructure.Tests/
 ```
 
@@ -40,13 +40,13 @@ tests/
 Dependencies point **inward only**:
 
 ```
-Forge.App ──▶ Forge.Application ──▶ Forge.Domain
+Forge.App ──▶ Forge.Core ──▶ Forge.Domain
     │                 ▲
     └──▶ Forge.Infrastructure ──┘
     └──▶ Forge.Health ──────────┘
 ```
 
-`Forge.Domain` and `Forge.Application` never reference MAUI or DevExpress. This is what makes
+`Forge.Domain` and `Forge.Core` never reference MAUI or DevExpress. This is what makes
 the desktop heads addable in v1.1 without rework, and it is what makes the majority of the
 product logic unit-testable on a plain `net10.0` runner with no emulator.
 
@@ -130,7 +130,7 @@ without backup is unrecoverable data loss.
 
 ## 6. Health integration
 
-A single `IHealthDataService` abstraction in `Forge.Application`, implemented per platform in
+A single `IHealthDataService` abstraction in `Forge.Core`, implemented per platform in
 `Forge.Health`:
 
 | Platform | Implementation |

@@ -13,7 +13,7 @@ domains:
     name: Foundation
     color: "1D3557"
     description: App shell, navigation, DI, configuration, cross-cutting architecture
-    owns: [src/Forge.App/Shell, src/Forge.App/Navigation, src/Forge.Application/Abstractions]
+    owns: [src/Forge.App/Shell, src/Forge.App/Navigation, src/Forge.Core/Abstractions]
   - key: design
     name: Design System
     color: "6D597A"
@@ -48,7 +48,7 @@ domains:
     name: Insights & Coaching
     color: "457B9D"
     description: Analytics, charts, personal records, adaptive coaching, readiness
-    owns: [src/Forge.App/Features/Insights, src/Forge.Application/Coaching]
+    owns: [src/Forge.App/Features/Insights, src/Forge.Core/Coaching]
   - key: engagement
     name: Engagement
     color: "9C6644"

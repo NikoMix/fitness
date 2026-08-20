@@ -30,7 +30,7 @@ control in `implementation.devexpress`. Only fall back to another library where
 `docs/architecture/overview.md` documents a genuine gap, and say which gap you are invoking.
 
 **No vendor leakage.** Never propose putting a DevExpress or MAUI type into `Forge.Domain` or
-`Forge.Application`.
+`Forge.Core`.
 
 **Keys.** Your epic key is assigned. Features are `F<epic>.NN`, stories are `S<epic>.FF.NN`,
 numbered from 01 within their parent. A story under `F07.02` is `S07.02.01`, `S07.02.02`, …

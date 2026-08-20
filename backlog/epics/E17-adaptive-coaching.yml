@@ -82,6 +82,14 @@ features:
           - >-
             Every recommendation includes an explanation such as recommended 82.5 kg because 80 kg
             for 8 reps at RPE 7 was completed last week.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
+          - >-
+            Load-changing rules are bounded to a maximum 5 percent increase and maximum 15 percent decrease from the last successful working load unless the user manually overrides.
         acceptanceCriteria:
           - id: AC1
             given: the last bench session was 80 kg for 8 reps at RPE 7 and the target is 6 to 8 reps
@@ -91,23 +99,59 @@ features:
             given: recent comparable sessions are unavailable
             when: next load is requested
             then: no load recommendation is shown and the card states that 2 comparable sessions are required
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Implement RecommendationEngine in Forge.Application/Coaching as a pure deterministic
-            service returning RecommendationCard DTOs plus RecommendationTrace. Exercise type and
-            increment rules belong in Forge.Domain so they can be tested without MAUI. The App
-            renders cards with dx:DXCollectionView and never mutates the workout until the user
-            confirms.
+            Implement RecommendationEngine in Forge.Core/Coaching as a pure deterministic service returning RecommendationCard DTOs plus RecommendationTrace. Exercise type and increment rules belong in Forge.Domain so they can be tested without MAUI. The App renders cards with dx:DXCollectionView and never mutates the workout until the user confirms. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/RecommendationEngine.cs
+            - src/Forge.Core/Coaching/RecommendationEngine.cs
             - src/Forge.Domain/Coaching/LoadProgressionRule.cs
             - src/Forge.App/Features/Insights/Coaching/RecommendationCardView.xaml
           devexpress:
             - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for upper-body and lower-body load caps.
           - Unit tests asserting explanations include the input set values used.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
       - key: S17.01.02
         title: Recommend rep targets and back-off sets
         wave: 5
@@ -128,6 +172,14 @@ features:
             never exceed the completed top-set load.
           - >-
             The card explains whether the suggestion is progression, repeat, back-off or regression.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
+          - >-
+            Load-changing rules are bounded to a maximum 5 percent increase and maximum 15 percent decrease from the last successful working load unless the user manually overrides.
         acceptanceCriteria:
           - id: AC1
             given: a programmed range of 8 to 10 reps
@@ -137,20 +189,57 @@ features:
             given: a top set of 100 kg and a 10 percent back-off rule
             when: back-off is calculated
             then: the recommended load is 90 kg and never greater than 100 kg
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Add RepTargetRule and BackoffRule beside the load progression rule in Forge.Domain.
-            The engine should return recommendation type as an enum so the UI can present stable
-            badges and tests can assert behaviour. Keep all calculations local and deterministic,
-            with no dependence on network time or remote configuration.
+            Add RepTargetRule and BackoffRule beside the load progression rule in Forge.Domain. The engine should return recommendation type as an enum so the UI can present stable badges and tests can assert behaviour. Keep all calculations local and deterministic, with no dependence on network time or remote configuration. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
             - src/Forge.Domain/Coaching/RepTargetRule.cs
             - src/Forge.Domain/Coaching/BackoffRule.cs
           devexpress:
             - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for AMRAP exception, normal range and back-off percent bounds.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
       - key: S17.01.03
         title: Allow user overrides with stored reasoning
         wave: 5
@@ -171,6 +260,12 @@ features:
           - >-
             Override reason choices are optional, local-only and never required to continue a
             workout.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
         acceptanceCriteria:
           - id: AC1
             given: a recommended 82.5 kg set
@@ -180,22 +275,59 @@ features:
             given: the user adjusts a recommendation above the maximum allowed jump
             when: Apply is tapped
             then: validation blocks the change and names the maximum allowed load
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Store coaching feedback in a local CoachingFeedback table so future deterministic rules
-            can avoid repeating dismissed suggestions without needing cloud learning. Validate
-            adjusted values through the same SafetyBoundService used by generated cards. Render
-            choices with DevExpress editors but keep the domain model free of DevExpress types.
+            Store coaching feedback in a local CoachingFeedback table so future deterministic rules can avoid repeating dismissed suggestions without needing cloud learning. Validate adjusted values through the same SafetyBoundService used by generated cards. Render choices with DevExpress editors but keep the domain model free of DevExpress types. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/CoachingFeedbackService.cs
+            - src/Forge.Core/Coaching/CoachingFeedbackService.cs
             - src/Forge.App/Features/Insights/Coaching/RecommendationOverrideSheet.xaml
           devexpress:
             - dx:DXCollectionView
             - dx:NumericEdit
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit test confirming overrides cannot bypass load caps.
           - Integration test that accepted adjustments are persisted with the source recommendation id.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
   - key: F17.02
     title: Autoregulate sessions for bad days and fatigue
     wave: 5
@@ -225,6 +357,14 @@ features:
             percent or volume reduces by 1 to 3 work sets depending on exercise priority.
           - >-
             The user can ignore the adjustment after seeing the explanation.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
+          - >-
+            Load-changing rules are bounded to a maximum 5 percent increase and maximum 15 percent decrease from the last successful working load unless the user manually overrides.
         acceptanceCriteria:
           - id: AC1
             given: energy 2, soreness 2, motivation 2 and stress 2
@@ -234,21 +374,58 @@ features:
             given: the user taps Ignore adjustment
             when: the session starts
             then: the original programme targets are restored and the ignored state is stored locally
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Reuse the morning check-in concepts from E18 through an application-level
-            IReadinessSnapshotProvider rather than duplicating storage. BadDayAdjustmentRule should
-            be a pure function over check-in score, exercise priority and recent performance. Render
-            the adjustment explanation as a dx:DXCollectionView card before workout start.
+            Reuse the morning check-in concepts from E18 through an application-level IReadinessSnapshotProvider rather than duplicating storage. BadDayAdjustmentRule should be a pure function over check-in score, exercise priority and recent performance. Render the adjustment explanation as a dx:DXCollectionView card before workout start. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/BadDayAdjustmentRule.cs
+            - src/Forge.Core/Coaching/BadDayAdjustmentRule.cs
             - src/Forge.App/Features/Insights/Coaching/BadDayAdjustmentView.xaml
           devexpress:
             - dx:DXCollectionView
             - dx:RadialGauge
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests across the 8 of 20 threshold and reduction bounds.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
       - key: S17.02.02
         title: Recommend deloads from fatigue and performance decay
         wave: 5
@@ -270,6 +447,14 @@ features:
             or below 90 percent of recent working weight.
           - >-
             The card states this is training guidance, not medical advice.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
+          - >-
+            Load-changing rules are bounded to a maximum 5 percent increase and maximum 15 percent decrease from the last successful working load unless the user manually overrides.
         acceptanceCriteria:
           - id: AC1
             given: 4 weeks of data with missed targets in 3 consecutive sessions and high soreness in 4 check-ins
@@ -279,21 +464,58 @@ features:
             given: only 2 weeks of training data
             when: deload evaluation runs
             then: no deload card appears and the trace states that 3 weeks are required
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Create DeloadRecommendationRule in Forge.Application/Coaching and feed it projections
-            from E16 plus readiness inputs from E18. Keep the rule conservative and auditable:
-            RecommendationTrace must list each trigger and each missing trigger. Do not frame the
-            result as diagnosing overtraining or injury.
+            Create DeloadRecommendationRule in Forge.Core/Coaching and feed it projections from E16 plus readiness inputs from E18. Keep the rule conservative and auditable: RecommendationTrace must list each trigger and each missing trigger. Do not frame the result as diagnosing overtraining or injury. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/DeloadRecommendationRule.cs
+            - src/Forge.Core/Coaching/DeloadRecommendationRule.cs
             - src/Forge.App/Features/Insights/Coaching/DeloadCardView.xaml
           devexpress:
             - dx:DXCollectionView
             - dx:RadialGauge
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for minimum data and two-signal trigger requirement.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
       - key: S17.02.03
         title: Apply injury-aware safety guardrails to all coaching
         wave: 5
@@ -315,6 +537,14 @@ features:
           - >-
             Every coaching screen includes a persistent not-medical-advice statement and an
             override path that records user responsibility locally.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
+          - >-
+            Load-changing rules are bounded to a maximum 5 percent increase and maximum 15 percent decrease from the last successful working load unless the user manually overrides.
         acceptanceCriteria:
           - id: AC1
             given: the user has declared shoulder pain and marked overhead press as avoided
@@ -324,21 +554,58 @@ features:
             given: a recommendation is downgraded because of an injury flag
             when: the card renders
             then: the explanation names the affected restriction without exposing it in logs
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Centralise guardrails in CoachingSafetyService so every rule passes through the same
-            boundary before display. The service should accept injury and equipment abstractions,
-            enforce load and volume bounds, append the not-medical-advice copy, and return blocked
-            recommendations for audit tests without rendering them to the user.
+            Centralise guardrails in CoachingSafetyService so every rule passes through the same boundary before display. The service should accept injury and equipment abstractions, enforce load and volume bounds, append the not-medical-advice copy, and return blocked recommendations for audit tests without rendering them to the user. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/CoachingSafetyService.cs
-            - src/Forge.Application/Abstractions/IInjuryProfileReader.cs
+            - src/Forge.Core/Coaching/CoachingSafetyService.cs
+            - src/Forge.Core/Abstractions/IInjuryProfileReader.cs
           devexpress:
             - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests proving blocked exercises never reach display DTOs.
           - Privacy test confirming injury labels are redacted from diagnostics.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
   - key: F17.03
     title: Detect plateaus and suggest concrete interventions
     wave: 5
@@ -368,6 +635,12 @@ features:
             reps are missed in at least 2 of the last 4 sessions.
           - >-
             The UI labels the result likely plateau, not failed progress.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
         acceptanceCriteria:
           - id: AC1
             given: 4 comparable sessions with estimated max change of 0.6 percent and 2 missed targets
@@ -377,21 +650,57 @@ features:
             given: 3 comparable sessions
             when: plateau detection runs
             then: no plateau card appears and the trace states that 4 sessions are required
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Implement PlateauDetectionRule over E16 strength projections and workout target data.
-            Comparable sessions must match exercise, target rep band and major variation so a
-            paused squat does not silently compare with a high-bar squat unless the exercise
-            catalogue declares them equivalent. The rule returns a confidence label based only on
-            data sufficiency, not a model score.
+            Implement PlateauDetectionRule over E16 strength projections and workout target data. Comparable sessions must match exercise, target rep band and major variation so a paused squat does not silently compare with a high-bar squat unless the exercise catalogue declares them equivalent. The rule returns a confidence label based only on data sufficiency, not a model score. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/PlateauDetectionRule.cs
+            - src/Forge.Core/Coaching/PlateauDetectionRule.cs
             - src/Forge.Domain/Training/ExerciseEquivalence.cs
           devexpress:
             - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for 1 percent threshold, missed target counts and comparable exercise filtering.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
       - key: S17.03.02
         title: Suggest plateau interventions with explicit trade-offs
         wave: 5
@@ -412,6 +721,14 @@ features:
             available signals.
           - >-
             Each intervention lists one expected benefit and one trade-off.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
+          - >-
+            Load-changing rules are bounded to a maximum 5 percent increase and maximum 15 percent decrease from the last successful working load unless the user manually overrides.
         acceptanceCriteria:
           - id: AC1
             given: plateau detection with high soreness and missed reps
@@ -421,20 +738,57 @@ features:
             given: 5 candidate interventions
             when: the card renders
             then: no more than 3 interventions are visible without opening the detail screen
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Add PlateauInterventionService that maps detected signals to a bounded set of actions.
-            Use deterministic scoring such as soreness match, missed-rep match and schedule match.
-            Avoid generic motivation copy; the value is in concrete next steps and transparent
-            trade-offs. Render interventions in a DXCollectionView with accept and dismiss actions.
+            Add PlateauInterventionService that maps detected signals to a bounded set of actions. Use deterministic scoring such as soreness match, missed-rep match and schedule match. Avoid generic motivation copy; the value is in concrete next steps and transparent trade-offs. Render interventions in a DXCollectionView with accept and dismiss actions. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/PlateauInterventionService.cs
+            - src/Forge.Core/Coaching/PlateauInterventionService.cs
             - src/Forge.App/Features/Insights/Coaching/PlateauInterventionView.xaml
           devexpress:
             - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests ensuring candidate list is capped at 3 and includes trade-off text.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
       - key: S17.03.03
         title: Forecast goal progress with confidence ranges
         wave: 5
@@ -455,6 +809,12 @@ features:
             than one guaranteed date.
           - >-
             Forecasts are hidden when trend slope is zero or negative and explain why.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
         acceptanceCriteria:
           - id: AC1
             given: 8 weekly estimated max points with positive slope
@@ -464,24 +824,61 @@ features:
             given: 6 weekly points with a negative slope
             when: a forecast is requested
             then: no date is shown and the explanation states that the recent trend is not positive
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Implement a simple least-squares trend in Forge.Domain/Analytics/LinearTrend.cs and
-            expose confidence as a heuristic range derived from residual error, not as a statistical
-            guarantee. The UI should use dx:ChartView to show historical points and the forecast
-            band. Put uncertainty copy directly in the card and include an open question if the
-            evidence basis needs refinement.
+            Implement a simple least-squares trend in Forge.Domain/Analytics/LinearTrend.cs and expose confidence as a heuristic range derived from residual error, not as a statistical guarantee. The UI should use dx:ChartView to show historical points and the forecast band. Put uncertainty copy directly in the card and include an open question if the evidence basis needs refinement. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
             - src/Forge.Domain/Analytics/LinearTrend.cs
-            - src/Forge.Application/Coaching/GoalForecastService.cs
+            - src/Forge.Core/Coaching/GoalForecastService.cs
           devexpress:
             - dx:ChartView
+            - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for positive, zero and negative slopes.
           - Unit tests for minimum 6 point and 6 week requirements.
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
         openQuestions:
           - The confidence range is a product heuristic, not a validated prediction interval, so beta testing must check whether users understand it correctly.
 
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
   - key: F17.04
     title: Guide training volume, substitutions and form reminders
     wave: 5
@@ -512,6 +909,12 @@ features:
           - >-
             Weekly muscle volume from E16 is mapped into below range, in range or above range only
             after 4 weeks of history.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
         acceptanceCriteria:
           - id: AC1
             given: 4 weeks of chest set history below the configured MEV range
@@ -521,24 +924,60 @@ features:
             given: fewer than 4 weeks of history
             when: the volume landmark screen opens
             then: no range judgement is shown and the minimum data requirement is visible
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Store default landmark ranges as editable content in Forge.Infrastructure seed data so
-            the product team can adjust wording without code changes. The recommendation engine
-            should consume muscle-set aggregates from E16 and output plain categories rather than
-            precise claims. Render the educational cards with dx:DXCollectionView.
+            Store default landmark ranges as editable content in Forge.Infrastructure seed data so the product team can adjust wording without code changes. The recommendation engine should consume muscle-set aggregates from E16 and output plain categories rather than precise claims. Render the educational cards with dx:DXCollectionView. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
             - src/Forge.Infrastructure/Seed/VolumeLandmarks.json
-            - src/Forge.Application/Coaching/VolumeLandmarkService.cs
+            - src/Forge.Core/Coaching/VolumeLandmarkService.cs
           devexpress:
             - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for below, in-range and above-range classifications.
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
         grounding:
           - title: Renaissance Periodization volume landmarks overview
             url: https://rpstrength.com/blogs/articles/training-volume-landmarks-muscle-growth
             note: Source for product vocabulary, with ranges kept editable and cautious.
 
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
       - key: S17.04.02
         title: Suggest exercise substitutions from equipment and constraints
         wave: 5
@@ -559,6 +998,14 @@ features:
           - >-
             Each suggestion explains the match using at least two factors such as same muscle and
             available dumbbells.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
+          - >-
+            Load-changing rules are bounded to a maximum 5 percent increase and maximum 15 percent decrease from the last successful working load unless the user manually overrides.
         acceptanceCriteria:
           - id: AC1
             given: barbell bench is unavailable and dumbbells are available
@@ -568,20 +1015,57 @@ features:
             given: an exercise is marked avoided due to injury
             when: substitutions are generated
             then: that exercise is absent from the result set
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Build ExerciseSubstitutionService over exercise catalogue metadata from E07 and
-            restriction readers from E06. Ranking is a transparent weighted score over movement
-            pattern, muscles, equipment and user history. The UI uses dx:DXCollectionView with a
-            details expander showing score factors, not a single unexplained best match.
+            Build ExerciseSubstitutionService over exercise catalogue metadata from E07 and restriction readers from E06. Ranking is a transparent weighted score over movement pattern, muscles, equipment and user history. The UI uses dx:DXCollectionView with a details expander showing score factors, not a single unexplained best match. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/ExerciseSubstitutionService.cs
+            - src/Forge.Core/Coaching/ExerciseSubstitutionService.cs
             - src/Forge.App/Features/Insights/Coaching/SubstitutionSheet.xaml
           devexpress:
             - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for equipment filtering, injury filtering and explanation factors.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
       - key: S17.04.03
         title: Schedule form-check reminders by exercise cadence
         wave: 5
@@ -601,6 +1085,12 @@ features:
             Reminders are disabled during timed rest countdowns and never appear mid-set.
           - >-
             The user can silence a reminder for an exercise for 30 days.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
         acceptanceCriteria:
           - id: AC1
             given: an exercise is performed for the first time
@@ -610,20 +1100,57 @@ features:
             given: the user silences reminders for squat
             when: squat appears in workouts for the next 29 days
             then: no squat form-check reminder is shown
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Implement FormCheckReminderService in Forge.Application using exercise exposure history
-            and local silence preferences. This story schedules in-app reminders only, not push
-            notifications, so it avoids local notification infrastructure. Render the
-            reminder as a lightweight card in the workout prep flow with accessible labels.
+            Implement FormCheckReminderService in Forge.Core using exercise exposure history and local silence preferences. This story schedules in-app reminders only, not push notifications, so it avoids local notification infrastructure. Render the reminder as a lightweight card in the workout prep flow with accessible labels. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/FormCheckReminderService.cs
+            - src/Forge.Core/Coaching/FormCheckReminderService.cs
             - src/Forge.App/Features/Workout/FormCheckReminderView.xaml
           devexpress:
             - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for first exposure, fourth exposure, 28 day and 30 day silence rules.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
   - key: F17.05
     title: Summarise weeks and nudge habits safely
     wave: 5
@@ -654,6 +1181,12 @@ features:
             locally within 300 ms.
           - >-
             Every statement links to its source metric or source workout.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
         acceptanceCriteria:
           - id: AC1
             given: a week with 3 completed sessions and 1 PR
@@ -663,21 +1196,58 @@ features:
             given: a week with no completed workouts
             when: the review opens
             then: no performance judgement is shown and the empty state suggests planning the next session
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Build WeeklyReviewService as a deterministic composition over E16 projections and
-            coaching rules. Avoid generated prose from an LLM. Use rule-backed templates with
-            source ids so tapping a statement opens the underlying chart or workout. Render review
-            sections with dx:DXCollectionView and simple card ordering.
+            Build WeeklyReviewService as a deterministic composition over E16 projections and coaching rules. Avoid generated prose from an LLM. Use rule-backed templates with source ids so tapping a statement opens the underlying chart or workout. Render review sections with dx:DXCollectionView and simple card ordering. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/WeeklyReviewService.cs
+            - src/Forge.Core/Coaching/WeeklyReviewService.cs
             - src/Forge.App/Features/Insights/Coaching/WeeklyReviewPage.xaml
           devexpress:
             - dx:DXCollectionView
             - dx:ChartView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for empty week, PR week and consistency focus selection.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
       - key: S17.05.02
         title: Nudge habits without shame or unsafe pressure
         wave: 5
@@ -698,6 +1268,12 @@ features:
           - >-
             Copy must avoid shame terms such as failed, lazy or bad and must include a concrete
             next action.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
         acceptanceCriteria:
           - id: AC1
             given: 2 relevant nudge candidates on the same day
@@ -707,21 +1283,58 @@ features:
             given: a nudge is dismissed
             when: the same condition remains true for the next 6 days
             then: the nudge stays hidden until day 7 has elapsed
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            Add HabitNudgeService in Forge.Application with fixed rules and local dismissal state.
-            This service should produce candidate nudges with priority, expiry and source metric,
-            then let the Today screen render only one. Keep content strings in resources for later
-            localization and review them through safety copy tests.
+            Add HabitNudgeService in Forge.Core with fixed rules and local dismissal state. This service should produce candidate nudges with priority, expiry and source metric, then let the Today screen render only one. Keep content strings in resources for later localization and review them through safety copy tests. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/HabitNudgeService.cs
+            - src/Forge.Core/Coaching/HabitNudgeService.cs
             - src/Forge.App/Features/Today/HabitNudgeCard.xaml
           devexpress:
             - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for one-per-day ranking and 7 day dismissal.
           - Text test rejecting banned shame terms in nudge resources.
 
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.
       - key: S17.05.03
         title: Display recommendation confidence and trace details
         wave: 5
@@ -741,6 +1354,12 @@ features:
             Confidence labels are Low, Medium or High based only on data quantity and recency.
           - >-
             Trace detail contains no raw injury notes, free-text notes or hidden identifiers.
+          - >-
+            Every recommendation includes an explanation showing the rule name, input values, injury checks and the exact reason the output was chosen.
+          - >-
+            Every recommendation can be overridden before it changes a workout, and the override reason is stored locally for later review.
+          - >-
+            Recommendation copy says Forge is not medical advice and never overrides declared injuries, pain flags or clinician instructions recorded in E06.
         acceptanceCriteria:
           - id: AC1
             given: a recommendation generated from 3 recent sessions
@@ -750,18 +1369,55 @@ features:
             given: a recommendation derived from stale data older than 28 days
             when: confidence is calculated
             then: the confidence label is Low and the reason mentions stale data
+          - id: AC3
+            given: >-
+              a recommendation is generated for a user with a declared knee injury affecting the target exercise
+            when: >-
+              the coaching card renders
+            then: >-
+              the recommendation avoids the injured movement pattern, shows the injury guardrail in its explanation and includes a not medical advice statement
+          - id: AC4
+            given: >-
+              a generated recommendation would exceed the allowed load-change bound
+            when: >-
+              the rule engine finalizes the recommendation
+            then: >-
+              the output is clamped to within plus 5 percent or minus 15 percent of the last successful working load and the clamp is listed in the explanation
+          - id: AC5
+            given: >-
+              the user rejects a recommendation and enters a manual alternative
+            when: >-
+              the workout is saved
+            then: >-
+              the manual value is used, the override reason is stored locally and the same recommendation is not re-applied silently
         implementation:
           notes: >-
-            RecommendationTrace is the trust backbone of E17. Define it in Forge.Application and
-            persist only non-sensitive metric summaries. The UI should show a compact explanation
-            by default and a dx:DXCollectionView detail sheet for source metrics. Confidence must
-            never imply correctness, only data sufficiency.
+            RecommendationTrace is the trust backbone of E17. Define it in Forge.Core and persist only non-sensitive metric summaries. The UI should show a compact explanation by default and a dx:DXCollectionView detail sheet for source metrics. Confidence must never imply correctness, only data sufficiency. Implement the rule in Forge.Core/Coaching with a RecommendationTrace containing rule id, inputs, bounds, injury filters and output. Use the last 3 comparable sessions: success at target reps with RPE <= 8 suggests +2.5 percent, missed reps twice or RPE >= 9.5 suggests -5 to -10 percent. Clamp all load changes to plus 5 percent and minus 15 percent, block E06 injury conflicts, and render Explain plus Override in Forge.App. Avoid hidden rules or medical claims.
           touches:
-            - src/Forge.Application/Coaching/RecommendationTrace.cs
+            - src/Forge.Core/Coaching/RecommendationTrace.cs
             - src/Forge.App/Features/Insights/Coaching/RecommendationTraceSheet.xaml
           devexpress:
             - dx:DXCollectionView
             - dx:RadialGauge
+          apis:
+            - Microsoft.Maui.Storage.Preferences
         testing:
           - Unit tests for confidence labels by sample count and recency.
           - Privacy test ensuring trace serialization excludes free-text notes.
+          - >-
+            Unit tests for rule traces, injury guardrails and load bound clamping.
+          - >-
+            UI test confirming every recommendation has Explain and Override actions before it can be applied.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized card list used to show recommendation explanations and override controls.
+          - title: .NET MAUI Preferences
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/preferences?view=net-maui-10.0
+            note: >-
+              Official MAUI preference storage for local user choices such as coaching formula and override display settings.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Semantic properties ensure recommendation reasons, warnings and override controls are announced in a useful order.

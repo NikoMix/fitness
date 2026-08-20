@@ -15,939 +15,1281 @@ outcome: >-
   rest detection, pedometer fallback and cardio metrics, with clear accuracy limits, per-exercise
   calibration, privacy controls and manual override on every result.
 successMetrics:
-  - Calibrated supported movements reach at least 85 percent rep-count accuracy within plus or minus one rep over three validation sets.
-  - Uncalibrated rep detection is labelled assistive and requires user confirmation before saving any detected set.
-  - Sensor tracking consumes no more than 8 percent battery per hour for rep detection on a mid-tier phone.
-  - Users can correct a detected set count in under 3 seconds from the workout screen.
+- Calibrated supported movements reach at least 85 percent rep-count accuracy within plus or minus one rep
+  over three validation sets.
+- Uncalibrated rep detection is labelled assistive and requires user confirmation before saving any detected
+  set.
+- Sensor tracking consumes no more than 8 percent battery per hour for rep detection on a mid-tier phone.
+- Users can correct a detected set count in under 3 seconds from the workout screen.
 nonGoals:
-  - No camera pose estimation, live video coaching or wearable companion apps in v1.
-  - No claim that automatic rep counting is authoritative for all exercises or placements.
-  - No background location tracking when the user is not actively recording cardio.
-  - No Mac Catalyst or Windows sensor stories before wave 6.
+- No camera pose estimation, live video coaching or wearable companion apps in v1.
+- No claim that automatic rep counting is authoritative for all exercises or placements.
+- No background location tracking when the user is not actively recording cardio.
+- No Mac Catalyst or Windows sensor stories before wave 6.
 risks:
-  - risk: Rep counting accuracy varies by movement, device placement and individual technique, causing users to distrust all Forge metrics.
-    mitigation: Limit automatic claims to calibrated supported exercises, show confidence and always require easy manual correction.
-    severity: high
-  - risk: High-frequency sensors and GPS drain battery during long sessions.
-    mitigation: Use sampling profiles, low-power defaults, user-visible battery estimates and automatic downgrade when the device enters low power mode.
-    severity: high
-  - risk: GPS and motion history create sensitive behavioural data beyond ordinary workout logs.
-    mitigation: Require explicit, granular consent for motion and location tracking, store data locally and allow deletion per session.
-    severity: medium
+- risk: Rep counting accuracy varies by movement, device placement and individual technique, causing users to
+    distrust all Forge metrics.
+  mitigation: Limit automatic claims to calibrated supported exercises, show confidence and always require
+    easy manual correction.
+  severity: high
+- risk: High-frequency sensors and GPS drain battery during long sessions.
+  mitigation: Use sampling profiles, low-power defaults, user-visible battery estimates and automatic
+    downgrade when the device enters low power mode.
+  severity: high
+- risk: GPS and motion history create sensitive behavioural data beyond ordinary workout logs.
+  mitigation: Require explicit, granular consent for motion and location tracking, store data locally and
+    allow deletion per session.
+  severity: medium
 grounding:
-  - title: .NET MAUI device sensors
-    url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
-    note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor access.
-  - title: .NET MAUI geolocation
-    url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/geolocation
-    note: Grounds GPS use for cardio pace and distance.
-  - title: Health Connect overview
-    url: https://developer.android.com/health-and-fitness/health-connect
-    note: Used as the preferred Android step source before pedometer fallback.
-  - title: HealthKit documentation
-    url: https://developer.apple.com/documentation/healthkit
-    note: Used as the preferred iOS step and workout source before pedometer fallback.
+- title: .NET MAUI device sensors
+  url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+  note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor access.
+- title: .NET MAUI geolocation
+  url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/geolocation
+  note: Grounds GPS use for cardio pace and distance.
+- title: Health Connect overview
+  url: https://developer.android.com/health-and-fitness/health-connect
+  note: Used as the preferred Android step source before pedometer fallback.
+- title: HealthKit documentation
+  url: https://developer.apple.com/documentation/healthkit
+  note: Used as the preferred iOS step and workout source before pedometer fallback.
 
 features:
-  - key: F11.01
-    title: Build the sensor capture foundation
+- key: F11.01
+  title: Build the sensor capture foundation
+  wave: 4
+  summary: >-
+    Centralise device sensor access, permissions and sampling profiles so motion data is gathered
+    consistently and can be turned off safely.
+  outcome: >-
+    Workout features can request accelerometer, gyroscope, barometer, compass and orientation
+    streams through one testable service with explicit consent and bounded battery cost.
+  concerns: [privacy, perf]
+  stories:
+  - key: S11.01.01
+    title: Create ISensorTrackingService over MAUI device sensors
     wave: 4
-    summary: >-
-      Centralise device sensor access, permissions and sampling profiles so motion data is gathered
-      consistently and can be turned off safely.
-    outcome: >-
-      Workout features can request accelerometer, gyroscope, barometer, compass and orientation
-      streams through one testable service with explicit consent and bounded battery cost.
+    size: m
+    platforms: [android, ios]
+    persona: team
     concerns: [privacy, perf]
-    stories:
-      - key: S11.01.01
-        title: Create ISensorTrackingService over MAUI device sensors
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [privacy, perf]
-        userStory:
-          asA: developer adding motion-assisted workout features
-          iWant: a single sensor tracking abstraction
-          soThat: signal processing code does not depend on MAUI static sensor APIs
-        requirements:
-          - ISensorTrackingService is declared outside Forge.Domain and hides Microsoft.Maui.Devices.Sensors from ViewModels.
-          - The service exposes accelerometer, gyroscope, barometer, compass and orientation samples with timestamps and sampling profile metadata.
-          - Sensor capture requires explicit local consent and can be stopped from the workout screen in one tap.
-          - Starting an already-running sensor stream is idempotent and does not create duplicate subscriptions.
-        acceptanceCriteria:
-          - id: AC1
-            given: sensor tracking consent is absent
-            when: StartCaptureAsync is called
-            then: it returns ConsentRequired and subscribes to no MAUI sensor events
-          - id: AC2
-            given: capture is already running
-            when: StartCaptureAsync is called again with the same profile
-            then: the active subscription count remains one per sensor
-          - id: AC3
-            given: Forge.Domain is inspected
-            when: assembly references are listed
-            then: no Microsoft.Maui.Devices.Sensors reference is present
-        implementation:
-          notes: >-
-            Put ISensorTrackingService in Forge.Application/Health/Sensors and implement it in
-            Forge.App or Forge.Health depending on final project ownership for device APIs. Wrap
-            Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor behind injectable
-            adapters so tests can feed deterministic sample streams. Consent records use the same
-            explicit, granular and revocable pattern as health platform data, because motion traces
-            can reveal health and behavioural information.
-          touches:
-            - src/Forge.Application/Health/Sensors/ISensorTrackingService.cs
-            - src/Forge.App/Features/Workout/Sensors/MauiSensorTrackingService.cs
-            - src/Forge.Application/Health/Sensors/SensorSample.cs
-          apis:
-            - Microsoft.Maui.Devices.Sensors.Accelerometer
-            - Microsoft.Maui.Devices.Sensors.Gyroscope
-            - Microsoft.Maui.Devices.Sensors.Barometer
-            - Microsoft.Maui.Devices.Sensors.Compass
-            - Microsoft.Maui.Devices.Sensors.OrientationSensor
-        testing:
-          - Unit tests using fake sensor adapters for consent-required, start, stop and duplicate-start paths.
-          - Architecture test proving Forge.Domain has no MAUI sensor dependency.
-        grounding:
-          - title: .NET MAUI device sensors
-            url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
-            note: Official API reference for the sensors wrapped by the service.
+    userStory:
+      asA: developer adding motion-assisted workout features
+      iWant: a single sensor tracking abstraction
+      soThat: signal processing code does not depend on MAUI static sensor APIs
+    requirements:
+    - ISensorTrackingService is declared outside Forge.Domain and hides Microsoft.Maui.Devices.Sensors from
+      ViewModels.
+    - The service exposes accelerometer, gyroscope, barometer, compass and orientation samples with timestamps
+      and sampling profile metadata.
+    - Sensor capture requires explicit local consent and can be stopped from the workout screen in one tap.
+    - Starting an already-running sensor stream is idempotent and does not create duplicate subscriptions.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: sensor tracking consent is absent
+      when: StartCaptureAsync is called
+      then: it returns ConsentRequired and subscribes to no MAUI sensor events
+    - id: AC2
+      given: capture is already running
+      when: StartCaptureAsync is called again with the same profile
+      then: the active subscription count remains one per sensor
+    - id: AC3
+      given: Forge.Domain is inspected
+      when: assembly references are listed
+      then: no Microsoft.Maui.Devices.Sensors reference is present
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Put ISensorTrackingService in Forge.Core/Health/Sensors and implement it in Forge.App or Forge.Health
+        depending on final project ownership for device APIs. Wrap Accelerometer, Gyroscope, Barometer, Compass
+        and OrientationSensor behind injectable adapters so tests can feed deterministic sample streams. Consent
+        records use the same explicit, granular and revocable pattern as health platform data, because motion traces
+        can reveal health and behavioural information.
+      touches:
+      - src/Forge.Core/Health/Sensors/ISensorTrackingService.cs
+      - src/Forge.App/Features/Workout/Sensors/MauiSensorTrackingService.cs
+      - src/Forge.Core/Health/Sensors/SensorSample.cs
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+      - Microsoft.Maui.Devices.Sensors.Gyroscope
+      - Microsoft.Maui.Devices.Sensors.Barometer
+      - Microsoft.Maui.Devices.Sensors.Compass
+      - Microsoft.Maui.Devices.Sensors.OrientationSensor
+      devexpress:
+      - DXBorder
+    testing:
+    - Unit tests using fake sensor adapters for consent-required, start, stop and duplicate-start paths.
+    - Architecture test proving Forge.Domain has no MAUI sensor dependency.
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Official API reference for the sensors wrapped by the service.
 
-      - key: S11.01.02
-        title: Add sampling profiles with battery cost guardrails
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [perf, privacy]
-        userStory:
-          asA: Alex doing a long workout
-          iWant: sensor tracking to show and limit battery cost
-          soThat: automatic counting does not leave my phone dead before I finish training
-        requirements:
-          - Provide low, balanced and high sampling profiles with target frequencies and expected use cases.
-          - Default to balanced for rep detection and low for rest detection.
-          - Display an estimated battery impact before starting high sampling.
-          - Automatically downgrade to low sampling when the OS reports low power or battery saver mode.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user enables high sampling
-            when: the confirmation appears
-            then: it displays the target frequency and estimated battery cost per hour
-          - id: AC2
-            given: battery saver is enabled during capture
-            when: the next sampling window starts
-            then: Forge switches to low sampling and records the reason in sensor status
-          - id: AC3
-            given: a one-hour balanced capture on a mid-tier device
-            when: battery usage is measured
-            then: Forge's attributable use is no more than 8 percent
-        implementation:
-          notes: >-
-            Define SensorSamplingProfile as a value object with target Hertz, enabled sensors and
-            max duration. The implementation should use the closest supported MAUI SensorSpeed but
-            record actual timestamps, because devices vary. Show profile choice through DevExpress
-            ComboBoxEdit and warn with DXPopup before high sampling. Add a power-state observer in
-            the platform head so the capture pipeline can downgrade without losing the set being
-            counted.
-          touches:
-            - src/Forge.Application/Health/Sensors/SensorSamplingProfile.cs
-            - src/Forge.App/Features/Workout/Sensors/SensorProfilePicker.xaml
-            - src/Forge.App/Features/Workout/Sensors/BatteryAwareSensorPolicy.cs
-          devexpress:
-            - ComboBoxEdit
-            - DXPopup
-          apis:
-            - Microsoft.Maui.Devices.Sensors.SensorSpeed
-            - Microsoft.Maui.Devices.Battery
-        testing:
-          - Unit tests for profile selection, low-power downgrade and target Hertz boundaries.
-          - Manual one-hour battery measurement on Android and iOS reference devices.
-
-      - key: S11.01.03
-        title: Surface device placement assumptions before capture
-        wave: 4
-        size: s
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [a11y]
-        userStory:
-          asA: Maya trying automatic counting for the first time
-          iWant: Forge to tell me where my phone should be
-          soThat: I understand why a bench, pocket or armband changes accuracy
-        requirements:
-          - Supported placement options include trouser pocket, armband, hand-held and on-bench.
-          - Each exercise declares supported and unsupported placements.
-          - Unsupported placement shows an explanation and switches the set to manual or low-confidence assistive mode.
-          - Placement choice is saved per exercise but can be changed before every set.
-        acceptanceCriteria:
-          - id: AC1
-            given: squats support pocket placement
-            when: the user selects pocket for squats
-            then: automatic counting can be armed with the calibrated profile
-          - id: AC2
-            given: bench press is selected and the phone placement is on-bench
-            when: the user arms automatic counting
-            then: Forge labels detection low confidence and requires manual confirmation before saving
-          - id: AC3
-            given: TalkBack or VoiceOver is active
-            when: placement choices are focused
-            then: each option announces the placement name and accuracy caveat
-        implementation:
-          notes: >-
-            Add placement metadata to exercise tracking configuration rather than hard-coding it in
-            the UI. Present placement choices with dx:TokenEdit or DXCollectionView chips in the
-            workout setup sheet. The copy must be honest: phone on a bench may capture rest and
-            vibration but cannot reliably count many upper-body reps. Persist per-exercise defaults
-            locally and keep an obvious Change action beside the armed sensor state.
-          touches:
-            - src/Forge.Application/Health/Sensors/DevicePlacement.cs
-            - src/Forge.App/Features/Workout/Sensors/PlacementSelector.xaml
-            - src/Forge.Infrastructure/Persistence/ExerciseSensorPreferenceEntity.cs
-          devexpress:
-            - TokenEdit
-            - DXCollectionView
-        testing:
-          - Unit tests for supported and unsupported placement decisions per exercise.
-          - Accessibility test for placement option labels.
-
-      - key: S11.01.04
-        title: Provide explicit sensor privacy controls and deletion
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        concerns: [privacy]
-        userStory:
-          asA: Sam deciding whether to use motion tracking
-          iWant: to know what sensor data is stored and delete it per session
-          soThat: I can try the feature without losing control of sensitive data
-        requirements:
-          - Sensor consent is separate from Health Connect and HealthKit consent.
-          - Raw sensor samples are deleted after feature extraction unless the user enables a diagnostic recording.
-          - Diagnostic recordings expire automatically after 7 days.
-          - The user can delete all stored sensor-derived data for a workout session from the session detail screen.
-        acceptanceCriteria:
-          - id: AC1
-            given: rep detection completes without diagnostic recording enabled
-            when: local storage is inspected
-            then: raw accelerometer and gyroscope samples are absent after feature extraction
-          - id: AC2
-            given: a diagnostic recording is 8 days old
-            when: cleanup runs
-            then: the recording is deleted and the derived set count remains
-          - id: AC3
-            given: the user deletes sensor-derived data for a workout
-            when: the workout detail reloads
-            then: detected confidence, raw recording references and sensor features are gone while manual set logs remain
-        implementation:
-          notes: >-
-            Extend the consent centre with a separate Sensors section and store only derived features
-            by default: peaks, cadence, confidence and placement metadata. Raw streams are a debug
-            liability and should exist only behind an explicit diagnostic toggle with a 7-day expiry.
-            Use SQLite entities in Forge.Infrastructure and a cleanup job triggered at startup and
-            workout completion. Keep deletion local and irreversible.
-          touches:
-            - src/Forge.App/Features/Health/HealthConsentCenterPage.xaml
-            - src/Forge.Infrastructure/Persistence/SensorFeatureEntity.cs
-            - src/Forge.Infrastructure/Persistence/SensorDiagnosticRecordingEntity.cs
-          devexpress:
-            - DXCollectionView
-            - DXButton
-        testing:
-          - Unit tests for raw sample deletion, 7-day expiry and per-session deletion.
-          - Manual privacy review confirming sensor consent is separate from platform health consent.
-
-  - key: F11.02
-    title: Detect repetitions with calibrated signal processing
+  - key: S11.01.02
+    title: Add sampling profiles with battery cost guardrails
     wave: 4
-    summary: >-
-      Convert noisy movement streams into assistive rep counts using transparent signal processing,
-      calibration and confidence rather than hidden magic.
-    outcome: >-
-      Supported exercises can produce editable rep suggestions with confidence, documented limits
-      and realistic accuracy targets.
+    size: m
+    platforms: [android, ios]
+    persona: enthusiast
+    concerns: [perf, privacy]
+    userStory:
+      asA: Alex doing a long workout
+      iWant: sensor tracking to show and limit battery cost
+      soThat: automatic counting does not leave my phone dead before I finish training
+    requirements:
+    - Provide low, balanced and high sampling profiles with target frequencies and expected use cases.
+    - Default to balanced for rep detection and low for rest detection.
+    - Display an estimated battery impact before starting high sampling.
+    - Automatically downgrade to low sampling when the OS reports low power or battery saver mode.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    - Battery-sensitive capture uses the lowest sampling profile that satisfies the feature and displays an
+      estimated hourly battery cost before high-frequency capture.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user enables high sampling
+      when: the confirmation appears
+      then: it displays the target frequency and estimated battery cost per hour
+    - id: AC2
+      given: battery saver is enabled during capture
+      when: the next sampling window starts
+      then: Forge switches to low sampling and records the reason in sensor status
+    - id: AC3
+      given: a one-hour balanced capture on a mid-tier device
+      when: battery usage is measured
+      then: Forge's attributable use is no more than 8 percent
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Define SensorSamplingProfile as a value object with target Hertz, enabled sensors and max duration. The
+        implementation should use the closest supported MAUI SensorSpeed but record actual timestamps, because devices
+        vary. Show profile choice through DevExpress ComboBoxEdit and warn with DXPopup before high sampling. Add
+        a power-state observer in the platform head so the capture pipeline can downgrade without losing the set
+        being counted.
+      touches:
+      - src/Forge.Core/Health/Sensors/SensorSamplingProfile.cs
+      - src/Forge.App/Features/Workout/Sensors/SensorProfilePicker.xaml
+      - src/Forge.App/Features/Workout/Sensors/BatteryAwareSensorPolicy.cs
+      devexpress:
+      - ComboBoxEdit
+      - DXPopup
+      apis:
+      - Microsoft.Maui.Devices.Sensors.SensorSpeed
+      - Microsoft.Maui.Devices.Battery
+    testing:
+    - Unit tests for profile selection, low-power downgrade and target Hertz boundaries.
+    - Manual one-hour battery measurement on Android and iOS reference devices.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+  - key: S11.01.03
+    title: Surface device placement assumptions before capture
+    wave: 4
+    size: s
+    platforms: [android, ios]
+    persona: newcomer
+    concerns: [a11y]
+    userStory:
+      asA: Maya trying automatic counting for the first time
+      iWant: Forge to tell me where my phone should be
+      soThat: I understand why a bench, pocket or armband changes accuracy
+    requirements:
+    - Supported placement options include trouser pocket, armband, hand-held and on-bench.
+    - Each exercise declares supported and unsupported placements.
+    - Unsupported placement shows an explanation and switches the set to manual or low-confidence assistive
+      mode.
+    - Placement choice is saved per exercise but can be changed before every set.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: squats support pocket placement
+      when: the user selects pocket for squats
+      then: automatic counting can be armed with the calibrated profile
+    - id: AC2
+      given: bench press is selected and the phone placement is on-bench
+      when: the user arms automatic counting
+      then: Forge labels detection low confidence and requires manual confirmation before saving
+    - id: AC3
+      given: TalkBack or VoiceOver is active
+      when: placement choices are focused
+      then: each option announces the placement name and accuracy caveat
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Add placement metadata to exercise tracking configuration rather than hard-coding it in the UI. Present
+        placement choices with dx:TokenEdit or DXCollectionView chips in the workout setup sheet. The copy must
+        be honest: phone on a bench may capture rest and vibration but cannot reliably count many upper-body reps.
+        Persist per-exercise defaults locally and keep an obvious Change action beside the armed sensor state.
+      touches:
+      - src/Forge.Core/Health/Sensors/DevicePlacement.cs
+      - src/Forge.App/Features/Workout/Sensors/PlacementSelector.xaml
+      - src/Forge.Infrastructure/Persistence/ExerciseSensorPreferenceEntity.cs
+      devexpress:
+      - TokenEdit
+      - DXCollectionView
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - Unit tests for supported and unsupported placement decisions per exercise.
+    - Accessibility test for placement option labels.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+  - key: S11.01.04
+    title: Provide explicit sensor privacy controls and deletion
+    wave: 4
+    size: m
+    platforms: [android, ios]
+    persona: returner
+    concerns: [privacy]
+    userStory:
+      asA: Sam deciding whether to use motion tracking
+      iWant: to know what sensor data is stored and delete it per session
+      soThat: I can try the feature without losing control of sensitive data
+    requirements:
+    - Sensor consent is separate from Health Connect and HealthKit consent.
+    - Raw sensor samples are deleted after feature extraction unless the user enables a diagnostic recording.
+    - Diagnostic recordings expire automatically after 7 days.
+    - The user can delete all stored sensor-derived data for a workout session from the session detail screen.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: rep detection completes without diagnostic recording enabled
+      when: local storage is inspected
+      then: raw accelerometer and gyroscope samples are absent after feature extraction
+    - id: AC2
+      given: a diagnostic recording is 8 days old
+      when: cleanup runs
+      then: the recording is deleted and the derived set count remains
+    - id: AC3
+      given: the user deletes sensor-derived data for a workout
+      when: the workout detail reloads
+      then: detected confidence, raw recording references and sensor features are gone while manual set logs
+        remain
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Extend the consent centre with a separate Sensors section and store only derived features by default: peaks,
+        cadence, confidence and placement metadata. Raw streams are a debug liability and should exist only behind
+        an explicit diagnostic toggle with a 7-day expiry. Use SQLite entities in Forge.Infrastructure and a cleanup
+        job triggered at startup and workout completion. Keep deletion local and irreversible.
+      touches:
+      - src/Forge.App/Features/Health/HealthConsentCenterPage.xaml
+      - src/Forge.Infrastructure/Persistence/SensorFeatureEntity.cs
+      - src/Forge.Infrastructure/Persistence/SensorDiagnosticRecordingEntity.cs
+      devexpress:
+      - DXCollectionView
+      - DXButton
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - Unit tests for raw sample deletion, 7-day expiry and per-session deletion.
+    - Manual privacy review confirming sensor consent is separate from platform health consent.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+    - title: GDPR Article 9 special categories of personal data
+      url: https://gdpr-info.eu/art-9-gdpr/
+      note: Health and fitness data can be special-category data requiring explicit handling and review.
+- key: F11.02
+  title: Detect repetitions with calibrated signal processing
+  wave: 4
+  summary: >-
+    Convert noisy movement streams into assistive rep counts using transparent signal processing,
+    calibration and confidence rather than hidden magic.
+  outcome: >-
+    Supported exercises can produce editable rep suggestions with confidence, documented limits
+    and realistic accuracy targets.
+  concerns: [perf]
+  stories:
+  - key: S11.02.01
+    title: Implement filtering, peak detection and cadence estimation
+    wave: 4
+    size: l
+    platforms: [android, ios]
+    persona: enthusiast
     concerns: [perf]
-    stories:
-      - key: S11.02.01
-        title: Implement filtering, peak detection and cadence estimation
-        wave: 4
-        size: l
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [perf]
-        userStory:
-          asA: Alex training with consistent tempo
-          iWant: Forge to suggest rep counts from motion patterns
-          soThat: I spend less time tapping during a set
-        requirements:
-          - The pipeline filters accelerometer and gyroscope streams, detects peaks and estimates cadence in reps per minute.
-          - The algorithm outputs rep count, confidence, cadence, detected start time and detected end time.
-          - A supported calibrated movement must target at least 85 percent accuracy within plus or minus one rep across three validation sets.
-          - The algorithm returns insufficient confidence rather than a count when the signal is ambiguous.
-        acceptanceCriteria:
-          - id: AC1
-            given: a labelled validation stream for calibrated squats with 10 reps
-            when: the pipeline runs
-            then: the suggested count is between 9 and 11 and confidence is at least 0.70
-          - id: AC2
-            given: a noisy on-bench upper-body stream
-            when: the pipeline runs
-            then: it returns insufficient confidence and no saved count
-          - id: AC3
-            given: a 20-minute sample file
-            when: the pipeline runs on a mid-tier Android device
-            then: processing completes in under 500 ms and allocates less than 10 MB
-        implementation:
-          notes: >-
-            Put pure signal processing in Forge.Application/Health/Sensors so it can be unit-tested
-            without device APIs. Start with deterministic filters, peak detection and cadence
-            windows before considering machine learning. Store labelled sample fixtures under tests
-            with synthetic or explicitly consented recordings only. Confidence must be surfaced to
-            the workout UI and used as a gate: low confidence creates a suggestion requiring manual
-            entry, not an automatic set save.
-          touches:
-            - src/Forge.Application/Health/Sensors/RepDetectionPipeline.cs
-            - src/Forge.Application/Health/Sensors/PeakDetector.cs
-            - tests/Forge.Application.Tests/Health/Sensors/RepDetectionPipelineTests.cs
-          apis:
-            - System.Numerics
-        testing:
-          - Unit tests with labelled squat, lunge and noisy fixture streams.
-          - Performance test for 20-minute streams under the 500 ms and 10 MB budgets.
+    userStory:
+      asA: Alex training with consistent tempo
+      iWant: Forge to suggest rep counts from motion patterns
+      soThat: I spend less time tapping during a set
+    requirements:
+    - The pipeline filters accelerometer and gyroscope streams, detects peaks and estimates cadence in reps
+      per minute.
+    - The algorithm outputs rep count, confidence, cadence, detected start time and detected end time.
+    - A supported calibrated movement must target at least 85 percent accuracy within plus or minus one rep
+      across three validation sets.
+    - The algorithm returns insufficient confidence rather than a count when the signal is ambiguous.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: a labelled validation stream for calibrated squats with 10 reps
+      when: the pipeline runs
+      then: the suggested count is between 9 and 11 and confidence is at least 0.70
+    - id: AC2
+      given: a noisy on-bench upper-body stream
+      when: the pipeline runs
+      then: it returns insufficient confidence and no saved count
+    - id: AC3
+      given: a 20-minute sample file
+      when: the pipeline runs on a mid-tier Android device
+      then: processing completes in under 500 ms and allocates less than 10 MB
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Put pure signal processing in Forge.Core/Health/Sensors so it can be unit-tested without device APIs.
+        Start with deterministic filters, peak detection and cadence windows before considering machine learning.
+        Store labelled sample fixtures under tests with synthetic or explicitly consented recordings only. Confidence
+        must be surfaced to the workout UI and used as a gate: low confidence creates a suggestion requiring manual
+        entry, not an automatic set save.
+      touches:
+      - src/Forge.Core/Health/Sensors/RepDetectionPipeline.cs
+      - src/Forge.Core/Health/Sensors/PeakDetector.cs
+      - tests/Forge.Core.Tests/Health/Sensors/RepDetectionPipelineTests.cs
+      apis:
+      - System.Numerics
+      devexpress:
+      - DXBorder
+    testing:
+    - Unit tests with labelled squat, lunge and noisy fixture streams.
+    - Performance test for 20-minute streams under the 500 ms and 10 MB budgets.
 
-      - key: S11.02.02
-        title: Calibrate rep detection per exercise and user
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [privacy]
-        userStory:
-          asA: Alex with my own lifting tempo
-          iWant: Forge to calibrate each supported exercise from my movement
-          soThat: automatic suggestions fit my form instead of a generic pattern
-        requirements:
-          - Calibration records at least one guided set with the user's manually confirmed rep count.
-          - Calibration is stored per exercise, placement and sampling profile.
-          - Calibration can be reset from the exercise sensor settings screen.
-          - Calibration data is local-only and deleted when the related exercise sensor preference is deleted.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user completes a calibration set of 8 squats and confirms 8 reps
-            when: future squat sets use the same placement
-            then: the pipeline uses the stored squat calibration parameters
-          - id: AC2
-            given: the user changes placement from pocket to armband
-            when: automatic counting is armed
-            then: Forge requires a separate calibration or labels the result uncalibrated
-          - id: AC3
-            given: calibration is reset for lunges
-            when: the next lunge set is started
-            then: no previous lunge calibration parameters are loaded
-        implementation:
-          notes: >-
-            Add a calibration workflow to the workout setup sheet using DevExpress BottomSheet for
-            guided instructions and a NumericEdit confirmation of actual reps. Store calibration
-            parameters in Forge.Infrastructure keyed by exercise id, placement and sampling profile.
-            Keep the data small and interpretable, such as threshold multipliers and cadence ranges,
-            so engineers can reason about failures without opaque model behaviour.
-          touches:
-            - src/Forge.App/Features/Workout/Sensors/CalibrationSheet.xaml
-            - src/Forge.Infrastructure/Persistence/ExerciseSensorCalibrationEntity.cs
-            - src/Forge.Application/Health/Sensors/RepCalibrationService.cs
-          devexpress:
-            - BottomSheet
-            - NumericEdit
-        testing:
-          - Unit tests for calibration lookup keys and reset behaviour.
-          - UI test for guided calibration and manual rep confirmation.
-
-      - key: S11.02.03
-        title: Require manual correction and confidence review
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [a11y]
-        userStory:
-          asA: Maya who does not trust automatic counts yet
-          iWant: to correct every suggested set quickly
-          soThat: Forge helps without taking control away from me
-        requirements:
-          - Every detected set displays suggested reps, confidence and a one-tap edit action before saving when confidence is below 0.90.
-          - High-confidence supported movements may prefill the set but still allow correction within 3 seconds.
-          - Corrections update future calibration candidates only after explicit user confirmation.
-          - The UI states that rep counting is assistive, not authoritative.
-        acceptanceCriteria:
-          - id: AC1
-            given: a detected set has confidence 0.72
-            when: the set result appears
-            then: the Save action is disabled until the user confirms or edits the rep count
-          - id: AC2
-            given: a detected set is prefilled with 10 reps
-            when: the user taps Edit
-            then: they can change the count and save within 3 seconds in a timed UI test
-          - id: AC3
-            given: the user corrects a suggestion
-            when: the correction is saved
-            then: Forge asks whether to use it for calibration before updating calibration data
-        implementation:
-          notes: >-
-            Add a detection result component to the workout logging surface using NumericEdit for
-            fast correction and a RadialGauge or simple confidence indicator where it adds clarity.
-            Do not bury the caveat in settings; show assistive copy directly beside the suggestion.
-            Keep correction writes in the normal set logging path so manual and sensor-assisted sets
-            share validation and persistence behaviour.
-          touches:
-            - src/Forge.App/Features/Workout/Sensors/DetectedSetResultView.xaml
-            - src/Forge.App/Features/Workout/WorkoutLoggingViewModel.cs
-            - src/Forge.Application/Health/Sensors/RepCorrectionService.cs
-          devexpress:
-            - NumericEdit
-            - RadialGauge
-            - DXButton
-        testing:
-          - UI test timing correction from suggestion to save under 3 seconds.
-          - Unit tests for confidence thresholds and calibration opt-in after correction.
-
-      - key: S11.02.04
-        title: Limit supported exercises with evidence flags
-        wave: 4
-        size: s
-        platforms: [android, ios]
-        persona: team
-        concerns: [privacy]
-        userStory:
-          asA: product owner deciding launch scope
-          iWant: each automatic-count exercise marked by evidence level
-          soThat: Forge does not over-promise accuracy on movements it cannot measure reliably
-        requirements:
-          - Exercise sensor metadata includes supported, experimental and unsupported states.
-          - Supported state requires validation evidence meeting the epic accuracy target.
-          - Experimental state always requires manual confirmation and cannot appear in marketing claims.
-          - Unsupported exercises show manual logging only.
-        acceptanceCriteria:
-          - id: AC1
-            given: an exercise lacks validation evidence
-            when: its workout logging screen opens
-            then: automatic rep counting is hidden or labelled experimental and requires confirmation
-          - id: AC2
-            given: a supported exercise is promoted in metadata
-            when: validation results are inspected
-            then: at least three labelled sets meet the plus or minus one rep target
-          - id: AC3
-            given: marketing copy is generated from supported exercises
-            when: experimental exercises are queried
-            then: none are included
-        implementation:
-          notes: >-
-            Store evidence state beside the exercise catalogue metadata and keep the validation
-            summary in source-controlled JSON so changes are reviewable. This prevents accidental
-            promotion of exercises because the UI happens to work in one demo. The workout screen
-            should read the state and decide whether to arm sensors, show experimental warnings or
-            fall back to manual logging.
-          touches:
-            - src/Forge.Infrastructure/SeedContent/exercise-sensor-support.json
-            - src/Forge.Application/Health/Sensors/ExerciseSensorSupport.cs
-            - src/Forge.App/Features/Workout/WorkoutExerciseHeader.xaml
-        testing:
-          - Unit test that supported exercises require validation evidence.
-          - Snapshot test ensuring experimental exercises show warning copy.
-
-  - key: F11.03
-    title: Detect rest periods and set boundaries
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+  - key: S11.02.02
+    title: Calibrate rep detection per exercise and user
     wave: 4
-    summary: >-
-      Use motion patterns to identify when a set has likely ended and rest has begun, while giving
-      the user clear controls to override timing.
-    outcome: >-
-      Forge can suggest set boundaries and rest timers without confusing stillness, phone movement
-      or unsupported placement for completed work.
+    size: m
+    platforms: [android, ios]
+    persona: enthusiast
+    concerns: [privacy]
+    userStory:
+      asA: Alex with my own lifting tempo
+      iWant: Forge to calibrate each supported exercise from my movement
+      soThat: automatic suggestions fit my form instead of a generic pattern
+    requirements:
+    - Calibration records at least one guided set with the user's manually confirmed rep count.
+    - Calibration is stored per exercise, placement and sampling profile.
+    - Calibration can be reset from the exercise sensor settings screen.
+    - Calibration data is local-only and deleted when the related exercise sensor preference is deleted.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user completes a calibration set of 8 squats and confirms 8 reps
+      when: future squat sets use the same placement
+      then: the pipeline uses the stored squat calibration parameters
+    - id: AC2
+      given: the user changes placement from pocket to armband
+      when: automatic counting is armed
+      then: Forge requires a separate calibration or labels the result uncalibrated
+    - id: AC3
+      given: calibration is reset for lunges
+      when: the next lunge set is started
+      then: no previous lunge calibration parameters are loaded
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Add a calibration workflow to the workout setup sheet using DevExpress BottomSheet for guided instructions
+        and a NumericEdit confirmation of actual reps. Store calibration parameters in Forge.Infrastructure keyed
+        by exercise id, placement and sampling profile. Keep the data small and interpretable, such as threshold
+        multipliers and cadence ranges, so engineers can reason about failures without opaque model behaviour.
+      touches:
+      - src/Forge.App/Features/Workout/Sensors/CalibrationSheet.xaml
+      - src/Forge.Infrastructure/Persistence/ExerciseSensorCalibrationEntity.cs
+      - src/Forge.Core/Health/Sensors/RepCalibrationService.cs
+      devexpress:
+      - BottomSheet
+      - NumericEdit
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - Unit tests for calibration lookup keys and reset behaviour.
+    - UI test for guided calibration and manual rep confirmation.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+  - key: S11.02.03
+    title: Require manual correction and confidence review
+    wave: 4
+    size: m
+    platforms: [android, ios]
+    persona: newcomer
+    concerns: [a11y]
+    userStory:
+      asA: Maya who does not trust automatic counts yet
+      iWant: to correct every suggested set quickly
+      soThat: Forge helps without taking control away from me
+    requirements:
+    - Every detected set displays suggested reps, confidence and a one-tap edit action before saving when
+      confidence is below 0.90.
+    - High-confidence supported movements may prefill the set but still allow correction within 3 seconds.
+    - Corrections update future calibration candidates only after explicit user confirmation.
+    - The UI states that rep counting is assistive, not authoritative.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    - Manual correction must be reachable in no more than two taps from the affected workout or history
+      surface.
+    acceptanceCriteria:
+    - id: AC1
+      given: a detected set has confidence 0.72
+      when: the set result appears
+      then: the Save action is disabled until the user confirms or edits the rep count
+    - id: AC2
+      given: a detected set is prefilled with 10 reps
+      when: the user taps Edit
+      then: they can change the count and save within 3 seconds in a timed UI test
+    - id: AC3
+      given: the user corrects a suggestion
+      when: the correction is saved
+      then: Forge asks whether to use it for calibration before updating calibration data
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Add a detection result component to the workout logging surface using NumericEdit for fast correction and
+        a RadialGauge or simple confidence indicator where it adds clarity. Do not bury the caveat in settings;
+        show assistive copy directly beside the suggestion. Keep correction writes in the normal set logging path
+        so manual and sensor-assisted sets share validation and persistence behaviour.  Keep implementation in Forge.App/src/Forge.App/Features/Workout/Sensors
+        with DetectedSetResultView consuming normalized samples from Microsoft.Maui.Devices.Sensors.Accelerometer
+        and rendering status through DevExpress NumericEdit. The tricky part is being evidence-led: rep detection
+        is assistive, bounded by placement, sampling rate and battery cost, and every result must remain manually
+        correctable. A careless implementation would over-promise accuracy, save low-confidence counts automatic
+      touches:
+      - src/Forge.App/Features/Workout/Sensors/DetectedSetResultView.xaml
+      - src/Forge.App/Features/Workout/WorkoutLoggingViewModel.cs
+      - src/Forge.Core/Health/Sensors/RepCorrectionService.cs
+      devexpress:
+      - NumericEdit
+      - RadialGauge
+      - DXButton
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - UI test timing correction from suggestion to save under 3 seconds.
+    - Unit tests for confidence thresholds and calibration opt-in after correction.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+  - key: S11.02.04
+    title: Limit supported exercises with evidence flags
+    wave: 4
+    size: s
+    platforms: [android, ios]
+    persona: team
+    concerns: [privacy]
+    userStory:
+      asA: product owner deciding launch scope
+      iWant: each automatic-count exercise marked by evidence level
+      soThat: Forge does not over-promise accuracy on movements it cannot measure reliably
+    requirements:
+    - Exercise sensor metadata includes supported, experimental and unsupported states.
+    - Supported state requires validation evidence meeting the epic accuracy target.
+    - Experimental state always requires manual confirmation and cannot appear in marketing claims.
+    - Unsupported exercises show manual logging only.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: an exercise lacks validation evidence
+      when: its workout logging screen opens
+      then: automatic rep counting is hidden or labelled experimental and requires confirmation
+    - id: AC2
+      given: a supported exercise is promoted in metadata
+      when: validation results are inspected
+      then: at least three labelled sets meet the plus or minus one rep target
+    - id: AC3
+      given: marketing copy is generated from supported exercises
+      when: experimental exercises are queried
+      then: none are included
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Store evidence state beside the exercise catalogue metadata and keep the validation summary in source-controlled
+        JSON so changes are reviewable. This prevents accidental promotion of exercises because the UI happens to
+        work in one demo. The workout screen should read the state and decide whether to arm sensors, show experimental
+        warnings or fall back to manual logging.  Keep implementation in Forge.Infrastructure/src/Forge.Infrastructure/SeedContent
+        with exercise-sensor-support consuming normalized samples from Microsoft.Maui.Devices.Sensors.Accelerometer
+        and rendering status through DevExpress DXBorder. The tricky part is being evidence-led: rep detection is
+        assistive, bounded by placement, sampling rate and battery cost, and every result must remain manually correctable.
+        A careless implementation would over-promise accuracy, save low-confidence counts automatically or keep
+        ra
+      touches:
+      - src/Forge.Infrastructure/SeedContent/exercise-sensor-support.json
+      - src/Forge.Core/Health/Sensors/ExerciseSensorSupport.cs
+      - src/Forge.App/Features/Workout/WorkoutExerciseHeader.xaml
+      devexpress:
+      - DXBorder
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - Unit test that supported exercises require validation evidence.
+    - Snapshot test ensuring experimental exercises show warning copy.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+- key: F11.03
+  title: Detect rest periods and set boundaries
+  wave: 4
+  summary: >-
+    Use motion patterns to identify when a set has likely ended and rest has begun, while giving
+    the user clear controls to override timing.
+  outcome: >-
+    Forge can suggest set boundaries and rest timers without confusing stillness, phone movement
+    or unsupported placement for completed work.
+  concerns: [perf]
+  stories:
+  - key: S11.03.01
+    title: Detect set end and rest start from motion cadence
+    wave: 4
+    size: m
+    platforms: [android, ios]
+    persona: enthusiast
     concerns: [perf]
-    stories:
-      - key: S11.03.01
-        title: Detect set end and rest start from motion cadence
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [perf]
-        userStory:
-          asA: Alex moving quickly between sets
-          iWant: Forge to infer that a set ended and rest started
-          soThat: my timer starts without extra taps
-        requirements:
-          - Rest detection uses cadence drop, device stillness and a configurable minimum set duration.
-          - The default rest start threshold is 5 seconds of no detected reps after at least 10 seconds of set activity.
-          - Rest detection never saves a set without a rep count confirmation or manual set entry.
-          - The user can disable automatic rest detection per workout.
-        acceptanceCriteria:
-          - id: AC1
-            given: a calibrated set has 12 reps followed by 6 seconds of stillness
-            when: the pipeline evaluates the stream
-            then: it emits a rest-start event within 2 seconds of the threshold
-          - id: AC2
-            given: the phone is picked up mid-set for 3 seconds
-            when: cadence resumes
-            then: Forge does not emit a rest-start event
-          - id: AC3
-            given: automatic rest detection is disabled
-            when: a set ends
-            then: no rest timer starts until the user starts it manually
-        implementation:
-          notes: >-
-            Extend the signal pipeline with a SetBoundaryDetector that consumes cadence and
-            placement-normalized stillness rather than raw accelerometer magnitude alone. Keep set
-            saving separate from rest-start events to avoid inventing workout data. The workout
-            ViewModel should subscribe to boundary suggestions and start the existing rest timer
-            only when the user has not disabled the feature for that workout.
-          touches:
-            - src/Forge.Application/Health/Sensors/SetBoundaryDetector.cs
-            - src/Forge.App/Features/Workout/RestTimerViewModel.cs
-            - src/Forge.App/Features/Workout/Sensors/SensorWorkoutSettings.cs
-        testing:
-          - Unit tests for threshold timing, mid-set phone movement and disabled mode.
-          - Integration test wiring boundary events to rest timer start.
+    userStory:
+      asA: Alex moving quickly between sets
+      iWant: Forge to infer that a set ended and rest started
+      soThat: my timer starts without extra taps
+    requirements:
+    - Rest detection uses cadence drop, device stillness and a configurable minimum set duration.
+    - The default rest start threshold is 5 seconds of no detected reps after at least 10 seconds of set
+      activity.
+    - Rest detection never saves a set without a rep count confirmation or manual set entry.
+    - The user can disable automatic rest detection per workout.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: a calibrated set has 12 reps followed by 6 seconds of stillness
+      when: the pipeline evaluates the stream
+      then: it emits a rest-start event within 2 seconds of the threshold
+    - id: AC2
+      given: the phone is picked up mid-set for 3 seconds
+      when: cadence resumes
+      then: Forge does not emit a rest-start event
+    - id: AC3
+      given: automatic rest detection is disabled
+      when: a set ends
+      then: no rest timer starts until the user starts it manually
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Extend the signal pipeline with a SetBoundaryDetector that consumes cadence and placement-normalized stillness
+        rather than raw accelerometer magnitude alone. Keep set saving separate from rest-start events to avoid
+        inventing workout data. The workout ViewModel should subscribe to boundary suggestions and start the existing
+        rest timer only when the user has not disabled the feature for that workout.
+      touches:
+      - src/Forge.Core/Health/Sensors/SetBoundaryDetector.cs
+      - src/Forge.App/Features/Workout/RestTimerViewModel.cs
+      - src/Forge.App/Features/Workout/Sensors/SensorWorkoutSettings.cs
+      devexpress:
+      - DXBorder
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - Unit tests for threshold timing, mid-set phone movement and disabled mode.
+    - Integration test wiring boundary events to rest timer start.
 
-      - key: S11.03.02
-        title: Separate rest detection from phone handling noise
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        concerns: [perf]
-        userStory:
-          asA: Sam checking my phone between sets
-          iWant: Forge not to treat every phone movement as exercise
-          soThat: rest timing stays useful even when I interact with the app
-        requirements:
-          - The detector suppresses events caused by screen taps, phone unlock movement and short repositioning bursts.
-          - Handling noise shorter than 4 seconds cannot increment rep count or reset rest unless followed by cadence-matching movement.
-          - The UI shows when sensor data is paused because the user is editing the set.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user picks up the phone and edits reps for 3 seconds during rest
-            when: sensor samples are processed
-            then: no additional reps are counted and the rest timer continues
-          - id: AC2
-            given: the user moves the phone from pocket to bench after a set
-            when: placement change is detected
-            then: Forge asks for placement confirmation before using further rep suggestions
-          - id: AC3
-            given: the user is editing a set
-            when: the sensor status is displayed
-            then: it states paused while editing
-        implementation:
-          notes: >-
-            Add a UI interaction gate to the sensor session so editing and navigation events can
-            suppress handling noise. This does not require storing detailed touch data; it only
-            marks a short suppression window. Combine orientation changes with acceleration bursts
-            to detect likely placement changes and require confirmation. Surface status through a
-            small DXBorder chip rather than a modal interruption.
-          touches:
-            - src/Forge.Application/Health/Sensors/HandlingNoiseSuppressor.cs
-            - src/Forge.App/Features/Workout/Sensors/SensorStatusChip.xaml
-            - src/Forge.App/Features/Workout/WorkoutLoggingViewModel.cs
-          devexpress:
-            - DXBorder
-        testing:
-          - Unit tests for 4-second suppression windows and placement-change prompts.
-          - UI test ensuring editing a set pauses sensor status.
-
-      - key: S11.03.03
-        title: Start rest timers from confirmed sensor events
-        wave: 4
-        size: s
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [a11y]
-        userStory:
-          asA: Alex focused on lifting
-          iWant: rest timers to start after confirmed set boundaries
-          soThat: I keep pace without constantly touching the phone
-        requirements:
-          - A rest timer may auto-start only after a set boundary event and either high confidence or user confirmation.
-          - The user receives a haptic cue when the rest timer starts if haptics are enabled.
-          - Auto-started rest timers can be cancelled within 5 seconds without deleting the set.
-        acceptanceCriteria:
-          - id: AC1
-            given: a high-confidence set boundary is detected
-            when: the set is saved
-            then: the rest timer starts within 1 second
-          - id: AC2
-            given: a low-confidence boundary is detected
-            when: the user has not confirmed the set
-            then: no rest timer auto-starts
-          - id: AC3
-            given: an auto-started rest timer is cancelled within 5 seconds
-            when: workout history is inspected
-            then: the saved set remains and only the timer is stopped
-        implementation:
-          notes: >-
-            Reuse the workout rest timer service rather than creating a sensor-specific timer. Add
-            an AutoStarted flag and cancel window so users can recover from false positives without
-            losing data. Haptics should respect the global haptic setting and platform availability.
-            Keep screen-reader announcements clear: timer started, cancel available for 5 seconds.
-          touches:
-            - src/Forge.App/Features/Workout/RestTimerService.cs
-            - src/Forge.App/Features/Workout/Sensors/SensorRestCoordinator.cs
-          apis:
-            - Microsoft.Maui.Devices.HapticFeedback
-        testing:
-          - Unit tests for confidence gating, auto-start delay and cancel window.
-          - Manual accessibility check for screen-reader timer announcements.
-
-  - key: F11.04
-    title: Provide steps and cardio tracking fallbacks
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+  - key: S11.03.02
+    title: Separate rest detection from phone handling noise
     wave: 4
-    summary: >-
-      Use platform health data when available, then fall back to device sensors and explicit cardio
-      recording with clear battery and privacy prompts.
-    outcome: >-
-      Users can still estimate steps, pace, distance and elevation when health platform sync is not
-      connected, with GPS used only during active consented sessions.
+    size: m
+    platforms: [android, ios]
+    persona: returner
+    concerns: [perf]
+    userStory:
+      asA: Sam checking my phone between sets
+      iWant: Forge not to treat every phone movement as exercise
+      soThat: rest timing stays useful even when I interact with the app
+    requirements:
+    - The detector suppresses events caused by screen taps, phone unlock movement and short repositioning
+      bursts.
+    - Handling noise shorter than 4 seconds cannot increment rep count or reset rest unless followed by
+      cadence-matching movement.
+    - The UI shows when sensor data is paused because the user is editing the set.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user picks up the phone and edits reps for 3 seconds during rest
+      when: sensor samples are processed
+      then: no additional reps are counted and the rest timer continues
+    - id: AC2
+      given: the user moves the phone from pocket to bench after a set
+      when: placement change is detected
+      then: Forge asks for placement confirmation before using further rep suggestions
+    - id: AC3
+      given: the user is editing a set
+      when: the sensor status is displayed
+      then: it states paused while editing
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Add a UI interaction gate to the sensor session so editing and navigation events can suppress handling noise.
+        This does not require storing detailed touch data; it only marks a short suppression window. Combine orientation
+        changes with acceleration bursts to detect likely placement changes and require confirmation. Surface status
+        through a small DXBorder chip rather than a modal interruption.  Keep implementation in Forge.Core/src/Forge.Core/Health/Sensors
+        with HandlingNoiseSuppressor consuming normalized samples from Microsoft.Maui.Devices.Sensors.Accelerometer
+        and rendering status through DevExpress DXBorder. The tricky part is being evidence-led: rep detection is
+        assistive, bounded by placement, sampling rate and battery cost, and every result must remain manually correctable.
+        A careless implementation would over-promise accuracy, save low-confidence counts aut
+      touches:
+      - src/Forge.Core/Health/Sensors/HandlingNoiseSuppressor.cs
+      - src/Forge.App/Features/Workout/Sensors/SensorStatusChip.xaml
+      - src/Forge.App/Features/Workout/WorkoutLoggingViewModel.cs
+      devexpress:
+      - DXBorder
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - Unit tests for 4-second suppression windows and placement-change prompts.
+    - UI test ensuring editing a set pauses sensor status.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+  - key: S11.03.03
+    title: Start rest timers from confirmed sensor events
+    wave: 4
+    size: s
+    platforms: [android, ios]
+    persona: enthusiast
+    concerns: [a11y]
+    userStory:
+      asA: Alex focused on lifting
+      iWant: rest timers to start after confirmed set boundaries
+      soThat: I keep pace without constantly touching the phone
+    requirements:
+    - A rest timer may auto-start only after a set boundary event and either high confidence or user
+      confirmation.
+    - The user receives a haptic cue when the rest timer starts if haptics are enabled.
+    - Auto-started rest timers can be cancelled within 5 seconds without deleting the set.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: a high-confidence set boundary is detected
+      when: the set is saved
+      then: the rest timer starts within 1 second
+    - id: AC2
+      given: a low-confidence boundary is detected
+      when: the user has not confirmed the set
+      then: no rest timer auto-starts
+    - id: AC3
+      given: an auto-started rest timer is cancelled within 5 seconds
+      when: workout history is inspected
+      then: the saved set remains and only the timer is stopped
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Reuse the workout rest timer service rather than creating a sensor-specific timer. Add an AutoStarted flag
+        and cancel window so users can recover from false positives without losing data. Haptics should respect
+        the global haptic setting and platform availability. Keep screen-reader announcements clear: timer started,
+        cancel available for 5 seconds. Keep implementation in Forge.App/src/Forge.App/Features/Workout with RestTimerService
+        consuming normalized samples from Microsoft.Maui.Devices.HapticFeedback and rendering status through DevExpress
+        DXBorder. The tricky part is being evidence-led: rep detection is assistive, bounded by placement, sampling
+        rate and battery cost, and every result must remain manually correctable. A careless implementation would
+        over-promise accuracy, save low-confidence counts automatically or keep raw motion traces longer than necessary.
+      touches:
+      - src/Forge.App/Features/Workout/RestTimerService.cs
+      - src/Forge.App/Features/Workout/Sensors/SensorRestCoordinator.cs
+      apis:
+      - Microsoft.Maui.Devices.HapticFeedback
+      devexpress:
+      - DXBorder
+    testing:
+    - Unit tests for confidence gating, auto-start delay and cancel window.
+    - Manual accessibility check for screen-reader timer announcements.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+- key: F11.04
+  title: Provide steps and cardio tracking fallbacks
+  wave: 4
+  summary: >-
+    Use platform health data when available, then fall back to device sensors and explicit cardio
+    recording with clear battery and privacy prompts.
+  outcome: >-
+    Users can still estimate steps, pace, distance and elevation when health platform sync is not
+    connected, with GPS used only during active consented sessions.
+  concerns: [privacy, perf]
+  stories:
+  - key: S11.04.01
+    title: Add pedometer fallback when health sync is unavailable
+    wave: 4
+    size: m
+    platforms: [android, ios]
+    persona: returner
     concerns: [privacy, perf]
-    stories:
-      - key: S11.04.01
-        title: Add pedometer fallback when health sync is unavailable
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        concerns: [privacy, perf]
-        userStory:
-          asA: Sam without Health Connect or HealthKit enabled
-          iWant: Forge to estimate steps from available device capability
-          soThat: my activity context is not blank
-        requirements:
-          - Prefer Health Connect or HealthKit steps when granted and recent.
-          - Fall back to platform pedometer or motion capability only when health step access is unavailable.
-          - Fallback step estimates are labelled estimated and never merged as platform-imported samples.
-          - The user can disable fallback step tracking independently from health platform sync.
-        acceptanceCriteria:
-          - id: AC1
-            given: HealthKit step access returns available data
-            when: the Today screen loads
-            then: Forge uses HealthKit steps and does not start fallback tracking
-          - id: AC2
-            given: Health Connect is unavailable and fallback consent is enabled
-            when: the user walks 100 test steps
-            then: Forge records an estimated step count source distinct from platform-imported steps
-          - id: AC3
-            given: fallback tracking is disabled
-            when: health platform steps are unavailable
-            then: the Today screen shows manual or unavailable state and starts no pedometer tracking
-        implementation:
-          notes: >-
-            Add a StepSourceResolver in Forge.Application that ranks health platform samples above
-            fallback estimates. Implement platform fallback adapters in the app head because
-            pedometer availability differs by OS and hardware. Store fallback steps with source =
-            EstimatedSensor so they cannot be confused with Health Connect or HealthKit imports.
-            This is a degradation path, not a replacement for platform health sync.
-          touches:
-            - src/Forge.Application/Health/Sensors/StepSourceResolver.cs
-            - src/Forge.App/Platforms/Android/AndroidStepFallback.cs
-            - src/Forge.App/Platforms/iOS/IosStepFallback.cs
-            - src/Forge.Infrastructure/Persistence/HealthSampleEntity.cs
-          apis:
-            - HealthKit
-            - Xamarin.AndroidX.Health.Connect.ConnectClient
-        testing:
-          - Unit tests for source priority and source labelling.
-          - Manual walk test on one Android and one iOS device with health sync disabled.
+    userStory:
+      asA: Sam without Health Connect or HealthKit enabled
+      iWant: Forge to estimate steps from available device capability
+      soThat: my activity context is not blank
+    requirements:
+    - Prefer Health Connect or HealthKit steps when granted and recent.
+    - Fall back to platform pedometer or motion capability only when health step access is unavailable.
+    - Fallback step estimates are labelled estimated and never merged as platform-imported samples.
+    - The user can disable fallback step tracking independently from health platform sync.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: HealthKit step access returns available data
+      when: the Today screen loads
+      then: Forge uses HealthKit steps and does not start fallback tracking
+    - id: AC2
+      given: Health Connect is unavailable and fallback consent is enabled
+      when: the user walks 100 test steps
+      then: Forge records an estimated step count source distinct from platform-imported steps
+    - id: AC3
+      given: fallback tracking is disabled
+      when: health platform steps are unavailable
+      then: the Today screen shows manual or unavailable state and starts no pedometer tracking
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Add a StepSourceResolver in Forge.Core that ranks health platform samples above fallback estimates.
+        Implement platform fallback adapters in the app head because pedometer availability differs by OS and hardware.
+        Store fallback steps with source = EstimatedSensor so they cannot be confused with Health Connect or HealthKit
+        imports. This is a degradation path, not a replacement for platform health sync.
+      touches:
+      - src/Forge.Core/Health/Sensors/StepSourceResolver.cs
+      - src/Forge.App/Platforms/Android/AndroidStepFallback.cs
+      - src/Forge.App/Platforms/iOS/IosStepFallback.cs
+      - src/Forge.Infrastructure/Persistence/HealthSampleEntity.cs
+      apis:
+      - HealthKit
+      - Xamarin.AndroidX.Health.Connect.ConnectClient
+      devexpress:
+      - DXBorder
+    testing:
+    - Unit tests for source priority and source labelling.
+    - Manual walk test on one Android and one iOS device with health sync disabled.
 
-      - key: S11.04.02
-        title: Track outdoor cardio pace and distance with explicit GPS consent
-        wave: 4
-        size: l
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [privacy, perf]
-        userStory:
-          asA: Alex recording a run
-          iWant: pace and distance captured during the cardio session only
-          soThat: Forge can log cardio without tracking me outside workouts
-        requirements:
-          - GPS location is requested only after the user starts an outdoor cardio session and grants location consent.
-          - Pace and distance update at most once per second on-screen.
-          - Location capture stops within 5 seconds of pausing or finishing the cardio session.
-          - The pre-start screen states that GPS has significant battery and privacy implications.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user has not started a cardio session
-            when: app permissions are inspected
-            then: Forge has not requested background location permission
-          - id: AC2
-            given: a running session is active with GPS consent
-            when: location updates arrive
-            then: pace and distance update no more than once per second
-          - id: AC3
-            given: the user finishes the cardio session
-            when: 5 seconds pass
-            then: no active location listener remains
-        implementation:
-          notes: >-
-            Implement cardio location capture as an active-session service, not a background tracker.
-            Use MAUI Geolocation APIs with foreground permission only for v1 and keep all route data
-            local. Show GPS caveats in a DevExpress BottomSheet before first use. If permission is
-            denied, allow manual distance and duration entry using NumericEdit and TimeEdit-style
-            inputs rather than blocking cardio logging.
-          touches:
-            - src/Forge.App/Features/Cardio/CardioSessionPage.xaml
-            - src/Forge.App/Features/Cardio/CardioLocationService.cs
-            - src/Forge.Application/Health/Cardio/CardioMetricsCalculator.cs
-          devexpress:
-            - BottomSheet
-            - NumericEdit
-          apis:
-            - Microsoft.Maui.Devices.Sensors.Geolocation
-        testing:
-          - Unit tests for pace smoothing and one-update-per-second throttling.
-          - Manual permission test confirming no background location permission is requested.
-        grounding:
-          - title: .NET MAUI geolocation
-            url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/geolocation
-            note: Official API for foreground location capture.
-
-      - key: S11.04.03
-        title: Estimate elevation from barometer and GPS with uncertainty
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [perf, privacy]
-        userStory:
-          asA: Alex running hills
-          iWant: elevation gain shown with uncertainty
-          soThat: I understand the workout load without mistaking noisy altitude for precision
-        requirements:
-          - Use barometer samples when available and GPS altitude as a fallback during active cardio sessions.
-          - Display elevation gain in metres with an uncertainty label when source quality is low.
-          - Ignore altitude changes smaller than 3 metres to reduce noise.
-          - Elevation tracking stops when the cardio session stops.
-        acceptanceCriteria:
-          - id: AC1
-            given: a device has barometer support
-            when: a cardio session records elevation changes
-            then: elevation gain uses barometer-adjusted samples as the primary source
-          - id: AC2
-            given: altitude oscillates by 2 metres while stationary
-            when: elevation gain is calculated
-            then: total gain remains unchanged
-          - id: AC3
-            given: barometer is unavailable and GPS altitude accuracy is poor
-            when: elevation is displayed
-            then: the UI labels the value low confidence
-        implementation:
-          notes: >-
-            Add ElevationEstimator in Forge.Application that accepts barometer and geolocation
-            samples with timestamps. Apply a 3 metre deadband and retain a confidence flag based on
-            source availability and reported GPS accuracy. The UI should show this in a small chart
-            or summary row, not a claim of exact altitude. Do not keep sampling barometer after the
-            active cardio session ends.
-          touches:
-            - src/Forge.Application/Health/Cardio/ElevationEstimator.cs
-            - src/Forge.App/Features/Cardio/CardioMetricsPanel.xaml
-          devexpress:
-            - ChartView
-          apis:
-            - Microsoft.Maui.Devices.Sensors.Barometer
-            - Microsoft.Maui.Devices.Sensors.Geolocation
-        testing:
-          - Unit tests for 3 metre deadband, source priority and low-confidence output.
-          - Manual cardio test on a device with and without barometer support where available.
-
-      - key: S11.04.04
-        title: Offer manual cardio metrics when sensors are unavailable
-        wave: 4
-        size: s
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [privacy]
-        userStory:
-          asA: Maya using a treadmill
-          iWant: to enter distance, duration and elevation manually
-          soThat: cardio logging still works without GPS or reliable sensors
-        requirements:
-          - Manual cardio entry supports distance, duration, perceived effort and optional elevation gain.
-          - Manual entries are labelled manual and do not require location or motion permission.
-          - The screen validates distance from 0 to 300 km and duration from 1 minute to 24 hours.
-        acceptanceCriteria:
-          - id: AC1
-            given: location permission is denied
-            when: the user opens cardio logging
-            then: manual distance and duration entry is available without another permission prompt
-          - id: AC2
-            given: the user enters 301 km
-            when: they attempt to save
-            then: validation blocks saving and states the maximum is 300 km
-          - id: AC3
-            given: a manual treadmill run is saved
-            when: history is viewed
-            then: the entry is labelled manual and contains no route data
-        implementation:
-          notes: >-
-            Reuse Forge's normal workout persistence for manual cardio entries and mark source as
-            Manual. Use DevExpress NumericEdit for distance and elevation, DateEdit or duration
-            editor patterns for time, and ComboBoxEdit for perceived effort. This story is important
-            because GPS is both battery-heavy and privacy-sensitive, and treadmill users should not
-            be forced through sensor setup.
-          touches:
-            - src/Forge.App/Features/Cardio/ManualCardioEntryPage.xaml
-            - src/Forge.Application/Health/Cardio/ManualCardioEntryValidator.cs
-          devexpress:
-            - NumericEdit
-            - ComboBoxEdit
-        testing:
-          - Unit tests for distance and duration validation boundaries.
-          - UI test saving a manual treadmill entry with permissions denied.
-
-  - key: F11.05
-    title: Present sensor results with trust and observability
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+  - key: S11.04.02
+    title: Track outdoor cardio pace and distance with explicit GPS consent
     wave: 4
-    summary: >-
-      Make sensor-derived results explainable, editable and diagnosable so users and developers can
-      understand what happened without collecting unnecessary raw data.
-    outcome: >-
-      Sensor-assisted workouts show confidence, source and correction history, and engineering can
-      validate quality through privacy-preserving fixtures and metrics.
-    concerns: [privacy, a11y]
-    stories:
-      - key: S11.05.01
-        title: Show sensor source, confidence and correction history
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [a11y]
-        userStory:
-          asA: Alex reviewing a workout
-          iWant: to see which sets were sensor-assisted and corrected
-          soThat: I can trust the numbers in my progress history
-        requirements:
-          - Workout history marks each set as manual, sensor suggested, sensor confirmed or sensor corrected.
-          - Confidence is shown as a percentage or plain-language band with an accessible label.
-          - Correction history stores previous suggested count, final count and correction timestamp.
-          - Users can filter history to sensor-corrected sets.
-        acceptanceCriteria:
-          - id: AC1
-            given: a sensor suggestion of 9 reps is corrected to 10
-            when: workout history is opened
-            then: the set shows sensor corrected with suggested 9 and final 10
-          - id: AC2
-            given: a screen reader focuses a confidence badge
-            when: the badge is announced
-            then: it includes the confidence band and whether the set was corrected
-          - id: AC3
-            given: the user filters to sensor-corrected sets
-            when: history contains manual and corrected sets
-            then: only corrected sets are displayed
-        implementation:
-          notes: >-
-            Extend set history DTOs with sensor source and correction metadata from
-            Forge.Infrastructure, then render badges in the workout history list using
-            DXCollectionView item templates. Avoid colour-only confidence indicators and keep the
-            exact suggested count visible for auditability. This is product trust work, not merely
-            analytics.
-          touches:
-            - src/Forge.Infrastructure/Persistence/SensorCorrectionEntity.cs
-            - src/Forge.App/Features/Workout/WorkoutHistoryPage.xaml
-            - src/Forge.App/Features/Workout/WorkoutHistoryViewModel.cs
-          devexpress:
-            - DXCollectionView
-            - DXBorder
-        testing:
-          - UI tests for source badges, correction filter and screen-reader labels.
-          - Unit test mapping correction entities into history DTOs.
+    size: l
+    platforms: [android, ios]
+    persona: enthusiast
+    concerns: [privacy, perf]
+    userStory:
+      asA: Alex recording a run
+      iWant: pace and distance captured during the cardio session only
+      soThat: Forge can log cardio without tracking me outside workouts
+    requirements:
+    - GPS location is requested only after the user starts an outdoor cardio session and grants location
+      consent.
+    - Pace and distance update at most once per second on-screen.
+    - Location capture stops within 5 seconds of pausing or finishing the cardio session.
+    - The pre-start screen states that GPS has significant battery and privacy implications.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    - Battery-sensitive capture uses the lowest sampling profile that satisfies the feature and displays an
+      estimated hourly battery cost before high-frequency capture.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user has not started a cardio session
+      when: app permissions are inspected
+      then: Forge has not requested background location permission
+    - id: AC2
+      given: a running session is active with GPS consent
+      when: location updates arrive
+      then: pace and distance update no more than once per second
+    - id: AC3
+      given: the user finishes the cardio session
+      when: 5 seconds pass
+      then: no active location listener remains
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Implement cardio location capture as an active-session service, not a background tracker. Use MAUI Geolocation
+        APIs with foreground permission only for v1 and keep all route data local. Show GPS caveats in a DevExpress
+        BottomSheet before first use. If permission is denied, allow manual distance and duration entry using NumericEdit
+        and TimeEdit-style inputs rather than blocking cardio logging.  Keep implementation in Forge.App/src/Forge.App/Features/Cardio
+        with CardioSessionPage consuming normalized samples from Microsoft.Maui.Devices.Sensors.Geolocation and
+        rendering status through DevExpress BottomSheet. The tricky part is being evidence-led: rep detection is
+        assistive, bounded by placement, sampling rate and battery cost, and every result must remain manually correctable.
+        A careless implementation would over-promise accuracy, save low-confidence counts automatically or keep
+        r
+      touches:
+      - src/Forge.App/Features/Cardio/CardioSessionPage.xaml
+      - src/Forge.App/Features/Cardio/CardioLocationService.cs
+      - src/Forge.Core/Health/Cardio/CardioMetricsCalculator.cs
+      devexpress:
+      - BottomSheet
+      - NumericEdit
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Geolocation
+    testing:
+    - Unit tests for pace smoothing and one-update-per-second throttling.
+    - Manual permission test confirming no background location permission is requested.
+    grounding:
+    - title: .NET MAUI geolocation
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/geolocation
+      note: Official API for foreground location capture.
 
-      - key: S11.05.02
-        title: Build privacy-preserving validation fixtures for sensor algorithms
-        wave: 4
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [privacy]
-        userStory:
-          asA: developer improving the detector
-          iWant: labelled fixtures that do not expose personal health data
-          soThat: algorithm changes can be tested before reaching users
-        requirements:
-          - Test fixtures contain synthetic streams or explicit opt-in diagnostic recordings stripped of identifiers.
-          - Fixture metadata includes exercise, placement, sampling profile, expected reps and consent provenance.
-          - CI fails if a fixture lacks expected reps or consent provenance.
-          - No fixture contains GPS coordinates or free-text user notes.
-        acceptanceCriteria:
-          - id: AC1
-            given: a fixture file is added without consent provenance
-            when: CI validation runs
-            then: the build fails with a message naming the fixture
-          - id: AC2
-            given: fixture contents are searched
-            when: latitude, longitude and free-text note fields are queried
-            then: no such fields are present
-          - id: AC3
-            given: the rep detection algorithm changes
-            when: CI runs fixture tests
-            then: accuracy metrics are reported per exercise and placement
-        implementation:
-          notes: >-
-            Store fixtures under tests/Forge.Application.Tests/Fixtures/Sensors with a schema that
-            permits only timestamp, normalized sensor axes, exercise id, placement and expected
-            labels. Add a small validation tool in tests or tools that blocks location fields and
-            missing provenance. This lets the team improve algorithms without turning user workouts
-            into a hidden dataset.
-          touches:
-            - tests/Forge.Application.Tests/Fixtures/Sensors
-            - tests/Forge.Application.Tests/Health/Sensors/SensorFixtureSchemaTests.cs
-            - tools/sensor-fixture-validate
-        testing:
-          - CI fixture validation for provenance, prohibited fields and expected labels.
-          - Algorithm regression report per fixture group.
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+  - key: S11.04.03
+    title: Estimate elevation from barometer and GPS with uncertainty
+    wave: 4
+    size: m
+    platforms: [android, ios]
+    persona: enthusiast
+    concerns: [perf, privacy]
+    userStory:
+      asA: Alex running hills
+      iWant: elevation gain shown with uncertainty
+      soThat: I understand the workout load without mistaking noisy altitude for precision
+    requirements:
+    - Use barometer samples when available and GPS altitude as a fallback during active cardio sessions.
+    - Display elevation gain in metres with an uncertainty label when source quality is low.
+    - Ignore altitude changes smaller than 3 metres to reduce noise.
+    - Elevation tracking stops when the cardio session stops.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    - Battery-sensitive capture uses the lowest sampling profile that satisfies the feature and displays an
+      estimated hourly battery cost before high-frequency capture.
+    acceptanceCriteria:
+    - id: AC1
+      given: a device has barometer support
+      when: a cardio session records elevation changes
+      then: elevation gain uses barometer-adjusted samples as the primary source
+    - id: AC2
+      given: altitude oscillates by 2 metres while stationary
+      when: elevation gain is calculated
+      then: total gain remains unchanged
+    - id: AC3
+      given: barometer is unavailable and GPS altitude accuracy is poor
+      when: elevation is displayed
+      then: the UI labels the value low confidence
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Add ElevationEstimator in Forge.Core that accepts barometer and geolocation samples with timestamps.
+        Apply a 3 metre deadband and retain a confidence flag based on source availability and reported GPS accuracy.
+        The UI should show this in a small chart or summary row, not a claim of exact altitude. Do not keep sampling
+        barometer after the active cardio session ends.  Keep implementation in Forge.Core/src/Forge.Core/Health/Cardio
+        with ElevationEstimator consuming normalized samples from Microsoft.Maui.Devices.Sensors.Barometer and rendering
+        status through DevExpress ChartView. The tricky part is being evidence-led: rep detection is assistive,
+        bounded by placement, sampling rate and battery cost, and every result must remain manually correctable.
+        A careless implementation would over-promise accuracy, save low-confidence counts automatically or keep
+        raw motion
+      touches:
+      - src/Forge.Core/Health/Cardio/ElevationEstimator.cs
+      - src/Forge.App/Features/Cardio/CardioMetricsPanel.xaml
+      devexpress:
+      - ChartView
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Barometer
+      - Microsoft.Maui.Devices.Sensors.Geolocation
+    testing:
+    - Unit tests for 3 metre deadband, source priority and low-confidence output.
+    - Manual cardio test on a device with and without barometer support where available.
 
-      - key: S11.05.03
-        title: Add sensor status and failure states to workout UI
-        wave: 4
-        size: s
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [a11y]
-        userStory:
-          asA: Maya using automatic counting during a workout
-          iWant: clear status when sensors pause, fail or lose confidence
-          soThat: I know whether to rely on the suggestion or log manually
-        requirements:
-          - The workout screen shows inactive, calibrating, armed, detecting, paused, low confidence and failed states.
-          - Failed state includes a one-tap switch to manual logging.
-          - Status changes are announced to screen readers when they affect the user's next action.
-        acceptanceCriteria:
-          - id: AC1
-            given: the gyroscope becomes unavailable during a set
-            when: the sensor service reports failure
-            then: the workout UI shows failed and offers Switch to manual
-          - id: AC2
-            given: confidence drops below the usable threshold
-            when: the current set completes
-            then: the status changes to low confidence and the count requires confirmation
-          - id: AC3
-            given: VoiceOver is active
-            when: status changes from detecting to paused
-            then: the change is announced once and not repeated more than once per 10 seconds
-        implementation:
-          notes: >-
-            Model sensor state explicitly in the workout ViewModel rather than deriving it from
-            scattered booleans. Render a compact status chip with DXBorder and icons, and route
-            failures to manual logging rather than a blocking error page. Throttle accessibility
-            announcements so state changes are helpful during a set rather than noisy.
-          touches:
-            - src/Forge.Application/Health/Sensors/SensorTrackingState.cs
-            - src/Forge.App/Features/Workout/Sensors/SensorStatusChip.xaml
-            - src/Forge.App/Features/Workout/WorkoutLoggingViewModel.cs
-          devexpress:
-            - DXBorder
-            - DXButton
-        testing:
-          - Unit tests for state transitions and failure to manual logging action.
-          - Accessibility test for announcement throttling.
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+    - title: .NET MAUI geolocation
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/geolocation
+      note: Official API reference for foreground location capture during active cardio sessions.
+  - key: S11.04.04
+    title: Offer manual cardio metrics when sensors are unavailable
+    wave: 4
+    size: s
+    platforms: [android, ios]
+    persona: newcomer
+    concerns: [privacy]
+    userStory:
+      asA: Maya using a treadmill
+      iWant: to enter distance, duration and elevation manually
+      soThat: cardio logging still works without GPS or reliable sensors
+    requirements:
+    - Manual cardio entry supports distance, duration, perceived effort and optional elevation gain.
+    - Manual entries are labelled manual and do not require location or motion permission.
+    - The screen validates distance from 0 to 300 km and duration from 1 minute to 24 hours.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    - Battery-sensitive capture uses the lowest sampling profile that satisfies the feature and displays an
+      estimated hourly battery cost before high-frequency capture.
+    - Manual correction must be reachable in no more than two taps from the affected workout or history
+      surface.
+    acceptanceCriteria:
+    - id: AC1
+      given: location permission is denied
+      when: the user opens cardio logging
+      then: manual distance and duration entry is available without another permission prompt
+    - id: AC2
+      given: the user enters 301 km
+      when: they attempt to save
+      then: validation blocks saving and states the maximum is 300 km
+    - id: AC3
+      given: a manual treadmill run is saved
+      when: history is viewed
+      then: the entry is labelled manual and contains no route data
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Reuse Forge's normal workout persistence for manual cardio entries and mark source as Manual. Use DevExpress
+        NumericEdit for distance and elevation, DateEdit or duration editor patterns for time, and ComboBoxEdit
+        for perceived effort. This story is important because GPS is both battery-heavy and privacy-sensitive, and
+        treadmill users should not be forced through sensor setup.  Keep implementation in Forge.App/src/Forge.App/Features/Cardio
+        with ManualCardioEntryPage consuming normalized samples from Microsoft.Maui.Devices.Sensors.Accelerometer
+        and rendering status through DevExpress NumericEdit. The tricky part is being evidence-led: rep detection
+        is assistive, bounded by placement, sampling rate and battery cost, and every result must remain manually
+        correctable. A careless implementation would over-promise accuracy, save low-confidence counts automatically
+        or keep raw motion t
+      touches:
+      - src/Forge.App/Features/Cardio/ManualCardioEntryPage.xaml
+      - src/Forge.Core/Health/Cardio/ManualCardioEntryValidator.cs
+      devexpress:
+      - NumericEdit
+      - ComboBoxEdit
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - Unit tests for distance and duration validation boundaries.
+    - UI test saving a manual treadmill entry with permissions denied.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+    - title: .NET MAUI geolocation
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/geolocation
+      note: Official API reference for foreground location capture during active cardio sessions.
+- key: F11.05
+  title: Present sensor results with trust and observability
+  wave: 4
+  summary: >-
+    Make sensor-derived results explainable, editable and diagnosable so users and developers can
+    understand what happened without collecting unnecessary raw data.
+  outcome: >-
+    Sensor-assisted workouts show confidence, source and correction history, and engineering can
+    validate quality through privacy-preserving fixtures and metrics.
+  concerns: [privacy, a11y]
+  stories:
+  - key: S11.05.01
+    title: Show sensor source, confidence and correction history
+    wave: 4
+    size: m
+    platforms: [android, ios]
+    persona: enthusiast
+    concerns: [a11y]
+    userStory:
+      asA: Alex reviewing a workout
+      iWant: to see which sets were sensor-assisted and corrected
+      soThat: I can trust the numbers in my progress history
+    requirements:
+    - Workout history marks each set as manual, sensor suggested, sensor confirmed or sensor corrected.
+    - Confidence is shown as a percentage or plain-language band with an accessible label.
+    - Correction history stores previous suggested count, final count and correction timestamp.
+    - Users can filter history to sensor-corrected sets.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    - Manual correction must be reachable in no more than two taps from the affected workout or history
+      surface.
+    acceptanceCriteria:
+    - id: AC1
+      given: a sensor suggestion of 9 reps is corrected to 10
+      when: workout history is opened
+      then: the set shows sensor corrected with suggested 9 and final 10
+    - id: AC2
+      given: a screen reader focuses a confidence badge
+      when: the badge is announced
+      then: it includes the confidence band and whether the set was corrected
+    - id: AC3
+      given: the user filters to sensor-corrected sets
+      when: history contains manual and corrected sets
+      then: only corrected sets are displayed
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Extend set history DTOs with sensor source and correction metadata from Forge.Infrastructure, then render
+        badges in the workout history list using DXCollectionView item templates. Avoid colour-only confidence indicators
+        and keep the exact suggested count visible for auditability. This is product trust work, not merely analytics.
+        Keep implementation in Forge.Infrastructure/src/Forge.Infrastructure/Persistence with SensorCorrectionEntity
+        consuming normalized samples from Microsoft.Maui.Devices.Sensors.Accelerometer and rendering status through
+        DevExpress DXCollectionView. The tricky part is being evidence-led: rep detection is assistive, bounded
+        by placement, sampling rate and battery cost, and every result must remain manually correctable. A careless
+        implementation would over-promise accuracy, save low-confidence counts automatically or keep raw motion
+        traces longer than necessary.
+      touches:
+      - src/Forge.Infrastructure/Persistence/SensorCorrectionEntity.cs
+      - src/Forge.App/Features/Workout/WorkoutHistoryPage.xaml
+      - src/Forge.App/Features/Workout/WorkoutHistoryViewModel.cs
+      devexpress:
+      - DXCollectionView
+      - DXBorder
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - UI tests for source badges, correction filter and screen-reader labels.
+    - Unit test mapping correction entities into history DTOs.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+  - key: S11.05.02
+    title: Build privacy-preserving validation fixtures for sensor algorithms
+    wave: 4
+    size: m
+    platforms: [android, ios]
+    persona: team
+    concerns: [privacy]
+    userStory:
+      asA: developer improving the detector
+      iWant: labelled fixtures that do not expose personal health data
+      soThat: algorithm changes can be tested before reaching users
+    requirements:
+    - Test fixtures contain synthetic streams or explicit opt-in diagnostic recordings stripped of
+      identifiers.
+    - Fixture metadata includes exercise, placement, sampling profile, expected reps and consent provenance.
+    - CI fails if a fixture lacks expected reps or consent provenance.
+    - No fixture contains GPS coordinates or free-text user notes.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    acceptanceCriteria:
+    - id: AC1
+      given: a fixture file is added without consent provenance
+      when: CI validation runs
+      then: the build fails with a message naming the fixture
+    - id: AC2
+      given: fixture contents are searched
+      when: latitude, longitude and free-text note fields are queried
+      then: no such fields are present
+    - id: AC3
+      given: the rep detection algorithm changes
+      when: CI runs fixture tests
+      then: accuracy metrics are reported per exercise and placement
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Store fixtures under tests/Forge.Core.Tests/Fixtures/Sensors with a schema that permits only timestamp,
+        normalized sensor axes, exercise id, placement and expected labels. Add a small validation tool in tests
+        or tools that blocks location fields and missing provenance. This lets the team improve algorithms without
+        turning user workouts into a hidden dataset.  Keep implementation in Forge.Core.Tests/tests/Forge.Core.Tests/Fixtures/Sensors
+        with S110502Coordinator consuming normalized samples from Microsoft.Maui.Devices.Sensors.Accelerometer and
+        rendering status through DevExpress DXBorder. The tricky part is being evidence-led: rep detection is assistive,
+        bounded by placement, sampling rate and battery cost, and every result must remain manually correctable.
+        A careless implementation would over-promise accuracy, save low-confidence counts automatically or kee
+      touches:
+      - tests/Forge.Core.Tests/Fixtures/Sensors
+      - tests/Forge.Core.Tests/Health/Sensors/SensorFixtureSchemaTests.cs
+      - tools/sensor-fixture-validate
+      devexpress:
+      - DXBorder
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - CI fixture validation for provenance, prohibited fields and expected labels.
+    - Algorithm regression report per fixture group.
+
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.
+    - title: GDPR Article 9 special categories of personal data
+      url: https://gdpr-info.eu/art-9-gdpr/
+      note: Health and fitness data can be special-category data requiring explicit handling and review.
+  - key: S11.05.03
+    title: Add sensor status and failure states to workout UI
+    wave: 4
+    size: s
+    platforms: [android, ios]
+    persona: newcomer
+    concerns: [a11y]
+    userStory:
+      asA: Maya using automatic counting during a workout
+      iWant: clear status when sensors pause, fail or lose confidence
+      soThat: I know whether to rely on the suggestion or log manually
+    requirements:
+    - The workout screen shows inactive, calibrating, armed, detecting, paused, low confidence and failed
+      states.
+    - Failed state includes a one-tap switch to manual logging.
+    - Status changes are announced to screen readers when they affect the user's next action.
+    - Sensor-derived values are labelled assistive or estimated and remain manually correctable before they
+      affect saved workout totals.
+    - The UI records the active device-placement assumption and sampling profile whenever sensor output is
+      shown or saved.
+    - Manual correction must be reachable in no more than two taps from the affected workout or history
+      surface.
+    acceptanceCriteria:
+    - id: AC1
+      given: the gyroscope becomes unavailable during a set
+      when: the sensor service reports failure
+      then: the workout UI shows failed and offers Switch to manual
+    - id: AC2
+      given: confidence drops below the usable threshold
+      when: the current set completes
+      then: the status changes to low confidence and the count requires confirmation
+    - id: AC3
+      given: VoiceOver is active
+      when: status changes from detecting to paused
+      then: the change is announced once and not repeated more than once per 10 seconds
+    - id: AC4
+      given: a sensor-derived result is shown to the user
+      when: the user reviews it before saving
+      then: the screen displays source, placement, confidence and an edit action reachable within two taps
+    implementation:
+      notes: >-
+        Model sensor state explicitly in the workout ViewModel rather than deriving it from scattered booleans.
+        Render a compact status chip with DXBorder and icons, and route failures to manual logging rather than a
+        blocking error page. Throttle accessibility announcements so state changes are helpful during a set rather
+        than noisy. Keep implementation in Forge.Core/src/Forge.Core/Health/Sensors with SensorTrackingState
+        consuming normalized samples from Microsoft.Maui.Devices.Sensors.Accelerometer and rendering status through
+        DevExpress DXBorder. The tricky part is being evidence-led: rep detection is assistive, bounded by placement,
+        sampling rate and battery cost, and every result must remain manually correctable. A careless implementation
+        would over-promise accuracy, save low-confidence counts automatically or keep raw motion traces longer than
+        necessary.
+      touches:
+      - src/Forge.Core/Health/Sensors/SensorTrackingState.cs
+      - src/Forge.App/Features/Workout/Sensors/SensorStatusChip.xaml
+      - src/Forge.App/Features/Workout/WorkoutLoggingViewModel.cs
+      devexpress:
+      - DXBorder
+      - DXButton
+      apis:
+      - Microsoft.Maui.Devices.Sensors.Accelerometer
+    testing:
+    - Unit tests for state transitions and failure to manual logging action.
+    - Accessibility test for announcement throttling.
+    grounding:
+    - title: .NET MAUI device sensors
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/sensors
+      note: Documents Accelerometer, Gyroscope, Barometer, Compass and OrientationSensor APIs used by sensor
+        tracking.

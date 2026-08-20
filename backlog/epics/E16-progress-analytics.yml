@@ -89,6 +89,10 @@ features:
           - >-
             A no-data state appears when the exercise has fewer than two logged sessions and gives
             one concrete next action.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Charts with 500 or more visible points render within 300 ms on a Pixel 6a class device and keep panning at 60 fps with no frame above 16.6 ms.
         acceptanceCriteria:
           - id: AC1
             given: an exercise with 500 historical set groups
@@ -104,13 +108,9 @@ features:
             then: validation appears within 100 ms and the Apply button remains disabled
         implementation:
           notes: >-
-            Build the analytics query in Forge.Application/Insights/StrengthTrendService so the
-            ViewModel receives plain DTOs and never exposes DevExpress types. Use SQLite grouping by
-            exercise id and workout date, then bind the DTOs to dx:ChartView in
-            src/Forge.App/Features/Insights/Strength/StrengthTrendPage.xaml. Use dx:DateEdit for
-            range boundaries and keep the chart item count bounded by the selected range.
+            Build the analytics query in Forge.Core/Insights/StrengthTrendService so the ViewModel receives plain DTOs and never exposes DevExpress types. Use SQLite grouping by exercise id and workout date, then bind the DTOs to dx:ChartView in src/Forge.App/Features/Insights/Strength/StrengthTrendPage.xaml. Use dx:DateEdit for range boundaries and keep the chart item count bounded by the selected range. Keep the ViewModel output as plain DTOs and put DevExpress binding only in Forge.App XAML so application logic remains testable and desktop heads can be added later. The implementation should pre-filter and aggregate in SQLite where possible, then render only the selected range. A careless version would bind raw entity collections directly, omit sparse-state copy or let NaN and infinity values reach labels.
           touches:
-            - src/Forge.Application/Insights/StrengthTrendService.cs
+            - src/Forge.Core/Insights/StrengthTrendService.cs
             - src/Forge.App/Features/Insights/Strength/StrengthTrendPage.xaml
             - src/Forge.App/Features/Insights/Strength/StrengthTrendViewModel.cs
           devexpress:
@@ -122,6 +122,19 @@ features:
           - Unit test range filtering at exact start and end date boundaries.
           - UI performance test loading a 500 point chart on Android and iOS.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI ChartView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+            note: >-
+              Primary DevExpress chart surface for rendering analytics series and validating chart-specific behaviour.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
       - key: S16.01.02
         title: Explain estimated one-rep max with named formulas
         wave: 4
@@ -143,6 +156,10 @@ features:
           - >-
             The UI states that prediction error increases with high reps, unfamiliar movements and
             sets not taken near failure.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Each estimate shows the selected formula name, formula text and an error-margin caveat beside the chart and in exported images.
         acceptanceCriteria:
           - id: AC1
             given: a set of 80 kg for 8 reps
@@ -156,16 +173,19 @@ features:
             given: the user switches from Epley to Brzycki
             when: the chart refreshes
             then: all visible estimate points recalculate within 200 ms without changing the selected date range
+          - id: AC4
+            given: >-
+              a chart contains estimated max points from multiple rep ranges
+            when: >-
+              the user opens the formula explainer
+            then: >-
+              the screen shows Epley or Brzycki, the exact equation and copy saying estimated maxes are approximate and less reliable for high-rep sets
         implementation:
           notes: >-
-            Place formula implementations in Forge.Domain/Analytics/OneRepMaxFormula.cs as pure
-            functions with unit tests for known examples. Store the selected formula as a local
-            user preference, not in the workout log, because historical values should re-render when
-            the user changes the formula. The ChartView tooltip must include source weight, reps,
-            formula name and caveat text so exported screenshots remain understandable.
+            Place formula implementations in Forge.Domain/Analytics/OneRepMaxFormula.cs as pure functions with unit tests for known examples. Store the selected formula as a local user preference, not in the workout log, because historical values should re-render when the user changes the formula. The ChartView tooltip must include source weight, reps, formula name and caveat text so exported screenshots remain understandable. Use Epley as 1RM = w * (1 + r/30) and Brzycki as 1RM = w * 36 / (37 - r); never store only the rendered estimate because formula changes must recalculate from original set data. A careless implementation would hide the equation, treat high-rep sets as equally accurate or round before comparing PRs, which would create false records.
           touches:
             - src/Forge.Domain/Analytics/OneRepMaxFormula.cs
-            - src/Forge.Application/Insights/EstimatedMaxService.cs
+            - src/Forge.Core/Insights/EstimatedMaxService.cs
             - src/Forge.App/Features/Insights/Strength/EstimatedMaxExplainerView.xaml
           devexpress:
             - dx:ChartView
@@ -175,11 +195,23 @@ features:
         testing:
           - Unit tests for Epley and Brzycki calculations including rounding and rep cutoffs.
           - Snapshot test confirming tooltip text includes weight, reps and formula name.
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
         grounding:
           - title: ExRx one-rep max calculator
             url: https://exrx.net/Calculators/OneRepMax
             note: Reference for the named formulas and their intended use.
 
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              Primary DevExpress virtualized list control for analytics feeds, cards and history lists.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
       - key: S16.01.03
         title: Compare current progress against previous periods
         wave: 4
@@ -201,6 +233,10 @@ features:
           - >-
             Percentage change is hidden when the baseline is zero and replaced with an explicit
             "no prior data" message.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Charts with 500 or more visible points render within 300 ms on a Pixel 6a class device and keep panning at 60 fps with no frame above 16.6 ms.
         acceptanceCriteria:
           - id: AC1
             given: a 28 day selected range with a preceding 28 day range
@@ -210,14 +246,18 @@ features:
             given: no workouts in the previous comparison range
             when: the comparison card renders
             then: no percentage value is shown and the card states that prior data is unavailable
+          - id: AC3
+            given: >-
+              the user has no qualifying local data for this analytics card
+            when: >-
+              the screen finishes loading
+            then: >-
+              a purposeful empty state appears within 400 ms with the unlock threshold and one primary action, and no blank chart or endless spinner remains
         implementation:
           notes: >-
-            Keep comparison calculations in Forge.Application so the feature can be unit-tested
-            without a device. Expose two aligned series from PeriodComparisonService and bind them
-            to separate ChartView line series with distinct stroke patterns, not colour alone. This
-            avoids an accessibility failure and makes image exports readable in greyscale.
+            Keep comparison calculations in Forge.Core so the feature can be unit-tested without a device. Expose two aligned series from PeriodComparisonService and bind them to separate ChartView line series with distinct stroke patterns, not colour alone. This avoids an accessibility failure and makes image exports readable in greyscale. Keep the ViewModel output as plain DTOs and put DevExpress binding only in Forge.App XAML so application logic remains testable and desktop heads can be added later. The implementation should pre-filter and aggregate in SQLite where possible, then render only the selected range. A careless version would bind raw entity collections directly, omit sparse-state copy or let NaN and infinity values reach labels.
           touches:
-            - src/Forge.Application/Insights/PeriodComparisonService.cs
+            - src/Forge.Core/Insights/PeriodComparisonService.cs
             - src/Forge.App/Features/Insights/Shared/ComparisonRangeSelector.xaml
           devexpress:
             - dx:ChartView
@@ -226,6 +266,19 @@ features:
           - Unit tests for equal-length period boundaries around daylight-saving changes.
           - UI test confirming zero baselines do not render infinity or NaN.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI ChartView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+            note: >-
+              Primary DevExpress chart surface for rendering analytics series and validating chart-specific behaviour.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
   - key: F16.02
     title: Detect personal records and surface notable insights
     wave: 4
@@ -256,6 +309,8 @@ features:
             workout with 40 sets.
           - >-
             Deleted or corrected sets remove affected PR badges on the next recalculation.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
         acceptanceCriteria:
           - id: AC1
             given: a user completes 100 kg for 5 reps after previously completing 100 kg for 4 reps
@@ -271,20 +326,31 @@ features:
             then: the UI labels it as a first record rather than a broken comparison
         implementation:
           notes: >-
-            Implement PersonalRecordService in Forge.Application/Insights and persist derived PR
-            events in Forge.Infrastructure so the feed does not scan the entire set table on every
-            launch. Treat PRs as rebuildable projections from immutable workout data. The tricky
-            part is invalidation when sets are edited or deleted, so expose a RebuildExerciseAsync
-            path and use it from workout correction flows.
+            Implement PersonalRecordService in Forge.Core/Insights and persist derived PR events in Forge.Infrastructure so the feed does not scan the entire set table on every launch. Treat PRs as rebuildable projections from immutable workout data. The tricky part is invalidation when sets are edited or deleted, so expose a RebuildExerciseAsync path and use it from workout correction flows. Keep the ViewModel output as plain DTOs and put DevExpress binding only in Forge.App XAML so application logic remains testable and desktop heads can be added later. The implementation should pre-filter and aggregate in SQLite where possible, then render only the selected range. A careless version would bind raw entity collections directly, omit sparse-state copy or let NaN and infinity values reach labels.
           touches:
-            - src/Forge.Application/Insights/PersonalRecordService.cs
+            - src/Forge.Core/Insights/PersonalRecordService.cs
             - src/Forge.Infrastructure/Persistence/PersonalRecordProjection.cs
           apis:
             - Microsoft.EntityFrameworkCore
+          devexpress:
+            - dx:DXCollectionView
         testing:
           - Unit tests for each PR type and for edit-driven invalidation.
           - Integration test rebuilding PR projections from a seeded workout history.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              Primary DevExpress virtualized list control for analytics feeds, cards and history lists.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
       - key: S16.02.02
         title: Show personal record history and drill-down details
         wave: 4
@@ -305,6 +371,8 @@ features:
             and percentage improvement where a non-zero baseline exists.
           - >-
             A list with 1,000 PR events scrolls at 60 fps with no frame above 16.6 ms.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
         acceptanceCriteria:
           - id: AC1
             given: 1,000 PR events in the local database
@@ -314,12 +382,16 @@ features:
             given: a PR with a previous best of 0
             when: the detail view opens
             then: percentage improvement is omitted and absolute improvement remains visible
+          - id: AC3
+            given: >-
+              the user has no qualifying local data for this analytics card
+            when: >-
+              the screen finishes loading
+            then: >-
+              a purposeful empty state appears within 400 ms with the unlock threshold and one primary action, and no blank chart or endless spinner remains
         implementation:
           notes: >-
-            Build the history screen with dx:DXCollectionView and incremental paging from
-            PersonalRecordRepository. Do not materialise every record into the ViewModel at once.
-            The detail route should carry only the PR id, then load the full source workout from
-            SQLite so process restoration and deep links can rehydrate reliably.
+            Build the history screen with dx:DXCollectionView and incremental paging from PersonalRecordRepository. Do not materialise every record into the ViewModel at once. The detail route should carry only the PR id, then load the full source workout from SQLite so process restoration and deep links can rehydrate reliably. Keep the ViewModel output as plain DTOs and put DevExpress binding only in Forge.App XAML so application logic remains testable and desktop heads can be added later. The implementation should pre-filter and aggregate in SQLite where possible, then render only the selected range. A careless version would bind raw entity collections directly, omit sparse-state copy or let NaN and infinity values reach labels.
           touches:
             - src/Forge.App/Features/Insights/Records/PersonalRecordHistoryPage.xaml
             - src/Forge.App/Features/Insights/Records/PersonalRecordDetailViewModel.cs
@@ -330,6 +402,19 @@ features:
           - UI test scrolling 1,000 records on Android and iOS.
           - Unit test for zero baseline formatting.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              Primary DevExpress virtualized list control for analytics feeds, cards and history lists.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
       - key: S16.02.03
         title: Build an insights feed for notable progress changes
         wave: 4
@@ -351,6 +436,8 @@ features:
           - >-
             Empty feed state shows three examples of insights the user can unlock and never shows
             a spinner after loading completes.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
         acceptanceCriteria:
           - id: AC1
             given: weekly chest volume increases from 5,000 kg to 5,900 kg
@@ -366,12 +453,9 @@ features:
             then: the dismissed insight remains hidden until its source metric changes again
         implementation:
           notes: >-
-            Implement InsightGenerator as a deterministic rules engine in Forge.Application with a
-            versioned rule id per insight type. Store dismissed rule id plus source fingerprint in
-            SQLite. This avoids cloud processing and lets tests assert exactly why an insight
-            appears. Render the feed with dx:DXCollectionView cards and use no network dependency.
+            Implement InsightGenerator as a deterministic rules engine in Forge.Core with a versioned rule id per insight type. Store dismissed rule id plus source fingerprint in SQLite. This avoids cloud processing and lets tests assert exactly why an insight appears. Render the feed with dx:DXCollectionView cards and use no network dependency. Keep the ViewModel output as plain DTOs and put DevExpress binding only in Forge.App XAML so application logic remains testable and desktop heads can be added later. The implementation should pre-filter and aggregate in SQLite where possible, then render only the selected range. A careless version would bind raw entity collections directly, omit sparse-state copy or let NaN and infinity values reach labels.
           touches:
-            - src/Forge.Application/Insights/InsightGenerator.cs
+            - src/Forge.Core/Insights/InsightGenerator.cs
             - src/Forge.App/Features/Insights/Feed/InsightsFeedPage.xaml
           devexpress:
             - dx:DXCollectionView
@@ -379,6 +463,19 @@ features:
           - Unit tests for every insight threshold and dismissal fingerprint.
           - UI test confirming empty feed copy appears after loading completes.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              Primary DevExpress virtualized list control for analytics feeds, cards and history lists.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
   - key: F16.03
     title: Analyse volume, consistency and training load
     wave: 4
@@ -411,6 +508,10 @@ features:
           - >-
             DevExpress PieChartView is used for proportional distribution and ChartView bar series
             is used for week-to-week comparison.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Charts with 500 or more visible points render within 300 ms on a Pixel 6a class device and keep panning at 60 fps with no frame above 16.6 ms.
         acceptanceCriteria:
           - id: AC1
             given: a week with 10 chest sets and 5 back sets
@@ -420,15 +521,18 @@ features:
             given: an exercise mapped to two primary muscles
             when: weekly volume is aggregated
             then: volume is split according to stored exercise mapping weights and totals reconcile within 0.1 percent
+          - id: AC3
+            given: >-
+              a muscle-balance chart has 500 weekly muscle points after filtering
+            when: >-
+              the user pans the chart
+            then: >-
+              the chart remains at 60 fps and the accompanying text table exposes the same values for assistive technology
         implementation:
           notes: >-
-            Use exercise catalogue muscle mappings from the training domain and aggregate in
-            Forge.Application/Insights/MuscleVolumeService. A radar chart would be tempting for
-            balance, but DevExpress has no radar or spider chart in MAUI, so v1 uses dx:PieChartView
-            and dx:ChartView. If a future design requires a radar chart, the sanctioned fallback is
-            SkiaSharp with a separate accessibility table.
+            Use exercise catalogue muscle mappings from the training domain and aggregate in Forge.Core/Insights/MuscleVolumeService. A radar chart would be tempting for balance, but DevExpress has no radar or spider chart in MAUI, so v1 uses dx:PieChartView and dx:ChartView. If a future design requires a radar chart, the sanctioned fallback is SkiaSharp with a separate accessibility table. Do not introduce a radar chart with DevExpress because MAUI Charts does not provide one. Keep PieChartView for proportional summaries and ChartView bars for trend comparisons; if product later requires a spider view, implement it in SkiaSharp and keep the accessible table as the canonical data representation.
           touches:
-            - src/Forge.Application/Insights/MuscleVolumeService.cs
+            - src/Forge.Core/Insights/MuscleVolumeService.cs
             - src/Forge.App/Features/Insights/Volume/MuscleBalancePage.xaml
           devexpress:
             - dx:PieChartView
@@ -437,6 +541,19 @@ features:
           - Unit tests for split muscle mappings and bodyweight set fallback.
           - Accessibility test confirming the chart data is also available as text rows.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI ChartView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+            note: >-
+              Primary DevExpress chart surface for rendering analytics series and validating chart-specific behaviour.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
       - key: S16.03.02
         title: Track consistency and programme adherence
         wave: 4
@@ -457,6 +574,10 @@ features:
             adherence.
           - >-
             The screen shows a 12 week rolling chart and a short plain-language summary.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Charts with 500 or more visible points render within 300 ms on a Pixel 6a class device and keep panning at 60 fps with no frame above 16.6 ms.
         acceptanceCriteria:
           - id: AC1
             given: 3 planned sessions and 2 completed sessions in a week
@@ -466,15 +587,18 @@ features:
             given: a week with no planned sessions and 2 ad hoc workouts
             when: the consistency chart renders
             then: adherence is labelled unplanned and consistency counts 2 training days
+          - id: AC3
+            given: >-
+              the user has no qualifying local data for this analytics card
+            when: >-
+              the screen finishes loading
+            then: >-
+              a purposeful empty state appears within 400 ms with the unlock threshold and one primary action, and no blank chart or endless spinner remains
         implementation:
           notes: >-
-            Implement AdherenceService in Forge.Application using plan data from E09 and workout
-            completion data from E10. Render rolling bars with dx:ChartView and summary cards in a
-            dx:DXCollectionView. Keep the distinction between consistency and adherence in the DTO
-            names so the UI cannot accidentally show punitive 0 percent adherence for unplanned
-            weeks.
+            Implement AdherenceService in Forge.Core using plan data from E09 and workout completion data from E10. Render rolling bars with dx:ChartView and summary cards in a dx:DXCollectionView. Keep the distinction between consistency and adherence in the DTO names so the UI cannot accidentally show punitive 0 percent adherence for unplanned weeks. Keep the ViewModel output as plain DTOs and put DevExpress binding only in Forge.App XAML so application logic remains testable and desktop heads can be added later. The implementation should pre-filter and aggregate in SQLite where possible, then render only the selected range. A careless version would bind raw entity collections directly, omit sparse-state copy or let NaN and infinity values reach labels.
           touches:
-            - src/Forge.Application/Insights/AdherenceService.cs
+            - src/Forge.Core/Insights/AdherenceService.cs
             - src/Forge.App/Features/Insights/Consistency/ConsistencyPage.xaml
           devexpress:
             - dx:ChartView
@@ -482,6 +606,19 @@ features:
         testing:
           - Unit tests for planned, partially completed and unplanned weeks.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI ChartView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+            note: >-
+              Primary DevExpress chart surface for rendering analytics series and validating chart-specific behaviour.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
       - key: S16.03.03
         title: Show training load with honest limitations
         wave: 4
@@ -502,6 +639,10 @@ features:
           - >-
             The UI states that load ratios are crude decision-support signals and do not predict
             injury for an individual.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Charts with 500 or more visible points render within 300 ms on a Pixel 6a class device and keep panning at 60 fps with no frame above 16.6 ms.
         acceptanceCriteria:
           - id: AC1
             given: 7 day load of 10,000 kg and 28 day average weekly load of 8,000 kg
@@ -511,24 +652,40 @@ features:
             given: only 21 days of workout history
             when: the load screen opens
             then: ACWR is not shown and the empty state states that 28 days are required
+          - id: AC3
+            given: >-
+              the user has no qualifying local data for this analytics card
+            when: >-
+              the screen finishes loading
+            then: >-
+              a purposeful empty state appears within 400 ms with the unlock threshold and one primary action, and no blank chart or endless spinner remains
         implementation:
           notes: >-
-            Keep TrainingLoadService deterministic and formula-based. Tonnage is useful for loaded
-            resistance work but incomplete for bodyweight, mobility and conditioning, so the DTO
-            must carry coverage metadata such as percent of sets with load. Render the caveat
-            directly beside dx:ChartView rather than hiding it in a help page.
+            Keep TrainingLoadService deterministic and formula-based. Tonnage is useful for loaded resistance work but incomplete for bodyweight, mobility and conditioning, so the DTO must carry coverage metadata such as percent of sets with load. Render the caveat directly beside dx:ChartView rather than hiding it in a help page. Keep the ViewModel output as plain DTOs and put DevExpress binding only in Forge.App XAML so application logic remains testable and desktop heads can be added later. The implementation should pre-filter and aggregate in SQLite where possible, then render only the selected range. A careless version would bind raw entity collections directly, omit sparse-state copy or let NaN and infinity values reach labels.
           touches:
-            - src/Forge.Application/Insights/TrainingLoadService.cs
+            - src/Forge.Core/Insights/TrainingLoadService.cs
             - src/Forge.App/Features/Insights/Load/TrainingLoadPage.xaml
           devexpress:
             - dx:ChartView
             - dx:RadialGauge
         testing:
           - Unit tests for the 28 day threshold, zero chronic load and coverage metadata.
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
         grounding:
           - title: British Journal of Sports Medicine acute chronic workload ratio
             url: https://bjsm.bmj.com/content/50/5/273
             note: Introduces ACWR as a workload concept.
+          - title: DevExpress MAUI ChartView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+            note: >-
+              Primary DevExpress chart surface for rendering analytics series and validating chart-specific behaviour.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
         openQuestions:
           - Evidence for ACWR as an individual injury predictor is contested, so copy must remain cautious and avoid risk labels such as safe or unsafe.
 
@@ -563,6 +720,12 @@ features:
           - >-
             The chart supports weight, circumference measurements and body fat percentage where
             recorded.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Charts with 500 or more visible points render within 300 ms on a Pixel 6a class device and keep panning at 60 fps with no frame above 16.6 ms.
+          - >-
+            Raw daily bodyweight is opt-in because daily values are noisy and showing them unsmoothed by default can create unnecessary user anxiety.
         acceptanceCriteria:
           - id: AC1
             given: daily weights for 7 consecutive days from 80.0 kg to 81.2 kg
@@ -572,15 +735,19 @@ features:
             given: the user has one bodyweight entry
             when: the body metrics screen opens
             then: the screen states that 7 entries are needed for a moving average and shows the single value as a text card
+          - id: AC3
+            given: >-
+              a user has 30 daily bodyweight entries
+            when: >-
+              the body metrics screen opens for the first time
+            then: >-
+              the 7 day moving average is visible by default, the raw daily series is hidden and explanatory copy states that daily bodyweight is noisy
         implementation:
           notes: >-
-            Put moving-average calculation in Forge.Domain/Analytics/MovingAverage.cs and keep
-            unit handling in Forge.Application. The UI in BodyMetricTrendPage binds to a series DTO
-            and uses dx:ChartView for the smoothed line. Do not log metric values or write them to
-            diagnostics, because they are sensitive health data under the privacy posture.
+            Put moving-average calculation in Forge.Domain/Analytics/MovingAverage.cs and keep unit handling in Forge.Core. The UI in BodyMetricTrendPage binds to a series DTO and uses dx:ChartView for the smoothed line. Do not log metric values or write them to diagnostics, because they are sensitive health data under the privacy posture. Calculate a trailing 7-entry arithmetic mean, not a calendar gap fill, and keep raw values available only behind the explicit toggle. The careful part is avoiding anxiety-inducing defaults while preserving auditability, so tooltips should show both the smoothed point and source count when raw display is enabled.
           touches:
             - src/Forge.Domain/Analytics/MovingAverage.cs
-            - src/Forge.Application/Insights/BodyMetricTrendService.cs
+            - src/Forge.Core/Insights/BodyMetricTrendService.cs
             - src/Forge.App/Features/Insights/Body/BodyMetricTrendPage.xaml
           devexpress:
             - dx:ChartView
@@ -589,6 +756,19 @@ features:
           - Unit tests for moving average ranges with missing days and unit conversion.
           - Privacy test confirming body metric values are absent from diagnostic logs.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI ChartView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+            note: >-
+              Primary DevExpress chart surface for rendering analytics series and validating chart-specific behaviour.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
       - key: S16.04.02
         title: Compare progress photos privately on device
         wave: 4
@@ -610,6 +790,10 @@ features:
           - >-
             The app refuses to export photos until the user confirms the exact image that will be
             shared.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Permission denial for camera or photo library leaves existing photos visible and shows instructions for enabling access in platform settings.
         acceptanceCriteria:
           - id: AC1
             given: two progress photos with dates
@@ -619,12 +803,16 @@ features:
             given: the user taps Share on a comparison
             when: the confirmation dialog appears
             then: the preview image is shown and no share sheet opens until the user confirms
+          - id: AC3
+            given: >-
+              camera permission is denied by the operating system
+            when: >-
+              the user taps Add photo
+            then: >-
+              the app shows a non-blocking permission message, keeps existing photos visible and does not create an empty metadata row
         implementation:
           notes: >-
-            Store progress photo files in the encrypted app data area and keep only local file
-            paths plus metadata in SQLite. Use MediaPicker for capture and selection, then render a
-            comparison page with stock Image controls inside a DevExpress layout. Photo sharing
-            must use the explicit MAUI Share flow and never upload automatically.
+            Store progress photo files in the encrypted app data area and keep only local file paths plus metadata in SQLite. Use MediaPicker for capture and selection, then render a comparison page with stock Image controls inside a DevExpress layout. Photo sharing must use the explicit MAUI Share flow and never upload automatically. Permission handling must be explicit on both platforms and metadata writes must occur only after the file copy succeeds. A careless implementation would save source gallery paths, leak EXIF metadata into exports or open the share sheet before the user confirms the exact comparison image.
           touches:
             - src/Forge.App/Features/Insights/Photos/ProgressPhotoPage.xaml
             - src/Forge.Infrastructure/Persistence/ProgressPhotoRepository.cs
@@ -638,6 +826,23 @@ features:
           - Manual permission denial test for camera and photo library on Android and iOS.
           - Integration test confirming deleted photo metadata removes the local file.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              Primary DevExpress virtualized list control for analytics feeds, cards and history lists.
+          - title: .NET MAUI MediaPicker
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/device-media/picker?view=net-maui-10.0
+            note: >-
+              Official MAUI media picker API used for local camera and gallery photo selection.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
       - key: S16.04.03
         title: Trend nutrition adherence beside body changes
         wave: 4
@@ -659,6 +864,10 @@ features:
           - >-
             The screen states that trends are associations and must not claim that one metric
             caused another.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Charts with 500 or more visible points render within 300 ms on a Pixel 6a class device and keep panning at 60 fps with no frame above 16.6 ms.
         acceptanceCriteria:
           - id: AC1
             given: 20 logged nutrition days and 16 days within the calorie band
@@ -668,14 +877,18 @@ features:
             given: 10 days of bodyweight data and 30 days of nutrition data
             when: overlays are requested
             then: the overlay is disabled and the UI states that 14 days of both data types are required
+          - id: AC3
+            given: >-
+              the user has no qualifying local data for this analytics card
+            when: >-
+              the screen finishes loading
+            then: >-
+              a purposeful empty state appears within 400 ms with the unlock threshold and one primary action, and no blank chart or endless spinner remains
         implementation:
           notes: >-
-            Depend on nutrition aggregates from E13 rather than reading food log rows directly in
-            the UI. NutritionAdherenceTrendService should return day-level adherence DTOs and an
-            eligibility reason for overlays. Render adherence as a dx:ChartView area series and use
-            text counts beside every percentage to avoid misleading sparse data.
+            Depend on nutrition aggregates from E13 rather than reading food log rows directly in the UI. NutritionAdherenceTrendService should return day-level adherence DTOs and an eligibility reason for overlays. Render adherence as a dx:ChartView area series and use text counts beside every percentage to avoid misleading sparse data. Keep the ViewModel output as plain DTOs and put DevExpress binding only in Forge.App XAML so application logic remains testable and desktop heads can be added later. The implementation should pre-filter and aggregate in SQLite where possible, then render only the selected range. A careless version would bind raw entity collections directly, omit sparse-state copy or let NaN and infinity values reach labels.
           touches:
-            - src/Forge.Application/Insights/NutritionAdherenceTrendService.cs
+            - src/Forge.Core/Insights/NutritionAdherenceTrendService.cs
             - src/Forge.App/Features/Insights/Nutrition/NutritionTrendPage.xaml
           devexpress:
             - dx:ChartView
@@ -683,6 +896,19 @@ features:
         testing:
           - Unit tests for target-band adherence and overlay eligibility.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI ChartView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+            note: >-
+              Primary DevExpress chart surface for rendering analytics series and validating chart-specific behaviour.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
   - key: F16.05
     title: Export progress visuals and handle low-data states
     wave: 4
@@ -713,6 +939,10 @@ features:
             identifiers.
           - >-
             Image generation completes within 1 second for a chart with 500 visible points.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Charts with 500 or more visible points render within 300 ms on a Pixel 6a class device and keep panning at 60 fps with no frame above 16.6 ms.
         acceptanceCriteria:
           - id: AC1
             given: a strength chart with 500 visible points
@@ -722,15 +952,19 @@ features:
             given: the export preview is visible
             when: the user cancels
             then: no platform share sheet opens and the temporary PNG is deleted within 5 seconds
+          - id: AC3
+            given: >-
+              an exported chart includes a formula caveat or low-data warning on screen
+            when: >-
+              the PNG preview is generated
+            then: >-
+              the caveat or warning is included in the image so the shared result is not stripped of context
         implementation:
           notes: >-
-            Implement a shared ChartExportService in Forge.App because capture is a UI concern.
-            It should render the chart container to a temporary PNG in the app cache directory and
-            delete it after sharing or cancellation. Keep ViewModels unaware of DevExpress and pass
-            a chart export request through an interface implemented in the app head.
+            Implement a shared ChartExportService in Forge.App because capture is a UI concern. It should render the chart container to a temporary PNG in the app cache directory and delete it after sharing or cancellation. Keep ViewModels unaware of DevExpress and pass a chart export request through an interface implemented in the app head. Capture only the chart container and caveat area, never the whole screen, to avoid leaking unrelated health data. The export path should use MAUI Share after preview confirmation and should dispose temporary files on cancel, success and app sleep paths.
           touches:
             - src/Forge.App/Features/Insights/Shared/ChartExportService.cs
-            - src/Forge.Application/Insights/IChartExportRequest.cs
+            - src/Forge.Core/Insights/IChartExportRequest.cs
           devexpress:
             - dx:ChartView
             - dx:PieChartView
@@ -741,6 +975,23 @@ features:
           - UI test confirming preview appears before the share sheet.
           - File-system test confirming cancelled exports are removed from cache.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI ChartView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+            note: >-
+              Primary DevExpress chart surface for rendering analytics series and validating chart-specific behaviour.
+          - title: .NET MAUI Share
+            url: https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/data/share?view=net-maui-10.0
+            note: >-
+              Official MAUI API for invoking the platform share sheet after a local export preview.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
       - key: S16.05.02
         title: Design purposeful empty and sparse analytics states
         wave: 4
@@ -761,6 +1012,8 @@ features:
           - >-
             Screen reader order announces the empty-state title, requirement and action in that
             sequence.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
         acceptanceCriteria:
           - id: AC1
             given: a brand-new local database
@@ -770,15 +1023,18 @@ features:
             given: TalkBack or VoiceOver is enabled
             when: focus enters an empty-state card
             then: the title, threshold and action are announced in order with no decorative text announced
+          - id: AC3
+            given: >-
+              the user has no qualifying local data for this analytics card
+            when: >-
+              the screen finishes loading
+            then: >-
+              a purposeful empty state appears within 400 ms with the unlock threshold and one primary action, and no blank chart or endless spinner remains
         implementation:
           notes: >-
-            Create a shared AnalyticsState DTO with Empty, Sparse and Ready variants in
-            Forge.Application/Insights. Each feature ViewModel should expose state and threshold
-            copy rather than making XAML infer it from collection counts. Use DXCollectionView cards
-            for the Progress overview so empty states occupy intentional space and remain
-            virtualized as more modules are added.
+            Create a shared AnalyticsState DTO with Empty, Sparse and Ready variants in Forge.Core/Insights. Each feature ViewModel should expose state and threshold copy rather than making XAML infer it from collection counts. Use DXCollectionView cards for the Progress overview so empty states occupy intentional space and remain virtualized as more modules are added. Keep the ViewModel output as plain DTOs and put DevExpress binding only in Forge.App XAML so application logic remains testable and desktop heads can be added later. The implementation should pre-filter and aggregate in SQLite where possible, then render only the selected range. A careless version would bind raw entity collections directly, omit sparse-state copy or let NaN and infinity values reach labels.
           touches:
-            - src/Forge.Application/Insights/AnalyticsState.cs
+            - src/Forge.Core/Insights/AnalyticsState.cs
             - src/Forge.App/Features/Insights/ProgressOverviewPage.xaml
           devexpress:
             - dx:DXCollectionView
@@ -787,6 +1043,19 @@ features:
           - UI tests for empty, sparse and ready states across all Progress cards.
           - Manual screen reader pass on Android and iOS.
 
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              Primary DevExpress virtualized list control for analytics feeds, cards and history lists.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.
       - key: S16.05.03
         title: Cache analytics aggregates for responsive dashboards
         wave: 4
@@ -808,6 +1077,10 @@ features:
           - >-
             A full projection rebuild of 5 years of sample data completes within 10 seconds on a
             Pixel 6a class Android device.
+          - >-
+            Every analytics surface defines an empty and low-data state that names the minimum data needed and shows one useful next action instead of a blank chart.
+          - >-
+            Charts with 500 or more visible points render within 300 ms on a Pixel 6a class device and keep panning at 60 fps with no frame above 16.6 ms.
         acceptanceCriteria:
           - id: AC1
             given: 5 years of seeded workout and nutrition history
@@ -817,19 +1090,37 @@ features:
             given: a workout is saved during normal logging
             when: analytics projection updates are queued
             then: the save interaction remains under 100 ms perceived latency
+          - id: AC3
+            given: >-
+              the user has no qualifying local data for this analytics card
+            when: >-
+              the screen finishes loading
+            then: >-
+              a purposeful empty state appears within 400 ms with the unlock threshold and one primary action, and no blank chart or endless spinner remains
         implementation:
           notes: >-
-            Add projection tables under Forge.Infrastructure/Persistence and keep them explicitly
-            rebuildable from source data. Use a bounded background queue so user-facing writes can
-            enqueue work instead of calculating every aggregate synchronously. Because the app is
-            local-only, failed projections can be repaired by rebuilding from SQLite rather than
-            fetching remote state.
+            Add projection tables under Forge.Infrastructure/Persistence and keep them explicitly rebuildable from source data. Use a bounded background queue so user-facing writes can enqueue work instead of calculating every aggregate synchronously. Because the app is local-only, failed projections can be repaired by rebuilding from SQLite rather than fetching remote state. Keep the ViewModel output as plain DTOs and put DevExpress binding only in Forge.App XAML so application logic remains testable and desktop heads can be added later. The implementation should pre-filter and aggregate in SQLite where possible, then render only the selected range. A careless version would bind raw entity collections directly, omit sparse-state copy or let NaN and infinity values reach labels.
           touches:
             - src/Forge.Infrastructure/Persistence/AnalyticsProjectionDbSet.cs
-            - src/Forge.Application/Insights/AnalyticsProjectionRebuilder.cs
+            - src/Forge.Core/Insights/AnalyticsProjectionRebuilder.cs
           apis:
             - Microsoft.EntityFrameworkCore
             - System.Threading.Channels
+          devexpress:
+            - dx:ChartView
         testing:
           - Integration test rebuilding projections from seeded data.
           - Performance test for save latency with projection updates enabled.
+          - >-
+            Unit test covering the empty, sparse and ready thresholds for this story.
+          - >-
+            UI accessibility test confirming chart or card values are available as text, not colour alone.
+        grounding:
+          - title: DevExpress MAUI ChartView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+            note: >-
+              Primary DevExpress chart surface for rendering analytics series and validating chart-specific behaviour.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are needed so chart labels, empty states and summary cards have readable relationships for screen readers.

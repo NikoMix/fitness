@@ -43,7 +43,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!--
       CS1591 - missing XML comment. Documentation is enforced by review on public API in
-      Forge.Domain / Forge.Application rather than by the compiler across every type.
+      Forge.Domain / Forge.Core rather than by the compiler across every type.
     -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <Deterministic>true</Deterministic>

@@ -2,715 +2,1074 @@ key: E06
 title: User Profile, Goals and Personalisation
 domain: identity
 wave: 2
-summary: >-
-  Forge turns local profile data into safer, more useful recommendations:
-  metrics, goals, equipment, injuries, availability, progress photos and derived
-  energy estimates. The profile is local-first and transparent so users
-  understand what is stored, why it is requested and how uncertain calculated
-  guidance is.
-problem: >-
-  Fitness apps often ask intimate questions without explaining how answers
-  improve the product. Users then skip fields, enter unsafe targets or receive
-  plans that ignore equipment, injuries and time. Forge needs enough context to
-  personalise the core loop while refusing to encourage unsafe weight change or
-  contraindicated movements.
-outcome: >-
-  A user can maintain an accurate local profile, choose compatible goals, record
-  equipment and limitations, store private progress photos, and receive
-  recommendations and BMR/TDEE estimates with clear assumptions and safety
-  guardrails.
+summary: 'Forge turns local profile data into safer, more useful recommendations: metrics, goals, equipment, injuries, availability,
+  progress photos and derived energy estimates. The profile is local-first and transparent so users understand what is stored,
+  why it is requested and how uncertain calculated guidance is.'
+problem: Fitness apps often ask intimate questions without explaining how answers improve the product. Users then skip fields,
+  enter unsafe targets or receive plans that ignore equipment, injuries and time. Forge needs enough context to personalise
+  the core loop while refusing to encourage unsafe weight change or contraindicated movements.
+outcome: A user can maintain an accurate local profile, choose compatible goals, record equipment and limitations, store private
+  progress photos, and receive recommendations and BMR/TDEE estimates with clear assumptions and safety guardrails.
 successMetrics:
-  - 70 percent of active profiles have goal, availability and equipment data by day 7.
-  - Contraindicated movements are excluded in 100 percent of exercise filter tests.
-  - Unsafe weight-change targets are blocked in 100 percent of boundary tests.
-  - BMR and TDEE explanations are reachable within 1 tap from every estimate surface.
+- 70 percent of active profiles have goal, availability and equipment data by day 7.
+- Contraindicated movements are excluded in 100 percent of exercise filter tests.
+- Unsafe weight-change targets are blocked in 100 percent of boundary tests.
+- BMR and TDEE explanations are reachable within 1 tap from every estimate surface.
 nonGoals:
-  - No medical diagnosis or treatment advice.
-  - No cloud storage or remote processing of profile data in v1.
-  - No AI body analysis from photos or camera images in v1.
+- No medical diagnosis or treatment advice.
+- No cloud storage or remote processing of profile data in v1.
+- No AI body analysis from photos or camera images in v1.
 risks:
-  - risk: Users may treat BMR and TDEE estimates as precise prescriptions.
-    mitigation: Show formula, assumptions, confidence wording and adjustment guidance next to every estimate.
-    severity: medium
-  - risk: Goal-setting can unintentionally encourage unsafe dieting or over-training.
-    mitigation: Block unsafe rates, show professional-help signposts and keep safety rules in Forge.Domain tests.
-    severity: high
-  - risk: Injury filters may hide too many exercises and leave a user with no viable plan.
-    mitigation: Show a no-safe-match state with mobility guidance rather than silently recommending risky substitutions.
-    severity: medium
-dependsOn: [E05]
+- risk: Users may treat BMR and TDEE estimates as precise prescriptions.
+  mitigation: Show formula, assumptions, confidence wording and adjustment guidance next to every estimate.
+  severity: medium
+- risk: Goal-setting can unintentionally encourage unsafe dieting or over-training.
+  mitigation: Block unsafe rates, show professional-help signposts and keep safety rules in Forge.Domain tests.
+  severity: high
+- risk: Injury filters may hide too many exercises and leave a user with no viable plan.
+  mitigation: Show a no-safe-match state with mobility guidance rather than silently recommending risky substitutions.
+  severity: medium
+dependsOn:
+- E05
 grounding:
-  - title: DevExpress MAUI Data Form examples
-    url: https://docs.devexpress.com/MAUI/404178
-    note: Shows DataFormView composition and editor customisation for structured input.
-  - title: DevExpress MAUI Data Editor Types
-    url: https://docs.devexpress.com/MAUI/404621
-    note: Confirms TextEdit, NumericEdit, ComboBoxEdit, DateEdit and TokenEdit editor capabilities.
+- title: DevExpress MAUI Data Form examples
+  url: https://docs.devexpress.com/MAUI/404178
+  note: Shows DataFormView composition and editor customisation for structured input.
+- title: DevExpress MAUI Data Editor Types
+  url: https://docs.devexpress.com/MAUI/404621
+  note: Confirms TextEdit, NumericEdit, ComboBoxEdit, DateEdit and TokenEdit editor capabilities.
+- title: .NET MAUI media picker
+  url: https://learn.microsoft.com/dotnet/maui/platform-integration/device-media/picker
+  note: Used for local progress photo capture and avatar selection.
+features:
+- key: F06.01
+  title: Capture body metrics and energy estimates
+  wave: 2
+  summary: Collect body metrics with explicit units and calculate BMR and TDEE as explainable estimates rather than hard prescriptions.
+  outcome: Users can update body metrics locally and understand how Forge derived any energy estimate.
+  concerns:
+  - privacy
+  - i18n
+  stories:
+  - key: S06.01.01
+    title: Record body metrics with canonical storage
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    concerns:
+    - privacy
+    userStory:
+      asA: Priya tracking body composition
+      iWant: to record metrics in my preferred units
+      soThat: my progress data stays consistent over time
+    requirements:
+    - Height supports 100 to 250 cm or equivalent imperial values after conversion.
+    - Weight supports 30 to 300 kg or equivalent imperial values after conversion.
+    - Saved rows store canonical metric values plus the display unit used for entry.
+    - BMI derived from height and weight is labelled as a screening estimate, not a diagnosis.
+    - Metric entry rejects values that would make saved BMI calculations impossible or undefined.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user enters 180 cm and 82 kg
+      when: they tap Save
+      then: the profile stores 180 cm and 82 kg canonical values within 200 ms
+    - id: AC2
+      given: the user enters 20 kg or 400 kg
+      when: they tap Save
+      then: validation blocks saving and names the accepted range
+    - id: AC3
+      given: the user saves imperial height and weight then switches back to metric
+      when: the values are displayed again
+      then: round-trip conversion is within 0.1 kg and 0.5 cm with no stored-value drift
+    implementation:
+      notes: Place metric forms under src/Forge.App/Features/Profile/Metrics with dx:DataFormView and dx:NumericEdit. Conversion
+        and validation belong in Forge.Domain/Profile value objects so all features share one unit model. Implement this across
+        src/Forge.Domain/Profile, src/Forge.Core/Profile, src/Forge.App/Features/Profile/Metrics, with domain value
+        objects enforcing safety before the app layer formats anything. Use dx:DataFormView, dx:NumericEdit, dx:ComboBoxEdit
+        for entry and review, while Microsoft.EntityFrameworkCore stays behind application services. Calculations such as
+        Mifflin St Jeor BMR and TDEE are estimates, so store formula version, inputs and assumptions with the result and show
+        an error margin. A careless implementation would round stored values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.Domain/Profile
+      - src/Forge.Core/Profile
+      - src/Forge.App/Features/Profile/Metrics
+      devexpress:
+      - dx:DataFormView
+      - dx:NumericEdit
+      - dx:ComboBoxEdit
+      apis:
+      - Microsoft.EntityFrameworkCore
+    testing:
+    - Unit tests for minimum, maximum and cross-unit conversion boundaries.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: DevExpress MAUI Data Form examples
+      url: https://docs.devexpress.com/MAUI/404178
+      note: Grounds DataFormView based structured entry and validation layout.
+    - title: CDC adult BMI categories
+      url: https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html
+      note: Grounds BMI category thresholds and the warning that BMI is only a screening measure.
+  - key: S06.01.02
+    title: Choose profile-level body unit preference
+    wave: 2
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - i18n
+    userStory:
+      asA: Alex comparing logs
+      iWant: to use the units I think in
+      soThat: I do not make conversion mistakes while training
+    requirements:
+    - Body unit preference supports metric and imperial.
+    - Changing units re-renders visible values within 100 ms.
+    - Canonical stored values remain unchanged after every unit switch.
+    - The preference applies to profile, progress, workout load and goal surfaces that display body measurements.
+    - Unit labels are included beside every editable numeric value.
+    acceptanceCriteria:
+    - id: AC1
+      given: a stored weight is 100 kg
+      when: the user switches to imperial
+      then: the UI displays 220.5 lb plus or minus 0.1 lb within 100 ms
+    - id: AC2
+      given: the user switches units five times
+      when: stored metrics are inspected
+      then: no duplicate metric rows are created
+    - id: AC3
+      given: a body metric is displayed on Profile and Progress
+      when: the unit preference changes
+      then: both surfaces update from the same canonical value within 100 ms
+    implementation:
+      notes: Use an IUnitFormatter service in Forge.Core and a dx:ComboBoxEdit in profile settings. Store units as
+        preferences only, never as replacement values for canonical measurements. Implement this across src/Forge.Core/Preferences,
+        src/Forge.App/Features/Profile/Metrics, with domain value objects enforcing safety before the app layer formats anything.
+        Use dx:ComboBoxEdit, dx:DXBorder for entry and review, while Forge.Core abstractions and local SQLite repositories
+        stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE are estimates, so store formula
+        version, inputs and assumptions with the result and show an error margin. The tricky part is refusing unsafe rates,
+        calorie floors and contraindicated movements without shame. A careless implementation would round stored values, expose
+        photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.Core/Preferences
+      - src/Forge.App/Features/Profile/Metrics
+      devexpress:
+      - dx:ComboBoxEdit
+      - dx:DXBorder
+    testing:
+    - Unit test repeated toggles preserve canonical metric values.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: .NET MAUI preferences
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/preferences
+      note: Grounds storage of small non-sensitive local preference and onboarding flags.
+    - title: .NET MAUI localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+      note: Grounds localized resources, culture-sensitive formatting and translated settings text.
+  - key: S06.01.03
+    title: Calculate BMR and TDEE with visible assumptions
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    concerns:
+    - safety
+    userStory:
+      asA: Priya reviewing calorie targets
+      iWant: to see how Forge estimated my energy needs
+      soThat: I can treat the number as guidance, not certainty
+    requirements:
+    - BMR output displays formula name, required inputs and missing-input state.
+    - TDEE applies an activity multiplier chosen from a documented list.
+    - Every estimate shows uncertainty copy and a 14-day adjustment recommendation.
+    - 'BMR uses Mifflin St Jeor: men 10W plus 6.25H minus 5A plus 5, women 10W plus 6.25H minus 5A minus 161.'
+    - Estimated calorie targets below the configured adult safety floor show a warning and are not saved as defaults without
+      adjustment.
+    acceptanceCriteria:
+    - id: AC1
+      given: height, weight, age and activity level are present
+      when: the Energy estimate screen opens
+      then: BMR, TDEE, formula name and multiplier are visible together
+    - id: AC2
+      given: age is missing
+      when: the estimate screen opens
+      then: no numeric estimate is shown and the missing age field is named
+    - id: AC3
+      given: a computed target falls below the configured adult calorie floor
+      when: the user reviews the estimate
+      then: Forge shows a non-judgemental safety warning and refuses to save that target as a default
+    implementation:
+      notes: Implement EnergyEstimateService in Forge.Core with pure formula functions and versioned outputs. The UI
+        should use dx:DXBorder explanation panels so future insights screens can reuse the same estimate wording. Implement
+        this across src/Forge.Core/Profile/Energy, src/Forge.App/Features/Profile/Energy, with domain value objects
+        enforcing safety before the app layer formats anything. Use dx:DataFormView, dx:ComboBoxEdit, dx:DXBorder for entry
+        and review, while Forge.Core abstractions and local SQLite repositories stays behind application services.
+        Calculations such as Mifflin St Jeor BMR and TDEE are estimates, so store formula version, inputs and assumptions
+        with the result and show an error margin. A careless implementation would round stored values, expose photos, or present
+        estimates as diagnosis.
+      touches:
+      - src/Forge.Core/Profile/Energy
+      - src/Forge.App/Features/Profile/Energy
+      devexpress:
+      - dx:DataFormView
+      - dx:ComboBoxEdit
+      - dx:DXBorder
+    testing:
+    - Unit tests for missing inputs, multiplier selection and formula version output.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: Mifflin St Jeor resting energy expenditure study
+      url: https://pubmed.ncbi.nlm.nih.gov/2305711/
+      note: Grounds the BMR formula and supports presenting energy numbers as estimates with error margins.
+    - title: CDC adult BMI categories
+      url: https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html
+      note: Grounds BMI category thresholds and the warning that BMI is only a screening measure.
+  - key: S06.01.04
+    title: Edit and delete metric history entries
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - perf
+    userStory:
+      asA: Alex correcting a measurement
+      iWant: to edit and delete previous entries
+      soThat: typo values do not pollute my trends
+    requirements:
+    - Metric history lists at least 500 entries while sustaining 60 fps scrolling.
+    - Editing preserves createdAt and updates updatedAt.
+    - Deleting an entry removes it from trend calculations within 200 ms.
+    - Editing a metric recalculates dependent BMI and energy estimates from canonical values.
+    - Deleting the last required metric shows a missing-input state instead of stale estimates.
+    acceptanceCriteria:
+    - id: AC1
+      given: 500 metric rows exist
+      when: the user scrolls history
+      then: scrolling sustains 60 fps with no frame over 16.6 ms
+    - id: AC2
+      given: a bodyweight entry is deleted
+      when: the trend recalculates
+      then: the deleted value no longer contributes within 200 ms
+    - id: AC3
+      given: the only current weight entry is deleted
+      when: the energy estimate screen opens
+      then: no stale calorie estimate is shown and the missing weight input is named
+    implementation:
+      notes: Use dx:DXCollectionView for virtualized history and dx:BottomSheet for edit and delete actions. Trend recalculation
+        should be an application query over canonical rows, not a ViewModel-only mutation. Implement this across src/Forge.App/Features/Profile/Metrics,
+        src/Forge.Core/Profile/Metrics, with domain value objects enforcing safety before the app layer formats anything.
+        Use dx:DXCollectionView, dx:BottomSheet, dx:NumericEdit for entry and review, while Forge.Core abstractions
+        and local SQLite repositories stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE
+        are estimates, so store formula version, inputs and assumptions with the result and show an error margin. A careless
+        implementation would round stored values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.App/Features/Profile/Metrics
+      - src/Forge.Core/Profile/Metrics
+      devexpress:
+      - dx:DXCollectionView
+      - dx:BottomSheet
+      - dx:NumericEdit
+    testing:
+    - Performance test for 500-entry scrolling and unit tests for edit timestamps.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: DevExpress Collection View for .NET MAUI
+      url: https://docs.devexpress.com/MAUI/403324
+      note: Grounds DXCollectionView use for virtualized lists, settings rows and selectors.
+    - title: CDC adult BMI categories
+      url: https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html
+      note: Grounds BMI category thresholds and the warning that BMI is only a screening measure.
+- key: F06.02
+  title: Manage goals with safety guardrails
+  wave: 2
+  summary: Let users select multiple goals while blocking unsafe weight-change requests and explaining conflicts clearly.
+  outcome: Goals prioritise training and nutrition without endorsing harmful targets.
+  concerns:
+  - safety
+  - privacy
+  stories:
+  - key: S06.02.01
+    title: Select and rank multiple fitness goals
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - a11y
+    userStory:
+      asA: Maya with several ambitions
+      iWant: to select and rank more than one goal
+      soThat: Forge can personalise without forcing a false choice
+    requirements:
+    - Supported goals are fat loss, muscle gain, strength, endurance, general health and mobility.
+    - The user can select up to three active goals with unique ranks.
+    - Conflicting combinations show explanatory copy within 250 ms.
+    - Goal ranking changes are persisted atomically so partial ranks cannot survive process death.
+    - Goals that imply weight change must pass the shared safety policy before saving.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user selects fat loss, strength and mobility
+      when: they save with fat loss ranked first
+      then: exactly three goals are stored with unique ranks
+    - id: AC2
+      given: the user selects four goals
+      when: they attempt to save
+      then: saving is blocked and the maximum of three active goals is named
+    - id: AC3
+      given: the user ranks a fat-loss goal that implies an unsafe rate
+      when: they save ranked goals
+      then: the save is refused and the existing safe goals remain unchanged
+    implementation:
+      notes: Represent goals as a ranked collection in Forge.Domain/Profile. Use dx:TokenEdit for multi-select and dx:DXCollectionView
+        for ranking so ordering remains accessible and testable through the ViewModel. Implement this across src/Forge.Domain/Profile/Goals,
+        src/Forge.App/Features/Profile/Goals, with domain value objects enforcing safety before the app layer formats anything.
+        Use dx:TokenEdit, dx:DXCollectionView, dx:DXBorder for entry and review, while Forge.Core abstractions and
+        local SQLite repositories stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE are
+        estimates, so store formula version, inputs and assumptions with the result and show an error margin. A careless implementation
+        would round stored values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.Domain/Profile/Goals
+      - src/Forge.App/Features/Profile/Goals
+      devexpress:
+      - dx:TokenEdit
+      - dx:DXCollectionView
+      - dx:DXBorder
+    testing:
+    - Unit tests for duplicate ranks, maximum count and conflict messages.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: DevExpress MAUI Data Form examples
+      url: https://docs.devexpress.com/MAUI/404178
+      note: Grounds DataFormView based structured entry and validation layout.
+    - title: CDC adult BMI categories
+      url: https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html
+      note: Grounds BMI category thresholds and the warning that BMI is only a screening measure.
+  - key: S06.02.02
+    title: Block unsafe rates of weight change
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    concerns:
+    - safety
+    userStory:
+      asA: Priya setting a fat-loss target
+      iWant: Forge to stop risky targets
+      soThat: I am not encouraged toward unsafe behaviour
+    requirements:
+    - Weekly weight-change targets above 1.0 percent of current bodyweight are blocked.
+    - Targets requiring BMI below 18.5 are blocked.
+    - Blocked states show a safer editable alternative and professional-help signpost.
+    - Daily calorie targets below configured safe floors warn and require selecting a safer target.
+    - Safety copy states Forge is not medical advice and links to configurable professional support resources.
+    acceptanceCriteria:
+    - id: AC1
+      given: an 80 kg user targets losing 1.2 kg per week
+      when: they tap Save
+      then: saving is blocked and the copy states the 1.0 percent weekly limit
+    - id: AC2
+      given: a target implies BMI 17.9
+      when: the user taps Save
+      then: saving is blocked and a professional-help signpost is visible
+    - id: AC3
+      given: the same user target would require calories below the configured safety floor
+      when: they tap Save
+      then: saving is blocked and the safer editable alternative is focused
+    implementation:
+      notes: Put safety rules in Forge.Domain/Profile/SafetyPolicy with boundary tests. The page uses dx:NumericEdit for targets
+        and a dx:DXBorder warning panel driven by domain validation results. Implement this across src/Forge.Domain/Profile/SafetyPolicy.cs,
+        src/Forge.App/Features/Profile/Goals, with domain value objects enforcing safety before the app layer formats anything.
+        Use dx:NumericEdit, dx:DXBorder, dx:DXButton for entry and review, while Forge.Core abstractions and local
+        SQLite repositories stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE are estimates,
+        so store formula version, inputs and assumptions with the result and show an error margin. A careless implementation
+        would round stored values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.Domain/Profile/SafetyPolicy.cs
+      - src/Forge.App/Features/Profile/Goals
+      devexpress:
+      - dx:NumericEdit
+      - dx:DXBorder
+      - dx:DXButton
+    testing:
+    - Domain tests for 0.99 percent, 1.0 percent and 1.01 percent boundaries.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: CDC adult BMI categories
+      url: https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html
+      note: Grounds BMI category thresholds and the warning that BMI is only a screening measure.
+  - key: S06.02.03
+    title: Surface disordered-eating signposts without diagnosis
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    concerns:
+    - safety
+    - privacy
+    userStory:
+      asA: Priya entering extreme targets
+      iWant: supportive guidance when inputs look unsafe
+      soThat: I know Forge is not a medical professional
+    requirements:
+    - Unsafe BMI, weight-change or calorie targets show non-diagnostic support copy.
+    - The message contains at least one configurable professional-help resource placeholder.
+    - Dismissing the message does not allow saving a blocked value.
+    - Support signposts are discreet, non-judgemental and available without storing the trigger reason in logs.
+    - Unsafe inputs are retained only locally long enough to let the user edit them safely.
+    acceptanceCriteria:
+    - id: AC1
+      given: inputs trigger the unsafe-goal rule
+      when: the goal summary opens
+      then: a support message appears without assigning a diagnosis
+    - id: AC2
+      given: the user dismisses the support message
+      when: they tap Save on the unsafe goal
+      then: saving remains blocked
+    - id: AC3
+      given: inputs suggest unsafe BMI and a very low calorie target
+      when: validation runs
+      then: a professional-support signpost is visible and no diagnosis label is shown
+    implementation:
+      notes: Create SafetySignpostProvider that returns resource keys and copy tokens. Keep public resource URLs configurable
+        for compliance review and avoid clinical language in domain or UI strings. Implement this across src/Forge.Core/Profile/Safety,
+        src/Forge.App/Features/Profile/Goals, with domain value objects enforcing safety before the app layer formats anything.
+        Use dx:DXBorder, dx:BottomSheet for entry and review, while Forge.Core abstractions and local SQLite repositories
+        stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE are estimates, so store formula
+        version, inputs and assumptions with the result and show an error margin. A careless implementation would round stored
+        values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.Core/Profile/Safety
+      - src/Forge.App/Features/Profile/Goals
+      devexpress:
+      - dx:DXBorder
+      - dx:BottomSheet
+    testing:
+    - Snapshot tests for safety copy and unit tests that dismissal does not bypass rules.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: CDC adult BMI categories
+      url: https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html
+      note: Grounds BMI category thresholds and the warning that BMI is only a screening measure.
+- key: F06.03
+  title: Capture training context for recommendations
+  wave: 2
+  summary: Record experience, equipment and availability so training suggestions fit the user's real environment before a
+    plan starts.
+  outcome: Exercise and programme recommendations reflect skill level, available equipment and time.
+  stories:
+  - key: S06.03.01
+    title: Set training experience and volume limits
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    concerns:
+    - safety
+    userStory:
+      asA: Sam returning after time away
+      iWant: to describe my current experience honestly
+      soThat: Forge does not over-prescribe volume or complexity
+    requirements:
+    - Experience levels are newcomer, returning, intermediate and advanced.
+    - Newcomer and returning profiles default to no more than three sessions per week.
+    - Advanced-only exercise variations are hidden for newcomer profiles by default.
+    - Reducing experience level immediately revalidates active recommendations and flags plans above the new cap.
+    - Confirmation for higher volume includes recovery guidance and an easy lower-volume choice.
+    acceptanceCriteria:
+    - id: AC1
+      given: a newcomer opens programme recommendations
+      when: recommendations load
+      then: no advanced-only exercise appears in the default list
+    - id: AC2
+      given: a returning profile selects five training days
+      when: they save
+      then: a warning appears and requires explicit confirmation
+    - id: AC3
+      given: an advanced user changes experience to returning
+      when: recommendations refresh
+      then: advanced-only variations are removed and weekly volume caps are recalculated
+    implementation:
+      notes: Store experience in ProfileTrainingContext in Forge.Domain and feed it to recommendation filters through Forge.Core.
+        Use dx:ComboBoxEdit and warning panels in the profile UI. Implement this across src/Forge.Domain/Profile/TrainingContext,
+        src/Forge.Core/Training, src/Forge.App/Features/Profile/Training, with domain value objects enforcing safety
+        before the app layer formats anything. Use dx:ComboBoxEdit, dx:DXBorder for entry and review, while Forge.Core
+        abstractions and local SQLite repositories stays behind application services. Calculations such as Mifflin St Jeor
+        BMR and TDEE are estimates, so store formula version, inputs and assumptions with the result and show an error margin.
+        A careless implementation would round stored values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.Domain/Profile/TrainingContext
+      - src/Forge.Core/Training
+      - src/Forge.App/Features/Profile/Training
+      devexpress:
+      - dx:ComboBoxEdit
+      - dx:DXBorder
+    testing:
+    - Unit tests for default volume caps by experience level.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: DevExpress MAUI Data Form examples
+      url: https://docs.devexpress.com/MAUI/404178
+      note: Grounds DataFormView based structured entry and validation layout.
+  - key: S06.03.02
+    title: Select available equipment for exercise filtering
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - perf
+    userStory:
+      asA: Alex training in a garage gym
+      iWant: to list what equipment I have
+      soThat: Forge only recommends movements I can perform
+    requirements:
+    - Equipment includes bodyweight, dumbbells, barbell, rack, bench, cable, kettlebell, bands, cardio machine and custom.
+    - Exercises requiring unselected equipment are hidden unless Show unavailable is enabled.
+    - Saving 50 selected equipment items completes within 200 ms.
+    - Custom equipment names are local-only labels mapped to canonical custom ids.
+    - Equipment filters combine with injury limitations and never override contraindication rules.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user selects dumbbells and bench only
+      when: they browse exercises
+      then: barbell-only exercises are hidden by default
+    - id: AC2
+      given: Show unavailable is enabled
+      when: the exercise list refreshes
+      then: hidden exercises appear with a Missing equipment label
+    - id: AC3
+      given: an exercise matches selected equipment but conflicts with an avoid-entirely limitation
+      when: recommendations are generated
+      then: the exercise remains filtered as contraindicated
+    implementation:
+      notes: Use dx:TokenEdit or dx:DXCollectionView chips and store canonical equipment ids, not localized labels. Exercise
+        filtering is an application-level specification reused by library search and plans. Implement this across src/Forge.Domain/Profile/Equipment,
+        src/Forge.Core/Exercises, src/Forge.App/Features/Profile/Equipment, with domain value objects enforcing safety
+        before the app layer formats anything. Use dx:TokenEdit, dx:DXCollectionView, dx:ComboBoxEdit for entry and review,
+        while Forge.Core abstractions and local SQLite repositories stays behind application services. Calculations
+        such as Mifflin St Jeor BMR and TDEE are estimates, so store formula version, inputs and assumptions with the result
+        and show an error margin. A careless implementation would round stored values, expose photos, or present estimates
+        as diagnosis.
+      touches:
+      - src/Forge.Domain/Profile/Equipment
+      - src/Forge.Core/Exercises
+      - src/Forge.App/Features/Profile/Equipment
+      devexpress:
+      - dx:TokenEdit
+      - dx:DXCollectionView
+      - dx:ComboBoxEdit
+    testing:
+    - Integration test exercise filtering with selected, missing and custom equipment.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: DevExpress Collection View for .NET MAUI
+      url: https://docs.devexpress.com/MAUI/403324
+      note: Grounds DXCollectionView use for virtualized lists, settings rows and selectors.
+    - title: DevExpress MAUI data editor types
+      url: https://docs.devexpress.com/MAUI/404621
+      note: Grounds ComboBoxEdit, NumericEdit, TextEdit and related editor choices.
+  - key: S06.03.03
+    title: Capture training availability and session length
+    wave: 2
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - privacy
+    userStory:
+      asA: Maya with limited time
+      iWant: to say when and how long I can train
+      soThat: recommendations fit my week
+    requirements:
+    - Availability supports 1 to 7 days per week and sessions from 10 to 180 minutes.
+    - Preferred days can be marked without requesting calendar permission.
+    - Recommendation preview updates within 250 ms after changes.
+    - Availability changes cannot increase newcomer volume above safety caps without explicit confirmation.
+    - Session-length changes are stored as minutes and formatted according to locale only at display time.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user selects two days and 20 minutes
+      when: they save
+      then: programme preview shows no more than two sessions of 20 minutes
+    - id: AC2
+      given: all preferred days are cleared
+      when: the user saves
+      then: day count is stored and preferred-day list remains empty without error
+    - id: AC3
+      given: a newcomer selects seven days per week
+      when: they save availability
+      then: Forge requires confirmation and offers a safer three-day alternative
+    implementation:
+      notes: Store availability separately from any system calendar. Use dx:DataFormView for numeric constraints and dx:DXCollectionView
+        for day chips. Do not request calendar permissions in v1. Implement this across src/Forge.Domain/Profile/Availability,
+        src/Forge.App/Features/Profile/Availability, with domain value objects enforcing safety before the app layer formats
+        anything. Use dx:DataFormView, dx:NumericEdit, dx:DXCollectionView for entry and review, while Forge.Core abstractions
+        and local SQLite repositories stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE
+        are estimates, so store formula version, inputs and assumptions with the result and show an error margin. A careless
+        implementation would round stored values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.Domain/Profile/Availability
+      - src/Forge.App/Features/Profile/Availability
+      devexpress:
+      - dx:DataFormView
+      - dx:NumericEdit
+      - dx:DXCollectionView
+    testing:
+    - Unit tests for minimum and maximum availability values.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: DevExpress MAUI Data Form examples
+      url: https://docs.devexpress.com/MAUI/404178
+      note: Grounds DataFormView based structured entry and validation layout.
+    - title: .NET MAUI localization
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/localization
+      note: Grounds localized resources, culture-sensitive formatting and translated settings text.
+  - key: S06.03.04
+    title: Explain recommendation impacts after profile edits
+    wave: 2
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: returner
+    concerns:
+    - a11y
+    userStory:
+      asA: Sam changing equipment or availability
+      iWant: to see what changed because of my edit
+      soThat: I understand why recommendations moved
+    requirements:
+    - Saving changed training context shows at least one impact or states none changed.
+    - The summary appears within 300 ms after save.
+    - The same unchanged snapshot does not show the summary twice.
+    - Impact summaries never include private free-text limitation notes.
+    - The summary can be dismissed and remains available from the latest profile change history entry.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user removes barbell from equipment
+      when: they save
+      then: the summary names barbell exercises as newly filtered out
+    - id: AC2
+      given: the user saves without changing fields
+      when: the screen returns
+      then: no impact summary is shown
+    - id: AC3
+      given: a change removes all safe matches for a category
+      when: the impact summary opens
+      then: it names the affected category and offers Edit limitations
+    implementation:
+      notes: Compare previous and new ProfileTrainingContext snapshots in an application service. Present impacts in dx:BottomSheet
+        so users stay in the profile flow. Implement this across src/Forge.Core/Profile/Impact, src/Forge.App/Features/Profile,
+        with domain value objects enforcing safety before the app layer formats anything. Use dx:BottomSheet, dx:DXCollectionView
+        for entry and review, while Forge.Core abstractions and local SQLite repositories stays behind application
+        services. Calculations such as Mifflin St Jeor BMR and TDEE are estimates, so store formula version, inputs and assumptions
+        with the result and show an error margin. The tricky part is refusing unsafe rates, calorie floors and contraindicated
+        movements without shame. A careless implementation would round stored values, expose photos, or present estimates
+        as diagnosis.
+      touches:
+      - src/Forge.Core/Profile/Impact
+      - src/Forge.App/Features/Profile
+      devexpress:
+      - dx:BottomSheet
+      - dx:DXCollectionView
+    testing:
+    - Unit tests for impact messages when equipment and availability change.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: DevExpress Collection View for .NET MAUI
+      url: https://docs.devexpress.com/MAUI/403324
+      note: Grounds DXCollectionView use for virtualized lists, settings rows and selectors.
+- key: F06.04
+  title: Respect injuries and contraindicated movements
+  wave: 2
+  summary: Capture limitations as structured safety data and enforce them in exercise filtering rather than storing them as
+    passive notes.
+  outcome: Contraindicated exercises are excluded or clearly warned wherever recommendations and search results appear.
+  concerns:
+  - safety
+  - privacy
+  stories:
+  - key: S06.04.01
+    title: Record limitations with movement patterns
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: masters
+    concerns:
+    - safety
+    - privacy
+    userStory:
+      asA: Tom managing joint limitations
+      iWant: to capture movements that aggravate symptoms
+      soThat: Forge can avoid unsafe suggestions
+    requirements:
+    - Limitations include body area, movement pattern, severity and optional note.
+    - Severity supports mild, moderate and avoid entirely.
+    - Free-text notes are stored locally and never logged.
+    - Movement patterns use a controlled taxonomy shared with exercise metadata.
+    - Optional notes are encrypted with the local database and excluded from search snippets unless the user opens the limitation.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user records a knee limitation with avoid entirely
+      when: they save
+      then: the limitation appears with body area, pattern and severity
+    - id: AC2
+      given: a limitation note contains unique text
+      when: logs are inspected after saving
+      then: the note text appears in zero log entries
+    - id: AC3
+      given: a limitation is saved with an optional note
+      when: exercise filtering runs
+      then: only structured body area, pattern and severity drive filtering
+    implementation:
+      notes: Model limitations as structured values plus an optional local note. Use dx:DataFormView, dx:ComboBoxEdit and
+        dx:TextEdit for controlled entry, and keep notes out of telemetry and diagnostics. Implement this across src/Forge.Domain/Profile/Limitations,
+        src/Forge.App/Features/Profile/Limitations, with domain value objects enforcing safety before the app layer formats
+        anything. Use dx:DataFormView, dx:ComboBoxEdit, dx:TextEdit for entry and review, while Forge.Core abstractions
+        and local SQLite repositories stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE
+        are estimates, so store formula version, inputs and assumptions with the result and show an error margin. A careless
+        implementation would round stored values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.Domain/Profile/Limitations
+      - src/Forge.App/Features/Profile/Limitations
+      devexpress:
+      - dx:DataFormView
+      - dx:ComboBoxEdit
+      - dx:TextEdit
+    testing:
+    - Unit tests verify structured limitation validation and log redaction.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: DevExpress MAUI Data Form examples
+      url: https://docs.devexpress.com/MAUI/404178
+      note: Grounds DataFormView based structured entry and validation layout.
+    - title: DevExpress MAUI data editor types
+      url: https://docs.devexpress.com/MAUI/404621
+      note: Grounds ComboBoxEdit, NumericEdit, TextEdit and related editor choices.
+  - key: S06.04.02
+    title: Filter contraindicated exercises from recommendations
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: masters
+    concerns:
+    - safety
+    userStory:
+      asA: Tom browsing exercises
+      iWant: unsafe movements filtered out
+      soThat: I do not have to remember every contraindication
+    requirements:
+    - Exercise metadata maps required movement patterns and body areas to limitations.
+    - Avoid entirely limitations hide matching exercises by default.
+    - Show filtered items reveals excluded exercises with a Contraindicated label.
+    - Moderate limitations show warnings for matching exercises unless the user chooses to hide them.
+    - Filtering decisions include an explanation id for UI labels and tests.
+    acceptanceCriteria:
+    - id: AC1
+      given: overhead press is contraindicated
+      when: recommendations are generated
+      then: no overhead-press-tagged exercise appears by default
+    - id: AC2
+      given: Show filtered items is enabled
+      when: search results refresh
+      then: filtered exercises appear with a Contraindicated label and are not plan-selectable by default
+    - id: AC3
+      given: a moderate shoulder limitation exists
+      when: a matching exercise appears with warnings enabled
+      then: the row shows a caution label and is not silently promoted
+    implementation:
+      notes: Implement ExerciseSafetyFilter in Forge.Core over profile limitations and exercise metadata. Render labels
+        consistently with dx:DXCollectionView templates rather than duplicating logic per page. Implement this across src/Forge.Core/Exercises,
+        src/Forge.Domain/Exercises, src/Forge.App/Features/Exercises, with domain value objects enforcing safety before the
+        app layer formats anything. Use dx:DXCollectionView, dx:DXBorder for entry and review, while Forge.Core abstractions
+        and local SQLite repositories stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE
+        are estimates, so store formula version, inputs and assumptions with the result and show an error margin. A careless
+        implementation would round stored values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.Core/Exercises
+      - src/Forge.Domain/Exercises
+      - src/Forge.App/Features/Exercises
+      devexpress:
+      - dx:DXCollectionView
+      - dx:DXBorder
+    testing:
+    - Filter tests cover mild, moderate and avoid entirely severities.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: DevExpress Collection View for .NET MAUI
+      url: https://docs.devexpress.com/MAUI/403324
+      note: Grounds DXCollectionView use for virtualized lists, settings rows and selectors.
+  - key: S06.04.03
+    title: Handle no safe exercise matches
+    wave: 2
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: masters
+    concerns:
+    - safety
+    - a11y
+    userStory:
+      asA: Tom with several limitations
+      iWant: to understand why nothing matches
+      soThat: I get a safe next step instead of a blank list
+    requirements:
+    - If filters remove all exercises, a no-safe-match state appears within 200 ms.
+    - The state names the active filters causing the empty result.
+    - The state offers Edit limitations and professional-help guidance.
+    - The no-safe-match state never suggests ignoring an avoid-entirely limitation.
+    - Professional-help guidance is discreet, supportive and configurable by market.
+    acceptanceCriteria:
+    - id: AC1
+      given: all squat-category exercises are filtered
+      when: the category opens
+      then: the empty state names the limitation and offers Edit limitations
+    - id: AC2
+      given: the user taps Edit limitations
+      when: navigation completes
+      then: the limitations screen opens with the relevant item preselected
+    - id: AC3
+      given: all safe matches are removed by limitations and equipment together
+      when: the empty state renders
+      then: it names both filter types and suggests editing filters or seeking professional guidance
+    implementation:
+      notes: Build a reusable EmptySafeResults component using dx:DXBorder and dx:DXButton. Keep professional-help wording
+        in resources so compliance can review text without changing filter code. Implement this across src/Forge.App/Features/Profile/Limitations,
+        src/Forge.App/Features/Exercises, with domain value objects enforcing safety before the app layer formats anything.
+        Use dx:DXBorder, dx:DXButton for entry and review, while Forge.Core abstractions and local SQLite repositories
+        stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE are estimates, so store formula
+        version, inputs and assumptions with the result and show an error margin. The tricky part is refusing unsafe rates,
+        calorie floors and contraindicated movements without shame. A careless implementation would round stored values, expose
+        photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.App/Features/Profile/Limitations
+      - src/Forge.App/Features/Exercises
+      devexpress:
+      - dx:DXBorder
+      - dx:DXButton
+    testing:
+    - UI test for no-match state and route to edit limitations.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: WCAG 2.2 use of color
+      url: https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html
+      note: Grounds requirements that status and choices are not communicated by colour alone.
+- key: F06.05
+  title: Manage private profile imagery
+  wave: 2
+  summary: Let users personalise local profiles with avatars and progress photos while making privacy, storage and deletion
+    behaviour explicit.
+  outcome: Profile images remain local, private and deletable, with sensitive photos protected from accidental exposure.
+  concerns:
+  - privacy
+  grounding:
   - title: .NET MAUI media picker
     url: https://learn.microsoft.com/dotnet/maui/platform-integration/device-media/picker
-    note: Used for local progress photo capture and avatar selection.
-features:
-  - key: F06.01
-    title: Capture body metrics and energy estimates
+    note: Used for photo selection and capture.
+  stories:
+  - key: S06.05.01
+    title: Set a local avatar from initials, colour or photo
     wave: 2
-    summary: >-
-      Collect body metrics with explicit units and calculate BMR and TDEE as
-      explainable estimates rather than hard prescriptions.
-    outcome: >-
-      Users can update body metrics locally and understand how Forge derived any
-      energy estimate.
-    concerns: [privacy, i18n]
-    stories:
-      - key: S06.01.01
-        title: Record body metrics with canonical storage
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: cutter
-        concerns: [privacy]
-        userStory:
-          asA: Priya tracking body composition
-          iWant: to record metrics in my preferred units
-          soThat: my progress data stays consistent over time
-        requirements:
-          - Height supports 100 to 250 cm or equivalent imperial values after conversion.
-          - Weight supports 30 to 300 kg or equivalent imperial values after conversion.
-          - Saved rows store canonical metric values plus the display unit used for entry.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user enters 180 cm and 82 kg
-            when: they tap Save
-            then: the profile stores 180 cm and 82 kg canonical values within 200 ms
-          - id: AC2
-            given: the user enters 20 kg or 400 kg
-            when: they tap Save
-            then: validation blocks saving and names the accepted range
-        implementation:
-          notes: >-
-            Place metric forms under src/Forge.App/Features/Profile/Metrics with
-            dx:DataFormView and dx:NumericEdit. Conversion and validation belong
-            in Forge.Domain/Profile value objects so all features share one unit
-            model.
-          touches:
-            - src/Forge.Domain/Profile
-            - src/Forge.Application/Profile
-            - src/Forge.App/Features/Profile/Metrics
-          devexpress: [dx:DataFormView, dx:NumericEdit, dx:ComboBoxEdit]
-          apis: [Microsoft.EntityFrameworkCore]
-        testing:
-          - Unit tests for minimum, maximum and cross-unit conversion boundaries.
-      - key: S06.01.02
-        title: Choose profile-level body unit preference
-        wave: 2
-        size: s
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [i18n]
-        userStory:
-          asA: Alex comparing logs
-          iWant: to use the units I think in
-          soThat: I do not make conversion mistakes while training
-        requirements:
-          - Body unit preference supports metric and imperial.
-          - Changing units re-renders visible values within 100 ms.
-          - Canonical stored values remain unchanged after every unit switch.
-        acceptanceCriteria:
-          - id: AC1
-            given: a stored weight is 100 kg
-            when: the user switches to imperial
-            then: the UI displays 220.5 lb plus or minus 0.1 lb within 100 ms
-          - id: AC2
-            given: the user switches units five times
-            when: stored metrics are inspected
-            then: no duplicate metric rows are created
-        implementation:
-          notes: >-
-            Use an IUnitFormatter service in Forge.Application and a
-            dx:ComboBoxEdit in profile settings. Store units as preferences only,
-            never as replacement values for canonical measurements.
-          touches:
-            - src/Forge.Application/Preferences
-            - src/Forge.App/Features/Profile/Metrics
-          devexpress: [dx:ComboBoxEdit, dx:DXBorder]
-        testing:
-          - Unit test repeated toggles preserve canonical metric values.
-      - key: S06.01.03
-        title: Calculate BMR and TDEE with visible assumptions
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: cutter
-        concerns: [safety]
-        userStory:
-          asA: Priya reviewing calorie targets
-          iWant: to see how Forge estimated my energy needs
-          soThat: I can treat the number as guidance, not certainty
-        requirements:
-          - BMR output displays formula name, required inputs and missing-input state.
-          - TDEE applies an activity multiplier chosen from a documented list.
-          - Every estimate shows uncertainty copy and a 14-day adjustment recommendation.
-        acceptanceCriteria:
-          - id: AC1
-            given: height, weight, age and activity level are present
-            when: the Energy estimate screen opens
-            then: BMR, TDEE, formula name and multiplier are visible together
-          - id: AC2
-            given: age is missing
-            when: the estimate screen opens
-            then: no numeric estimate is shown and the missing age field is named
-        implementation:
-          notes: >-
-            Implement EnergyEstimateService in Forge.Application with pure
-            formula functions and versioned outputs. The UI should use
-            dx:DXBorder explanation panels so future insights screens can reuse
-            the same estimate wording.
-          touches:
-            - src/Forge.Application/Profile/Energy
-            - src/Forge.App/Features/Profile/Energy
-          devexpress: [dx:DataFormView, dx:ComboBoxEdit, dx:DXBorder]
-        testing:
-          - Unit tests for missing inputs, multiplier selection and formula version output.
-      - key: S06.01.04
-        title: Edit and delete metric history entries
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [perf]
-        userStory:
-          asA: Alex correcting a measurement
-          iWant: to edit and delete previous entries
-          soThat: typo values do not pollute my trends
-        requirements:
-          - Metric history lists at least 500 entries while sustaining 60 fps scrolling.
-          - Editing preserves createdAt and updates updatedAt.
-          - Deleting an entry removes it from trend calculations within 200 ms.
-        acceptanceCriteria:
-          - id: AC1
-            given: 500 metric rows exist
-            when: the user scrolls history
-            then: scrolling sustains 60 fps with no frame over 16.6 ms
-          - id: AC2
-            given: a bodyweight entry is deleted
-            when: the trend recalculates
-            then: the deleted value no longer contributes within 200 ms
-        implementation:
-          notes: >-
-            Use dx:DXCollectionView for virtualized history and dx:BottomSheet
-            for edit and delete actions. Trend recalculation should be an
-            application query over canonical rows, not a ViewModel-only mutation.
-          touches:
-            - src/Forge.App/Features/Profile/Metrics
-            - src/Forge.Application/Profile/Metrics
-          devexpress: [dx:DXCollectionView, dx:BottomSheet, dx:NumericEdit]
-        testing:
-          - Performance test for 500-entry scrolling and unit tests for edit timestamps.
-  - key: F06.02
-    title: Manage goals with safety guardrails
-    wave: 2
-    summary: >-
-      Let users select multiple goals while blocking unsafe weight-change
-      requests and explaining conflicts clearly.
-    outcome: >-
-      Goals prioritise training and nutrition without endorsing harmful targets.
-    concerns: [safety, privacy]
-    stories:
-      - key: S06.02.01
-        title: Select and rank multiple fitness goals
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [a11y]
-        userStory:
-          asA: Maya with several ambitions
-          iWant: to select and rank more than one goal
-          soThat: Forge can personalise without forcing a false choice
-        requirements:
-          - Supported goals are fat loss, muscle gain, strength, endurance, general health and mobility.
-          - The user can select up to three active goals with unique ranks.
-          - Conflicting combinations show explanatory copy within 250 ms.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user selects fat loss, strength and mobility
-            when: they save with fat loss ranked first
-            then: exactly three goals are stored with unique ranks
-          - id: AC2
-            given: the user selects four goals
-            when: they attempt to save
-            then: saving is blocked and the maximum of three active goals is named
-        implementation:
-          notes: >-
-            Represent goals as a ranked collection in Forge.Domain/Profile. Use
-            dx:TokenEdit for multi-select and dx:DXCollectionView for ranking so
-            ordering remains accessible and testable through the ViewModel.
-          touches:
-            - src/Forge.Domain/Profile/Goals
-            - src/Forge.App/Features/Profile/Goals
-          devexpress: [dx:TokenEdit, dx:DXCollectionView, dx:DXBorder]
-        testing:
-          - Unit tests for duplicate ranks, maximum count and conflict messages.
-      - key: S06.02.02
-        title: Block unsafe rates of weight change
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: cutter
-        concerns: [safety]
-        userStory:
-          asA: Priya setting a fat-loss target
-          iWant: Forge to stop risky targets
-          soThat: I am not encouraged toward unsafe behaviour
-        requirements:
-          - Weekly weight-change targets above 1.0 percent of current bodyweight are blocked.
-          - Targets requiring BMI below 18.5 are blocked.
-          - Blocked states show a safer editable alternative and professional-help signpost.
-        acceptanceCriteria:
-          - id: AC1
-            given: an 80 kg user targets losing 1.2 kg per week
-            when: they tap Save
-            then: saving is blocked and the copy states the 1.0 percent weekly limit
-          - id: AC2
-            given: a target implies BMI 17.9
-            when: the user taps Save
-            then: saving is blocked and a professional-help signpost is visible
-        implementation:
-          notes: >-
-            Put safety rules in Forge.Domain/Profile/SafetyPolicy with boundary
-            tests. The page uses dx:NumericEdit for targets and a dx:DXBorder
-            warning panel driven by domain validation results.
-          touches:
-            - src/Forge.Domain/Profile/SafetyPolicy.cs
-            - src/Forge.App/Features/Profile/Goals
-          devexpress: [dx:NumericEdit, dx:DXBorder, dx:DXButton]
-        testing:
-          - Domain tests for 0.99 percent, 1.0 percent and 1.01 percent boundaries.
-      - key: S06.02.03
-        title: Surface disordered-eating signposts without diagnosis
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: cutter
-        concerns: [safety, privacy]
-        userStory:
-          asA: Priya entering extreme targets
-          iWant: supportive guidance when inputs look unsafe
-          soThat: I know Forge is not a medical professional
-        requirements:
-          - Unsafe BMI, weight-change or calorie targets show non-diagnostic support copy.
-          - The message contains at least one configurable professional-help resource placeholder.
-          - Dismissing the message does not allow saving a blocked value.
-        acceptanceCriteria:
-          - id: AC1
-            given: inputs trigger the unsafe-goal rule
-            when: the goal summary opens
-            then: a support message appears without assigning a diagnosis
-          - id: AC2
-            given: the user dismisses the support message
-            when: they tap Save on the unsafe goal
-            then: saving remains blocked
-        implementation:
-          notes: >-
-            Create SafetySignpostProvider that returns resource keys and copy
-            tokens. Keep public resource URLs configurable for compliance review
-            and avoid clinical language in domain or UI strings.
-          touches:
-            - src/Forge.Application/Profile/Safety
-            - src/Forge.App/Features/Profile/Goals
-          devexpress: [dx:DXBorder, dx:BottomSheet]
-        testing:
-          - Snapshot tests for safety copy and unit tests that dismissal does not bypass rules.
-  - key: F06.03
-    title: Capture training context for recommendations
-    wave: 2
-    summary: >-
-      Record experience, equipment and availability so training suggestions fit
-      the user's real environment before a plan starts.
-    outcome: >-
-      Exercise and programme recommendations reflect skill level, available
-      equipment and time.
-    stories:
-      - key: S06.03.01
-        title: Set training experience and volume limits
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        concerns: [safety]
-        userStory:
-          asA: Sam returning after time away
-          iWant: to describe my current experience honestly
-          soThat: Forge does not over-prescribe volume or complexity
-        requirements:
-          - Experience levels are newcomer, returning, intermediate and advanced.
-          - Newcomer and returning profiles default to no more than three sessions per week.
-          - Advanced-only exercise variations are hidden for newcomer profiles by default.
-        acceptanceCriteria:
-          - id: AC1
-            given: a newcomer opens programme recommendations
-            when: recommendations load
-            then: no advanced-only exercise appears in the default list
-          - id: AC2
-            given: a returning profile selects five training days
-            when: they save
-            then: a warning appears and requires explicit confirmation
-        implementation:
-          notes: >-
-            Store experience in ProfileTrainingContext in Forge.Domain and feed
-            it to recommendation filters through Forge.Application. Use
-            dx:ComboBoxEdit and warning panels in the profile UI.
-          touches:
-            - src/Forge.Domain/Profile/TrainingContext
-            - src/Forge.Application/Training
-            - src/Forge.App/Features/Profile/Training
-          devexpress: [dx:ComboBoxEdit, dx:DXBorder]
-        testing:
-          - Unit tests for default volume caps by experience level.
-      - key: S06.03.02
-        title: Select available equipment for exercise filtering
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [perf]
-        userStory:
-          asA: Alex training in a garage gym
-          iWant: to list what equipment I have
-          soThat: Forge only recommends movements I can perform
-        requirements:
-          - Equipment includes bodyweight, dumbbells, barbell, rack, bench, cable, kettlebell, bands, cardio machine and custom.
-          - Exercises requiring unselected equipment are hidden unless Show unavailable is enabled.
-          - Saving 50 selected equipment items completes within 200 ms.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user selects dumbbells and bench only
-            when: they browse exercises
-            then: barbell-only exercises are hidden by default
-          - id: AC2
-            given: Show unavailable is enabled
-            when: the exercise list refreshes
-            then: hidden exercises appear with a Missing equipment label
-        implementation:
-          notes: >-
-            Use dx:TokenEdit or dx:DXCollectionView chips and store canonical
-            equipment ids, not localized labels. Exercise filtering is an
-            application-level specification reused by library search and plans.
-          touches:
-            - src/Forge.Domain/Profile/Equipment
-            - src/Forge.Application/Exercises
-            - src/Forge.App/Features/Profile/Equipment
-          devexpress: [dx:TokenEdit, dx:DXCollectionView, dx:ComboBoxEdit]
-        testing:
-          - Integration test exercise filtering with selected, missing and custom equipment.
-      - key: S06.03.03
-        title: Capture training availability and session length
-        wave: 2
-        size: s
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [privacy]
-        userStory:
-          asA: Maya with limited time
-          iWant: to say when and how long I can train
-          soThat: recommendations fit my week
-        requirements:
-          - Availability supports 1 to 7 days per week and sessions from 10 to 180 minutes.
-          - Preferred days can be marked without requesting calendar permission.
-          - Recommendation preview updates within 250 ms after changes.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user selects two days and 20 minutes
-            when: they save
-            then: programme preview shows no more than two sessions of 20 minutes
-          - id: AC2
-            given: all preferred days are cleared
-            when: the user saves
-            then: day count is stored and preferred-day list remains empty without error
-        implementation:
-          notes: >-
-            Store availability separately from any system calendar. Use
-            dx:DataFormView for numeric constraints and dx:DXCollectionView for
-            day chips. Do not request calendar permissions in v1.
-          touches:
-            - src/Forge.Domain/Profile/Availability
-            - src/Forge.App/Features/Profile/Availability
-          devexpress: [dx:DataFormView, dx:NumericEdit, dx:DXCollectionView]
-        testing:
-          - Unit tests for minimum and maximum availability values.
-      - key: S06.03.04
-        title: Explain recommendation impacts after profile edits
-        wave: 2
-        size: s
-        platforms: [android, ios]
-        persona: returner
-        concerns: [a11y]
-        userStory:
-          asA: Sam changing equipment or availability
-          iWant: to see what changed because of my edit
-          soThat: I understand why recommendations moved
-        requirements:
-          - Saving changed training context shows at least one impact or states none changed.
-          - The summary appears within 300 ms after save.
-          - The same unchanged snapshot does not show the summary twice.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user removes barbell from equipment
-            when: they save
-            then: the summary names barbell exercises as newly filtered out
-          - id: AC2
-            given: the user saves without changing fields
-            when: the screen returns
-            then: no impact summary is shown
-        implementation:
-          notes: >-
-            Compare previous and new ProfileTrainingContext snapshots in an
-            application service. Present impacts in dx:BottomSheet so users stay
-            in the profile flow.
-          touches:
-            - src/Forge.Application/Profile/Impact
-            - src/Forge.App/Features/Profile
-          devexpress: [dx:BottomSheet, dx:DXCollectionView]
-        testing:
-          - Unit tests for impact messages when equipment and availability change.
-  - key: F06.04
-    title: Respect injuries and contraindicated movements
-    wave: 2
-    summary: >-
-      Capture limitations as structured safety data and enforce them in exercise
-      filtering rather than storing them as passive notes.
-    outcome: >-
-      Contraindicated exercises are excluded or clearly warned wherever
-      recommendations and search results appear.
-    concerns: [safety, privacy]
-    stories:
-      - key: S06.04.01
-        title: Record limitations with movement patterns
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: masters
-        concerns: [safety, privacy]
-        userStory:
-          asA: Tom managing joint limitations
-          iWant: to capture movements that aggravate symptoms
-          soThat: Forge can avoid unsafe suggestions
-        requirements:
-          - Limitations include body area, movement pattern, severity and optional note.
-          - Severity supports mild, moderate and avoid entirely.
-          - Free-text notes are stored locally and never logged.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user records a knee limitation with avoid entirely
-            when: they save
-            then: the limitation appears with body area, pattern and severity
-          - id: AC2
-            given: a limitation note contains unique text
-            when: logs are inspected after saving
-            then: the note text appears in zero log entries
-        implementation:
-          notes: >-
-            Model limitations as structured values plus an optional local note.
-            Use dx:DataFormView, dx:ComboBoxEdit and dx:TextEdit for controlled
-            entry, and keep notes out of telemetry and diagnostics.
-          touches:
-            - src/Forge.Domain/Profile/Limitations
-            - src/Forge.App/Features/Profile/Limitations
-          devexpress: [dx:DataFormView, dx:ComboBoxEdit, dx:TextEdit]
-        testing:
-          - Unit tests verify structured limitation validation and log redaction.
-      - key: S06.04.02
-        title: Filter contraindicated exercises from recommendations
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: masters
-        concerns: [safety]
-        userStory:
-          asA: Tom browsing exercises
-          iWant: unsafe movements filtered out
-          soThat: I do not have to remember every contraindication
-        requirements:
-          - Exercise metadata maps required movement patterns and body areas to limitations.
-          - Avoid entirely limitations hide matching exercises by default.
-          - Show filtered items reveals excluded exercises with a Contraindicated label.
-        acceptanceCriteria:
-          - id: AC1
-            given: overhead press is contraindicated
-            when: recommendations are generated
-            then: no overhead-press-tagged exercise appears by default
-          - id: AC2
-            given: Show filtered items is enabled
-            when: search results refresh
-            then: filtered exercises appear with a Contraindicated label and are not plan-selectable by default
-        implementation:
-          notes: >-
-            Implement ExerciseSafetyFilter in Forge.Application over profile
-            limitations and exercise metadata. Render labels consistently with
-            dx:DXCollectionView templates rather than duplicating logic per page.
-          touches:
-            - src/Forge.Application/Exercises
-            - src/Forge.Domain/Exercises
-            - src/Forge.App/Features/Exercises
-          devexpress: [dx:DXCollectionView, dx:DXBorder]
-        testing:
-          - Filter tests cover mild, moderate and avoid entirely severities.
-      - key: S06.04.03
-        title: Handle no safe exercise matches
-        wave: 2
-        size: s
-        platforms: [android, ios]
-        persona: masters
-        concerns: [safety, a11y]
-        userStory:
-          asA: Tom with several limitations
-          iWant: to understand why nothing matches
-          soThat: I get a safe next step instead of a blank list
-        requirements:
-          - If filters remove all exercises, a no-safe-match state appears within 200 ms.
-          - The state names the active filters causing the empty result.
-          - The state offers Edit limitations and professional-help guidance.
-        acceptanceCriteria:
-          - id: AC1
-            given: all squat-category exercises are filtered
-            when: the category opens
-            then: the empty state names the limitation and offers Edit limitations
-          - id: AC2
-            given: the user taps Edit limitations
-            when: navigation completes
-            then: the limitations screen opens with the relevant item preselected
-        implementation:
-          notes: >-
-            Build a reusable EmptySafeResults component using dx:DXBorder and
-            dx:DXButton. Keep professional-help wording in resources so
-            compliance can review text without changing filter code.
-          touches:
-            - src/Forge.App/Features/Profile/Limitations
-            - src/Forge.App/Features/Exercises
-          devexpress: [dx:DXBorder, dx:DXButton]
-        testing:
-          - UI test for no-match state and route to edit limitations.
-  - key: F06.05
-    title: Manage private profile imagery
-    wave: 2
-    summary: >-
-      Let users personalise local profiles with avatars and progress photos
-      while making privacy, storage and deletion behaviour explicit.
-    outcome: >-
-      Profile images remain local, private and deletable, with sensitive photos
-      protected from accidental exposure.
-    concerns: [privacy]
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - privacy
+    userStory:
+      asA: Maya personalising her profile
+      iWant: to recognise my profile quickly
+      soThat: shared devices are easier to use
+    requirements:
+    - Avatar supports generated initials, selected colour and optional cropped local photo.
+    - A photo avatar is copied into app storage before save completes.
+    - Avatar changes appear in the profile switcher within 100 ms.
+    - Photo avatars are optional and can be replaced by initials at any time.
+    - Avatar files are stored in app-private storage and are removed when the owning profile is deleted.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user selects a photo avatar
+      when: they save
+      then: the switcher displays the copied local image after the source photo is deleted
+    - id: AC2
+      given: the user clears the avatar photo
+      when: they save
+      then: initials and selected colour are shown instead
+    - id: AC3
+      given: a profile with a photo avatar is deleted
+      when: profile deletion completes
+      then: the avatar file is removed from app-private storage
+    implementation:
+      notes: Use MediaPicker for selection and store a local file reference keyed by profile id. Render avatars in dx:DXCollectionView
+        item templates with fallback initials and semantic colours. Implement this across src/Forge.App/Features/Profile/Avatar,
+        src/Forge.App/Features/Identity/ProfileSwitcher, with domain value objects enforcing safety before the app layer formats
+        anything. Use dx:DXCollectionView, dx:DXButton, dx:DXBorder for entry and review, while Microsoft.Maui.Media.MediaPicker
+        stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE are estimates, so store formula
+        version, inputs and assumptions with the result and show an error margin. The tricky part is refusing unsafe rates,
+        calorie floors and contraindicated movements without shame. A careless implementation would round stored values, expose
+        photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.App/Features/Profile/Avatar
+      - src/Forge.App/Features/Identity/ProfileSwitcher
+      devexpress:
+      - dx:DXCollectionView
+      - dx:DXButton
+      - dx:DXBorder
+      apis:
+      - Microsoft.Maui.Media.MediaPicker
+    testing:
+    - Manual picker test and unit test for initials fallback.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
     grounding:
-      - title: .NET MAUI media picker
-        url: https://learn.microsoft.com/dotnet/maui/platform-integration/device-media/picker
-        note: Used for photo selection and capture.
-    stories:
-      - key: S06.05.01
-        title: Set a local avatar from initials, colour or photo
-        wave: 2
-        size: s
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [privacy]
-        userStory:
-          asA: Maya personalising her profile
-          iWant: to recognise my profile quickly
-          soThat: shared devices are easier to use
-        requirements:
-          - Avatar supports generated initials, selected colour and optional cropped local photo.
-          - A photo avatar is copied into app storage before save completes.
-          - Avatar changes appear in the profile switcher within 100 ms.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user selects a photo avatar
-            when: they save
-            then: the switcher displays the copied local image after the source photo is deleted
-          - id: AC2
-            given: the user clears the avatar photo
-            when: they save
-            then: initials and selected colour are shown instead
-        implementation:
-          notes: >-
-            Use MediaPicker for selection and store a local file reference keyed
-            by profile id. Render avatars in dx:DXCollectionView item templates
-            with fallback initials and semantic colours.
-          touches:
-            - src/Forge.App/Features/Profile/Avatar
-            - src/Forge.App/Features/Identity/ProfileSwitcher
-          devexpress: [dx:DXCollectionView, dx:DXButton, dx:DXBorder]
-          apis: [Microsoft.Maui.Media.MediaPicker]
-        testing:
-          - Manual picker test and unit test for initials fallback.
-      - key: S06.05.02
-        title: Store progress photos with explicit privacy copy
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: cutter
-        concerns: [privacy]
-        userStory:
-          asA: Priya taking progress photos
-          iWant: to track visual progress privately
-          soThat: my images do not leave the device unexpectedly
-        requirements:
-          - Capture states before opening the camera that photos are stored locally only.
-          - Each photo is associated with one profile and timestamp.
-          - Deleting a photo removes file and metadata within 500 ms.
-        acceptanceCriteria:
-          - id: AC1
-            given: the user opens progress-photo capture
-            when: the camera has not opened yet
-            then: local-only privacy copy is visible
-          - id: AC2
-            given: the user deletes a progress photo
-            when: deletion completes
-            then: the file no longer exists and the metadata row is removed
-        implementation:
-          notes: >-
-            Store photos under an app-data folder partitioned by localProfileId.
-            The delete use case must remove metadata and file, then repair any
-            orphan discovered later by storage management.
-          touches:
-            - src/Forge.Application/Profile/Photos
-            - src/Forge.Infrastructure/Profile/Photos
-            - src/Forge.App/Features/Profile/Photos
-          devexpress: [dx:DXCollectionView, dx:BottomSheet, dx:DXButton]
-          apis: [Microsoft.Maui.Media.MediaPicker]
-        testing:
-          - Integration test deletes photo metadata and physical file together.
-      - key: S06.05.03
-        title: Compare progress photos behind a privacy overlay
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: cutter
-        concerns: [privacy, security]
-        userStory:
-          asA: Priya comparing photos
-          iWant: a private comparison surface
-          soThat: sensitive images are not visible when switching apps
-        requirements:
-          - Comparison supports two selected photos from the same profile.
-          - Backgrounding from a progress-photo screen obscures the screen within 500 ms.
-          - Analytics and logs contain no image file names or notes.
-        acceptanceCriteria:
-          - id: AC1
-            given: two photos exist for the active profile
-            when: the user selects Compare
-            then: both photos display side by side and photos from other profiles are not selectable
-          - id: AC2
-            given: the app backgrounds while a photo is visible
-            when: the app switcher preview is captured
-            then: a neutral privacy overlay is shown instead of the photo
-        implementation:
-          notes: >-
-            Reuse the privacy overlay hook from app lock. Use dx:DXCollectionView
-            for photo selection and a standard MAUI Image for rendering because
-            DevExpress has no dedicated image-comparison control in the approved
-            mapping.
-          touches:
-            - src/Forge.App/Features/Profile/Photos
-            - src/Forge.App/Privacy
-          devexpress: [dx:DXCollectionView, dx:DXBorder, dx:DXButton]
-          apis: [Microsoft.Maui.Controls.Image]
-        testing:
-          - Manual app-switcher preview test on both platforms.
+    - title: .NET MAUI media picker
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device-media/picker
+      note: Grounds local capture and picking of profile images without cloud transfer.
+  - key: S06.05.02
+    title: Store progress photos with explicit privacy copy
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    concerns:
+    - privacy
+    userStory:
+      asA: Priya taking progress photos
+      iWant: to track visual progress privately
+      soThat: my images do not leave the device unexpectedly
+    requirements:
+    - Capture states before opening the camera that photos are stored locally only.
+    - Each photo is associated with one profile and timestamp.
+    - Deleting a photo removes file and metadata within 500 ms.
+    - Progress photos are copied to app-private storage and are never written to shared media galleries.
+    - Photo metadata contains no cloud URL, upload status or remote identifier in v1.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user opens progress-photo capture
+      when: the camera has not opened yet
+      then: local-only privacy copy is visible
+    - id: AC2
+      given: the user deletes a progress photo
+      when: deletion completes
+      then: the file no longer exists and the metadata row is removed
+    - id: AC3
+      given: a progress photo is captured on Android or iOS
+      when: the system gallery or another app is opened
+      then: the photo is not visible outside Forge unless the user explicitly exports it in a later E26 flow
+    implementation:
+      notes: Store photos under an app-data folder partitioned by localProfileId. The delete use case must remove metadata
+        and file, then repair any orphan discovered later by storage management. Implement this across src/Forge.Core/Profile/Photos,
+        src/Forge.Infrastructure/Profile/Photos, src/Forge.App/Features/Profile/Photos, with domain value objects enforcing
+        safety before the app layer formats anything. Use dx:DXCollectionView, dx:BottomSheet, dx:DXButton for entry and review,
+        while Microsoft.Maui.Media.MediaPicker stays behind application services. Calculations such as Mifflin St Jeor BMR
+        and TDEE are estimates, so store formula version, inputs and assumptions with the result and show an error margin.
+        A careless implementation would round stored values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.Core/Profile/Photos
+      - src/Forge.Infrastructure/Profile/Photos
+      - src/Forge.App/Features/Profile/Photos
+      devexpress:
+      - dx:DXCollectionView
+      - dx:BottomSheet
+      - dx:DXButton
+      apis:
+      - Microsoft.Maui.Media.MediaPicker
+    testing:
+    - Integration test deletes photo metadata and physical file together.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: .NET MAUI media picker
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device-media/picker
+      note: Grounds local capture and picking of profile images without cloud transfer.
+    - title: .NET MAUI secure storage
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/secure-storage
+      note: Grounds use of SecureStorage for app-lock verifier and policy metadata.
+  - key: S06.05.03
+    title: Compare progress photos behind a privacy overlay
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    concerns:
+    - privacy
+    - security
+    userStory:
+      asA: Priya comparing photos
+      iWant: a private comparison surface
+      soThat: sensitive images are not visible when switching apps
+    requirements:
+    - Comparison supports two selected photos from the same profile.
+    - Backgrounding from a progress-photo screen obscures the screen within 500 ms.
+    - Analytics and logs contain no image file names or notes.
+    - Comparison cannot be shared from this screen in wave 2.
+    - The privacy overlay activates for screenshots in app switcher previews before image decoding resumes.
+    acceptanceCriteria:
+    - id: AC1
+      given: two photos exist for the active profile
+      when: the user selects Compare
+      then: both photos display side by side and photos from other profiles are not selectable
+    - id: AC2
+      given: the app backgrounds while a photo is visible
+      when: the app switcher preview is captured
+      then: a neutral privacy overlay is shown instead of the photo
+    - id: AC3
+      given: analytics and logs are exported after a photo comparison
+      when: the export is searched
+      then: no progress-photo file names, paths or notes are present
+    implementation:
+      notes: Reuse the privacy overlay hook from app lock. Use dx:DXCollectionView for photo selection and a standard MAUI
+        Image for rendering because DevExpress has no dedicated image-comparison control in the approved mapping. Implement
+        this across src/Forge.App/Features/Profile/Photos, src/Forge.App/Privacy, with domain value objects enforcing safety
+        before the app layer formats anything. Use dx:DXCollectionView, dx:DXBorder, dx:DXButton for entry and review, while
+        Microsoft.Maui.Controls.Image stays behind application services. Calculations such as Mifflin St Jeor BMR and TDEE
+        are estimates, so store formula version, inputs and assumptions with the result and show an error margin. A careless
+        implementation would round stored values, expose photos, or present estimates as diagnosis.
+      touches:
+      - src/Forge.App/Features/Profile/Photos
+      - src/Forge.App/Privacy
+      devexpress:
+      - dx:DXCollectionView
+      - dx:DXBorder
+      - dx:DXButton
+      apis:
+      - Microsoft.Maui.Controls.Image
+    testing:
+    - Manual app-switcher preview test on both platforms.
+    - UI or integration test covers the denied, empty or interrupted path described by acceptance criteria.
+    grounding:
+    - title: .NET MAUI app lifecycle
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/app-lifecycle
+      note: Grounds resume and sleep hooks used for privacy overlays and state refresh.
+    - title: .NET MAUI media picker
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device-media/picker
+      note: Grounds local capture and picking of profile images without cloud transfer.

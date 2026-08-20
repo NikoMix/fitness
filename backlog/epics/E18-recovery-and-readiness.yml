@@ -83,6 +83,12 @@ features:
           - >-
             Permission denied state appears within 500 ms and offers manual entry instead of an
             error screen.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
+          - >-
+            Sleep data is read only through the E12 IHealthDataService abstraction, and manual entry remains available when Health Connect or HealthKit permission is denied.
         acceptanceCriteria:
           - id: AC1
             given: HealthKit or Health Connect returns 8 hours of sleep for last night
@@ -92,15 +98,33 @@ features:
             given: sleep permission is denied
             when: the Recovery tab opens
             then: the screen shows manual entry within 500 ms and makes no repeated permission prompt
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Coordinate with E12 by consuming only Forge.Application/Abstractions/IHealthDataService.
-            Do not add platform-specific sleep code in Forge.App. SleepSummaryImporter should
-            convert platform records into local SleepSummary entities, de-duplicate by time range
-            and source, and store the user's permission state for calm empty states.
+            Coordinate with E12 by consuming only Forge.Core/Abstractions/IHealthDataService. Do not add platform-specific sleep code in Forge.App. SleepSummaryImporter should convert platform records into local SleepSummary entities, de-duplicate by time range and source, and store the user's permission state for calm empty states. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/SleepSummaryImporter.cs
-            - src/Forge.Application/Abstractions/IHealthDataService.cs
+            - src/Forge.Core/Recovery/SleepSummaryImporter.cs
+            - src/Forge.Core/Abstractions/IHealthDataService.cs
             - src/Forge.App/Features/Insights/Recovery/SleepPermissionStateView.xaml
           devexpress:
             - dx:DXCollectionView
@@ -111,6 +135,27 @@ features:
           - Unit test importer de-duplicates overlapping platform records.
           - Manual permission denial test on Android and iOS.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: Android Health Connect
+            url: https://developer.android.com/health-and-fitness/health-connect
+            note: >-
+              Official Android health data surface that supplies sleep and recovery records through the E12 abstraction.
+          - title: Apple HealthKit
+            url: https://developer.apple.com/documentation/healthkit
+            note: >-
+              Official Apple framework used through the E12 abstraction for sleep and related health samples.
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized list or card control for recovery entries, routines and explanatory breakdowns.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
       - key: S18.01.02
         title: Add manual sleep entry when platform data is unavailable
         wave: 5
@@ -131,6 +176,12 @@ features:
             16 hours.
           - >-
             Manual entries can be edited or deleted and changes recalculate readiness within 300 ms.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
+          - >-
+            Sleep data is read only through the E12 IHealthDataService abstraction, and manual entry remains available when Health Connect or HealthKit permission is denied.
         acceptanceCriteria:
           - id: AC1
             given: bedtime 23:00 and wake time 07:00
@@ -140,15 +191,33 @@ features:
             given: bedtime 03:00 and wake time 03:30
             when: the user saves
             then: validation blocks the save and states that sleep duration must be at least 1 hour
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Create ManualSleepEntryPage under Recovery and bind DevExpress editors to a
-            SleepEntryViewModel that performs validation before persistence. Use local SQLite only.
-            Keep the optional wake count numeric and avoid free-text notes in v1 to reduce privacy
-            and localisation burden.
+            Create ManualSleepEntryPage under Recovery and bind DevExpress editors to a SleepEntryViewModel that performs validation before persistence. Use local SQLite only. Keep the optional wake count numeric and avoid free-text notes in v1 to reduce privacy and localisation burden. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
             - src/Forge.App/Features/Insights/Recovery/ManualSleepEntryPage.xaml
-            - src/Forge.Application/Recovery/SleepEntryService.cs
+            - src/Forge.Core/Recovery/SleepEntryService.cs
           devexpress:
             - dx:DateEdit
             - dx:NumericEdit
@@ -156,6 +225,27 @@ features:
         testing:
           - Unit tests for crossing midnight, minimum duration and maximum duration validation.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: Android Health Connect
+            url: https://developer.android.com/health-and-fitness/health-connect
+            note: >-
+              Official Android health data surface that supplies sleep and recovery records through the E12 abstraction.
+          - title: Apple HealthKit
+            url: https://developer.apple.com/documentation/healthkit
+            note: >-
+              Official Apple framework used through the E12 abstraction for sleep and related health samples.
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized list or card control for recovery entries, routines and explanatory breakdowns.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
       - key: S18.01.03
         title: Trend sleep quality and duration over time
         wave: 5
@@ -176,6 +266,12 @@ features:
             unexplained score.
           - >-
             A chart with 365 nights renders within 300 ms and pans at 60 fps.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
+          - >-
+            Sleep data is read only through the E12 IHealthDataService abstraction, and manual entry remains available when Health Connect or HealthKit permission is denied.
         acceptanceCriteria:
           - id: AC1
             given: 7 sleep records with durations
@@ -185,22 +281,62 @@ features:
             given: 365 sleep records
             when: the 1 year range opens
             then: dx:ChartView renders within 300 ms and pans at 60 fps with no frame above 16.6 ms
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Reuse the moving-average utility from E16 where possible and expose sleep trends through
-            SleepTrendService in Forge.Application. Render duration as a bar series and moving
-            average as a line series in dx:ChartView. Keep quality on a separate TabView tab to
-            avoid implying that quality and duration are interchangeable.
+            Reuse the moving-average utility from E16 where possible and expose sleep trends through SleepTrendService in Forge.Core. Render duration as a bar series and moving average as a line series in dx:ChartView. Keep quality on a separate TabView tab to avoid implying that quality and duration are interchangeable. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/SleepTrendService.cs
+            - src/Forge.Core/Recovery/SleepTrendService.cs
             - src/Forge.App/Features/Insights/Recovery/SleepTrendPage.xaml
           devexpress:
             - dx:ChartView
             - dx:TabView
+            - dx:DXCollectionView
         testing:
           - Unit tests for moving averages with missing nights.
           - UI performance test with 365 nightly records.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: Android Health Connect
+            url: https://developer.android.com/health-and-fitness/health-connect
+            note: >-
+              Official Android health data surface that supplies sleep and recovery records through the E12 abstraction.
+          - title: Apple HealthKit
+            url: https://developer.apple.com/documentation/healthkit
+            note: >-
+              Official Apple framework used through the E12 abstraction for sleep and related health samples.
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized list or card control for recovery entries, routines and explanatory breakdowns.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
   - key: F18.02
     title: Build transparent readiness scoring and morning check-ins
     wave: 5
@@ -231,6 +367,10 @@ features:
             midnight local time.
           - >-
             Accessibility labels announce each scale value and direction clearly.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
         acceptanceCriteria:
           - id: AC1
             given: a user selects 4 values and taps Save
@@ -240,14 +380,32 @@ features:
             given: a screen reader is active
             when: focus enters the energy scale
             then: the control announces the current value and that 5 is highest energy
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Implement MorningCheckInService in Forge.Application/Recovery and render the entry
-            surface with DevExpress editors or accessible selectable chips. Store one check-in per
-            local date and avoid shame copy for skipped days. E17 can consume the resulting
-            IReadinessSnapshotProvider for bad-day adjustments.
+            Implement MorningCheckInService in Forge.Core/Recovery and render the entry surface with DevExpress editors or accessible selectable chips. Store one check-in per local date and avoid shame copy for skipped days. E17 can consume the resulting IReadinessSnapshotProvider for bad-day adjustments. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/MorningCheckInService.cs
+            - src/Forge.Core/Recovery/MorningCheckInService.cs
             - src/Forge.App/Features/Insights/Recovery/MorningCheckInPage.xaml
           devexpress:
             - dx:DXCollectionView
@@ -256,6 +414,19 @@ features:
           - Unit tests for one check-in per local date and edit window.
           - Manual screen reader test for all scale controls.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized list or card control for recovery entries, routines and explanatory breakdowns.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
       - key: S18.02.02
         title: Calculate readiness with visible weights and inputs
         wave: 5
@@ -277,6 +448,12 @@ features:
             proportionally across the other available inputs and the UI states this.
           - >-
             Inputs, weights and input freshness are visible on the readiness detail screen.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
+          - >-
+            Readiness score uses explicit weights: 35 percent sleep duration versus target, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent resting heart-rate deviation when available.
         acceptanceCriteria:
           - id: AC1
             given: sleep 80, load 60, wellbeing 70 and heart rate 90
@@ -286,16 +463,33 @@ features:
             given: heart rate is unavailable
             when: readiness is calculated
             then: the remaining weights sum to 100 percent and the detail states that heart rate was unavailable
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Put ReadinessScoreCalculator in Forge.Domain/Recovery as a pure weighted-average
-            function returning score plus contribution breakdown. Data freshness and availability
-            are assembled in Forge.Application. Render the score with dx:RadialGauge and a
-            DXCollectionView breakdown. Avoid red danger styling because this is not a medical risk
-            score.
+            Put ReadinessScoreCalculator in Forge.Domain/Recovery as a pure weighted-average function returning score plus contribution breakdown. Data freshness and availability are assembled in Forge.Core. Render the score with dx:RadialGauge and a DXCollectionView breakdown. Avoid red danger styling because this is not a medical risk score. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
             - src/Forge.Domain/Recovery/ReadinessScoreCalculator.cs
-            - src/Forge.Application/Recovery/ReadinessService.cs
+            - src/Forge.Core/Recovery/ReadinessService.cs
             - src/Forge.App/Features/Insights/Recovery/ReadinessPage.xaml
           devexpress:
             - dx:RadialGauge
@@ -303,6 +497,19 @@ features:
         testing:
           - Unit tests for weighted score, missing heart rate redistribution and stale inputs.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: DevExpress MAUI RadialGauge
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Gauges.RadialGauge
+            note: >-
+              DevExpress gauge control used for readiness display while the numeric breakdown remains visible as text.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
       - key: S18.02.03
         title: Incorporate resting heart rate when available
         wave: 5
@@ -322,6 +529,14 @@ features:
             Heart-rate contribution requires at least 7 readings in the last 14 days.
           - >-
             Missing or stale heart-rate data never blocks sleep, check-in or load readiness.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
+          - >-
+            Sleep data is read only through the E12 IHealthDataService abstraction, and manual entry remains available when Health Connect or HealthKit permission is denied.
+          - >-
+            Readiness score uses explicit weights: 35 percent sleep duration versus target, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent resting heart-rate deviation when available.
         acceptanceCriteria:
           - id: AC1
             given: 7 resting heart rate readings in the last 14 days
@@ -331,23 +546,63 @@ features:
             given: 6 readings in the last 14 days
             when: readiness inputs are assembled
             then: heart rate is marked insufficient and readiness still calculates from other inputs
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Create RestingHeartRateInputProvider in Forge.Application that consumes the health
-            abstraction only. The provider should return availability reason codes so the UI can
-            explain unavailable, denied, stale or insufficient without platform branching. Do not
-            store raw high-frequency heart data in Recovery; persist only daily resting summaries.
+            Create RestingHeartRateInputProvider in Forge.Core that consumes the health abstraction only. The provider should return availability reason codes so the UI can explain unavailable, denied, stale or insufficient without platform branching. Do not store raw high-frequency heart data in Recovery; persist only daily resting summaries. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/RestingHeartRateInputProvider.cs
+            - src/Forge.Core/Recovery/RestingHeartRateInputProvider.cs
             - src/Forge.Infrastructure/Persistence/RestingHeartRateSummary.cs
           devexpress:
             - dx:DXCollectionView
+            - dx:RadialGauge
           apis:
             - Health Connect via Forge.Health
             - HealthKit via Forge.Health
         testing:
           - Unit tests for 7 of 14 day sufficiency and stale data reasons.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: Android Health Connect
+            url: https://developer.android.com/health-and-fitness/health-connect
+            note: >-
+              Official Android health data surface that supplies sleep and recovery records through the E12 abstraction.
+          - title: Apple HealthKit
+            url: https://developer.apple.com/documentation/healthkit
+            note: >-
+              Official Apple framework used through the E12 abstraction for sleep and related health samples.
+          - title: DevExpress MAUI RadialGauge
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Gauges.RadialGauge
+            note: >-
+              DevExpress gauge control used for readiness display while the numeric breakdown remains visible as text.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
   - key: F18.03
     title: Track soreness and adapt daily recovery guidance
     wave: 5
@@ -376,6 +631,10 @@ features:
             At least the same muscle groups used by E16 balance are available.
           - >-
             Entries above 3 are highlighted in guidance but are not labelled as injury.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
         acceptanceCriteria:
           - id: AC1
             given: quads soreness is saved as 4 of 5
@@ -385,14 +644,32 @@ features:
             given: the user changes quads soreness from 4 to 1
             when: the entry is saved
             then: readiness and session guidance recalculate within 300 ms
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Implement MuscleSorenessService with one row per muscle group per local date. Use the
-            same muscle-group taxonomy as E16 to avoid incompatible labels. Render the entry list
-            with dx:DXCollectionView and bounded numeric editors. Copy must distinguish soreness
-            from pain and direct users to injury settings for injuries.
+            Implement MuscleSorenessService with one row per muscle group per local date. Use the same muscle-group taxonomy as E16 to avoid incompatible labels. Render the entry list with dx:DXCollectionView and bounded numeric editors. Copy must distinguish soreness from pain and direct users to injury settings for injuries. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/MuscleSorenessService.cs
+            - src/Forge.Core/Recovery/MuscleSorenessService.cs
             - src/Forge.App/Features/Insights/Recovery/SorenessEntryPage.xaml
           devexpress:
             - dx:DXCollectionView
@@ -400,6 +677,19 @@ features:
         testing:
           - Unit tests for one entry per muscle group per date and recalculation trigger.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized list or card control for recovery entries, routines and explanatory breakdowns.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
       - key: S18.03.02
         title: Adapt recommended sessions from soreness and readiness
         wave: 5
@@ -420,6 +710,12 @@ features:
             muscle in its explanation.
           - >-
             User override is allowed and recorded locally.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
+          - >-
+            Readiness score uses explicit weights: 35 percent sleep duration versus target, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent resting heart-rate deviation when available.
         acceptanceCriteria:
           - id: AC1
             given: quads soreness 4, readiness 45 and a planned squat session
@@ -429,14 +725,32 @@ features:
             given: soreness 2 and readiness 80
             when: session guidance is generated
             then: no soreness-based reduction is shown
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Expose RecoveryGuidanceService to E17 so adaptive coaching can combine soreness,
-            readiness and programme context. Keep the rules deterministic and pass results through
-            E17 CoachingSafetyService before applying changes. Render guidance cards with
-            dx:DXCollectionView in the Today and workout-start flows.
+            Expose RecoveryGuidanceService to E17 so adaptive coaching can combine soreness, readiness and programme context. Keep the rules deterministic and pass results through E17 CoachingSafetyService before applying changes. Render guidance cards with dx:DXCollectionView in the Today and workout-start flows. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/RecoveryGuidanceService.cs
+            - src/Forge.Core/Recovery/RecoveryGuidanceService.cs
             - src/Forge.App/Features/Today/RecoveryGuidanceCard.xaml
           devexpress:
             - dx:DXCollectionView
@@ -444,6 +758,19 @@ features:
         testing:
           - Unit tests for soreness 4 threshold, readiness branches and override persistence.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: DevExpress MAUI RadialGauge
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Gauges.RadialGauge
+            note: >-
+              DevExpress gauge control used for readiness display while the numeric breakdown remains visible as text.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
       - key: S18.03.03
         title: Recommend rest days without guilt copy
         wave: 5
@@ -464,6 +791,10 @@ features:
             shame terms.
           - >-
             Rest recommendations are dismissible for the day.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
         acceptanceCriteria:
           - id: AC1
             given: the user has trained 6 consecutive days
@@ -473,13 +804,32 @@ features:
             given: readiness 65, no high soreness and 2 consecutive training days
             when: Today loads
             then: no rest-day recommendation appears
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Keep rest-day logic in RecoveryGuidanceService and expose copy resources with banned
-            shame terms tested similarly to E17 nudges. Rest cards should not alter the programme
-            automatically; they offer actions and route to mobility or wind-down routines.
+            Keep rest-day logic in RecoveryGuidanceService and expose copy resources with banned shame terms tested similarly to E17 nudges. Rest cards should not alter the programme automatically; they offer actions and route to mobility or wind-down routines. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/RestDayRule.cs
+            - src/Forge.Core/Recovery/RestDayRule.cs
             - src/Forge.App/Features/Today/RestDayCard.xaml
           devexpress:
             - dx:DXCollectionView
@@ -487,6 +837,19 @@ features:
           - Unit tests for readiness, soreness and 6 day consecutive triggers.
           - Text test rejecting shame terms in rest-day copy.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized list or card control for recovery entries, routines and explanatory breakdowns.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
   - key: F18.04
     title: Provide mobility and wind-down routines
     wave: 5
@@ -515,6 +878,10 @@ features:
             Each movement has a duration, setup cue and stop-if-pain warning.
           - >-
             The app does not claim that mobility cures soreness or prevents injury.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
         acceptanceCriteria:
           - id: AC1
             given: hamstrings soreness 4
@@ -524,15 +891,33 @@ features:
             given: no soreness entries
             when: the mobility screen opens
             then: the default general recovery routine appears and states it is optional
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Seed mobility routine content as local JSON in Forge.Infrastructure so it can be
-            reviewed by product and updated without remote services. Render routines with
-            dx:DXCollectionView and use the existing exercise demo fallback only if a movement has
-            media from the exercise catalogue. Avoid medical claims in routine descriptions.
+            Seed mobility routine content as local JSON in Forge.Infrastructure so it can be reviewed by product and updated without remote services. Render routines with dx:DXCollectionView and use the existing exercise demo fallback only if a movement has media from the exercise catalogue. Avoid medical claims in routine descriptions. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
             - src/Forge.Infrastructure/Seed/MobilityRoutines.json
-            - src/Forge.Application/Recovery/MobilityRoutineService.cs
+            - src/Forge.Core/Recovery/MobilityRoutineService.cs
             - src/Forge.App/Features/Insights/Recovery/MobilityRoutinePage.xaml
           devexpress:
             - dx:DXCollectionView
@@ -541,6 +926,19 @@ features:
           - Unit tests matching routines to sore muscle groups.
           - Content test confirming every movement includes stop-if-pain text.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized list or card control for recovery entries, routines and explanatory breakdowns.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
       - key: S18.04.02
         title: Create wind-down routines tied to training schedule
         wave: 5
@@ -560,6 +958,10 @@ features:
             The routine includes 3 to 5 steps and takes no more than 15 minutes.
           - >-
             Reminder timing is local-device only and can be disabled from the routine card.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
         acceptanceCriteria:
           - id: AC1
             given: a planned workout tomorrow and reminders enabled
@@ -569,14 +971,32 @@ features:
             given: reminders are disabled
             when: the same schedule condition is met
             then: no wind-down reminder is scheduled or displayed
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Coordinate with existing local notification infrastructure rather than creating a second
-            scheduler. The recovery domain should provide WindDownRecommendationService and the
-            app head should request local notification scheduling only through the existing local
-            notification abstraction. The routine card itself is local and works without permission.
+            Coordinate with existing local notification infrastructure rather than creating a second scheduler. The recovery domain should provide WindDownRecommendationService and the app head should request local notification scheduling only through the existing local notification abstraction. The routine card itself is local and works without permission. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/WindDownRecommendationService.cs
+            - src/Forge.Core/Recovery/WindDownRecommendationService.cs
             - src/Forge.App/Features/Insights/Recovery/WindDownRoutineView.xaml
           devexpress:
             - dx:DXCollectionView
@@ -587,6 +1007,19 @@ features:
           - Unit tests for planned training day and reminder disabled branches.
           - Manual notification permission denial test on Android and iOS.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized list or card control for recovery entries, routines and explanatory breakdowns.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
       - key: S18.04.03
         title: Flag overtraining warning signals cautiously
         wave: 5
@@ -607,6 +1040,10 @@ features:
           - >-
             The card includes rest guidance and a seek professional advice line for pain, illness
             or persistent symptoms.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
         acceptanceCriteria:
           - id: AC1
             given: readiness below 40 for 3 days and high soreness for 4 days
@@ -616,14 +1053,32 @@ features:
             given: only poor sleep is present
             when: warning evaluation runs
             then: no warning card appears because fewer than 2 signals are present
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Implement RecoveryWarningRule as a deterministic signal counter. Do not diagnose
-            overtraining or assign severity labels like dangerous. The trace should list present
-            and absent signals, and the UI should link to rest-day and mobility actions. This rule
-            must also feed E17 deload recommendations without duplicating the logic.
+            Implement RecoveryWarningRule as a deterministic signal counter. Do not diagnose overtraining or assign severity labels like dangerous. The trace should list present and absent signals, and the UI should link to rest-day and mobility actions. This rule must also feed E17 deload recommendations without duplicating the logic. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/RecoveryWarningRule.cs
+            - src/Forge.Core/Recovery/RecoveryWarningRule.cs
             - src/Forge.App/Features/Insights/Recovery/RecoveryWarningCard.xaml
           devexpress:
             - dx:DXCollectionView
@@ -631,6 +1086,19 @@ features:
         testing:
           - Unit tests for 2 signal threshold and persistent symptom copy.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized list or card control for recovery entries, routines and explanatory breakdowns.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
   - key: F18.05
     title: Surface sleep-performance correlations responsibly
     wave: 5
@@ -662,6 +1130,12 @@ features:
           - >-
             Outlier handling excludes performance points more than 3 standard deviations from the
             user's rolling mean and reports the exclusion count.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
+          - >-
+            Sleep data is read only through the E12 IHealthDataService abstraction, and manual entry remains available when Health Connect or HealthKit permission is denied.
         acceptanceCriteria:
           - id: AC1
             given: 20 paired squat workouts and prior-night sleep records with 8 percent higher average after 7 plus hours
@@ -671,14 +1145,32 @@ features:
             given: 19 paired samples
             when: correlation insights run
             then: no insight appears and the eligibility reason states that 20 paired samples are required
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Implement CorrelationInsightService in Forge.Application with conservative minimum
-            samples and simple group comparisons before considering more complex statistics. Use
-            E16 performance projections and E18 sleep summaries. Render the insight with
-            dx:ChartView plus a text explanation, because the copy is as important as the chart.
+            Implement CorrelationInsightService in Forge.Core with conservative minimum samples and simple group comparisons before considering more complex statistics. Use E16 performance projections and E18 sleep summaries. Render the insight with dx:ChartView plus a text explanation, because the copy is as important as the chart. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/CorrelationInsightService.cs
+            - src/Forge.Core/Recovery/CorrelationInsightService.cs
             - src/Forge.App/Features/Insights/Recovery/CorrelationInsightPage.xaml
           devexpress:
             - dx:ChartView
@@ -686,6 +1178,27 @@ features:
         testing:
           - Unit tests for 20 sample threshold, 3 standard deviation outlier exclusion and association copy.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: Android Health Connect
+            url: https://developer.android.com/health-and-fitness/health-connect
+            note: >-
+              Official Android health data surface that supplies sleep and recovery records through the E12 abstraction.
+          - title: Apple HealthKit
+            url: https://developer.apple.com/documentation/healthkit
+            note: >-
+              Official Apple framework used through the E12 abstraction for sleep and related health samples.
+          - title: DevExpress MAUI DXCollectionView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+            note: >-
+              DevExpress virtualized list or card control for recovery entries, routines and explanatory breakdowns.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
       - key: S18.05.02
         title: Show readiness and performance trend associations
         wave: 5
@@ -705,6 +1218,12 @@ features:
             The view groups performance into readiness bands below 50, 50 to 74 and 75 plus.
           - >-
             The UI shows sample counts for every band and hides any band with fewer than 5 samples.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
+          - >-
+            Readiness score uses explicit weights: 35 percent sleep duration versus target, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent resting heart-rate deviation when available.
         acceptanceCriteria:
           - id: AC1
             given: 24 workouts with readiness scores split across all bands
@@ -714,21 +1233,53 @@ features:
             given: a readiness band with 4 samples
             when: the chart renders
             then: that band is hidden and the explanation states fewer than 5 samples
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Extend CorrelationInsightService with readiness-band summaries. Keep calculations
-            aggregated in Forge.Application and expose hidden-band reasons to the UI. Render bands
-            as a dx:ChartView bar series with adjacent DXCollectionView explanation rows so users
-            can read exact sample counts without interpreting chart colours alone.
+            Extend CorrelationInsightService with readiness-band summaries. Keep calculations aggregated in Forge.Core and expose hidden-band reasons to the UI. Render bands as a dx:ChartView bar series with adjacent DXCollectionView explanation rows so users can read exact sample counts without interpreting chart colours alone. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
-            - src/Forge.Application/Recovery/ReadinessPerformanceAssociationService.cs
+            - src/Forge.Core/Recovery/ReadinessPerformanceAssociationService.cs
             - src/Forge.App/Features/Insights/Recovery/ReadinessAssociationView.xaml
           devexpress:
             - dx:ChartView
             - dx:DXCollectionView
+            - dx:RadialGauge
         testing:
           - Unit tests for 20 workout eligibility and 5 sample band hiding.
 
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: DevExpress MAUI RadialGauge
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Gauges.RadialGauge
+            note: >-
+              DevExpress gauge control used for readiness display while the numeric breakdown remains visible as text.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.
       - key: S18.05.03
         title: Export recovery insights with caveats included
         wave: 5
@@ -749,6 +1300,12 @@ features:
             times for that export.
           - >-
             Temporary export files are deleted within 5 seconds of share completion or cancellation.
+          - >-
+            All recovery and readiness insights run on device from local data and show a visible input breakdown instead of an opaque score.
+          - >-
+            Correlation or association insights require at least 21 paired samples and use wording that says associated with, never caused by.
+          - >-
+            Readiness score uses explicit weights: 35 percent sleep duration versus target, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent resting heart-rate deviation when available.
         acceptanceCriteria:
           - id: AC1
             given: a sleep-performance insight with 24 samples
@@ -758,11 +1315,30 @@ features:
             given: Include exact sleep times is disabled
             when: the recovery export is generated
             then: the image contains sleep duration bands but no exact bedtime or wake time values
+          - id: AC3
+            given: >-
+              the user has no recovery data or has denied health permissions
+            when: >-
+              the screen opens
+            then: >-
+              a purposeful empty state appears within 400 ms with manual entry guidance and no broken chart or spinner
+          - id: AC4
+            given: >-
+              a readiness or recovery score is displayed
+            when: >-
+              the user opens its details
+            then: >-
+              the UI shows each input, weight and contribution to the score rather than only a single number
+          - id: AC5
+            given: >-
+              fewer than 21 paired samples exist for a sleep, readiness or performance comparison
+            when: >-
+              the insight engine evaluates correlations
+            then: >-
+              no correlation card is shown and the UI explains that 21 paired samples are required
         implementation:
           notes: >-
-            Reuse the chart export service from E16 but provide a RecoveryExportPolicy that adds
-            sample counts and caveats and redacts exact sleep times by default. This keeps sharing
-            behaviour consistent across insights while recognising that sleep times are sensitive.
+            Reuse the chart export service from E16 but provide a RecoveryExportPolicy that adds sample counts and caveats and redacts exact sleep times by default. This keeps sharing behaviour consistent across insights while recognising that sleep times are sensitive. Keep recovery logic in Forge.Core/Recovery and read sleep only through E12 IHealthDataService in Forge.Health. Readiness is deterministic: 35 percent sleep duration, 25 percent energy, 20 percent inverse soreness, 10 percent inverse stress and 10 percent RHR deviation. If RHR is missing, redistribute its weight proportionally and label it. Require 21 paired samples for associations and avoid causal language. Do not duplicate platform health access in UI.
           touches:
             - src/Forge.App/Features/Insights/Recovery/RecoveryExportPolicy.cs
             - src/Forge.App/Features/Insights/Shared/ChartExportService.cs
@@ -774,3 +1350,16 @@ features:
         testing:
           - UI test confirming caveats appear in exported recovery images.
           - Privacy test confirming exact sleep times are redacted by default.
+          - >-
+            Unit tests for readiness weighting, missing-input redistribution and visible breakdown DTOs.
+          - >-
+            Unit test verifying correlation cards are suppressed below 21 paired samples and never use causal wording.
+        grounding:
+          - title: DevExpress MAUI RadialGauge
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Gauges.RadialGauge
+            note: >-
+              DevExpress gauge control used for readiness display while the numeric breakdown remains visible as text.
+          - title: .NET MAUI accessibility semantic properties
+            url: https://learn.microsoft.com/en-us/dotnet/maui/fundamentals/accessibility?view=net-maui-10.0
+            note: >-
+              Accessibility semantics are required so score breakdowns and recovery caveats are not conveyed by colour or gauge position alone.

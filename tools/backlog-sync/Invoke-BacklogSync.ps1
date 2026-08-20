@@ -103,7 +103,15 @@ function Invoke-GhThrottled {
         }
         catch {
             $msg = $_.Exception.Message
-            $isRateLimit = $msg -match 'rate limit|secondary|abuse|was submitted too quickly|403|429'
+
+            # "already exists" is the expected response when re-running against a repository
+            # that is partly populated. It is a success for our purposes, not a failure, and
+            # retrying it wastes roughly 30 seconds per occurrence.
+            if ($msg -match 'already_exists|already exists') {
+                throw [System.InvalidOperationException]::new('FORGE_ALREADY_EXISTS')
+            }
+
+            $isRateLimit = $msg -match 'rate limit|secondary|abuse|was submitted too quickly|API rate limit'
 
             if ($attempt -eq $MaxAttempts) { throw }
 
@@ -582,7 +590,7 @@ foreach ($l in $wantLabels) {
             '-f', "name=$($l.name)", '-f', "color=$($l.color)", '-f', "description=$($l.desc)") | Out-Null
         Write-Add "label $($l.name)"
     }
-    catch { Write-Skip "label $($l.name) ($($_.Exception.Message -replace "`n", ' ' | Select-Object -First 1))" }
+    catch { Write-Skip "label $($l.name) already exists" }
 }
 
 # ---- Milestones ---------------------------------------------------------------------
@@ -601,7 +609,7 @@ foreach ($w in $backlog.taxonomy.waves) {
         $milestones[$w.milestone] = $res.number
         Write-Add "milestone $($w.milestone)"
     }
-    catch { Write-Skip "milestone $($w.milestone)" }
+    catch { Write-Skip "milestone $($w.milestone) already exists" }
 }
 
 # ---- Create / update issues ---------------------------------------------------------

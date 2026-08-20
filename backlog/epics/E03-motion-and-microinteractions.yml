@@ -3,755 +3,1904 @@ title: Motion, Animation and Micro-interactions
 domain: design
 wave: 2
 summary: >-
-  Forge should feel polished, responsive and calm, not static or distracting. This epic defines motion tokens, transitions, feedback, data animations, celebrations and loading states while enforcing reduced-motion accessibility, non-blocking input and the 60 fps performance budget.
+  Forge should feel polished, responsive and calm, not static or distracting. This epic defines motion
+  tokens, transitions, feedback, data animations, celebrations and loading states while enforcing reduced-motion
+  accessibility, non-blocking input and the 60 fps performance budget.
 problem: >-
-  Users explicitly expect beautiful, clean animations, but unmanaged motion can make a fitness app feel slow, block set logging, trigger motion sensitivity or miss platform accessibility settings. Without a shared motion system, every feature will invent timing and easing.
+  Users explicitly expect beautiful, clean animations, but unmanaged motion can make a fitness app feel
+  slow, block set logging, trigger motion sensitivity or miss platform accessibility settings. Without
+  a shared motion system, every feature will invent timing and easing.
 outcome: >-
-  Forge has a consistent motion language that makes navigation, progress and achievements feel alive, honours OS Reduce Motion throughout, never blocks input and stays within a 16.6 ms frame budget during animation and scroll.
+  Forge has a consistent motion language that makes navigation, progress and achievements feel alive,
+  honours OS Reduce Motion throughout, never blocks input and stays within a 16.6 ms frame budget during
+  animation and scroll.
 successMetrics:
-  - 'All motion-enabled components complete routine transitions within documented token durations and expose a reduced-motion path.'
-  - 'Animation and scrolling scenarios in the gallery sustain 60 fps with no frame exceeding 16.6 ms on a Pixel 6a class Android device.'
-  - '100 percent of gesture and button feedback returns control to the input loop within 100 ms.'
-  - 'Zero essential information is available only through animation in the reduced-motion gallery run.'
+- All motion-enabled components complete routine transitions within documented token durations and expose
+  a reduced-motion path.
+- Animation and scrolling scenarios in the gallery sustain 60 fps with no frame exceeding 16.6 ms on a
+  Pixel 6a class Android device.
+- 100 percent of gesture and button feedback returns control to the input loop within 100 ms.
+- Zero essential information is available only through animation in the reduced-motion gallery run.
 nonGoals:
-  - 'No game-like animation layer or physics engine.'
-  - 'No live pose-estimation or camera-based movement analysis.'
-  - 'No Lottie dependency through DevExpress; celebration animation uses SkiaSharp.Extended.UI.Maui only where needed.'
+- No game-like animation layer or physics engine.
+- No live pose-estimation or camera-based movement analysis.
+- No Lottie dependency through DevExpress; celebration animation uses SkiaSharp.Extended.UI.Maui only
+  where needed.
 risks:
-  - risk: 'Beautiful transitions delay workout logging, making the app feel worse during the core loop.'
-    mitigation: 'Motion services must fire-and-forget non-critical animations, expose cancellation and prove input responsiveness under load.'
-    severity: high
-  - risk: 'Reduced-motion support misses shimmer or count-up effects.'
-    mitigation: 'Centralize motion permission in one IMotionSettings service and require every animation helper to consume it.'
-    severity: high
+- risk: >-
+    Beautiful transitions delay workout logging, making the app feel worse during the core loop.
+  mitigation: >-
+    Motion services must fire-and-forget non-critical animations, expose cancellation and prove input
+    responsiveness under load.
+  severity: high
+- risk: Reduced-motion support misses shimmer or count-up effects.
+  mitigation: >-
+    Centralize motion permission in one IMotionSettings service and require every animation helper to
+    consume it.
+  severity: high
 grounding:
-  - title: '.NET MAUI basic animation'
-    url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic?view=net-maui-10.0
-    note: 'Documents MAUI animation methods, cancellation and Android behaviour when system animations are disabled.'
-  - title: '.NET MAUI custom animation'
-    url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/custom?view=net-maui-10.0
-    note: 'Supports custom progress, colour and compound animation scenarios.'
-  - title: 'UIAccessibility IsReduceMotionEnabled'
-    url: https://learn.microsoft.com/dotnet/api/uikit.uiaccessibility.isreducemotionenabled?view=net-ios-26.5-10.0
-    note: 'iOS API for detecting Reduce Motion.'
-  - title: 'DevExpress CollectionView pull-to-refresh'
-    url: https://docs.devexpress.com/MAUI/403332
-    note: 'Documents pull-to-refresh support used by loading micro-interactions.'
-  - title: 'SkiaSharp.Extended.UI.Maui NuGet'
-    url: https://www.nuget.org/packages/SkiaSharp.Extended.UI.Maui
-    note: 'Sanctioned fallback package for Lottie-style celebration animation gaps.'
-
+- title: .NET MAUI basic animation
+  url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic?view=net-maui-10.0
+  note: >-
+    Documents MAUI animation methods, cancellation and Android behaviour when system animations are disabled.
+- title: .NET MAUI custom animation
+  url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/custom?view=net-maui-10.0
+  note: Supports custom progress, colour and compound animation scenarios.
+- title: UIAccessibility IsReduceMotionEnabled
+  url: https://learn.microsoft.com/dotnet/api/uikit.uiaccessibility.isreducemotionenabled?view=net-ios-26.5-10.0
+  note: iOS API for detecting Reduce Motion.
+- title: DevExpress CollectionView pull-to-refresh
+  url: https://docs.devexpress.com/MAUI/403332
+  note: Documents pull-to-refresh support used by loading micro-interactions.
+- title: SkiaSharp.Extended.UI.Maui NuGet
+  url: https://www.nuget.org/packages/SkiaSharp.Extended.UI.Maui
+  note: >-
+    Sanctioned fallback package for Lottie-style celebration animation gaps.
 features:
-  - key: F03.01
-    title: 'Establish motion governance and reduced-motion support'
+- key: F03.01
+  title: Establish motion governance and reduced-motion support
+  wave: 2
+  summary: >-
+    Create the tokens, services and measurement hooks that every motion story uses, with reduced motion
+    treated as a mandatory accessibility input rather than a preference toggle.
+  outcome: >-
+    Motion behaviour is predictable, centrally controlled and measurable before product teams add page-specific
+    transitions.
+  concerns:
+  - a11y
+  - perf
+  stories:
+  - key: S03.01.01
+    title: Define motion duration and easing tokens
     wave: 2
-    summary: >-
-      Create the tokens, services and measurement hooks that every motion story uses, with reduced motion treated as a mandatory accessibility input rather than a preference toggle.
-    outcome: >-
-      Motion behaviour is predictable, centrally controlled and measurable before product teams add page-specific transitions.
-    concerns: [a11y, perf]
-    stories:
-      - key: S03.01.01
-        title: 'Define motion duration and easing tokens'
-        wave: 2
-        size: s
-        platforms: [android, ios]
-        persona: team
-        concerns: [perf]
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'named duration and easing tokens'
-          soThat: 'the app feels consistent without copying magic numbers'
-        requirements:
-          - 'Motion tokens define instant, fast, standard, slow and celebration durations with numeric millisecond values.'
-          - 'Easing tokens define standard, emphasized, decelerate, accelerate and linear curves.'
-          - 'No animation in Forge.App may hard-code a duration outside MotionTokens except in tests.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'source code under src/Forge.App is scanned'
-            when: 'an animation method uses a literal duration outside MotionTokens'
-            then: 'the lint test fails with the file path and method name'
-          - id: AC2
-            given: 'the motion gallery renders token examples'
-            when: 'fast, standard and slow examples are timed'
-            then: 'each completes within 16 ms of its documented token duration'
-        implementation:
-          notes: >-
-            Add MotionTokens in src/Forge.App/Motion with TimeSpan and uint values usable from C# helpers. Provide XAML resources only as projections, keeping the source of truth in code for tests.
-          touches:
-            - 'src/Forge.App/Motion'
-          devexpress:
-            - 'DXBorder'
-            - 'DXButton'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.01.02
-        title: 'Honour OS Reduce Motion for every animation helper'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: masters
-        concerns: [a11y]
-        userStory:
-          asA: 'Tom with Reduce Motion enabled'
-          iWant: 'Forge to remove non-essential movement automatically'
-          soThat: 'using the app does not cause discomfort'
-        requirements:
-          - 'IMotionSettings exposes IsReducedMotionEnabled and change notifications from platform implementations.'
-          - 'iOS reads UIKit.UIAccessibility.IsReduceMotionEnabled and updates when the setting changes.'
-          - 'Android treats disabled system animation scales as reduced motion and also provides a local app override.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'iOS Reduce Motion is enabled before launch'
-            when: 'the motion gallery opens'
-            then: 'page transitions, shimmer, count-up and celebrations render reduced-motion alternatives'
-          - id: AC2
-            given: 'Android animator duration scale is set to zero'
-            when: 'a Forge animation helper is invoked'
-            then: 'the target element reaches its final visual state within 50 ms and no looping animation starts'
-        implementation:
-          notes: >-
-            Declare IMotionSettings in Forge.App/Motion. Implement partial platform services under Platforms/iOS and Platforms/Android; every animation helper must consume IMotionSettings rather than directly querying platform APIs.
-          touches:
-            - 'src/Forge.App/Motion'
-          devexpress:
-            - 'DXCollectionView'
-            - 'DXButton'
-          apis:
-            - 'UIKit.UIAccessibility.IsReduceMotionEnabled'
-            - 'Android.Provider.Settings.Global'
-            - 'Microsoft.Maui.Storage.Preferences'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.01.03
-        title: 'Ensure animations never block input'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [perf]
-        userStory:
-          asA: 'Alex logging sets quickly'
-          iWant: 'animations to never delay my next tap'
-          soThat: 'motion feels polished without slowing workouts'
-        requirements:
-          - 'Non-critical animations are cancelable and do not await on the UI command path.'
-          - 'Any animation attached to a button press returns command execution to the caller within 100 ms.'
-          - 'Navigating away cancels animations tied to the old page and leaves elements in a valid final or neutral state.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a workout set is completed and a micro-animation starts'
-            when: 'the user immediately taps Add Set within 100 ms'
-            then: 'the tap is accepted and a new set row appears without waiting for animation completion'
-          - id: AC2
-            given: 'a page transition is in progress'
-            when: 'Android hardware back is triggered'
-            then: 'the transition cancels within 100 ms and navigation state remains consistent'
-        implementation:
-          notes: >-
-            Build MotionRunner to track animations by owner page and expose cancellation. Command handlers should start non-essential animations without awaiting them, while structural navigation awaits only the minimum transition setup.
-          touches:
-            - 'src/Forge.App/Motion'
-          devexpress:
-            - 'DXButton'
-            - 'DXCollectionView'
-            - 'TabView'
-          apis:
-            - 'Microsoft.Maui.Controls.ViewExtensions.CancelAnimations'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-  - key: F03.02
-    title: 'Animate navigation, shared elements and lists'
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - perf
+    userStory:
+      asA: developer working on Forge
+      iWant: named duration and easing tokens
+      soThat: the app feels consistent without copying magic numbers
+    requirements:
+    - Motion tokens define instant, fast, standard, slow and celebration durations with numeric millisecond
+      values.
+    - Easing tokens define standard, emphasized, decelerate, accelerate and linear curves.
+    - No animation in Forge.App may hard-code a duration outside MotionTokens except in tests.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: source code under src/Forge.App is scanned
+      when: an animation method uses a literal duration outside MotionTokens
+      then: the lint test fails with the file path and method name
+    - id: AC2
+      given: the motion gallery renders token examples
+      when: fast, standard and slow examples are timed
+      then: each completes within 16 ms of its documented token duration
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Add MotionTokens in src/Forge.App/Motion with TimeSpan and uint values usable from C# helpers.
+        Provide XAML resources only as projections, keeping the source of truth in code for tests. Implement
+        Define motion duration and easing tokens in Forge.App/Motion with a S030101MotionProfile consumed
+        by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for 200 ms
+        entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware helper methods. The tricky
+        part is honoring platform Reduce Motion and lifecycle cancellation while keeping controls interactive.
+        A careless implementation would await animations on command paths, block input, or leave orphaned
+        animations running after navigation.
+      touches:
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXBorder
+      - DXButton
+      - DXCollectionView
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.01.02
+    title: Honour OS Reduce Motion for every animation helper
     wave: 2
-    summary: >-
-      Make movement between screens and lists feel spatially coherent while preserving state, accessibility and performance.
-    outcome: >-
-      Users understand where they are moving in the app without waiting for decorative motion.
-    concerns: [a11y, perf]
-    dependsOn: [F03.01]
-    stories:
-      - key: S03.02.01
-        title: 'Add clean page transitions for tab and modal flows'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [a11y]
-        userStory:
-          asA: 'Maya moving between core areas'
-          iWant: 'transitions that show context without fuss'
-          soThat: 'the app feels coherent and not jumpy'
-        requirements:
-          - 'Tab changes use a fast fade or instant change in reduced-motion mode.'
-          - 'Modal workout and detail pages use a standard slide or fade token under 250 ms.'
-          - 'Page transition content is interactive only after navigation state is committed.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'the user switches from Today to Train'
-            when: 'standard motion is enabled'
-            then: 'the visual transition completes within 200 ms and selected tab state is correct'
-          - id: AC2
-            given: 'reduced motion is enabled'
-            when: 'a modal page opens'
-            then: 'the page appears with no translation movement and is interactive within 50 ms'
-        implementation:
-          notes: >-
-            Implement transition helpers in Forge.App/Motion and apply them in the shell navigation layer. Route changes are authoritative; animation is a visual layer and must never delay ViewModel state updates.
-          touches:
-            - 'src/Forge.App/Motion'
-          devexpress:
-            - 'TabView'
-            - 'DXPopup'
-            - 'BottomSheet'
-          apis:
-            - 'Microsoft.Maui.Controls.ViewExtensions.FadeToAsync'
-            - 'Microsoft.Maui.Controls.ViewExtensions.TranslateToAsync'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.02.02
-        title: 'Add shared-element exercise list to detail transition'
-        wave: 2
-        size: l
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [perf, a11y]
-        userStory:
-          asA: 'Maya opening an exercise'
-          iWant: 'the selected row to connect visually to its detail page'
-          soThat: 'I understand the relationship between list and details'
-        requirements:
-          - 'Exercise thumbnail, title and primary muscle group act as shared visual anchors between list row and detail header.'
-          - 'The transition completes within 300 ms and cancels safely if the user navigates back.'
-          - 'Reduced-motion mode uses an instant detail load with a brief opacity change and no scale or translation.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'an exercise row with thumbnail and title is tapped'
-            when: 'standard motion is enabled'
-            then: 'the detail header finishes within 300 ms and list scroll position is preserved on back'
-          - id: AC2
-            given: 'reduced motion is enabled'
-            when: 'the same row is tapped'
-            then: 'no element translates more than 4 dp and the detail page is interactive within 100 ms'
-        implementation:
-          notes: >-
-            Build SharedElementTransition to capture bounds from the DXCollectionView row template and destination header after layout. Use an overlay rather than moving real list row elements so virtualization remains stable.
-          touches:
-            - 'src/Forge.App/Motion'
-          devexpress:
-            - 'DXCollectionView'
-            - 'DXBorder'
-          apis:
-            - 'Microsoft.Maui.Controls.AbsoluteLayout'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.02.03
-        title: 'Add bounded list item stagger for newly loaded content'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: cutter
-        concerns: [perf, a11y]
-        userStory:
-          asA: 'Priya browsing meal search results'
-          iWant: 'new results to appear smoothly'
-          soThat: 'I can see the list update without losing my place'
-        requirements:
-          - 'Stagger applies only to the first 20 newly visible items and never to recycled rows during fast scroll.'
-          - 'Per-item delay is capped at 20 ms and total stagger duration is capped at 240 ms.'
-          - 'Reduced-motion mode renders all rows immediately with no stagger.'
-        acceptanceCriteria:
-          - id: AC1
-            given: '60 search results arrive'
-            when: 'the list first renders'
-            then: 'only the first 20 visible rows use stagger and the last stagger starts no later than 240 ms'
-          - id: AC2
-            given: 'the user flings a list while rows recycle'
-            when: 'recycled rows enter the viewport'
-            then: 'they do not replay entrance animation'
-        implementation:
-          notes: >-
-            Add StaggeredItemsBehavior for DXCollectionView that marks data item identities already animated in the current load batch. Reset the identity set only when the ItemsSource generation changes.
-          touches:
-            - 'src/Forge.App/Motion'
-          devexpress:
-            - 'DXCollectionView'
-          apis:
-            - 'Microsoft.Maui.Controls.Behavior'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-  - key: F03.03
-    title: 'Add tactile input and refresh micro-interactions'
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: masters
+    concerns:
+    - a11y
+    userStory:
+      asA: Tom with Reduce Motion enabled
+      iWant: Forge to remove non-essential movement automatically
+      soThat: using the app does not cause discomfort
+    requirements:
+    - IMotionSettings exposes IsReducedMotionEnabled and change notifications from platform implementations.
+    - iOS reads UIKit.UIAccessibility.IsReduceMotionEnabled and updates when the setting changes.
+    - Android treats disabled system animation scales as reduced motion and also provides a local app
+      override.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: iOS Reduce Motion is enabled before launch
+      when: the motion gallery opens
+      then: >-
+        page transitions, shimmer, count-up and celebrations render reduced-motion alternatives
+    - id: AC2
+      given: Android animator duration scale is set to zero
+      when: a Forge animation helper is invoked
+      then: >-
+        the target element reaches its final visual state within 50 ms and no looping animation starts
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Declare IMotionSettings in Forge.App/Motion. Implement partial platform services under Platforms/iOS
+        and Platforms/Android; every animation helper must consume IMotionSettings rather than directly
+        querying platform APIs. Implement Honour OS Reduce Motion for every animation helper in Forge.App/Motion
+        with a S030102MotionProfile consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions,
+        Easing.CubicOut for 200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware
+        helper methods. The tricky part is honoring platform Reduce Motion and lifecycle cancellation
+        while keeping controls interactive. A careless implementation would await animations on command
+        paths, block input, or leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXCollectionView
+      - DXButton
+      - DXPopup
+      - RadialGauge
+      apis:
+      - UIKit.UIAccessibility.IsReduceMotionEnabled
+      - Android.Provider.Settings.Global
+      - Microsoft.Maui.Storage.Preferences
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.01.03
+    title: Ensure animations never block input
     wave: 2
-    summary: >-
-      Give taps, pulls and gestures immediate feedback so users trust that Forge registered their intent even in the middle of a workout.
-    outcome: >-
-      Core interactions feel responsive, cancelable and platform-appropriate without becoming noisy.
-    concerns: [a11y]
-    dependsOn: [F03.01]
-    stories:
-      - key: S03.03.01
-        title: 'Add button press visual feedback tokens'
-        wave: 2
-        size: s
-        platforms: [android, ios]
-        persona: enthusiast
-        userStory:
-          asA: 'Alex tapping controls between sets'
-          iWant: 'immediate press feedback'
-          soThat: 'I know the app received my tap before I look away'
-        requirements:
-          - 'ForgeButton and IconActionButton show a pressed state within 50 ms of pointer down.'
-          - 'Press feedback uses scale no lower than 0.96 and opacity no lower than 0.80.'
-          - 'Reduced-motion mode uses colour or opacity only, with no scale transform.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'standard motion is enabled'
-            when: 'a primary DXButton is pressed'
-            then: 'visible pressed feedback appears within 50 ms and returns to normal within 120 ms of release'
-          - id: AC2
-            given: 'reduced motion is enabled'
-            when: 'the same button is pressed'
-            then: 'no Scale property change occurs and pressed feedback remains visible through colour or opacity'
-        implementation:
-          notes: >-
-            Add PressFeedbackBehavior and apply it through button styles from E02. Keep the behaviour independent from command execution so disabled or busy commands can still present state correctly.
-          touches:
-            - 'src/Forge.App/Motion'
-          devexpress:
-            - 'DXButton'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.03.02
-        title: 'Add platform haptic feedback for important actions'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [a11y]
-        userStory:
-          asA: 'Alex logging a heavy set'
-          iWant: 'subtle haptic confirmation'
-          soThat: 'I can trust the action completed without staring at the screen'
-        requirements:
-          - 'Haptics exist for set completed, timer finished, invalid action and PR achieved.'
-          - 'Haptics can be disabled in local settings and must not play when the device has haptics disabled.'
-          - 'Haptic calls never block the UI thread for more than 16 ms.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'haptics are enabled and the user completes a set'
-            when: 'the action succeeds'
-            then: 'exactly one success haptic is requested within 100 ms of persistence confirmation'
-          - id: AC2
-            given: 'haptics are disabled in Forge settings'
-            when: 'a PR achievement fires'
-            then: 'no platform haptic API is called'
-        implementation:
-          notes: >-
-            Implement IHapticFeedbackService in Forge.App with platform-specific mappings over MAUI HapticFeedback where sufficient. Trigger haptics only after domain actions succeed, so feedback means confirmation rather than hope.
-          touches:
-            - 'src/Forge.App/Motion'
-          devexpress:
-            - 'DXButton'
-          apis:
-            - 'Microsoft.Maui.Devices.HapticFeedback'
-            - 'Microsoft.Maui.Storage.Preferences'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.03.03
-        title: 'Add pull-to-refresh feedback for refreshable lists'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: cutter
-        concerns: [devexpress]
-        userStory:
-          asA: 'Priya refreshing food data'
-          iWant: 'pull-to-refresh to show progress and completion clearly'
-          soThat: 'I know whether the list updated or stayed the same'
-        requirements:
-          - 'Refreshable DXCollectionView lists use a common pull distance, spinner and completion message pattern.'
-          - 'Pull-to-refresh is disabled while an existing refresh is running.'
-          - 'Offline or local-only no-op refresh completes within 500 ms and explains that data is already current.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a refreshable list is idle'
-            when: 'the user pulls beyond the threshold and releases'
-            then: 'one refresh command executes, progress is visible within 100 ms and duplicate pulls are ignored'
-          - id: AC2
-            given: 'list content is already current'
-            when: 'refresh completes'
-            then: 'a status message appears for at least 1 second and no scroll jump exceeds 2 dp'
-        implementation:
-          notes: >-
-            Wrap DXCollectionView pull-to-refresh setup in RefreshableCollectionView styles and a behaviour. Because Forge v1 is local-only, copy must confirm freshness without implying cloud sync.
-          touches:
-            - 'src/Forge.App/Controls'
-          devexpress:
-            - 'DXCollectionView'
-          apis:
-            - 'ICommand'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-        grounding:
-          - title: 'DevExpress CollectionView pull-to-refresh'
-            url: https://docs.devexpress.com/MAUI/403332
-            note: 'Confirms DXCollectionView supports pull-to-refresh gestures.'
-  - key: F03.04
-    title: 'Animate progress, numbers and loading states'
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - perf
+    userStory:
+      asA: Alex logging sets quickly
+      iWant: animations to never delay my next tap
+      soThat: motion feels polished without slowing workouts
+    requirements:
+    - Non-critical animations are cancelable and do not await on the UI command path.
+    - Any animation attached to a button press returns command execution to the caller within 100 ms.
+    - Navigating away cancels animations tied to the old page and leaves elements in a valid final or
+      neutral state.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: a workout set is completed and a micro-animation starts
+      when: the user immediately taps Add Set within 100 ms
+      then: >-
+        the tap is accepted and a new set row appears without waiting for animation completion
+    - id: AC2
+      given: a page transition is in progress
+      when: Android hardware back is triggered
+      then: >-
+        the transition cancels within 100 ms and navigation state remains consistent
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Build MotionRunner to track animations by owner page and expose cancellation. Command handlers
+        should start non-essential animations without awaiting them, while structural navigation awaits
+        only the minimum transition setup. Implement Ensure animations never block input in Forge.App/Motion
+        with a S030103MotionProfile consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions,
+        Easing.CubicOut for 200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware
+        helper methods. The tricky part is honoring platform Reduce Motion and lifecycle cancellation
+        while keeping controls interactive. A careless implementation would await animations on command
+        paths, block input, or leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXButton
+      - DXCollectionView
+      - TabView
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.ViewExtensions.CancelAnimations
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+- key: F03.02
+  title: Animate navigation, shared elements and lists
+  wave: 2
+  summary: >-
+    Make movement between screens and lists feel spatially coherent while preserving state, accessibility
+    and performance.
+  outcome: >-
+    Users understand where they are moving in the app without waiting for decorative motion.
+  concerns:
+  - a11y
+  - perf
+  dependsOn:
+  - F03.01
+  stories:
+  - key: S03.02.01
+    title: Add clean page transitions for tab and modal flows
     wave: 2
-    summary: >-
-      Make changing fitness data understandable through restrained progress and number movement, while ensuring values remain readable and accurate.
-    outcome: >-
-      Users see progress changes clearly without animation obscuring the final number or delaying input.
-    concerns: [a11y, perf]
-    dependsOn: [F03.01]
-    stories:
-      - key: S03.04.01
-        title: 'Animate progress ring fill for goals and readiness'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        concerns: [devexpress]
-        userStory:
-          asA: 'Sam checking readiness'
-          iWant: 'rings to fill smoothly to the current value'
-          soThat: 'I can understand progress without decoding raw numbers first'
-        requirements:
-          - 'RadialGauge values animate from previous to current value over no more than 600 ms.'
-          - 'Final numeric value is visible before, during and after animation.'
-          - 'Reduced-motion mode sets the final gauge value immediately with no sweep animation.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'readiness changes from 40 to 75'
-            when: 'standard motion is enabled'
-            then: 'the RadialGauge reaches 75 within 600 ms and the text value reads 75 in final state'
-          - id: AC2
-            given: 'reduced motion is enabled'
-            when: 'the same value change occurs'
-            then: 'the gauge displays 75 within 50 ms and no intermediate sweep frames are produced'
-        implementation:
-          notes: >-
-            Use DevExpress RadialGauge for rings and animate the bound view value through MotionRunner. The ViewModel remains the source of final truth; animated display values stay in the view layer.
-          touches:
-            - 'src/Forge.App/Controls'
-          devexpress:
-            - 'RadialGauge'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.04.02
-        title: 'Add count-up number transitions for metrics'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [a11y]
-        userStory:
-          asA: 'Alex reviewing volume and PRs'
-          iWant: 'metric numbers to update with subtle count-up transitions'
-          soThat: 'improvements feel noticeable without hiding the exact value'
-        requirements:
-          - 'Count-up transitions apply to integer and one-decimal metrics and complete within 500 ms.'
-          - 'Numbers always finish at the exact formatted target value with no rounding drift.'
-          - 'Reduced-motion mode changes numbers immediately and highlights the changed value for 800 ms.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'weekly volume changes from 9750 kg to 10125 kg'
-            when: 'the metric tile updates'
-            then: 'the count-up completes within 500 ms and final text is exactly 10,125 kg'
-          - id: AC2
-            given: 'reduced motion is enabled'
-            when: 'the same metric updates'
-            then: 'the value changes directly to 10,125 kg and a static highlight is visible for 800 ms'
-        implementation:
-          notes: >-
-            Add AnimatedNumberLabel as a view-only component that accepts previous value, target value, format string and unit. It should cancel and jump to the current target if a second update arrives mid-animation.
-          touches:
-            - 'src/Forge.App/Controls'
-          devexpress:
-            - 'DXBorder'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.04.03
-        title: 'Add reduced-motion skeleton shimmer behaviour'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [a11y, perf]
-        userStory:
-          asA: 'Maya waiting for local content to load'
-          iWant: 'loading placeholders that reassure me'
-          soThat: 'I know the app is working without being distracted'
-        requirements:
-          - 'Skeleton shimmer loops only while loading is active and visible.'
-          - 'Shimmer frame work stays below 4 ms per frame in the gallery scenario.'
-          - 'Reduced-motion mode disables shimmer and renders static skeleton blocks.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a skeleton list is visible for 3 seconds'
-            when: 'standard motion is enabled'
-            then: 'shimmer loops continuously and per-frame shimmer work is measured below 4 ms'
-          - id: AC2
-            given: 'loading completes or the page is navigated away'
-            when: 'the skeleton is no longer visible'
-            then: 'the shimmer animation is cancelled within 100 ms'
-        implementation:
-          notes: >-
-            Extend the SkeletonBlock from E02 with a ShimmerBehavior owned by MotionRunner. Use simple gradient or opacity movement over DXBorder placeholders and avoid per-frame allocation.
-          touches:
-            - 'src/Forge.App/Controls'
-          devexpress:
-            - 'DXBorder'
-            - 'DXCollectionView'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-  - key: F03.05
-    title: 'Deliver celebration moments with safe fallbacks'
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - a11y
+    userStory:
+      asA: Maya moving between core areas
+      iWant: transitions that show context without fuss
+      soThat: the app feels coherent and not jumpy
+    requirements:
+    - Tab changes use a fast fade or instant change in reduced-motion mode.
+    - Modal workout and detail pages use a standard slide or fade token under 250 ms.
+    - Page transition content is interactive only after navigation state is committed.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: the user switches from Today to Train
+      when: standard motion is enabled
+      then: >-
+        the visual transition completes within 200 ms and selected tab state is correct
+    - id: AC2
+      given: reduced motion is enabled
+      when: a modal page opens
+      then: >-
+        the page appears with no translation movement and is interactive within 50 ms
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Implement transition helpers in Forge.App/Motion and apply them in the shell navigation layer.
+        Route changes are authoritative; animation is a visual layer and must never delay ViewModel state
+        updates. Implement Add clean page transitions for tab and modal flows in Forge.App/Motion with
+        a S030201MotionProfile consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions,
+        Easing.CubicOut for 200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware
+        helper methods. The tricky part is honoring platform Reduce Motion and lifecycle cancellation
+        while keeping controls interactive. A careless implementation would await animations on command
+        paths, block input, or leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - TabView
+      - DXPopup
+      - BottomSheet
+      - DXCollectionView
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.ViewExtensions.FadeToAsync
+      - Microsoft.Maui.Controls.ViewExtensions.TranslateToAsync
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.02.02
+    title: Add shared-element exercise list to detail transition
     wave: 2
-    summary: >-
-      Celebrate meaningful progress such as completed sets, personal records and streaks without turning Forge into a noisy game or breaking accessibility.
-    outcome: >-
-      Celebration moments feel rewarding, sparse and controllable, with static and reduced-motion alternatives.
-    concerns: [a11y, perf]
-    dependsOn: [F03.01]
-    stories:
-      - key: S03.05.01
-        title: 'Add set-completed micro-celebration'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        userStory:
-          asA: 'Alex completing a set'
-          iWant: 'a tiny confirmation moment'
-          soThat: 'logging feels satisfying without slowing the next set'
-        requirements:
-          - 'Set completion uses a visual pulse and optional haptic lasting no more than 400 ms.'
-          - 'The next input target remains enabled within 100 ms of persistence success.'
-          - 'Reduced-motion mode uses a static check state and optional haptic only.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a set is saved successfully'
-            when: 'standard motion is enabled'
-            then: 'the row shows confirmation motion for no more than 400 ms and Add Set is tappable within 100 ms'
-          - id: AC2
-            given: 'set persistence fails'
-            when: 'the user taps complete'
-            then: 'no celebration plays and an error state is shown instead'
-        implementation:
-          notes: >-
-            Trigger set-completed motion from the workout UI after persistence confirmation. Use DXCollectionView row visual states and a small check pulse rather than a full-screen animation.
-          touches:
-            - 'src/Forge.App/Features/Workout'
-          devexpress:
-            - 'DXCollectionView'
-            - 'DXBorder'
-            - 'DXButton'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.05.02
-        title: 'Add personal record and streak celebration surfaces'
-        wave: 2
-        size: l
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [a11y, perf]
-        userStory:
-          asA: 'Alex hitting a personal record'
-          iWant: 'the app to mark meaningful progress moments'
-          soThat: 'progress feels memorable and motivating'
-        requirements:
-          - 'PR and streak celebrations use DXPopup or BottomSheet surfaces with clear dismissal and no auto-blocking over 3 seconds.'
-          - 'SkiaSharp.Extended.UI.Maui is used only for approved celebration animation assets where static controls are insufficient.'
-          - 'Reduced-motion mode shows the same message and action choices with a static illustration.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a PR is achieved'
-            when: 'the celebration appears'
-            then: 'it can be dismissed immediately, reduces prominence within 3 seconds and does not block workout logging'
-          - id: AC2
-            given: 'reduced motion is enabled'
-            when: 'a streak milestone is reached'
-            then: 'no Lottie animation plays and the static celebration message is visible with the same actions'
-        implementation:
-          notes: >-
-            Use DXPopup or BottomSheet for the celebration container so focus management, scrim and dismissal are consistent. If animated illustration is needed, host SKLottieView from SkiaSharp.Extended.UI.Maui and lazy-load the asset because DevExpress has no Lottie control.
-          touches:
-            - 'src/Forge.App/Features/Engagement'
-          devexpress:
-            - 'DXPopup'
-            - 'BottomSheet'
-            - 'DXButton'
-          apis:
-            - 'SkiaSharp.Extended.UI.Maui'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.05.03
-        title: 'Govern animation assets for size and fallback'
-        wave: 2
-        size: s
-        platforms: [android, ios]
-        persona: team
-        concerns: [perf]
-        userStory:
-          asA: 'developer working on Forge'
-          iWant: 'clear gates for asset size and fallback'
-          soThat: 'polish does not inflate the app or create licensing risk'
-        requirements:
-          - 'Each animated asset declares source, licence, size, reduced-motion fallback and owning feature.'
-          - 'A single animation asset must not exceed 80 KB compressed without an approved exception.'
-          - 'Total bundled celebration animation assets for v1 must stay under 500 KB compressed.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'an animation asset lacks licence metadata'
-            when: 'asset validation runs'
-            then: 'the build fails and reports the asset path'
-          - id: AC2
-            given: 'total celebration assets exceed 500 KB compressed'
-            when: 'the package budget test runs'
-            then: 'the build fails before store packaging'
-        implementation:
-          notes: >-
-            Add animation metadata beside Resources/Raw/Celebrations and validate it in the design asset tool family. Prefer static illustrations whenever celebration can work without SKLottieView to preserve cold start and package budgets.
-          touches:
-            - 'src/Forge.App/Resources/Raw'
-          devexpress:
-            - 'DXPopup'
-          apis:
-            - 'SkiaSharp.Extended.UI.Maui'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-  - key: F03.06
-    title: 'Limit motion frequency and preserve focus'
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - perf
+    - a11y
+    userStory:
+      asA: Maya opening an exercise
+      iWant: the selected row to connect visually to its detail page
+      soThat: I understand the relationship between list and details
+    requirements:
+    - Exercise thumbnail, title and primary muscle group act as shared visual anchors between list row
+      and detail header.
+    - The transition completes within 300 ms and cancels safely if the user navigates back.
+    - Reduced-motion mode uses an instant detail load with a brief opacity change and no scale or translation.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: an exercise row with thumbnail and title is tapped
+      when: standard motion is enabled
+      then: >-
+        the detail header finishes within 300 ms and list scroll position is preserved on back
+    - id: AC2
+      given: reduced motion is enabled
+      when: the same row is tapped
+      then: >-
+        no element translates more than 4 dp and the detail page is interactive within 100 ms
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Build SharedElementTransition to capture bounds from the DXCollectionView row template and destination
+        header after layout. Use an overlay rather than moving real list row elements so virtualization
+        remains stable. Implement Add shared-element exercise list to detail transition in Forge.App/Motion
+        with a S030202MotionProfile consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions,
+        Easing.CubicOut for 200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware
+        helper methods. The tricky part is honoring platform Reduce Motion and lifecycle cancellation
+        while keeping controls interactive. A careless implementation would await animations on command
+        paths, block input, or leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXCollectionView
+      - DXBorder
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.AbsoluteLayout
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.02.03
+    title: Add bounded list item stagger for newly loaded content
     wave: 2
-    summary: >-
-      Keep animation frequency, focus movement and gesture cancellation predictable so motion supports comprehension rather than becoming noise.
-    outcome: >-
-      Users can opt down noisy moments and screen readers keep logical focus through animated changes.
-    concerns: [a11y]
-    dependsOn: [F03.01]
-    stories:
-      - key: S03.06.01
-        title: 'Limit celebration frequency and user control'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        userStory:
-          asA: 'Sam returning after an injury'
-          iWant: 'celebrations to be encouraging but not constant'
-          soThat: 'I stay focused and do not feel nagged'
-        requirements:
-          - 'Full celebration surfaces are limited to at most one per workout and one per calendar day for streaks.'
-          - 'Users can switch celebration intensity between Full, Subtle and Off in local settings.'
-          - 'Off still records achievements silently and shows them in history.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'two PRs are achieved in one workout'
-            when: 'celebration intensity is Full'
-            then: 'the first PR may show a full surface and the second uses a subtle inline confirmation only'
-          - id: AC2
-            given: 'celebration intensity is Off'
-            when: 'a streak milestone is reached'
-            then: 'no popup, animation or haptic plays and the achievement remains visible in history'
-        implementation:
-          notes: >-
-            Add CelebrationPolicy returning a presentation level, not UI types. Store intensity locally and pass it to presentation services so domain events remain independent of DevExpress and SkiaSharp.
-          touches:
-            - 'src/Forge.App/Features/Settings'
-          devexpress:
-            - 'DXPopup'
-            - 'BottomSheet'
-          apis:
-            - 'Microsoft.Maui.Storage.Preferences'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.06.02
-        title: 'Preserve screen reader focus after animated updates'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: masters
-        concerns: [a11y]
-        userStory:
-          asA: 'Tom using a screen reader'
-          iWant: 'motion to keep focus predictable'
-          soThat: 'I do not lose my place when content changes'
-        requirements:
-          - 'After navigation animation, screen reader focus moves to the destination heading within 500 ms.'
-          - 'List insertions do not steal focus unless triggered by the focused control.'
-          - 'Reduced-motion and standard-motion paths use the same focus rules.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'VoiceOver or TalkBack is active'
-            when: 'navigation to detail completes'
-            then: 'focus is placed on the detail heading within 500 ms'
-          - id: AC2
-            given: 'a background list refresh inserts new rows'
-            when: 'the user focus is on an existing row'
-            then: 'focus remains on the same logical item after the list updates'
-        implementation:
-          notes: >-
-            Create MotionFocusBehavior in Forge.App/Behaviors and call SemanticScreenReader announcements only for user-initiated changes. Avoid focus calls from ViewModels because they would leak visual concerns inward.
-          touches:
-            - 'src/Forge.App/Behaviors'
-          devexpress:
-            - 'DXCollectionView'
-            - 'DXBorder'
-          apis:
-            - 'Microsoft.Maui.Controls.SemanticScreenReader'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
-      - key: S03.06.03
-        title: 'Add gesture cancel and overscroll micro-feedback'
-        wave: 2
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [a11y]
-        userStory:
-          asA: 'Maya experimenting with gestures'
-          iWant: 'gestures to show when they cancel'
-          soThat: 'I do not accidentally trigger actions I did not intend'
-        requirements:
-          - 'Swipe actions expose a cancel threshold and visual return animation under 160 ms.'
-          - 'Overscroll feedback never hides list content or reduces text contrast below AA thresholds.'
-          - 'Reduced-motion mode snaps cancelled gestures back without spring motion.'
-        acceptanceCriteria:
-          - id: AC1
-            given: 'a swipe action is dragged to 40 percent of commit threshold'
-            when: 'the user releases it'
-            then: 'no command executes and the row returns to rest within 160 ms'
-          - id: AC2
-            given: 'reduced motion is enabled'
-            when: 'the same swipe is cancelled'
-            then: 'the row returns with no spring bounce and no translation remains after 50 ms'
-        implementation:
-          notes: >-
-            Configure DXCollectionView swipe actions with conservative thresholds and layer a small visual-state behaviour for cancel feedback. Avoid custom pan recognizers unless the DevExpress gesture cannot express the case.
-          touches:
-            - 'src/Forge.App/Motion'
-          devexpress:
-            - 'DXCollectionView'
-            - 'SwipeItem'
-        testing:
-          - 'Add an automated layout or behaviour test for the stated thresholds.'
-          - 'Add a gallery example covering happy path and edge state.'
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    concerns:
+    - perf
+    - a11y
+    userStory:
+      asA: Priya browsing meal search results
+      iWant: new results to appear smoothly
+      soThat: I can see the list update without losing my place
+    requirements:
+    - Stagger applies only to the first 20 newly visible items and never to recycled rows during fast
+      scroll.
+    - Per-item delay is capped at 20 ms and total stagger duration is capped at 240 ms.
+    - Reduced-motion mode renders all rows immediately with no stagger.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: 60 search results arrive
+      when: the list first renders
+      then: >-
+        only the first 20 visible rows use stagger and the last stagger starts no later than 240 ms
+    - id: AC2
+      given: the user flings a list while rows recycle
+      when: recycled rows enter the viewport
+      then: they do not replay entrance animation
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Add StaggeredItemsBehavior for DXCollectionView that marks data item identities already animated
+        in the current load batch. Reset the identity set only when the ItemsSource generation changes.
+        Implement Add bounded list item stagger for newly loaded content in Forge.App/Motion with a S030203MotionProfile
+        consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for
+        200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware helper methods. The
+        tricky part is honoring platform Reduce Motion and lifecycle cancellation while keeping controls
+        interactive. A careless implementation would await animations on command paths, block input, or
+        leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXCollectionView
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.Behavior
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+- key: F03.03
+  title: Add tactile input and refresh micro-interactions
+  wave: 2
+  summary: >-
+    Give taps, pulls and gestures immediate feedback so users trust that Forge registered their intent
+    even in the middle of a workout.
+  outcome: >-
+    Core interactions feel responsive, cancelable and platform-appropriate without becoming noisy.
+  concerns:
+  - a11y
+  dependsOn:
+  - F03.01
+  stories:
+  - key: S03.03.01
+    title: Add button press visual feedback tokens
+    wave: 2
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: Alex tapping controls between sets
+      iWant: immediate press feedback
+      soThat: I know the app received my tap before I look away
+    requirements:
+    - ForgeButton and IconActionButton show a pressed state within 50 ms of pointer down.
+    - Press feedback uses scale no lower than 0.96 and opacity no lower than 0.80.
+    - Reduced-motion mode uses colour or opacity only, with no scale transform.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: standard motion is enabled
+      when: a primary DXButton is pressed
+      then: >-
+        visible pressed feedback appears within 50 ms and returns to normal within 120 ms of release
+    - id: AC2
+      given: reduced motion is enabled
+      when: the same button is pressed
+      then: >-
+        no Scale property change occurs and pressed feedback remains visible through colour or opacity
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Add PressFeedbackBehavior and apply it through button styles from E02. Keep the behaviour independent
+        from command execution so disabled or busy commands can still present state correctly. Implement
+        Add button press visual feedback tokens in Forge.App/Motion with a S030301MotionProfile consumed
+        by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for 200 ms
+        entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware helper methods. The tricky
+        part is honoring platform Reduce Motion and lifecycle cancellation while keeping controls interactive.
+        A careless implementation would await animations on command paths, block input, or leave orphaned
+        animations running after navigation.
+      touches:
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXButton
+      - DXCollectionView
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.03.02
+    title: Add platform haptic feedback for important actions
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - a11y
+    userStory:
+      asA: Alex logging a heavy set
+      iWant: subtle haptic confirmation
+      soThat: I can trust the action completed without staring at the screen
+    requirements:
+    - Haptics exist for set completed, timer finished, invalid action and PR achieved.
+    - Haptics can be disabled in local settings and must not play when the device has haptics disabled.
+    - Haptic calls never block the UI thread for more than 16 ms.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: haptics are enabled and the user completes a set
+      when: the action succeeds
+      then: >-
+        exactly one success haptic is requested within 100 ms of persistence confirmation
+    - id: AC2
+      given: haptics are disabled in Forge settings
+      when: a PR achievement fires
+      then: no platform haptic API is called
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Implement IHapticFeedbackService in Forge.App with platform-specific mappings over MAUI HapticFeedback
+        where sufficient. Trigger haptics only after domain actions succeed, so feedback means confirmation
+        rather than hope. Implement Add platform haptic feedback for important actions in Forge.App/Motion
+        with a S030302MotionProfile consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions,
+        Easing.CubicOut for 200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware
+        helper methods. The tricky part is honoring platform Reduce Motion and lifecycle cancellation
+        while keeping controls interactive. A careless implementation would await animations on command
+        paths, block input, or leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXButton
+      - DXCollectionView
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Devices.HapticFeedback
+      - Microsoft.Maui.Storage.Preferences
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.03.03
+    title: Add pull-to-refresh feedback for refreshable lists
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    concerns:
+    - devexpress
+    userStory:
+      asA: Priya refreshing food data
+      iWant: pull-to-refresh to show progress and completion clearly
+      soThat: I know whether the list updated or stayed the same
+    requirements:
+    - Refreshable DXCollectionView lists use a common pull distance, spinner and completion message pattern.
+    - Pull-to-refresh is disabled while an existing refresh is running.
+    - Offline or local-only no-op refresh completes within 500 ms and explains that data is already current.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: a refreshable list is idle
+      when: the user pulls beyond the threshold and releases
+      then: >-
+        one refresh command executes, progress is visible within 100 ms and duplicate pulls are ignored
+    - id: AC2
+      given: list content is already current
+      when: refresh completes
+      then: >-
+        a status message appears for at least 1 second and no scroll jump exceeds 2 dp
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Wrap DXCollectionView pull-to-refresh setup in RefreshableCollectionView styles and a behaviour.
+        Because Forge v1 is local-only, copy must confirm freshness without implying cloud sync. Implement
+        Add pull-to-refresh feedback for refreshable lists in Forge.App/Motion with a S030303MotionProfile
+        consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for
+        200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware helper methods. The
+        tricky part is honoring platform Reduce Motion and lifecycle cancellation while keeping controls
+        interactive. A careless implementation would await animations on command paths, block input, or
+        leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Controls
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXCollectionView
+      - DXPopup
+      - RadialGauge
+      apis:
+      - ICommand
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: DevExpress CollectionView pull-to-refresh
+      url: https://docs.devexpress.com/MAUI/403332
+      note: Confirms DXCollectionView supports pull-to-refresh gestures.
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+- key: F03.04
+  title: Animate progress, numbers and loading states
+  wave: 2
+  summary: >-
+    Make changing fitness data understandable through restrained progress and number movement, while ensuring
+    values remain readable and accurate.
+  outcome: >-
+    Users see progress changes clearly without animation obscuring the final number or delaying input.
+  concerns:
+  - a11y
+  - perf
+  dependsOn:
+  - F03.01
+  stories:
+  - key: S03.04.01
+    title: Animate progress ring fill for goals and readiness
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    concerns:
+    - devexpress
+    userStory:
+      asA: Sam checking readiness
+      iWant: rings to fill smoothly to the current value
+      soThat: I can understand progress without decoding raw numbers first
+    requirements:
+    - RadialGauge values animate from previous to current value over no more than 600 ms.
+    - Final numeric value is visible before, during and after animation.
+    - Reduced-motion mode sets the final gauge value immediately with no sweep animation.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: readiness changes from 40 to 75
+      when: standard motion is enabled
+      then: >-
+        the RadialGauge reaches 75 within 600 ms and the text value reads 75 in final state
+    - id: AC2
+      given: reduced motion is enabled
+      when: the same value change occurs
+      then: >-
+        the gauge displays 75 within 50 ms and no intermediate sweep frames are produced
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Use DevExpress RadialGauge for rings and animate the bound view value through MotionRunner. The
+        ViewModel remains the source of final truth; animated display values stay in the view layer. Implement
+        Animate progress ring fill for goals and readiness in Forge.App/Motion with a S030401MotionProfile
+        consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for
+        200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware helper methods. The
+        tricky part is honoring platform Reduce Motion and lifecycle cancellation while keeping controls
+        interactive. A careless implementation would await animations on command paths, block input, or
+        leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Controls
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - RadialGauge
+      - DXCollectionView
+      - DXPopup
+      apis:
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.04.02
+    title: Add count-up number transitions for metrics
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - a11y
+    userStory:
+      asA: Alex reviewing volume and PRs
+      iWant: metric numbers to update with subtle count-up transitions
+      soThat: improvements feel noticeable without hiding the exact value
+    requirements:
+    - Count-up transitions apply to integer and one-decimal metrics and complete within 500 ms.
+    - Numbers always finish at the exact formatted target value with no rounding drift.
+    - Reduced-motion mode changes numbers immediately and highlights the changed value for 800 ms.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: weekly volume changes from 9750 kg to 10125 kg
+      when: the metric tile updates
+      then: >-
+        the count-up completes within 500 ms and final text is exactly 10,125 kg
+    - id: AC2
+      given: reduced motion is enabled
+      when: the same metric updates
+      then: >-
+        the value changes directly to 10,125 kg and a static highlight is visible for 800 ms
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Add AnimatedNumberLabel as a view-only component that accepts previous value, target value, format
+        string and unit. It should cancel and jump to the current target if a second update arrives mid-animation.
+        Implement Add count-up number transitions for metrics in Forge.App/Motion with a S030402MotionProfile
+        consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for
+        200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware helper methods. The
+        tricky part is honoring platform Reduce Motion and lifecycle cancellation while keeping controls
+        interactive. A careless implementation would await animations on command paths, block input, or
+        leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Controls
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXBorder
+      - DXCollectionView
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.04.03
+    title: Add reduced-motion skeleton shimmer behaviour
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - a11y
+    - perf
+    userStory:
+      asA: Maya waiting for local content to load
+      iWant: loading placeholders that reassure me
+      soThat: I know the app is working without being distracted
+    requirements:
+    - Skeleton shimmer loops only while loading is active and visible.
+    - Shimmer frame work stays below 4 ms per frame in the gallery scenario.
+    - Reduced-motion mode disables shimmer and renders static skeleton blocks.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: a skeleton list is visible for 3 seconds
+      when: standard motion is enabled
+      then: >-
+        shimmer loops continuously and per-frame shimmer work is measured below 4 ms
+    - id: AC2
+      given: loading completes or the page is navigated away
+      when: the skeleton is no longer visible
+      then: the shimmer animation is cancelled within 100 ms
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Extend the SkeletonBlock from E02 with a ShimmerBehavior owned by MotionRunner. Use simple gradient
+        or opacity movement over DXBorder placeholders and avoid per-frame allocation. Implement Add reduced-motion
+        skeleton shimmer behaviour in Forge.App/Motion with a S030403MotionProfile consumed by page behaviors,
+        not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for 200 ms entries, Easing.CubicIn
+        for 150 ms exits and CancellationToken-aware helper methods. The tricky part is honoring platform
+        Reduce Motion and lifecycle cancellation while keeping controls interactive. A careless implementation
+        would await animations on command paths, block input, or leave orphaned animations running after
+        navigation.
+      touches:
+      - src/Forge.App/Controls
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXBorder
+      - DXCollectionView
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+- key: F03.05
+  title: Deliver celebration moments with safe fallbacks
+  wave: 2
+  summary: >-
+    Celebrate meaningful progress such as completed sets, personal records and streaks without turning
+    Forge into a noisy game or breaking accessibility.
+  outcome: >-
+    Celebration moments feel rewarding, sparse and controllable, with static and reduced-motion alternatives.
+  concerns:
+  - a11y
+  - perf
+  dependsOn:
+  - F03.01
+  stories:
+  - key: S03.05.01
+    title: Add set-completed micro-celebration
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: Alex completing a set
+      iWant: a tiny confirmation moment
+      soThat: logging feels satisfying without slowing the next set
+    requirements:
+    - Set completion uses a visual pulse and optional haptic lasting no more than 400 ms.
+    - The next input target remains enabled within 100 ms of persistence success.
+    - Reduced-motion mode uses a static check state and optional haptic only.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: a set is saved successfully
+      when: standard motion is enabled
+      then: >-
+        the row shows confirmation motion for no more than 400 ms and Add Set is tappable within 100 ms
+    - id: AC2
+      given: set persistence fails
+      when: the user taps complete
+      then: no celebration plays and an error state is shown instead
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Trigger set-completed motion from the workout UI after persistence confirmation. Use DXCollectionView
+        row visual states and a small check pulse rather than a full-screen animation. Implement Add set-completed
+        micro-celebration in Forge.App/Motion with a S030501MotionProfile consumed by page behaviors,
+        not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for 200 ms entries, Easing.CubicIn
+        for 150 ms exits and CancellationToken-aware helper methods. The tricky part is honoring platform
+        Reduce Motion and lifecycle cancellation while keeping controls interactive. A careless implementation
+        would await animations on command paths, block input, or leave orphaned animations running after
+        navigation. DevExpress does not ship Lottie support, so celebration assets must use SkiaSharp.Extended.UI.Maui
+        with a static DevExpress fallback.
+      touches:
+      - src/Forge.App/Features/Workout
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXCollectionView
+      - DXBorder
+      - DXButton
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.05.02
+    title: Add personal record and streak celebration surfaces
+    wave: 2
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    concerns:
+    - a11y
+    - perf
+    userStory:
+      asA: Alex hitting a personal record
+      iWant: the app to mark meaningful progress moments
+      soThat: progress feels memorable and motivating
+    requirements:
+    - PR and streak celebrations use DXPopup or BottomSheet surfaces with clear dismissal and no auto-blocking
+      over 3 seconds.
+    - SkiaSharp.Extended.UI.Maui is used only for approved celebration animation assets where static controls
+      are insufficient.
+    - Reduced-motion mode shows the same message and action choices with a static illustration.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: a PR is achieved
+      when: the celebration appears
+      then: >-
+        it can be dismissed immediately, reduces prominence within 3 seconds and does not block workout
+        logging
+    - id: AC2
+      given: reduced motion is enabled
+      when: a streak milestone is reached
+      then: >-
+        no Lottie animation plays and the static celebration message is visible with the same actions
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Implement Add personal record and streak celebration surfaces in Forge.App/Motion with a S030502MotionProfile
+        consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for
+        200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware helper methods. The
+        tricky part is honoring platform Reduce Motion and lifecycle cancellation while keeping controls
+        interactive. A careless implementation would await animations on command paths, block input, or
+        leave orphaned animations running after navigation. DevExpress does not ship Lottie support, so
+        celebration assets must use SkiaSharp.Extended.UI.Maui with a static DevExpress fallback.
+      touches:
+      - src/Forge.App/Features/Engagement
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXPopup
+      - BottomSheet
+      - DXButton
+      - DXCollectionView
+      - RadialGauge
+      apis:
+      - SkiaSharp.Extended.UI.Maui
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.05.03
+    title: Govern animation assets for size and fallback
+    wave: 2
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: team
+    concerns:
+    - perf
+    userStory:
+      asA: developer working on Forge
+      iWant: clear gates for asset size and fallback
+      soThat: polish does not inflate the app or create licensing risk
+    requirements:
+    - Each animated asset declares source, licence, size, reduced-motion fallback and owning feature.
+    - A single animation asset must not exceed 80 KB compressed without an approved exception.
+    - Total bundled celebration animation assets for v1 must stay under 500 KB compressed.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: an animation asset lacks licence metadata
+      when: asset validation runs
+      then: the build fails and reports the asset path
+    - id: AC2
+      given: total celebration assets exceed 500 KB compressed
+      when: the package budget test runs
+      then: the build fails before store packaging
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Implement Govern animation assets for size and fallback in Forge.App/Motion with a S030503MotionProfile
+        consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for
+        200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware helper methods. The
+        tricky part is honoring platform Reduce Motion and lifecycle cancellation while keeping controls
+        interactive. A careless implementation would await animations on command paths, block input, or
+        leave orphaned animations running after navigation. DevExpress does not ship Lottie support, so
+        celebration assets must use SkiaSharp.Extended.UI.Maui with a static DevExpress fallback.
+      touches:
+      - src/Forge.App/Resources/Raw
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXPopup
+      - DXCollectionView
+      - RadialGauge
+      apis:
+      - SkiaSharp.Extended.UI.Maui
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+- key: F03.06
+  title: Limit motion frequency and preserve focus
+  wave: 2
+  summary: >-
+    Keep animation frequency, focus movement and gesture cancellation predictable so motion supports comprehension
+    rather than becoming noise.
+  outcome: >-
+    Users can opt down noisy moments and screen readers keep logical focus through animated changes.
+  concerns:
+  - a11y
+  dependsOn:
+  - F03.01
+  stories:
+  - key: S03.06.01
+    title: Limit celebration frequency and user control
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: Sam returning after an injury
+      iWant: celebrations to be encouraging but not constant
+      soThat: I stay focused and do not feel nagged
+    requirements:
+    - Full celebration surfaces are limited to at most one per workout and one per calendar day for streaks.
+    - Users can switch celebration intensity between Full, Subtle and Off in local settings.
+    - Off still records achievements silently and shows them in history.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: two PRs are achieved in one workout
+      when: celebration intensity is Full
+      then: >-
+        the first PR may show a full surface and the second uses a subtle inline confirmation only
+    - id: AC2
+      given: celebration intensity is Off
+      when: a streak milestone is reached
+      then: >-
+        no popup, animation or haptic plays and the achievement remains visible in history
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Add CelebrationPolicy returning a presentation level, not UI types. Store intensity locally and
+        pass it to presentation services so domain events remain independent of DevExpress and SkiaSharp.
+        Implement Limit celebration frequency and user control in Forge.App/Motion with a S030601MotionProfile
+        consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions, Easing.CubicOut for
+        200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware helper methods. The
+        tricky part is honoring platform Reduce Motion and lifecycle cancellation while keeping controls
+        interactive. A careless implementation would await animations on command paths, block input, or
+        leave orphaned animations running after navigation. DevExpress does not ship Lottie support, so
+        celebration assets must use SkiaSharp.Extended.UI.Maui with a static DevExpress fallback.
+      touches:
+      - src/Forge.App/Features/Settings
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXPopup
+      - BottomSheet
+      - DXCollectionView
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Storage.Preferences
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.06.02
+    title: Preserve screen reader focus after animated updates
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: masters
+    concerns:
+    - a11y
+    userStory:
+      asA: Tom using a screen reader
+      iWant: motion to keep focus predictable
+      soThat: I do not lose my place when content changes
+    requirements:
+    - After navigation animation, screen reader focus moves to the destination heading within 500 ms.
+    - List insertions do not steal focus unless triggered by the focused control.
+    - Reduced-motion and standard-motion paths use the same focus rules.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: VoiceOver or TalkBack is active
+      when: navigation to detail completes
+      then: focus is placed on the detail heading within 500 ms
+    - id: AC2
+      given: a background list refresh inserts new rows
+      when: the user focus is on an existing row
+      then: focus remains on the same logical item after the list updates
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Create MotionFocusBehavior in Forge.App/Behaviors and call SemanticScreenReader announcements
+        only for user-initiated changes. Avoid focus calls from ViewModels because they would leak visual
+        concerns inward. Implement Preserve screen reader focus after animated updates in Forge.App/Motion
+        with a S030602MotionProfile consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions,
+        Easing.CubicOut for 200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware
+        helper methods. The tricky part is honoring platform Reduce Motion and lifecycle cancellation
+        while keeping controls interactive. A careless implementation would await animations on command
+        paths, block input, or leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Motion
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXCollectionView
+      - DXBorder
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.SemanticScreenReader
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.
+  - key: S03.06.03
+    title: Add gesture cancel and overscroll micro-feedback
+    wave: 2
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    concerns:
+    - a11y
+    userStory:
+      asA: Maya experimenting with gestures
+      iWant: gestures to show when they cancel
+      soThat: I do not accidentally trigger actions I did not intend
+    requirements:
+    - Swipe actions expose a cancel threshold and visual return animation under 160 ms.
+    - Overscroll feedback never hides list content or reduces text contrast below AA thresholds.
+    - Reduced-motion mode snaps cancelled gestures back without spring motion.
+    - 'Motion defaults must use concrete tokens: 200 ms ease-out for entry, 150 ms ease-in for exit, 120
+      ms for press feedback and no repeating animation longer than 1000 ms without an explicit stop condition.'
+    - Every animation path must honour the operating system Reduce Motion setting by switching to an instant
+      state change or opacity-only transition under 80 ms.
+    - Animations must run asynchronously and must never disable scrolling, tapping, hardware back or form
+      input while they are in progress.
+    - Animation helpers must cancel cleanly when the page disappears, data refreshes or the user repeats
+      the triggering gesture.
+    acceptanceCriteria:
+    - id: AC1
+      given: a swipe action is dragged to 40 percent of commit threshold
+      when: the user releases it
+      then: no command executes and the row returns to rest within 160 ms
+    - id: AC2
+      given: reduced motion is enabled
+      when: the same swipe is cancelled
+      then: >-
+        the row returns with no spring bounce and no translation remains after 50 ms
+    - id: AC3
+      given: >-
+        the operating system Reduce Motion setting is enabled before Forge starts
+      when: the story animation is triggered from the relevant screen
+      then: >-
+        Forge uses an instant state change or opacity-only fallback under 80 ms and no translation, scale
+        or parallax motion occurs
+    - id: AC4
+      given: >-
+        the story animation is running with its configured 200 ms entry or 150 ms exit duration
+      when: >-
+        the user taps another enabled control, scrolls the list or presses hardware back
+      then: >-
+        the input is processed immediately and the animation is cancelled or completed without blocking
+        the UI thread
+    implementation:
+      notes: >-
+        Configure DXCollectionView swipe actions with conservative thresholds and layer a small visual-state
+        behaviour for cancel feedback. Avoid custom pan recognizers unless the DevExpress gesture cannot
+        express the case. Implement Add gesture cancel and overscroll micro-feedback in Forge.App/Motion
+        with a S030603MotionProfile consumed by page behaviors, not by ViewModels. Use .NET MAUI ViewExtensions,
+        Easing.CubicOut for 200 ms entries, Easing.CubicIn for 150 ms exits and CancellationToken-aware
+        helper methods. The tricky part is honoring platform Reduce Motion and lifecycle cancellation
+        while keeping controls interactive. A careless implementation would await animations on command
+        paths, block input, or leave orphaned animations running after navigation.
+      touches:
+      - src/Forge.App/Motion
+      - src/Forge.App/Behaviors
+      - src/Forge.App/Features/DesignSystem/MotionGallery
+      devexpress:
+      - DXCollectionView
+      - SwipeItem
+      - DXPopup
+      - RadialGauge
+      apis:
+      - Microsoft.Maui.Controls.ViewExtensions
+      - Microsoft.Maui.Easing
+      - Animation.Cancel
+      - SkiaSharp.Extended.UI.Maui
+    testing:
+    - Add an automated layout or behaviour test for the stated thresholds.
+    - Add a gallery example covering happy path and edge state.
+    - Add UI tests that enable Reduce Motion and verify the animation falls back to an instant or opacity-only
+      transition under 80 ms.
+    - Add interaction tests that tap, scroll and navigate during the animation and assert commands are
+      not blocked.
+    grounding:
+    - title: .NET MAUI basic animation
+      url: https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic
+      note: >-
+        Documents ViewExtensions animation methods, cancellation and Task-based animation flow used by
+        Forge motion helpers.
+    - title: 'Apple Human Interface Guidelines: Motion'
+      url: https://developer.apple.com/design/human-interface-guidelines/motion
+      note: >-
+        Grounds platform expectations for purposeful motion and reduced-motion alternatives on iOS.
+    - title: Android view animation guidance
+      url: https://developer.android.com/develop/ui/views/animations/reveal-or-hide-view
+      note: >-
+        Grounds Android show, hide and crossfade motion patterns used for micro-interactions.

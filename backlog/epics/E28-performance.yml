@@ -2,620 +2,813 @@ key: E28
 title: Performance, Startup and Resource Efficiency
 domain: quality
 wave: 3
-summary: >-
-  Forge must feel native on mobile devices while protecting battery, memory and
-  install size. This epic turns explicit architecture budgets into measured
-  engineering work.
-problem: >-
-  Fitness apps are used in moments where friction is costly: between sets, in
-  the gym, or while searching food quickly. Slow startup, janky lists, memory
-  leaks or battery drain would make users abandon the app even if the features
-  are correct.
-outcome: >-
-  Cold start, frame timing, set logging latency, Android APK size and workout
-  memory are measured, optimised and enforced in CI or release gates with clear
-  reports.
+summary: Forge must feel native on mobile devices while protecting battery, memory and install size. This epic turns explicit
+  architecture budgets into measured engineering work.
+problem: 'Fitness apps are used in moments where friction is costly: between sets, in the gym, or while searching food quickly.
+  Slow startup, janky lists, memory leaks or battery drain would make users abandon the app even if the features are correct.'
+outcome: Cold start, frame timing, set logging latency, Android APK size and workout memory are measured, optimised and enforced
+  in CI or release gates with clear reports.
 successMetrics:
-  - Cold start to interactive is less than 2.0 seconds on a mid-tier Android device.
-  - Scroll and animation scenarios sustain 60 fps with no frame above 16.6 ms.
-  - Set logging perceived latency is below 100 ms for at least 95 percent of attempts.
-  - Android per-ABI APKs remain below 40 MB and workout memory remains below 250 MB.
+- Cold start to interactive is less than 2.0 seconds on a mid-tier Android device.
+- Scroll and animation scenarios sustain 60 fps with no frame above 16.6 ms.
+- Set logging perceived latency is below 100 ms for at least 95 percent of attempts.
+- Android per-ABI APKs remain below 40 MB and workout memory remains below 250 MB.
 nonGoals:
-  - No desktop performance work in v1.
-  - No backend telemetry service; performance evidence is gathered locally and through CI artefacts.
-  - No optimisation that removes accessibility, privacy or correctness safeguards.
+- No desktop performance work in v1.
+- No backend telemetry service; performance evidence is gathered locally and through CI artefacts.
+- No optimisation that removes accessibility, privacy or correctness safeguards.
 risks:
-  - risk: >-
-      Performance tests are noisy and create false failures.
-    mitigation: >-
-      Use fixed devices, release builds, repeated runs and rolling medians
-      instead of one-off shared emulator measurements.
-    severity: high
-  - risk: >-
-      Trimming or shrinker settings break reflection-heavy runtime paths.
-    mitigation: >-
-      Require release smoke tests for DevExpress, EF Core and serialization
-      after every trimming or R8 change.
-    severity: high
+- risk: Performance tests are noisy and create false failures.
+  mitigation: Use fixed devices, release builds, repeated runs and rolling medians instead of one-off shared emulator measurements.
+  severity: high
+- risk: Trimming or shrinker settings break reflection-heavy runtime paths.
+  mitigation: Require release smoke tests for DevExpress, EF Core and serialization after every trimming or R8 change.
+  severity: high
 grounding:
-  - title: .NET MAUI performance
-    url: https://learn.microsoft.com/dotnet/maui/deployment/performance
-    note: Official MAUI performance guidance.
-  - title: .NET MAUI trimming
-    url: https://learn.microsoft.com/dotnet/maui/deployment/trimming
-    note: Official trimming guidance.
-  - title: DevExpress MAUI DXCollectionView
-    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
-    note: Virtualized list control used for high-volume data.
+- title: .NET MAUI performance
+  url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+  note: Official MAUI performance guidance.
+- title: .NET MAUI trimming
+  url: https://learn.microsoft.com/dotnet/maui/deployment/trimming
+  note: Official trimming guidance.
+- title: DevExpress MAUI DXCollectionView
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+  note: Virtualized list control used for high-volume data.
 features:
-  - key: F28.01
-    title: Measure startup and interaction budgets
+- key: F28.01
+  title: Measure startup and interaction budgets
+  wave: 3
+  summary: Turn the architecture performance budgets into repeatable measurements for cold start, set logging and frame timing.
+  outcome: Performance regressions are visible in CI and on devices before they reach beta users.
+  concerns:
+  - perf
+  stories:
+  - key: S28.01.01
+    title: Profile cold start and defer non-critical initialisation
     wave: 3
-    summary: >-
-      Turn the architecture performance budgets into repeatable measurements for
-      cold start, set logging and frame timing.
-    outcome: >-
-      Performance regressions are visible in CI and on devices before they reach
-      beta users.
-    concerns: [perf]
-    stories:
-      - key: S28.01.01
-        title: Profile cold start and defer non-critical initialisation
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        userStory:
-          asA: returning lifter opening Forge before a workout
-          iWant: the app to become interactive in under 2 seconds
-          soThat: I can start logging instead of staring at a splash screen
-        requirements:
-          - Cold start to first interactive screen is less than 2.0 seconds on a Pixel 6a-class Android device.
-          - No synchronous database import, catalogue decompression or health permission check runs before the first interactive frame.
-          - Startup trace identifies the top five managed and platform costs for every performance baseline run.
-        acceptanceCriteria:
-          - id: AC1
-            given: Forge launches on a mid-tier Android device from a cold process
-            when: startup instrumentation records time to first interactive element across 10 runs
-            then: the median is less than 2.0 seconds and the slowest run is less than 2.3 seconds
-          - id: AC2
-            given: catalogue import is pending on first launch
-            when: the app starts
-            then: the Today screen is interactive before import progress work begins
-        implementation:
-          notes: >-
-            Add a startup timing service in Forge.App that records process
-            start, MauiProgram completion, shell creation and first interactive
-            render. Move catalogue import, health capability checks and service
-            warm-up behind background tasks started after the shell is usable.
-          touches:
-            - src/Forge.App/Diagnostics/StartupTiming.cs
-            - src/Forge.App/MauiProgram.cs
-            - src/Forge.App/App.xaml.cs
-          apis:
-            - Stopwatch
-            - AndroidX Tracing
-        testing:
-          - Run 10 cold-start iterations on the performance device and publish median, p95 and max.
-
-      - key: S28.01.02
-        title: Measure set logging latency under workout load
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        userStory:
-          asA: enthusiast logging sets quickly
-          iWant: set entry to feel immediate even late in a workout
-          soThat: my training rhythm is not broken by the app
-        requirements:
-          - Tapping Save Set to visible confirmation completes in less than 100 ms perceived time for 95 percent of attempts.
-          - The latency test uses a workout with at least 30 logged sets and active rest timer state.
-          - A database write may complete asynchronously only if the set is durable within 200 ms and failure can be surfaced.
-        acceptanceCriteria:
-          - id: AC1
-            given: a workout contains 30 logged sets
-            when: the user saves the next set 100 times in the measured scenario
-            then: visible confirmation appears within 100 ms in at least 95 attempts
-          - id: AC2
-            given: SQLite write is delayed by injected contention
-            when: the set save command runs
-            then: the UI reports pending state within 100 ms and either persists within 200 ms or shows a recoverable error
-        implementation:
-          notes: >-
-            Instrument the set logging ViewModel and repository boundary with
-            high-resolution timestamps. Optimise perceived latency by updating
-            local state immediately, then committing through a short transaction
-            that still reports persistence failure.
-          touches:
-            - src/Forge.App/Features/Workout/SetLoggingViewModel.cs
-            - src/Forge.Infrastructure/Persistence/WorkoutRepository.cs
-        testing:
-          - Add a benchmark-style integration test with injected repository delay and a device measurement script.
-
-      - key: S28.01.03
-        title: Enforce frame timing budget during scroll and animation
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        userStory:
-          asA: user scrolling lists and charts
-          iWant: animations and lists to stay at 60 fps
-          soThat: the app feels native rather than heavy
-        requirements:
-          - Scroll and animation scenarios sustain 60 fps with no measured frame above 16.6 ms.
-          - Scenarios include workout history, exercise catalogue, food search and progress chart transitions.
-          - Any frame above 16.6 ms is reported with scenario name, device, build SHA and trace link.
-        acceptanceCriteria:
-          - id: AC1
-            given: the food search scenario scrolls 1,000 visible items
-            when: frame timings are captured
-            then: no frame exceeds 16.6 ms during the measured interval
-          - id: AC2
-            given: a regression introduces a 25 ms frame in workout history
-            when: the performance lane runs
-            then: the lane fails and names workout history and the 25 ms frame
-        implementation:
-          notes: >-
-            Use platform frame metrics on Android and available iOS
-            instrumentation for release builds, then store traces as artefacts.
-            Measure realistic DevExpress templates because virtualization can be
-            defeated by heavy bindings.
-          touches:
-            - tests/Forge.PerformanceTests/FrameTiming/
-            - src/Forge.App/Diagnostics/FrameTimingService.cs
-          devexpress:
-            - DXCollectionView
-            - ChartView
-        testing:
-          - Capture frame timing traces for every scroll and animation scenario.
-
-      - key: S28.01.04
-        title: Add performance regression detection to CI
-        wave: 3
-        size: l
-        platforms: [android, ios]
-        persona: team
-        userStory:
-          asA: technical lead guarding release quality
-          iWant: budgets enforced by automated performance gates
-          soThat: performance targets remain contractual rather than aspirational
-        requirements:
-          - Performance CI runs on a fixed Android performance device or equivalent lab device nightly and for release candidates.
-          - Cold start, frame timing, set logging latency, APK size and workout memory budgets are checked against stored thresholds.
-          - A regression greater than 10 percent from the rolling 14-day median fails the lane even if the absolute budget is still met.
-        acceptanceCriteria:
-          - id: AC1
-            given: nightly performance CI completes
-            when: the report is generated
-            then: it contains cold start, frame timing, set logging, APK size and memory results with pass or fail status
-          - id: AC2
-            given: cold start regresses by 12 percent while remaining under 2 seconds
-            when: the performance gate compares the rolling median
-            then: the gate fails and labels it a regression
-        implementation:
-          notes: >-
-            Create a separate performance workflow so normal pull requests stay
-            fast. Use release builds and fixed datasets. Store baselines in
-            versioned JSON, and calculate rolling medians from recent artefacts
-            when available.
-          touches:
-            - .github/workflows/performance.yml
-            - tools/performance/
-            - tests/Forge.PerformanceTests/
-        testing:
-          - Seed baseline JSON and test threshold comparison logic with synthetic runs.
-
-  - key: F28.02
-    title: Optimise package size and runtime configuration
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returning lifter opening Forge before a workout
+      iWant: the app to become interactive in under 2 seconds
+      soThat: I can start logging instead of staring at a splash screen
+    requirements:
+    - Cold start to first interactive screen is less than 2.0 seconds on a Pixel 6a-class Android device.
+    - No synchronous database import, catalogue decompression or health permission check runs before the first interactive
+      frame.
+    - Startup trace identifies the top five managed and platform costs for every performance baseline run.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: Forge launches on a mid-tier Android device from a cold process
+      when: startup instrumentation records time to first interactive element across 10 runs
+      then: the median is less than 2.0 seconds and the slowest run is less than 2.3 seconds
+    - id: AC2
+      given: catalogue import is pending on first launch
+      when: the app starts
+      then: the Today screen is interactive before import progress work begins
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.01.01 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Add a startup timing service in Forge.App that records process start, MauiProgram completion, shell creation
+        and first interactive render. Move catalogue import, health capability checks and service warm-up behind background
+        tasks started after the shell is usable. Implementation should keep the primary code in src/Forge.App/Diagnostics/StartupTiming.cs,
+        src/Forge.App/MauiProgram.cs, src/Forge.App/App.xaml.cs and use Stopwatch, AndroidX Tracing. The tricky part is measuring
+        release behaviour on real mobile hardware or stable lab devices instead of debug builds, shared emulators or synthetic
+        loops. Tag every trace with build SHA and seeded data so regressions are comparable. A careless implementation would
+        move work off the measured path, block the UI thread, or optimize by weakening accessibility, privacy or correctness
+        safeguards.
+      touches:
+      - src/Forge.App/Diagnostics/StartupTiming.cs
+      - src/Forge.App/MauiProgram.cs
+      - src/Forge.App/App.xaml.cs
+      apis:
+      - Stopwatch
+      - AndroidX Tracing
+    testing:
+    - Run 10 cold-start iterations on the performance device and publish median, p95 and max.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+  - key: S28.01.02
+    title: Measure set logging latency under workout load
     wave: 3
-    summary: >-
-      Apply trimming, AOT and Android shrinking carefully, measuring real startup
-      and size wins instead of copying flags blindly.
-    outcome: >-
-      Release builds are smaller and faster while preserving DevExpress, EF Core
-      and reflection-dependent code paths.
-    concerns: [perf, release]
-    stories:
-      - key: S28.02.01
-        title: Tune iOS AOT and trimming with measured results
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        userStory:
-          asA: iOS user installing Forge
-          iWant: a release build that starts quickly and keeps only required code
-          soThat: the app feels responsive without breaking reflection-heavy features
-        requirements:
-          - iOS release builds use documented AOT and trimming settings in the project file.
-          - AOT and trimming changes include before and after measurements for app size and cold start.
-          - Reflection-dependent serializers, EF Core models and DevExpress controls used in v1 survive trimming validation.
-        acceptanceCriteria:
-          - id: AC1
-            given: iOS trimming settings are changed
-            when: the release validation suite runs
-            then: startup smoke, serializer tests and DevExpress screen smoke tests all pass
-          - id: AC2
-            given: the optimisation report is opened
-            when: before and after data is inspected
-            then: it shows iOS archive size and cold-start deltas for comparable release builds
-        implementation:
-          notes: >-
-            Treat trimming as a measured release configuration, not a global
-            switch. Add linker descriptors or DynamicDependency attributes only
-            where tests prove they are needed, especially around DevExpress, EF
-            Core model discovery and JSON serialization.
-          touches:
-            - src/Forge.App/Forge.App.csproj
-            - src/Forge.App/Trimming/
-            - docs/performance/ios-trimming.md
-          apis:
-            - .NET MAUI trimming
-        testing:
-          - Run trimmed iOS release smoke tests before accepting linker changes.
-
-      - key: S28.02.02
-        title: Tune Android linking and R8 without breaking runtime paths
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        userStory:
-          asA: Android user installing Forge
-          iWant: a smaller Android app that still runs every v1 feature
-          soThat: storage and download size stay under control
-        requirements:
-          - Android release builds enable appropriate linking and R8 settings with explicit keep rules for required paths.
-          - Each per-ABI APK remains below 40 MB after optimisation.
-          - A release smoke suite covers startup, workout logging, SQLite access, DevExpress lists and health permission screens after shrinking.
-        acceptanceCriteria:
-          - id: AC1
-            given: R8 removes a class required by a runtime path
-            when: the Android release smoke suite runs
-            then: the failure occurs before upload and names the affected screen or operation
-          - id: AC2
-            given: an Android release build completes
-            when: the size report is generated
-            then: each per-ABI APK is less than 40 MB and the largest five contributors are listed
-        implementation:
-          notes: >-
-            Configure Android shrinker settings in the MAUI project and keep
-            keep rules close to features that require them. Measure with release
-            builds only because debug size is misleading. Use E30 size checks as
-            the hard release gate.
-          touches:
-            - src/Forge.App/Forge.App.csproj
-            - src/Forge.App/Platforms/Android/proguard.cfg
-            - tools/performance/android-size.ps1
-          apis:
-            - R8
-            - Android linker
-        testing:
-          - Run Android release smoke tests after every shrinker rule change.
-
-      - key: S28.02.03
-        title: Analyse and budget images, fonts and bundled content
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        userStory:
-          asA: user downloading Forge on mobile data
-          iWant: assets that look good without bloating the install
-          soThat: the app installs quickly and leaves room for my data
-        requirements:
-          - The asset budget report lists images, fonts, seed catalogues and videos by compressed and uncompressed size.
-          - No single raster image bundled in the app exceeds 500 KB compressed without an approved exception.
-          - Unused assets fail the performance lane when they exceed 1 MB total.
-        acceptanceCriteria:
-          - id: AC1
-            given: a 900 KB unused image is added to the app bundle
-            when: the asset budget step runs
-            then: the performance lane fails and names the asset
-          - id: AC2
-            given: seed catalogues are updated
-            when: the asset report runs
-            then: compressed size, uncompressed size and first-import time are reported
-        implementation:
-          notes: >-
-            Build a simple asset inventory tool over the project item graph and
-            output bundle contributors. Food and exercise catalogues can ship as
-            compressed assets, but their import path must be measured because
-            decompression can damage startup if scheduled too early.
-          touches:
-            - tools/performance/asset-budget.ps1
-            - src/Forge.App/Resources/
-            - docs/performance/asset-budget.md
-          apis:
-            - MSBuild item metadata
-        testing:
-          - Add tool tests for detecting unused files and enforcing per-file thresholds.
-
-  - key: F28.03
-    title: Keep high-volume lists and data paths efficient
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast logging sets quickly
+      iWant: set entry to feel immediate even late in a workout
+      soThat: my training rhythm is not broken by the app
+    requirements:
+    - Tapping Save Set to visible confirmation completes in less than 100 ms perceived time for 95 percent of attempts.
+    - The latency test uses a workout with at least 30 logged sets and active rest timer state.
+    - A database write may complete asynchronously only if the set is durable within 200 ms and failure can be surfaced.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: a workout contains 30 logged sets
+      when: the user saves the next set 100 times in the measured scenario
+      then: visible confirmation appears within 100 ms in at least 95 attempts
+    - id: AC2
+      given: SQLite write is delayed by injected contention
+      when: the set save command runs
+      then: the UI reports pending state within 100 ms and either persists within 200 ms or shows a recoverable error
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.01.02 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Instrument the set logging ViewModel and repository boundary with high-resolution timestamps. Optimise perceived
+        latency by updating local state immediately, then committing through a short transaction that still reports persistence
+        failure. Implementation should keep the primary code in src/Forge.App/Features/Workout/SetLoggingViewModel.cs, src/Forge.Infrastructure/Persistence/WorkoutRepository.cs
+        and use Stopwatch, platform profiling tools. The tricky part is measuring release behaviour on real mobile hardware
+        or stable lab devices instead of debug builds, shared emulators or synthetic loops. Tag every trace with build SHA
+        and seeded data so regressions are comparable. A careless implementation would move work off the measured path, block
+        the UI thread, or optimize by weakening accessibility, privacy or correctness safeguards.
+      touches:
+      - src/Forge.App/Features/Workout/SetLoggingViewModel.cs
+      - src/Forge.Infrastructure/Persistence/WorkoutRepository.cs
+      apis:
+      - Stopwatch
+      - platform profiling tools
+    testing:
+    - Add a benchmark-style integration test with injected repository delay and a device measurement script.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+  - key: S28.01.03
+    title: Enforce frame timing budget during scroll and animation
     wave: 3
-    summary: >-
-      Verify DevExpress virtualization, image handling and SQLite queries at the
-      data volumes Forge expects from food, exercise and workout history.
-    outcome: >-
-      Large local datasets remain searchable and scrollable without blowing
-      frame, memory or battery budgets.
-    concerns: [perf, data]
-    stories:
-      - key: S28.03.01
-        title: Verify DXCollectionView virtualization with realistic volumes
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        userStory:
-          asA: user browsing long exercise and history lists
-          iWant: large lists that stay responsive
-          soThat: my workout history does not slow down as I keep using the app
-        requirements:
-          - DXCollectionView scenarios cover 1,000 workouts, 10,000 exercises or history rows and grouped sections.
-          - Scrolling sustains 60 fps with no frame above 16.6 ms on the performance Android device.
-          - Realized item count stays below 3 times the visible item count during steady scrolling.
-        acceptanceCriteria:
-          - id: AC1
-            given: 10,000 workout history rows are loaded
-            when: the list is scrolled from top to bottom
-            then: no frame exceeds 16.6 ms and realized item count remains below 3 times visible items
-          - id: AC2
-            given: a template performs a synchronous database lookup during binding
-            when: the virtualization test runs
-            then: the test fails or the trace flags the binding path as over budget
-        implementation:
-          notes: >-
-            Use DevExpress DXCollectionView for high-volume lists and instrument
-            item realization where possible. Generate realistic data with varied
-            names, groups and images because virtualization failures often hide
-            in templates.
-          touches:
-            - src/Forge.App/Features/History/
-            - src/Forge.App/Features/Nutrition/
-            - tests/Forge.PerformanceTests/ListVirtualization/
-          devexpress:
-            - DXCollectionView
-        testing:
-          - Run list virtualization tests on Android release builds with generated datasets.
-
-      - key: S28.03.02
-        title: Optimise 100,000-row food database search and scroll
-        wave: 3
-        size: l
-        platforms: [android, ios]
-        persona: cutter
-        userStory:
-          asA: cutter searching for food quickly
-          iWant: food search to stay responsive with a full local catalogue
-          soThat: logging meals does not become frustrating as the database grows
-        requirements:
-          - A 100,000-row food catalogue search returns the first 50 results within 150 ms for common prefixes.
-          - Scrolling search results sustains 60 fps with no frame above 16.6 ms.
-          - Search queries use indexed columns or full-text search rather than in-memory filtering of the full table.
-        acceptanceCriteria:
-          - id: AC1
-            given: the food database contains 100,000 rows
-            when: the user searches for a common three-character prefix
-            then: the first 50 results are displayed within 150 ms
-          - id: AC2
-            given: the search term has no matches
-            when: the query runs
-            then: the empty state appears within 50 ms and no full-table materialisation occurs
-        implementation:
-          notes: >-
-            Profile the SQLite query plan for food search and add indexes or FTS
-            tables where measurements justify them. Bind only the first page of
-            results to DXCollectionView and page further results as the user scrolls.
-          touches:
-            - src/Forge.Infrastructure/Persistence/FoodRepository.cs
-            - src/Forge.App/Features/Nutrition/FoodSearchViewModel.cs
-            - tests/Forge.PerformanceTests/FoodSearch/
-          devexpress:
-            - DXCollectionView
-          apis:
-            - SQLite indexes
-            - SQLite FTS5
-        testing:
-          - Add query-plan assertions and device latency measurements for common, rare and empty searches.
-
-      - key: S28.03.03
-        title: Profile database hot paths and add indexes
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        userStory:
-          asA: returning user with months of local data
-          iWant: workout and nutrition screens to load quickly
-          soThat: my growing history does not punish continued use
-        requirements:
-          - Hot-path queries for Today, workout history, exercise detail and nutrition search are profiled with at least 12 months of generated data.
-          - Each hot-path query completes within 100 ms after warm database open.
-          - Query plans use indexes and avoid full scans above 10,000 rows unless explicitly justified.
-        acceptanceCriteria:
-          - id: AC1
-            given: 12 months of generated workout data exists
-            when: the workout history query runs
-            then: it completes within 100 ms and uses an index according to EXPLAIN QUERY PLAN
-          - id: AC2
-            given: a new index is added
-            when: first-run catalogue import is measured
-            then: import time increases by no more than 10 percent compared with the previous baseline
-        implementation:
-          notes: >-
-            Add a profiling harness that can seed deterministic large datasets.
-            Use EXPLAIN QUERY PLAN assertions for stable query shapes, then
-            verify device timings in release builds. Measure write and import
-            costs as well as reads.
-          touches:
-            - src/Forge.Infrastructure/Persistence/Migrations/
-            - tests/Forge.PerformanceTests/DatabaseHotPaths/
-          apis:
-            - SQLite EXPLAIN QUERY PLAN
-            - EF Core indexes
-        testing:
-          - Run migration and query-plan tests for every index change.
-
-      - key: S28.03.04
-        title: Optimise image loading, decoding and cache pressure
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        userStory:
-          asA: user viewing exercises with images
-          iWant: images that appear quickly without stutter or memory spikes
-          soThat: the app feels polished while respecting my device resources
-        requirements:
-          - Exercise and food thumbnails decode off the UI thread and are resized to display dimensions before caching.
-          - Image cache memory remains below 40 MB during workout and catalogue browse scenarios.
-          - Scrolling image-heavy lists has no frame above 16.6 ms in the performance scenario.
-        acceptanceCriteria:
-          - id: AC1
-            given: an image-heavy exercise list is scrolled for 60 seconds
-            when: memory and frame timings are captured
-            then: image cache memory remains below 40 MB and no frame exceeds 16.6 ms
-          - id: AC2
-            given: the OS signals memory pressure during a workout
-            when: cache eviction runs
-            then: the current page remains usable and no image decode exception is thrown
-        implementation:
-          notes: >-
-            Prefer MAUI image sources with explicit sizing and a small cache
-            abstraction owned by Forge.App. Decode thumbnails to the size used
-            by DevExpress templates and avoid loading full-resolution assets into list cells.
-          touches:
-            - src/Forge.App/Imaging/
-            - src/Forge.App/Features/Exercises/
-            - tests/Forge.PerformanceTests/ImageLoading/
-          devexpress:
-            - DXCollectionView
-        testing:
-          - Add a 60-second image scroll scenario with memory sampling.
-
-  - key: F28.04
-    title: Protect memory and battery during workouts
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: user scrolling lists and charts
+      iWant: animations and lists to stay at 60 fps
+      soThat: the app feels native rather than heavy
+    requirements:
+    - Scroll and animation scenarios sustain 60 fps with no measured frame above 16.6 ms.
+    - Scenarios include workout history, exercise catalogue, food search and progress chart transitions.
+    - Any frame above 16.6 ms is reported with scenario name, device, build SHA and trace link.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: the food search scenario scrolls 1,000 visible items
+      when: frame timings are captured
+      then: no frame exceeds 16.6 ms during the measured interval
+    - id: AC2
+      given: a regression introduces a 25 ms frame in workout history
+      when: the performance lane runs
+      then: the lane fails and names workout history and the 25 ms frame
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.01.03 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Use platform frame metrics on Android and available iOS instrumentation for release builds, then store traces
+        as artefacts. Measure realistic DevExpress templates because virtualization can be defeated by heavy bindings. Implementation
+        should keep the primary code in tests/Forge.PerformanceTests/FrameTiming/, src/Forge.App/Diagnostics/FrameTimingService.cs
+        and use DXCollectionView, ChartView, Stopwatch, platform profiling tools. The tricky part is measuring release behaviour
+        on real mobile hardware or stable lab devices instead of debug builds, shared emulators or synthetic loops. Tag every
+        trace with build SHA and seeded data so regressions are comparable. A careless implementation would move work off
+        the measured path, block the UI thread, or optimize by weakening accessibility, privacy or correctness safeguards.
+      touches:
+      - tests/Forge.PerformanceTests/FrameTiming/
+      - src/Forge.App/Diagnostics/FrameTimingService.cs
+      devexpress:
+      - DXCollectionView
+      - ChartView
+      apis:
+      - Stopwatch
+      - platform profiling tools
+    testing:
+    - Capture frame timing traces for every scroll and animation scenario.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+  - key: S28.01.04
+    title: Add performance regression detection to CI
     wave: 3
-    summary: >-
-      Find and fix the MAUI lifecycle and resource problems that usually appear
-      only after long sessions: page leaks, handler leaks and sensor drain.
-    outcome: >-
-      A long workout stays below memory budget, releases pages correctly and
-      does not drain battery unnecessarily.
-    concerns: [perf, battery]
-    stories:
-      - key: S28.04.01
-        title: Detect MAUI page and handler memory leaks
-        wave: 3
-        size: l
-        platforms: [android, ios]
-        persona: team
-        userStory:
-          asA: user navigating through Forge repeatedly
-          iWant: pages to be released when I leave them
-          soThat: long sessions do not slow down or crash from leaked UI objects
-        requirements:
-          - A navigation stress test opens and closes workout, exercise detail, food search and progress pages 50 times each.
-          - After forced GC, retained page and ViewModel instances for closed pages are zero.
-          - Memory after the stress test is within 20 MB of the starting baseline.
-        acceptanceCriteria:
-          - id: AC1
-            given: the navigation stress test completes 50 open and close cycles per page
-            when: GC is forced and weak references are inspected
-            then: zero closed page and ViewModel instances remain alive
-          - id: AC2
-            given: a page subscribes to a static event without unsubscribing
-            when: the leak test runs
-            then: the test fails and identifies the retained page type
-        implementation:
-          notes: >-
-            MAUI apps commonly leak through event subscriptions, handlers and
-            services holding page references. Add weak-reference tests for pages
-            and ViewModels, then supplement with platform memory tooling for
-            release builds.
-          touches:
-            - tests/Forge.PerformanceTests/MemoryLeaks/
-            - src/Forge.App/Features/*/*.xaml.cs
-          apis:
-            - WeakReference
-            - .NET GC
-        testing:
-          - Run navigation leak tests before release candidates and after major navigation changes.
-
-      - key: S28.04.02
-        title: Keep workout memory below 250 MB
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        userStory:
-          asA: enthusiast running a long workout
-          iWant: memory use to remain bounded for the full session
-          soThat: the app does not get killed while I am training
-        requirements:
-          - A 90-minute simulated workout with 120 set edits, rest timers and navigation to exercise history stays below 250 MB resident memory.
-          - Memory growth from minute 15 to minute 90 is less than 30 MB.
-          - Memory samples are recorded at least once per minute.
-        acceptanceCriteria:
-          - id: AC1
-            given: the 90-minute workout simulation runs on the performance Android device
-            when: memory samples are analysed
-            then: resident memory stays below 250 MB and grows by less than 30 MB after minute 15
-          - id: AC2
-            given: a ViewModel stores full historical chart data unnecessarily
-            when: the memory report is generated
-            then: the retained object group is visible and exceeds the 5 MB story threshold
-        implementation:
-          notes: >-
-            Create a simulated workout driver that exercises real ViewModels and
-            persistence rather than a synthetic allocation loop. Keep only state
-            needed for the current workout in memory and page historical data
-            from SQLite.
-          touches:
-            - tests/Forge.PerformanceTests/WorkoutMemory/
-            - src/Forge.App/Features/Workout/
-        testing:
-          - Record memory every minute and publish the time series as a CI artefact.
-
-      - key: S28.04.03
-        title: Measure battery cost for sensor-backed workouts
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        userStory:
-          asA: user training with sensors enabled
-          iWant: Forge to avoid unnecessary battery drain
-          soThat: a workout does not consume a disproportionate amount of my phone battery
-        requirements:
-          - A 60-minute workout scenario with GPS or health sensors active records battery drain and sensor sampling configuration.
-          - Sensor polling pauses when the workout is paused or the app is backgrounded unless the user explicitly enabled continued tracking.
-          - Battery drain attributable to Forge is no more than 8 percent per hour on the performance Android device.
-        acceptanceCriteria:
-          - id: AC1
-            given: a sensor-backed workout runs for 60 minutes
-            when: battery diagnostics are reviewed
-            then: Forge-attributed drain is no more than 8 percent and sampling intervals are recorded
-          - id: AC2
-            given: the workout is paused for 10 minutes
-            when: sensor diagnostics are inspected
-            then: polling stops or drops to the documented paused interval within 5 seconds
-        implementation:
-          notes: >-
-            Coordinate with health integration so sensors are subscribed only
-            while the user benefits from them. Diagnostics must record sampling
-            mode and duration, not personal health values, to preserve the local
-            privacy posture.
-          touches:
-            - src/Forge.Health/
-            - src/Forge.App/Diagnostics/BatteryDiagnostics.cs
-            - tests/Forge.PerformanceTests/Battery/
-          apis:
-            - Android Battery Historian
-            - HealthKit workout APIs
-        testing:
-          - Run the controlled battery scenario before release candidate promotion.
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: team
+    userStory:
+      asA: technical lead guarding release quality
+      iWant: budgets enforced by automated performance gates
+      soThat: performance targets remain contractual rather than aspirational
+    requirements:
+    - Performance CI runs on a fixed Android performance device or equivalent lab device nightly and for release candidates.
+    - Cold start, frame timing, set logging latency, APK size and workout memory budgets are checked against stored thresholds.
+    - A regression greater than 10 percent from the rolling 14-day median fails the lane even if the absolute budget is still
+      met.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: nightly performance CI completes
+      when: the report is generated
+      then: it contains cold start, frame timing, set logging, APK size and memory results with pass or fail status
+    - id: AC2
+      given: cold start regresses by 12 percent while remaining under 2 seconds
+      when: the performance gate compares the rolling median
+      then: the gate fails and labels it a regression
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.01.04 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Create a separate performance workflow so normal pull requests stay fast. Use release builds and fixed datasets.
+        Store baselines in versioned JSON, and calculate rolling medians from recent artefacts when available. Implementation
+        should keep the primary code in .github/workflows/performance.yml, tools/performance/, tests/Forge.PerformanceTests/
+        and use Stopwatch, platform profiling tools. The tricky part is measuring release behaviour on real mobile hardware
+        or stable lab devices instead of debug builds, shared emulators or synthetic loops. Tag every trace with build SHA
+        and seeded data so regressions are comparable. A careless implementation would move work off the measured path, block
+        the UI thread, or optimize by weakening accessibility, privacy or correctness safeguards.
+      touches:
+      - .github/workflows/performance.yml
+      - tools/performance/
+      - tests/Forge.PerformanceTests/
+      apis:
+      - Stopwatch
+      - platform profiling tools
+    testing:
+    - Seed baseline JSON and test threshold comparison logic with synthetic runs.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+- key: F28.02
+  title: Optimise package size and runtime configuration
+  wave: 3
+  summary: Apply trimming, AOT and Android shrinking carefully, measuring real startup and size wins instead of copying flags
+    blindly.
+  outcome: Release builds are smaller and faster while preserving DevExpress, EF Core and reflection-dependent code paths.
+  concerns:
+  - perf
+  - release
+  stories:
+  - key: S28.02.01
+    title: Tune iOS AOT and trimming with measured results
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    userStory:
+      asA: iOS user installing Forge
+      iWant: a release build that starts quickly and keeps only required code
+      soThat: the app feels responsive without breaking reflection-heavy features
+    requirements:
+    - iOS release builds use documented AOT and trimming settings in the project file.
+    - AOT and trimming changes include before and after measurements for app size and cold start.
+    - Reflection-dependent serializers, EF Core models and DevExpress controls used in v1 survive trimming validation.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: iOS trimming settings are changed
+      when: the release validation suite runs
+      then: startup smoke, serializer tests and DevExpress screen smoke tests all pass
+    - id: AC2
+      given: the optimisation report is opened
+      when: before and after data is inspected
+      then: it shows iOS archive size and cold-start deltas for comparable release builds
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.02.01 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Treat trimming as a measured release configuration, not a global switch. Add linker descriptors or DynamicDependency
+        attributes only where tests prove they are needed, especially around DevExpress, EF Core model discovery and JSON
+        serialization. Implementation should keep the primary code in src/Forge.App/Forge.App.csproj, src/Forge.App/Trimming/,
+        docs/performance/ios-trimming.md and use .NET MAUI trimming. The tricky part is measuring release behaviour on real
+        mobile hardware or stable lab devices instead of debug builds, shared emulators or synthetic loops. Tag every trace
+        with build SHA and seeded data so regressions are comparable. A careless implementation would move work off the measured
+        path, block the UI thread, or optimize by weakening accessibility, privacy or correctness safeguards.
+      touches:
+      - src/Forge.App/Forge.App.csproj
+      - src/Forge.App/Trimming/
+      - docs/performance/ios-trimming.md
+      apis:
+      - .NET MAUI trimming
+    testing:
+    - Run trimmed iOS release smoke tests before accepting linker changes.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+  - key: S28.02.02
+    title: Tune Android linking and R8 without breaking runtime paths
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    userStory:
+      asA: Android user installing Forge
+      iWant: a smaller Android app that still runs every v1 feature
+      soThat: storage and download size stay under control
+    requirements:
+    - Android release builds enable appropriate linking and R8 settings with explicit keep rules for required paths.
+    - Each per-ABI APK remains below 40 MB after optimisation.
+    - A release smoke suite covers startup, workout logging, SQLite access, DevExpress lists and health permission screens
+      after shrinking.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: R8 removes a class required by a runtime path
+      when: the Android release smoke suite runs
+      then: the failure occurs before upload and names the affected screen or operation
+    - id: AC2
+      given: an Android release build completes
+      when: the size report is generated
+      then: each per-ABI APK is less than 40 MB and the largest five contributors are listed
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.02.02 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Configure Android shrinker settings in the MAUI project and keep keep rules close to features that require them.
+        Measure with release builds only because debug size is misleading. Use E30 size checks as the hard release gate. Implementation
+        should keep the primary code in src/Forge.App/Forge.App.csproj, src/Forge.App/Platforms/Android/proguard.cfg, tools/performance/android-size.ps1
+        and use R8, Android linker. The tricky part is measuring release behaviour on real mobile hardware or stable lab devices
+        instead of debug builds, shared emulators or synthetic loops. Tag every trace with build SHA and seeded data so regressions
+        are comparable. A careless implementation would move work off the measured path, block the UI thread, or optimize
+        by weakening accessibility, privacy or correctness safeguards.
+      touches:
+      - src/Forge.App/Forge.App.csproj
+      - src/Forge.App/Platforms/Android/proguard.cfg
+      - tools/performance/android-size.ps1
+      apis:
+      - R8
+      - Android linker
+    testing:
+    - Run Android release smoke tests after every shrinker rule change.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+  - key: S28.02.03
+    title: Analyse and budget images, fonts and bundled content
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: team
+    userStory:
+      asA: user downloading Forge on mobile data
+      iWant: assets that look good without bloating the install
+      soThat: the app installs quickly and leaves room for my data
+    requirements:
+    - The asset budget report lists images, fonts, seed catalogues and videos by compressed and uncompressed size.
+    - No single raster image bundled in the app exceeds 500 KB compressed without an approved exception.
+    - Unused assets fail the performance lane when they exceed 1 MB total.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: a 900 KB unused image is added to the app bundle
+      when: the asset budget step runs
+      then: the performance lane fails and names the asset
+    - id: AC2
+      given: seed catalogues are updated
+      when: the asset report runs
+      then: compressed size, uncompressed size and first-import time are reported
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.02.03 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Build a simple asset inventory tool over the project item graph and output bundle contributors. Food and exercise
+        catalogues can ship as compressed assets, but their import path must be measured because decompression can damage
+        startup if scheduled too early. Implementation should keep the primary code in tools/performance/asset-budget.ps1,
+        src/Forge.App/Resources/, docs/performance/asset-budget.md and use MSBuild item metadata. The tricky part is measuring
+        release behaviour on real mobile hardware or stable lab devices instead of debug builds, shared emulators or synthetic
+        loops. Tag every trace with build SHA and seeded data so regressions are comparable. A careless implementation would
+        move work off the measured path, block the UI thread, or optimize by weakening accessibility, privacy or correctness
+        safeguards.
+      touches:
+      - tools/performance/asset-budget.ps1
+      - src/Forge.App/Resources/
+      - docs/performance/asset-budget.md
+      apis:
+      - MSBuild item metadata
+    testing:
+    - Add tool tests for detecting unused files and enforcing per-file thresholds.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+- key: F28.03
+  title: Keep high-volume lists and data paths efficient
+  wave: 3
+  summary: Verify DevExpress virtualization, image handling and SQLite queries at the data volumes Forge expects from food,
+    exercise and workout history.
+  outcome: Large local datasets remain searchable and scrollable without blowing frame, memory or battery budgets.
+  concerns:
+  - perf
+  - data
+  stories:
+  - key: S28.03.01
+    title: Verify DXCollectionView virtualization with realistic volumes
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: user browsing long exercise and history lists
+      iWant: large lists that stay responsive
+      soThat: my workout history does not slow down as I keep using the app
+    requirements:
+    - DXCollectionView scenarios cover 1,000 workouts, 10,000 exercises or history rows and grouped sections.
+    - Scrolling sustains 60 fps with no frame above 16.6 ms on the performance Android device.
+    - Realized item count stays below 3 times the visible item count during steady scrolling.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: 10,000 workout history rows are loaded
+      when: the list is scrolled from top to bottom
+      then: no frame exceeds 16.6 ms and realized item count remains below 3 times visible items
+    - id: AC2
+      given: a template performs a synchronous database lookup during binding
+      when: the virtualization test runs
+      then: the test fails or the trace flags the binding path as over budget
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.03.01 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Use DevExpress DXCollectionView for high-volume lists and instrument item realization where possible. Generate
+        realistic data with varied names, groups and images because virtualization failures often hide in templates. Implementation
+        should keep the primary code in src/Forge.App/Features/History/, src/Forge.App/Features/Nutrition/, tests/Forge.PerformanceTests/ListVirtualization/
+        and use DXCollectionView, Stopwatch, platform profiling tools. The tricky part is measuring release behaviour on real
+        mobile hardware or stable lab devices instead of debug builds, shared emulators or synthetic loops. Tag every trace
+        with build SHA and seeded data so regressions are comparable. A careless implementation would move work off the measured
+        path, block the UI thread, or optimize by weakening accessibility, privacy or correctness safeguards.
+      touches:
+      - src/Forge.App/Features/History/
+      - src/Forge.App/Features/Nutrition/
+      - tests/Forge.PerformanceTests/ListVirtualization/
+      devexpress:
+      - DXCollectionView
+      apis:
+      - Stopwatch
+      - platform profiling tools
+    testing:
+    - Run list virtualization tests on Android release builds with generated datasets.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+  - key: S28.03.02
+    title: Optimise 100,000-row food database search and scroll
+    wave: 3
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: cutter
+    userStory:
+      asA: cutter searching for food quickly
+      iWant: food search to stay responsive with a full local catalogue
+      soThat: logging meals does not become frustrating as the database grows
+    requirements:
+    - A 100,000-row food catalogue search returns the first 50 results within 150 ms for common prefixes.
+    - Scrolling search results sustains 60 fps with no frame above 16.6 ms.
+    - Search queries use indexed columns or full-text search rather than in-memory filtering of the full table.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: the food database contains 100,000 rows
+      when: the user searches for a common three-character prefix
+      then: the first 50 results are displayed within 150 ms
+    - id: AC2
+      given: the search term has no matches
+      when: the query runs
+      then: the empty state appears within 50 ms and no full-table materialisation occurs
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.03.02 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Profile the SQLite query plan for food search and add indexes or FTS tables where measurements justify them.
+        Bind only the first page of results to DXCollectionView and page further results as the user scrolls. Implementation
+        should keep the primary code in src/Forge.Infrastructure/Persistence/FoodRepository.cs, src/Forge.App/Features/Nutrition/FoodSearchViewModel.cs,
+        tests/Forge.PerformanceTests/FoodSearch/ and use DXCollectionView, SQLite indexes, SQLite FTS5. The tricky part is
+        measuring release behaviour on real mobile hardware or stable lab devices instead of debug builds, shared emulators
+        or synthetic loops. Tag every trace with build SHA and seeded data so regressions are comparable. A careless implementation
+        would move work off the measured path, block the UI thread, or optimize by weakening accessibility, privacy or correctness
+        safeguards.
+      touches:
+      - src/Forge.Infrastructure/Persistence/FoodRepository.cs
+      - src/Forge.App/Features/Nutrition/FoodSearchViewModel.cs
+      - tests/Forge.PerformanceTests/FoodSearch/
+      devexpress:
+      - DXCollectionView
+      apis:
+      - SQLite indexes
+      - SQLite FTS5
+    testing:
+    - Add query-plan assertions and device latency measurements for common, rare and empty searches.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+  - key: S28.03.03
+    title: Profile database hot paths and add indexes
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returning user with months of local data
+      iWant: workout and nutrition screens to load quickly
+      soThat: my growing history does not punish continued use
+    requirements:
+    - Hot-path queries for Today, workout history, exercise detail and nutrition search are profiled with at least 12 months
+      of generated data.
+    - Each hot-path query completes within 100 ms after warm database open.
+    - Query plans use indexes and avoid full scans above 10,000 rows unless explicitly justified.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: 12 months of generated workout data exists
+      when: the workout history query runs
+      then: it completes within 100 ms and uses an index according to EXPLAIN QUERY PLAN
+    - id: AC2
+      given: a new index is added
+      when: first-run catalogue import is measured
+      then: import time increases by no more than 10 percent compared with the previous baseline
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.03.03 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Add a profiling harness that can seed deterministic large datasets. Use EXPLAIN QUERY PLAN assertions for stable
+        query shapes, then verify device timings in release builds. Measure write and import costs as well as reads. Implementation
+        should keep the primary code in src/Forge.Infrastructure/Persistence/Migrations/, tests/Forge.PerformanceTests/DatabaseHotPaths/
+        and use SQLite EXPLAIN QUERY PLAN, EF Core indexes. The tricky part is measuring release behaviour on real mobile
+        hardware or stable lab devices instead of debug builds, shared emulators or synthetic loops. Tag every trace with
+        build SHA and seeded data so regressions are comparable. A careless implementation would move work off the measured
+        path, block the UI thread, or optimize by weakening accessibility, privacy or correctness safeguards.
+      touches:
+      - src/Forge.Infrastructure/Persistence/Migrations/
+      - tests/Forge.PerformanceTests/DatabaseHotPaths/
+      apis:
+      - SQLite EXPLAIN QUERY PLAN
+      - EF Core indexes
+    testing:
+    - Run migration and query-plan tests for every index change.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+  - key: S28.03.04
+    title: Optimise image loading, decoding and cache pressure
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: user viewing exercises with images
+      iWant: images that appear quickly without stutter or memory spikes
+      soThat: the app feels polished while respecting my device resources
+    requirements:
+    - Exercise and food thumbnails decode off the UI thread and are resized to display dimensions before caching.
+    - Image cache memory remains below 40 MB during workout and catalogue browse scenarios.
+    - Scrolling image-heavy lists has no frame above 16.6 ms in the performance scenario.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: an image-heavy exercise list is scrolled for 60 seconds
+      when: memory and frame timings are captured
+      then: image cache memory remains below 40 MB and no frame exceeds 16.6 ms
+    - id: AC2
+      given: the OS signals memory pressure during a workout
+      when: cache eviction runs
+      then: the current page remains usable and no image decode exception is thrown
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.03.04 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Prefer MAUI image sources with explicit sizing and a small cache abstraction owned by Forge.App. Decode thumbnails
+        to the size used by DevExpress templates and avoid loading full-resolution assets into list cells. Implementation
+        should keep the primary code in src/Forge.App/Imaging/, src/Forge.App/Features/Exercises/, tests/Forge.PerformanceTests/ImageLoading/
+        and use DXCollectionView, Stopwatch, platform profiling tools. The tricky part is measuring release behaviour on real
+        mobile hardware or stable lab devices instead of debug builds, shared emulators or synthetic loops. Tag every trace
+        with build SHA and seeded data so regressions are comparable. A careless implementation would move work off the measured
+        path, block the UI thread, or optimize by weakening accessibility, privacy or correctness safeguards.
+      touches:
+      - src/Forge.App/Imaging/
+      - src/Forge.App/Features/Exercises/
+      - tests/Forge.PerformanceTests/ImageLoading/
+      devexpress:
+      - DXCollectionView
+      apis:
+      - Stopwatch
+      - platform profiling tools
+    testing:
+    - Add a 60-second image scroll scenario with memory sampling.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+- key: F28.04
+  title: Protect memory and battery during workouts
+  wave: 3
+  summary: 'Find and fix the MAUI lifecycle and resource problems that usually appear only after long sessions: page leaks,
+    handler leaks and sensor drain.'
+  outcome: A long workout stays below memory budget, releases pages correctly and does not drain battery unnecessarily.
+  concerns:
+  - perf
+  - battery
+  stories:
+  - key: S28.04.01
+    title: Detect MAUI page and handler memory leaks
+    wave: 3
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: team
+    userStory:
+      asA: user navigating through Forge repeatedly
+      iWant: pages to be released when I leave them
+      soThat: long sessions do not slow down or crash from leaked UI objects
+    requirements:
+    - A navigation stress test opens and closes workout, exercise detail, food search and progress pages 50 times each.
+    - After forced GC, retained page and ViewModel instances for closed pages are zero.
+    - Memory after the stress test is within 20 MB of the starting baseline.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: the navigation stress test completes 50 open and close cycles per page
+      when: GC is forced and weak references are inspected
+      then: zero closed page and ViewModel instances remain alive
+    - id: AC2
+      given: a page subscribes to a static event without unsubscribing
+      when: the leak test runs
+      then: the test fails and identifies the retained page type
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.04.01 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: MAUI apps commonly leak through event subscriptions, handlers and services holding page references. Add weak-reference
+        tests for pages and ViewModels, then supplement with platform memory tooling for release builds. Implementation should
+        keep the primary code in tests/Forge.PerformanceTests/MemoryLeaks/, src/Forge.App/Features/*/*.xaml.cs and use WeakReference,
+        .NET GC. The tricky part is measuring release behaviour on real mobile hardware or stable lab devices instead of debug
+        builds, shared emulators or synthetic loops. Tag every trace with build SHA and seeded data so regressions are comparable.
+        A careless implementation would move work off the measured path, block the UI thread, or optimize by weakening accessibility,
+        privacy or correctness safeguards.
+      touches:
+      - tests/Forge.PerformanceTests/MemoryLeaks/
+      - src/Forge.App/Features/*/*.xaml.cs
+      apis:
+      - WeakReference
+      - .NET GC
+    testing:
+    - Run navigation leak tests before release candidates and after major navigation changes.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+  - key: S28.04.02
+    title: Keep workout memory below 250 MB
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast running a long workout
+      iWant: memory use to remain bounded for the full session
+      soThat: the app does not get killed while I am training
+    requirements:
+    - A 90-minute simulated workout with 120 set edits, rest timers and navigation to exercise history stays below 250 MB
+      resident memory.
+    - Memory growth from minute 15 to minute 90 is less than 30 MB.
+    - Memory samples are recorded at least once per minute.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: the 90-minute workout simulation runs on the performance Android device
+      when: memory samples are analysed
+      then: resident memory stays below 250 MB and grows by less than 30 MB after minute 15
+    - id: AC2
+      given: a ViewModel stores full historical chart data unnecessarily
+      when: the memory report is generated
+      then: the retained object group is visible and exceeds the 5 MB story threshold
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.04.02 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Create a simulated workout driver that exercises real ViewModels and persistence rather than a synthetic allocation
+        loop. Keep only state needed for the current workout in memory and page historical data from SQLite. Implementation
+        should keep the primary code in tests/Forge.PerformanceTests/WorkoutMemory/, src/Forge.App/Features/Workout/ and use
+        Stopwatch, platform profiling tools. The tricky part is measuring release behaviour on real mobile hardware or stable
+        lab devices instead of debug builds, shared emulators or synthetic loops. Tag every trace with build SHA and seeded
+        data so regressions are comparable. A careless implementation would move work off the measured path, block the UI
+        thread, or optimize by weakening accessibility, privacy or correctness safeguards.
+      touches:
+      - tests/Forge.PerformanceTests/WorkoutMemory/
+      - src/Forge.App/Features/Workout/
+      apis:
+      - Stopwatch
+      - platform profiling tools
+    testing:
+    - Record memory every minute and publish the time series as a CI artefact.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.
+  - key: S28.04.03
+    title: Measure battery cost for sensor-backed workouts
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: user training with sensors enabled
+      iWant: Forge to avoid unnecessary battery drain
+      soThat: a workout does not consume a disproportionate amount of my phone battery
+    requirements:
+    - A 60-minute workout scenario with GPS or health sensors active records battery drain and sensor sampling configuration.
+    - Sensor polling pauses when the workout is paused or the app is backgrounded unless the user explicitly enabled continued
+      tracking.
+    - Battery drain attributable to Forge is no more than 8 percent per hour on the performance Android device.
+    - Measurement evidence records platform, OS version, device class, build SHA, release configuration and the exact dataset
+      used for comparison.
+    acceptanceCriteria:
+    - id: AC1
+      given: a sensor-backed workout runs for 60 minutes
+      when: battery diagnostics are reviewed
+      then: Forge-attributed drain is no more than 8 percent and sampling intervals are recorded
+    - id: AC2
+      given: the workout is paused for 10 minutes
+      when: sensor diagnostics are inspected
+      then: polling stops or drops to the documented paused interval within 5 seconds
+    - id: AC3
+      given: a performance result is outside the agreed budget
+      when: the report is generated
+      then: the S28.04.03 gate fails and includes metric value, threshold, device and trace artefact
+    implementation:
+      notes: Coordinate with health integration so sensors are subscribed only while the user benefits from them. Diagnostics
+        must record sampling mode and duration, not personal health values, to preserve the local privacy posture. Implementation
+        should keep the primary code in src/Forge.Health/, src/Forge.App/Diagnostics/BatteryDiagnostics.cs, tests/Forge.PerformanceTests/Battery/
+        and use Android Battery Historian, HealthKit workout APIs. The tricky part is measuring release behaviour on real
+        mobile hardware or stable lab devices instead of debug builds, shared emulators or synthetic loops. Tag every trace
+        with build SHA and seeded data so regressions are comparable. A careless implementation would move work off the measured
+        path, block the UI thread, or optimize by weakening accessibility, privacy or correctness safeguards.
+      touches:
+      - src/Forge.Health/
+      - src/Forge.App/Diagnostics/BatteryDiagnostics.cs
+      - tests/Forge.PerformanceTests/Battery/
+      apis:
+      - Android Battery Historian
+      - HealthKit workout APIs
+    testing:
+    - Run the controlled battery scenario before release candidate promotion.
+    grounding:
+    - title: .NET MAUI performance
+      url: https://learn.microsoft.com/dotnet/maui/deployment/performance
+      note: Grounds startup, layout, collection and resource-efficiency guidance for MAUI apps.

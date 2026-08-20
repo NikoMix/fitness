@@ -3,567 +3,1055 @@ title: Diagnostics and Local Telemetry
 domain: quality
 wave: 3
 summary: >-
-  Forge needs observability for crashes, migrations, storage and performance while preserving the local-only privacy promise. This epic creates on-device structured telemetry, reviewable diagnostic bundles, performance traces, storage reporting and debug tooling with no automatic analytics or crash upload.
+  Forge needs observability for crashes, migrations, storage and performance while preserving the local-only privacy promise.
+  This epic creates on-device structured telemetry, reviewable diagnostic bundles, performance traces, storage reporting and
+  debug tooling with no automatic analytics or crash upload.
 problem: >-
-  When a local-only app fails, support needs technical context, but collecting health data or phoning home would break user trust. Diagnostics must be useful, bounded, reviewable and explicitly shared by the user.
+  When a local-only app fails, support needs technical context, but collecting health data or phoning home would break user
+  trust. Diagnostics must be useful, bounded, reviewable and explicitly shared by the user.
 outcome: >-
-  Forge records privacy-safe local events, crash breadcrumbs and performance traces, lets users review diagnostic bundles before OS sharing, and exposes storage plus data inventory screens sourced from the real database.
+  Forge records privacy-safe local events, crash breadcrumbs and performance traces, lets users review diagnostic bundles
+  before OS sharing, and exposes storage plus data inventory screens sourced from the real database.
 successMetrics:
-  - Production packages include no automatic analytics SDK, remote crash reporter or diagnostic upload.
-  - Diagnostic bundle redaction tests find zero workout values, food names, body metrics or free-text notes.
-  - Startup trace records required milestones for every launch with under 20 ms overhead.
-  - Storage usage categories report within 5 percent of direct file-system measurements.
+- Production packages include no automatic analytics SDK, remote crash reporter or diagnostic upload.
+- Diagnostic bundle redaction tests find zero workout values, food names, body metrics or free-text notes.
+- Startup trace records required milestones for every launch with under 20 ms overhead.
+- Storage usage categories report within 5 percent of direct file-system measurements.
 nonGoals:
-  - No automatic telemetry transmission, analytics dashboard or remote crash reporting in v1.
-  - No collection of health data for product analytics or advertising.
-  - No desktop diagnostic tooling in waves 1 to 5.
+- No automatic telemetry transmission, analytics dashboard or remote crash reporting in v1.
+- No collection of health data for product analytics or advertising.
+- No desktop diagnostic tooling in waves 1 to 5.
 risks:
-  - risk: Logs accidentally include Article 9 health data through free-text payloads.
-    mitigation: Use allow-listed typed event properties and redaction tests over generated bundles.
-    severity: critical
-  - risk: Debug tooling exposes database metadata in production.
-    mitigation: Gate sensitive screens behind build flags, deliberate gesture and local user verification.
-    severity: high
-  - risk: Tracing overhead erodes the startup budget.
-    mitigation: Use lightweight timers and enforce overhead below 20 ms.
-    severity: medium
+- risk: Logs accidentally include Article 9 health data through free-text payloads.
+  mitigation: Use allow-listed typed event properties and redaction tests over generated bundles.
+  severity: critical
+- risk: Debug tooling exposes database metadata in production.
+  mitigation: Gate sensitive screens behind build flags, deliberate gesture and local user verification.
+  severity: high
+- risk: Tracing overhead erodes the startup budget.
+  mitigation: Use lightweight timers and enforce overhead below 20 ms.
+  severity: medium
 grounding:
-  - title: Microsoft.Extensions.Logging in .NET
-    url: https://learn.microsoft.com/dotnet/core/extensions/logging
-    note: Provides local structured logging abstractions.
-  - title: .NET MAUI share files
-    url: https://learn.microsoft.com/dotnet/maui/platform-integration/data/share
-    note: Used for explicit diagnostic bundle sharing.
-  - title: .NET MAUI app lifecycle
-    url: https://learn.microsoft.com/dotnet/maui/fundamentals/app-lifecycle
-    note: Used for startup traces and crash recovery hooks.
-  - title: DevExpress MAUI CollectionView
-    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
-    note: Used for virtualised diagnostics and inventory lists.
+- title: Microsoft.Extensions.Logging in .NET
+  url: https://learn.microsoft.com/dotnet/core/extensions/logging
+  note: Provides local structured logging abstractions.
+- title: .NET MAUI share files
+  url: https://learn.microsoft.com/dotnet/maui/platform-integration/data/share
+  note: Used for explicit diagnostic bundle sharing.
+- title: .NET MAUI app lifecycle
+  url: https://learn.microsoft.com/dotnet/maui/fundamentals/app-lifecycle
+  note: Used for startup traces and crash recovery hooks.
+- title: DevExpress MAUI CollectionView
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+  note: Used for virtualised diagnostics and inventory lists.
 features:
-  - key: F32.01
-    title: Record local diagnostic events
+- key: F32.01
+  title: Record local diagnostic events
+  wave: 3
+  summary: >-
+    Capture structured technical logs and crash breadcrumbs on-device with bounded storage and redaction.
+  outcome: >-
+    Diagnostics are useful for support but contain no health data and never transmit automatically.
+  concerns: [privacy, perf, offline]
+  dependsOn: [E01, E04]
+  stories:
+  - key: S32.01.01
+    title: Write structured local event logs with rotation
     wave: 3
-    summary: >-
-      Capture structured technical logs and crash breadcrumbs on-device with bounded storage and redaction.
-    outcome: >-
-      Diagnostics are useful for support but contain no health data and never transmit automatically.
-    concerns: [privacy, perf, offline]
-    dependsOn: [E01, E04]
-    stories:
-      - key: S32.01.01
-        title: Write structured local event logs with rotation
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [privacy, perf]
-        userStory:
-          asA: Forge team member
-          iWant: structured local technical logs
-          soThat: failures can be diagnosed without remote analytics
-        requirements:
-          - Logs use Microsoft.Extensions.Logging and newline-delimited JSON in cache.
-          - Logs rotate at 5 MB with at most three retained files.
-          - Payloads accept only allow-listed scalar fields and add less than 1 ms p95 overhead to set logging.
-        acceptanceCriteria:
-          - id: AC1
-            given: workout, meal and body metric flows have run
-            when: logs are inspected
-            then: no reps, weights, food names, calories, bodyweight or notes appear
-          - id: AC2
-            given: the active log reaches 5 MB
-            when: another event is written
-            then: rotation occurs and no more than three files remain
-        implementation:
-          notes: >-
-            Extend the E01 logger with typed ForgeDiagnosticEventId values and payload builders that cannot accept free-text health data. Use a bounded channel and no HTTP sink.
-          touches: [src/Forge.Infrastructure/Diagnostics/ForgeDiagnosticEventId.cs]
-          apis: [Microsoft.Extensions.Logging, System.Threading.Channels]
-        testing:
-          - Redaction, rotation and logging-overhead tests.
-      - key: S32.01.02
-        title: Capture crash breadcrumbs without domain values
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [privacy]
-        userStory:
-          asA: Forge team member
-          iWant: the last technical events before a crash
-          soThat: the failing route or operation is visible without health records
-        requirements:
-          - A ring buffer stores the last 100 breadcrumbs.
-          - Breadcrumbs include route names, operation ids and timing categories only.
-          - Unhandled exception handling flushes breadcrumbs within 200 ms before recovery UI.
-        acceptanceCriteria:
-          - id: AC1
-            given: 150 breadcrumb events are recorded
-            when: a crash bundle is created
-            then: only the newest 100 breadcrumbs are included
-          - id: AC2
-            given: a forced crash occurs after set logging
-            when: breadcrumbs are inspected
-            then: route and operation id exist but set weight and reps are absent
-        implementation:
-          notes: >-
-            Implement BreadcrumbRecorder as an in-memory ring buffer flushed to cache. Record route constants and operation ids, not display names, food text or metric values.
-          touches: [src/Forge.Infrastructure/Diagnostics/BreadcrumbRecorder.cs]
-          apis: [AppDomain.UnhandledException, TaskScheduler.UnobservedTaskException]
-        testing:
-          - Ring buffer truncation and forced-crash redaction tests.
-      - key: S32.01.03
-        title: Block automatic diagnostic transmission
-        wave: 3
-        size: s
-        platforms: [android, ios]
-        persona: team
-        concerns: [privacy, security]
-        userStory:
-          asA: Forge team member
-          iWant: diagnostics to stay on device by default
-          soThat: local-only privacy remains true during failures
-        requirements:
-          - Production builds include no analytics SDK or automatic crash reporter.
-          - No diagnostic HTTP sender is registered by default.
-          - CI fails when banned telemetry packages or senders are added.
-        acceptanceCriteria:
-          - id: AC1
-            given: the production dependency graph is scanned
-            when: banned diagnostics test runs
-            then: no analytics SDK or automatic crash reporter is present
-          - id: AC2
-            given: the app crashes in production configuration
-            when: it restarts
-            then: no network request is made before user share action
-        implementation:
-          notes: >-
-            Add package and source scanning tests for known analytics SDKs, crash reporters and diagnostic HTTP senders as launch guardrails.
-          touches: [tests/Forge.Infrastructure.Tests/Diagnostics/NoRemoteTelemetryTests.cs]
-          apis: [NuGet lock file inspection]
-        testing:
-          - CI scan for banned packages and service registrations.
-  - key: F32.02
-    title: Share reviewable diagnostic bundles
+    size: m
+    platforms: [android, ios]
+    persona: team
+    concerns: [privacy, perf]
+    userStory:
+      asA: Forge team member
+      iWant: structured local technical logs
+      soThat: failures can be diagnosed without remote analytics
+    requirements:
+    - Logs use Microsoft.Extensions.Logging and newline-delimited JSON in cache.
+    - Logs rotate at 5 MB with at most three retained files.
+    - Payloads accept only allow-listed scalar fields and add less than 1 ms p95 overhead to set logging.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: workout, meal and body metric flows have run
+      when: logs are inspected
+      then: no reps, weights, food names, calories, bodyweight or notes appear
+    - id: AC2
+      given: the active log reaches 5 MB
+      when: another event is written
+      then: rotation occurs and no more than three files remain
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Extend the E01 logger with typed ForgeDiagnosticEventId values and payload builders that cannot accept free-text health
+        data. Use a bounded channel and no HTTP sink.  Implement this in src/Forge.Infrastructure/Diagnostics/ForgeDiagnosticEventId.cs
+        using Microsoft.Extensions.Logging, app-private cache or AppDataDirectory storage, and DevExpress review controls
+        where UI is needed. Use allow-listed typed event properties such as route, status, duration bucket and file size,
+        never arbitrary message templates or domain objects. Enforce rotation, retention and local-only sharing through the
+        OS sheet. A careless implementation would log exception.ToString with notes, keep unlimited files, or add an automatic
+        crash upload that breaks Forge local-first privacy.
+      touches: [src/Forge.Infrastructure/Diagnostics/ForgeDiagnosticEventId.cs]
+      apis:
+      - Microsoft.Extensions.Logging
+      - System.Threading.Channels
+    testing:
+    - Redaction, rotation and logging-overhead tests.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: Logging in .NET
+      url: https://learn.microsoft.com/dotnet/core/extensions/logging
+      note: Grounds Microsoft.Extensions.Logging event levels and structured logs.
+    - title: .NET MAUI file system helpers
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/file-system-helpers
+      note: Grounds AppDataDirectory, CacheDirectory and safe local file placement.
+  - key: S32.01.02
+    title: Capture crash breadcrumbs without domain values
     wave: 3
-    summary: >-
-      Package technical diagnostics locally and require the user to inspect the bundle before OS sharing.
-    outcome: >-
-      Support receives useful files only when the user explicitly chooses to share them.
+    size: m
+    platforms: [android, ios]
+    persona: team
+    concerns: [privacy]
+    userStory:
+      asA: Forge team member
+      iWant: the last technical events before a crash
+      soThat: the failing route or operation is visible without health records
+    requirements:
+    - A ring buffer stores the last 100 breadcrumbs.
+    - Breadcrumbs include route names, operation ids and timing categories only.
+    - Unhandled exception handling flushes breadcrumbs within 200 ms before recovery UI.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: 150 breadcrumb events are recorded
+      when: a crash bundle is created
+      then: only the newest 100 breadcrumbs are included
+    - id: AC2
+      given: a forced crash occurs after set logging
+      when: breadcrumbs are inspected
+      then: route and operation id exist but set weight and reps are absent
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Implement BreadcrumbRecorder as an in-memory ring buffer flushed to cache. Record route constants and operation ids,
+        not display names, food text or metric values.  Implement this in src/Forge.Infrastructure/Diagnostics/BreadcrumbRecorder.cs
+        using Microsoft.Extensions.Logging, app-private cache or AppDataDirectory storage, and DevExpress review controls
+        where UI is needed. Use allow-listed typed event properties such as route, status, duration bucket and file size,
+        never arbitrary message templates or domain objects. Enforce rotation, retention and local-only sharing through the
+        OS sheet. A careless implementation would log exception.ToString with notes, keep unlimited files, or add an automatic
+        crash upload that breaks Forge local-first privacy.
+      touches: [src/Forge.Infrastructure/Diagnostics/BreadcrumbRecorder.cs]
+      apis:
+      - AppDomain.UnhandledException
+      - TaskScheduler.UnobservedTaskException
+    testing:
+    - Ring buffer truncation and forced-crash redaction tests.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: Logging in .NET
+      url: https://learn.microsoft.com/dotnet/core/extensions/logging
+      note: Grounds Microsoft.Extensions.Logging event levels and structured logs.
+    - title: .NET MAUI app lifecycle
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/app-lifecycle
+      note: Grounds launch, resume and crash-recovery lifecycle hooks.
+    - title: GDPR Article 9
+      url: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679
+      note: Grounds treating health and fitness records as special-category data.
+  - key: S32.01.03
+    title: Block automatic diagnostic transmission
+    wave: 3
+    size: s
+    platforms: [android, ios]
+    persona: team
+    concerns: [privacy, security]
+    userStory:
+      asA: Forge team member
+      iWant: diagnostics to stay on device by default
+      soThat: local-only privacy remains true during failures
+    requirements:
+    - Production builds include no analytics SDK or automatic crash reporter.
+    - No diagnostic HTTP sender is registered by default.
+    - CI fails when banned telemetry packages or senders are added.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: the production dependency graph is scanned
+      when: banned diagnostics test runs
+      then: no analytics SDK or automatic crash reporter is present
+    - id: AC2
+      given: the app crashes in production configuration
+      when: it restarts
+      then: no network request is made before user share action
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Add package and source scanning tests for known analytics SDKs, crash reporters and diagnostic HTTP senders as launch
+        guardrails.  Implement this in tests/Forge.Infrastructure.Tests/Diagnostics/NoRemoteTelemetryTests.cs using Microsoft.Extensions.Logging,
+        app-private cache or AppDataDirectory storage, and DevExpress review controls where UI is needed. Use allow-listed
+        typed event properties such as route, status, duration bucket and file size, never arbitrary message templates or
+        domain objects. Enforce rotation, retention and local-only sharing through the OS sheet. A careless implementation
+        would log exception.ToString with notes, keep unlimited files, or add an automatic crash upload that breaks Forge
+        local-first privacy.
+      touches: [tests/Forge.Infrastructure.Tests/Diagnostics/NoRemoteTelemetryTests.cs]
+      apis:
+      - NuGet lock file inspection
+    testing:
+    - CI scan for banned packages and service registrations.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: Logging in .NET
+      url: https://learn.microsoft.com/dotnet/core/extensions/logging
+      note: Grounds Microsoft.Extensions.Logging event levels and structured logs.
+    - title: .NET MAUI file system helpers
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/file-system-helpers
+      note: Grounds AppDataDirectory, CacheDirectory and safe local file placement.
+- key: F32.02
+  title: Share reviewable diagnostic bundles
+  wave: 3
+  summary: >-
+    Package technical diagnostics locally and require the user to inspect the bundle before OS sharing.
+  outcome: >-
+    Support receives useful files only when the user explicitly chooses to share them.
+  concerns: [privacy, a11y]
+  dependsOn: [F32.01]
+  stories:
+  - key: S32.02.01
+    title: Generate a redacted diagnostic bundle
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: returner
+    concerns: [privacy]
+    userStory:
+      asA: returner user
+      iWant: Forge to package technical diagnostics locally
+      soThat: I can decide whether to share them
+    requirements:
+    - Bundle includes app version, coarse device info, OS version, schema version, recent logs, breadcrumbs and 
+      performance summaries.
+    - Bundle excludes workouts, foods, meals, hydration, body metrics and notes by default.
+    - Generation completes in under 10 seconds and unshared bundles are deleted after 24 hours.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: maximum retained diagnostics exist
+      when: Generate bundle runs
+      then: a zip file is created in under 10 seconds
+    - id: AC2
+      given: the user has logged health and nutrition data
+      when: the bundle is scanned
+      then: no workout names, food names, body metric values or notes are present
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Implement DiagnosticBundleService with manifest.json and redacted technical files only. Return a local file for review;
+        do not call Share or network APIs from generation.  Implement this in src/Forge.Core/Diagnostics/IDiagnosticBundleService.cs
+        using Microsoft.Extensions.Logging, app-private cache or AppDataDirectory storage, and DevExpress review controls
+        where UI is needed. Use allow-listed typed event properties such as route, status, duration bucket and file size,
+        never arbitrary message templates or domain objects. Enforce rotation, retention and local-only sharing through the
+        OS sheet. A careless implementation would log exception.ToString with notes, keep unlimited files, or add an automatic
+        crash upload that breaks Forge local-first privacy.
+      touches: [src/Forge.Core/Diagnostics/IDiagnosticBundleService.cs]
+      apis:
+      - System.IO.Compression.ZipArchive
+      - Microsoft.Maui.Devices.DeviceInfo
+    testing:
+    - Bundle generation time and redaction fixture tests.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: Logging in .NET
+      url: https://learn.microsoft.com/dotnet/core/extensions/logging
+      note: Grounds Microsoft.Extensions.Logging event levels and structured logs.
+    - title: .NET MAUI share files
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/data/share
+      note: Grounds opt-in OS share flows rather than automatic upload.
+    - title: ZipArchive class
+      url: https://learn.microsoft.com/dotnet/api/system.io.compression.ziparchive
+      note: Grounds local archive packaging for backups and bundles.
+    - title: GDPR Article 9
+      url: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679
+      note: Grounds treating health and fitness records as special-category data.
+  - key: S32.02.02
+    title: Review bundle contents before sharing
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: newcomer
     concerns: [privacy, a11y]
-    dependsOn: [F32.01]
-    stories:
-      - key: S32.02.01
-        title: Generate a redacted diagnostic bundle
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        concerns: [privacy]
-        userStory:
-          asA: returner user
-          iWant: Forge to package technical diagnostics locally
-          soThat: I can decide whether to share them
-        requirements:
-          - Bundle includes app version, coarse device info, OS version, schema version, recent logs, breadcrumbs and performance summaries.
-          - Bundle excludes workouts, foods, meals, hydration, body metrics and notes by default.
-          - Generation completes in under 10 seconds and unshared bundles are deleted after 24 hours.
-        acceptanceCriteria:
-          - id: AC1
-            given: maximum retained diagnostics exist
-            when: Generate bundle runs
-            then: a zip file is created in under 10 seconds
-          - id: AC2
-            given: the user has logged health and nutrition data
-            when: the bundle is scanned
-            then: no workout names, food names, body metric values or notes are present
-        implementation:
-          notes: >-
-            Implement DiagnosticBundleService with manifest.json and redacted technical files only. Return a local file for review; do not call Share or network APIs from generation.
-          touches: [src/Forge.Application/Diagnostics/IDiagnosticBundleService.cs]
-          apis: [System.IO.Compression.ZipArchive, Microsoft.Maui.Devices.DeviceInfo]
-        testing:
-          - Bundle generation time and redaction fixture tests.
-      - key: S32.02.02
-        title: Review bundle contents before sharing
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [privacy, a11y]
-        userStory:
-          asA: newcomer user
-          iWant: to see exactly what Forge will share
-          soThat: I remain in control of private data
-        requirements:
-          - Review lists every bundle file with size, category and inclusion reason.
-          - The user can preview redacted text files.
-          - Share is disabled until generation and redaction scan pass.
-        acceptanceCriteria:
-          - id: AC1
-            given: a bundle exists
-            when: review opens
-            then: every zip file appears with name, size and inclusion reason
-          - id: AC2
-            given: redaction scan fails
-            when: review renders
-            then: Share is disabled and the failing category is shown without matched value
-        implementation:
-          notes: >-
-            Use DXCollectionView for bundle files and DXPopup for redacted text previews. Keep share as a separate explicit command after review passes.
-          touches: [src/Forge.App/Features/Diagnostics/DiagnosticBundleReviewPage.xaml]
-          devexpress: [DXCollectionView, DXPopup, DXButton]
-          apis: [Microsoft.Maui.Accessibility.SemanticScreenReader]
-        testing:
-          - UI tests for disabled Share and accessible file rows.
-      - key: S32.02.03
-        title: Share diagnostics only through the OS sheet
-        wave: 3
-        size: s
-        platforms: [android, ios]
-        persona: returner
-        concerns: [privacy]
-        userStory:
-          asA: returner user
-          iWant: to choose the recipient myself
-          soThat: nothing uploads automatically
-        requirements:
-          - Share diagnostics calls the OS share sheet with the reviewed bundle file.
-          - Forge performs no HTTP upload or automatic recipient selection.
-          - The command is enabled only after review and redaction pass.
-        acceptanceCriteria:
-          - id: AC1
-            given: review and redaction passed
-            when: the user taps Share diagnostics
-            then: the OS share sheet opens for the bundle file
-          - id: AC2
-            given: the user dismisses the share sheet
-            when: Forge regains focus
-            then: no network request was made by Forge
-        implementation:
-          notes: >-
-            Use Share.RequestAsync with a ShareFile and no custom email intent or HTTP client. Record only local technical metadata for share initiation or cancellation.
-          touches: [src/Forge.App/Features/Diagnostics/DiagnosticShareService.cs]
-          devexpress: [DXButton]
-          apis: [Microsoft.Maui.ApplicationModel.DataTransfer.Share]
-        testing:
-          - UI automation for Share enablement and source scan for HttpClient absence.
-  - key: F32.03
-    title: Trace startup and frame performance
+    userStory:
+      asA: newcomer user
+      iWant: to see exactly what Forge will share
+      soThat: I remain in control of private data
+    requirements:
+    - Review lists every bundle file with size, category and inclusion reason.
+    - The user can preview redacted text files.
+    - Share is disabled until generation and redaction scan pass.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: a bundle exists
+      when: review opens
+      then: every zip file appears with name, size and inclusion reason
+    - id: AC2
+      given: redaction scan fails
+      when: review renders
+      then: Share is disabled and the failing category is shown without matched value
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Use DXCollectionView for bundle files and DXPopup for redacted text previews. Keep share as a separate explicit command
+        after review passes.  Implement this in src/Forge.App/Features/Diagnostics/DiagnosticBundleReviewPage.xaml using Microsoft.Extensions.Logging,
+        app-private cache or AppDataDirectory storage, and DevExpress review controls where UI is needed. Use allow-listed
+        typed event properties such as route, status, duration bucket and file size, never arbitrary message templates or
+        domain objects. Enforce rotation, retention and local-only sharing through the OS sheet. A careless implementation
+        would log exception.ToString with notes, keep unlimited files, or add an automatic crash upload that breaks Forge
+        local-first privacy.
+      touches: [src/Forge.App/Features/Diagnostics/DiagnosticBundleReviewPage.xaml]
+      devexpress:
+      - DXCollectionView
+      - DXPopup
+      - DXButton
+      apis:
+      - Microsoft.Maui.Accessibility.SemanticScreenReader
+    testing:
+    - UI tests for disabled Share and accessible file rows.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: DevExpress MAUI CollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Grounds virtualised review, history and diagnostics lists.
+    - title: DevExpress MAUI Popup
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.DXPopup
+      note: Grounds explicit confirmations and review dialogs.
+    - title: .NET MAUI accessibility
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/accessibility
+      note: Grounds accessible review and confirmation screens.
+  - key: S32.02.03
+    title: Share diagnostics only through the OS sheet
     wave: 3
-    summary: >-
-      Measure cold start, database readiness and critical frame timing in local traces with low overhead.
-    outcome: >-
-      Performance budgets are observable on devices without collecting personal data.
-    concerns: [perf, privacy]
-    dependsOn: [E01, E04]
-    stories:
-      - key: S32.03.01
-        title: Record cold-start milestones on every launch
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [perf]
-        userStory:
-          asA: Forge team member
-          iWant: local cold-start traces
-          soThat: startup regressions are visible before release
-        requirements:
-          - Milestones include process start, MauiProgram start, DI built, database ready, shell created and first interactive frame.
-          - Trace overhead is under 20 ms.
-          - Cold start without migration remains under 2.0 seconds and traces contain timing names only.
-        acceptanceCriteria:
-          - id: AC1
-            given: a normal cold start has no pending migration
-            when: startup completes
-            then: all milestones exist and total duration is under 2.0 seconds
-          - id: AC2
-            given: tracing is toggled in a performance build
-            when: cold starts are compared
-            then: overhead is under 20 ms
-        implementation:
-          notes: >-
-            Add early static hooks for pre-DI milestones and hand off to an injected recorder after MauiProgram builds. Store compact JSON in diagnostics cache.
-          touches: [src/Forge.App/Diagnostics/StartupTraceRecorder.cs]
-          apis: [System.Diagnostics.Stopwatch, Microsoft.Maui.Controls.Application]
-        testing:
-          - Startup milestone ordering and device budget tests.
-      - key: S32.03.02
-        title: Capture frame timing for critical interactions
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: enthusiast
-        concerns: [perf]
-        userStory:
-          asA: enthusiast user
-          iWant: Forge to detect jank in key flows
-          soThat: performance problems do not interrupt training
-        requirements:
-          - Capture covers workout set logging, food search scrolling and chart navigation.
-          - Summary records frames over 16.6 ms and over 33 ms.
-          - Tracing adds less than 5 MB memory overhead.
-        acceptanceCriteria:
-          - id: AC1
-            given: frame tracing is enabled
-            when: 500 food results are scrolled
-            then: summary records sample count, p95 and count over 16.6 ms
-          - id: AC2
-            given: 10 injected frames exceed 33 ms
-            when: summary is computed
-            then: over-33-ms count equals 10
-        implementation:
-          notes: >-
-            Hide platform frame timing behind IFrameTimingService. Android can use Choreographer and iOS can use CADisplayLink, storing aggregate timings only.
-          touches: [src/Forge.Application/Diagnostics/IFrameTimingService.cs]
-          devexpress: [DXCollectionView, RadialGauge, ChartView]
-          apis: [Android.Views.Choreographer, CoreAnimation.CADisplayLink]
-        testing:
-          - Frame summary unit tests and manual scroll tests.
-      - key: S32.03.03
-        title: Display performance traces locally
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [perf, a11y]
-        userStory:
-          asA: Forge team member
-          iWant: a local screen for startup and frame traces
-          soThat: I can inspect performance without external tooling
-        requirements:
-          - The screen lists the last 20 startup and last 20 frame traces.
-          - Trace detail shows milestone durations, slowest frames and coarse device context.
-          - Budget violations mark startup over 2.0 seconds or frames over 16.6 ms.
-        acceptanceCriteria:
-          - id: AC1
-            given: 25 startup traces exist
-            when: performance diagnostics opens
-            then: only the newest 20 are listed
-          - id: AC2
-            given: a startup trace lasts 2.3 seconds
-            when: detail opens
-            then: a 2.0 second budget violation is shown
-        implementation:
-          notes: >-
-            Build PerformanceDiagnosticsPage under Features/Diagnostics and gate it through debug-menu state. Use DXCollectionView for lists and ChartView for timing bars.
-          touches: [src/Forge.App/Features/Diagnostics/PerformanceDiagnosticsPage.xaml]
-          devexpress: [DXCollectionView, ChartView, DXBorder]
-          apis: [Microsoft.Maui.Devices.DeviceInfo]
-        testing:
-          - UI tests for retention count, budget markers and route gating.
-  - key: F32.04
-    title: Inspect data and storage transparently
+    size: s
+    platforms: [android, ios]
+    persona: returner
+    concerns: [privacy]
+    userStory:
+      asA: returner user
+      iWant: to choose the recipient myself
+      soThat: nothing uploads automatically
+    requirements:
+    - Share diagnostics calls the OS share sheet with the reviewed bundle file.
+    - Forge performs no HTTP upload or automatic recipient selection.
+    - The command is enabled only after review and redaction pass.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: review and redaction passed
+      when: the user taps Share diagnostics
+      then: the OS share sheet opens for the bundle file
+    - id: AC2
+      given: the user dismisses the share sheet
+      when: Forge regains focus
+      then: no network request was made by Forge
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Use Share.RequestAsync with a ShareFile and no custom email intent or HTTP client. Record only local technical metadata
+        for share initiation or cancellation.  Implement this in src/Forge.App/Features/Diagnostics/DiagnosticShareService.cs
+        using Microsoft.Extensions.Logging, app-private cache or AppDataDirectory storage, and DevExpress review controls
+        where UI is needed. Use allow-listed typed event properties such as route, status, duration bucket and file size,
+        never arbitrary message templates or domain objects. Enforce rotation, retention and local-only sharing through the
+        OS sheet. A careless implementation would log exception.ToString with notes, keep unlimited files, or add an automatic
+        crash upload that breaks Forge local-first privacy.
+      touches: [src/Forge.App/Features/Diagnostics/DiagnosticShareService.cs]
+      devexpress:
+      - DXButton
+      apis:
+      - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+    testing:
+    - UI automation for Share enablement and source scan for HttpClient absence.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: Logging in .NET
+      url: https://learn.microsoft.com/dotnet/core/extensions/logging
+      note: Grounds Microsoft.Extensions.Logging event levels and structured logs.
+    - title: .NET MAUI share files
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/data/share
+      note: Grounds opt-in OS share flows rather than automatic upload.
+    - title: ZipArchive class
+      url: https://learn.microsoft.com/dotnet/api/system.io.compression.ziparchive
+      note: Grounds local archive packaging for backups and bundles.
+    - title: GDPR Article 9
+      url: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679
+      note: Grounds treating health and fitness records as special-category data.
+- key: F32.03
+  title: Trace startup and frame performance
+  wave: 3
+  summary: >-
+    Measure cold start, database readiness and critical frame timing in local traces with low overhead.
+  outcome: >-
+    Performance budgets are observable on devices without collecting personal data.
+  concerns: [perf, privacy]
+  dependsOn: [E01, E04]
+  stories:
+  - key: S32.03.01
+    title: Record cold-start milestones on every launch
     wave: 3
-    summary: >-
-      Expose what Forge stores and how much space it uses through screens backed by real database and file-system measurements.
-    outcome: >-
-      Users can verify local data categories, storage usage and integrity status without hard-coded promises.
+    size: m
+    platforms: [android, ios]
+    persona: team
+    concerns: [perf]
+    userStory:
+      asA: Forge team member
+      iWant: local cold-start traces
+      soThat: startup regressions are visible before release
+    requirements:
+    - Milestones include process start, MauiProgram start, DI built, database ready, shell created and first interactive
+      frame.
+    - Trace overhead is under 20 ms.
+    - Cold start without migration remains under 2.0 seconds and traces contain timing names only.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: a normal cold start has no pending migration
+      when: startup completes
+      then: all milestones exist and total duration is under 2.0 seconds
+    - id: AC2
+      given: tracing is toggled in a performance build
+      when: cold starts are compared
+      then: overhead is under 20 ms
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Add early static hooks for pre-DI milestones and hand off to an injected recorder after MauiProgram builds. Store
+        compact JSON in diagnostics cache.  Implement this in src/Forge.App/Diagnostics/StartupTraceRecorder.cs using Microsoft.Extensions.Logging,
+        app-private cache or AppDataDirectory storage, and DevExpress review controls where UI is needed. Use allow-listed
+        typed event properties such as route, status, duration bucket and file size, never arbitrary message templates or
+        domain objects. Enforce rotation, retention and local-only sharing through the OS sheet. A careless implementation
+        would log exception.ToString with notes, keep unlimited files, or add an automatic crash upload that breaks Forge
+        local-first privacy.
+      touches: [src/Forge.App/Diagnostics/StartupTraceRecorder.cs]
+      apis:
+      - System.Diagnostics.Stopwatch
+      - Microsoft.Maui.Controls.Application
+    testing:
+    - Startup milestone ordering and device budget tests.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: Logging in .NET
+      url: https://learn.microsoft.com/dotnet/core/extensions/logging
+      note: Grounds Microsoft.Extensions.Logging event levels and structured logs.
+    - title: .NET MAUI file system helpers
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/file-system-helpers
+      note: Grounds AppDataDirectory, CacheDirectory and safe local file placement.
+  - key: S32.03.02
+    title: Capture frame timing for critical interactions
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: enthusiast
+    concerns: [perf]
+    userStory:
+      asA: enthusiast user
+      iWant: Forge to detect jank in key flows
+      soThat: performance problems do not interrupt training
+    requirements:
+    - Capture covers workout set logging, food search scrolling and chart navigation.
+    - Summary records frames over 16.6 ms and over 33 ms.
+    - Tracing adds less than 5 MB memory overhead.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: frame tracing is enabled
+      when: 500 food results are scrolled
+      then: summary records sample count, p95 and count over 16.6 ms
+    - id: AC2
+      given: 10 injected frames exceed 33 ms
+      when: summary is computed
+      then: over-33-ms count equals 10
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Hide platform frame timing behind IFrameTimingService. Android can use Choreographer and iOS can use CADisplayLink,
+        storing aggregate timings only.  Implement this in src/Forge.Core/Diagnostics/IFrameTimingService.cs using
+        Microsoft.Extensions.Logging, app-private cache or AppDataDirectory storage, and DevExpress review controls where
+        UI is needed. Use allow-listed typed event properties such as route, status, duration bucket and file size, never
+        arbitrary message templates or domain objects. Enforce rotation, retention and local-only sharing through the OS sheet.
+        A careless implementation would log exception.ToString with notes, keep unlimited files, or add an automatic crash
+        upload that breaks Forge local-first privacy.
+      touches: [src/Forge.Core/Diagnostics/IFrameTimingService.cs]
+      devexpress:
+      - DXCollectionView
+      - RadialGauge
+      - ChartView
+      apis:
+      - Android.Views.Choreographer
+      - CoreAnimation.CADisplayLink
+    testing:
+    - Frame summary unit tests and manual scroll tests.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: .NET MAUI app lifecycle
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/app-lifecycle
+      note: Grounds launch, resume and crash-recovery lifecycle hooks.
+    - title: .NET MAUI device information
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/information
+      note: Grounds coarse device metadata used in local diagnostics.
+  - key: S32.03.03
+    title: Display performance traces locally
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: team
+    concerns: [perf, a11y]
+    userStory:
+      asA: Forge team member
+      iWant: a local screen for startup and frame traces
+      soThat: I can inspect performance without external tooling
+    requirements:
+    - The screen lists the last 20 startup and last 20 frame traces.
+    - Trace detail shows milestone durations, slowest frames and coarse device context.
+    - Budget violations mark startup over 2.0 seconds or frames over 16.6 ms.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: 25 startup traces exist
+      when: performance diagnostics opens
+      then: only the newest 20 are listed
+    - id: AC2
+      given: a startup trace lasts 2.3 seconds
+      when: detail opens
+      then: a 2.0 second budget violation is shown
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Build PerformanceDiagnosticsPage under Features/Diagnostics and gate it through debug-menu state. Use DXCollectionView
+        for lists and ChartView for timing bars.  Implement this in src/Forge.App/Features/Diagnostics/PerformanceDiagnosticsPage.xaml
+        using Microsoft.Extensions.Logging, app-private cache or AppDataDirectory storage, and DevExpress review controls
+        where UI is needed. Use allow-listed typed event properties such as route, status, duration bucket and file size,
+        never arbitrary message templates or domain objects. Enforce rotation, retention and local-only sharing through the
+        OS sheet. A careless implementation would log exception.ToString with notes, keep unlimited files, or add an automatic
+        crash upload that breaks Forge local-first privacy.
+      touches: [src/Forge.App/Features/Diagnostics/PerformanceDiagnosticsPage.xaml]
+      devexpress:
+      - DXCollectionView
+      - ChartView
+      - DXBorder
+      apis:
+      - Microsoft.Maui.Devices.DeviceInfo
+    testing:
+    - UI tests for retention count, budget markers and route gating.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: .NET MAUI app lifecycle
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/app-lifecycle
+      note: Grounds launch, resume and crash-recovery lifecycle hooks.
+    - title: .NET MAUI device information
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/information
+      note: Grounds coarse device metadata used in local diagnostics.
+- key: F32.04
+  title: Inspect data and storage transparently
+  wave: 3
+  summary: >-
+    Expose what Forge stores and how much space it uses through screens backed by real database and file-system measurements.
+  outcome: >-
+    Users can verify local data categories, storage usage and integrity status without hard-coded promises.
+  concerns: [privacy, a11y]
+  dependsOn: [E04]
+  stories:
+  - key: S32.04.01
+    title: Show what data Forge holds about me
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: newcomer
     concerns: [privacy, a11y]
-    dependsOn: [E04]
-    stories:
-      - key: S32.04.01
-        title: Show what data Forge holds about me
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: newcomer
-        concerns: [privacy, a11y]
-        userStory:
-          asA: newcomer user
-          iWant: to see actual categories Forge stores
-          soThat: I can trust the local-only privacy story
-        requirements:
-          - Counts are read from the real database for workouts, sets, meals, hydration, body metrics, achievements, imports and backups.
-          - Empty categories show zero rather than being hidden.
-          - Visible counts refresh within 500 ms after data changes.
-        acceptanceCriteria:
-          - id: AC1
-            given: the database has 3 workouts, 27 sets and 0 body metrics
-            when: inventory opens
-            then: those exact counts are shown
-          - id: AC2
-            given: the screen is visible
-            when: a hydration entry is saved
-            then: hydration count updates within 500 ms
-        implementation:
-          notes: >-
-            Implement IDataInventoryService over real Infrastructure queries and render with DXCollectionView. The service defines categories so tests catch schema additions.
-          touches: [src/Forge.Application/Privacy/IDataInventoryService.cs]
-          devexpress: [DXCollectionView, DXButton]
-          apis: [Microsoft.EntityFrameworkCore]
-        testing:
-          - Integration test comparing inventory counts with seeded rows.
-      - key: S32.04.02
-        title: Report Forge storage usage by category
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: returner
-        concerns: [privacy]
-        userStory:
-          asA: returner user
-          iWant: to see what Forge occupies on my phone
-          soThat: I can clear safe files without risking records
-        requirements:
-          - Storage reports database, backups, recovery copies, diagnostics, cache and seed catalogue footprint.
-          - Reported sizes are within 5 percent of file-system measurements.
-          - Users can clear cache and diagnostics but not the active database.
-        acceptanceCriteria:
-          - id: AC1
-            given: known-size files exist in each category
-            when: storage usage opens
-            then: each category is within 5 percent of measured size
-          - id: AC2
-            given: diagnostic logs total 20 MB
-            when: Clear diagnostics is confirmed
-            then: diagnostics are deleted and database plus backups remain
-        implementation:
-          notes: >-
-            StorageUsageService enumerates only known Forge roots. Use DXCollectionView, PieChartView and DXPopup confirmations for safe clearing.
-          touches: [src/Forge.Application/Diagnostics/IStorageUsageService.cs]
-          devexpress: [DXCollectionView, PieChartView, DXPopup]
-          apis: [Microsoft.Maui.Storage.FileSystem]
-        testing:
-          - Measurement accuracy and protected-database tests.
-      - key: S32.04.03
-        title: Provide database inspection in support builds
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [security, privacy]
-        userStory:
-          asA: Forge team member
-          iWant: safe metadata inspection tools
-          soThat: schema issues can be diagnosed without raw health data
-        requirements:
-          - Inspector is available only in debug or support builds after debug-menu unlock.
-          - It shows table names, row counts, schema version, migrations and index list.
-          - Metadata loads in under 2 seconds on the 50,000 set fixture.
-        acceptanceCriteria:
-          - id: AC1
-            given: a production build runs
-            when: debug gestures are performed
-            then: the inspector route remains unavailable
-          - id: AC2
-            given: a support build is unlocked
-            when: inspector opens on the large fixture
-            then: table counts and migrations load under 2 seconds
-        implementation:
-          notes: >-
-            Expose IDatabaseInspectorService with metadata queries only and no generic SQL box in v1. Gate UI by compilation symbol and debug state.
-          touches: [src/Forge.Application/Diagnostics/IDatabaseInspectorService.cs]
-          devexpress: [DXCollectionView, DXExpander]
-          apis: [SQLite PRAGMA table_info, Microsoft.EntityFrameworkCore.Infrastructure]
-        testing:
-          - Release route absence and metadata load performance tests.
-  - key: F32.05
-    title: Gate deliberate developer diagnostics
+    userStory:
+      asA: newcomer user
+      iWant: to see actual categories Forge stores
+      soThat: I can trust the local-only privacy story
+    requirements:
+    - Counts are read from the real database for workouts, sets, meals, hydration, body metrics, achievements, imports 
+      and backups.
+    - Empty categories show zero rather than being hidden.
+    - Visible counts refresh within 500 ms after data changes.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: the database has 3 workouts, 27 sets and 0 body metrics
+      when: inventory opens
+      then: those exact counts are shown
+    - id: AC2
+      given: the screen is visible
+      when: a hydration entry is saved
+      then: hydration count updates within 500 ms
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Implement IDataInventoryService over real Infrastructure queries and render with DXCollectionView. The service defines
+        categories so tests catch schema additions.  Implement this in src/Forge.Core/Privacy/IDataInventoryService.cs
+        using Microsoft.Extensions.Logging, app-private cache or AppDataDirectory storage, and DevExpress review controls
+        where UI is needed. Use allow-listed typed event properties such as route, status, duration bucket and file size,
+        never arbitrary message templates or domain objects. Enforce rotation, retention and local-only sharing through the
+        OS sheet. A careless implementation would log exception.ToString with notes, keep unlimited files, or add an automatic
+        crash upload that breaks Forge local-first privacy.
+      touches: [src/Forge.Core/Privacy/IDataInventoryService.cs]
+      devexpress:
+      - DXCollectionView
+      - DXButton
+      apis:
+      - Microsoft.EntityFrameworkCore
+    testing:
+    - Integration test comparing inventory counts with seeded rows.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: EF Core SQLite provider
+      url: https://learn.microsoft.com/ef/core/providers/sqlite/
+      note: Grounds the local SQLite provider used by ForgeDbContext.
+    - title: SQLite PRAGMA statements
+      url: https://www.sqlite.org/pragma.html
+      note: Grounds quick_check, integrity_check and SQLite runtime checks.
+    - title: GDPR Article 9
+      url: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679
+      note: Grounds treating health and fitness records as special-category data.
+  - key: S32.04.02
+    title: Report Forge storage usage by category
     wave: 3
-    summary: >-
-      Hide internal diagnostics behind deliberate gestures, expiry and local verification so support tools do not leak into normal use.
-    outcome: >-
-      Diagnostic tools are available when intended and absent or locked when risky.
+    size: m
+    platforms: [android, ios]
+    persona: returner
+    concerns: [privacy]
+    userStory:
+      asA: returner user
+      iWant: to see what Forge occupies on my phone
+      soThat: I can clear safe files without risking records
+    requirements:
+    - Storage reports database, backups, recovery copies, diagnostics, cache and seed catalogue footprint.
+    - Reported sizes are within 5 percent of file-system measurements.
+    - Users can clear cache and diagnostics but not the active database.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: known-size files exist in each category
+      when: storage usage opens
+      then: each category is within 5 percent of measured size
+    - id: AC2
+      given: diagnostic logs total 20 MB
+      when: Clear diagnostics is confirmed
+      then: diagnostics are deleted and database plus backups remain
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        StorageUsageService enumerates only known Forge roots. Use DXCollectionView, PieChartView and DXPopup confirmations
+        for safe clearing.  Implement this in src/Forge.Core/Diagnostics/IStorageUsageService.cs using Microsoft.Extensions.Logging,
+        app-private cache or AppDataDirectory storage, and DevExpress review controls where UI is needed. Use allow-listed
+        typed event properties such as route, status, duration bucket and file size, never arbitrary message templates or
+        domain objects. Enforce rotation, retention and local-only sharing through the OS sheet. A careless implementation
+        would log exception.ToString with notes, keep unlimited files, or add an automatic crash upload that breaks Forge
+        local-first privacy.
+      touches: [src/Forge.Core/Diagnostics/IStorageUsageService.cs]
+      devexpress:
+      - DXCollectionView
+      - PieChartView
+      - DXPopup
+      apis:
+      - Microsoft.Maui.Storage.FileSystem
+    testing:
+    - Measurement accuracy and protected-database tests.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: .NET MAUI file system helpers
+      url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/file-system-helpers
+      note: Grounds AppDataDirectory, CacheDirectory and safe local file placement.
+    - title: DevExpress MAUI Popup
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.DXPopup
+      note: Grounds explicit confirmations and review dialogs.
+  - key: S32.04.03
+    title: Provide database inspection in support builds
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: team
     concerns: [security, privacy]
-    dependsOn: [F32.03, F32.04]
-    stories:
-      - key: S32.05.01
-        title: Unlock a developer menu with a deliberate gesture
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [security]
-        userStory:
-          asA: Forge team member
-          iWant: a hidden diagnostics menu
-          soThat: test tools do not clutter the product UI
-        requirements:
-          - Unlock requires seven taps on the app version row within 5 seconds.
-          - Production builds omit the menu or require a support flag.
-          - Unlock state expires after 30 minutes or app restart.
-        acceptanceCriteria:
-          - id: AC1
-            given: a debug build shows About
-            when: version row is tapped seven times within 5 seconds
-            then: diagnostics menu appears within 300 ms
-          - id: AC2
-            given: the menu is unlocked
-            when: 31 minutes pass or the app restarts
-            then: the menu is locked again
-        implementation:
-          notes: >-
-            Keep unlock state in memory, not Preferences. Gate diagnostic routes with compilation symbols and IDebugMenuState and show a DXPopup confirmation.
-          touches: [src/Forge.App/Features/Settings/AboutPage.xaml]
-          devexpress: [DXPopup, DXButton]
-          apis: [Microsoft.Maui.Controls.GestureRecognizer]
-        testing:
-          - Seven-tap timing, expiry and release-route tests.
-      - key: S32.05.02
-        title: Add safe actions to the developer menu
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [security, privacy]
-        userStory:
-          asA: Forge team member
-          iWant: safe diagnostic actions in one place
-          soThat: ad hoc debug buttons do not spread through the app
-        requirements:
-          - Menu links to traces, inspector, storage usage, data inventory, event logs and bundle review.
-          - Destructive actions are grouped separately and require typed confirmation.
-          - Opening the menu writes no database data except a local technical event.
-        acceptanceCriteria:
-          - id: AC1
-            given: the debug menu is unlocked
-            when: it opens
-            then: safe actions appear with build availability labels
-          - id: AC2
-            given: a destructive cache clear action is tapped
-            when: confirmation opens
-            then: CLEAR is required before file deletion
-        implementation:
-          notes: >-
-            Render grouped action descriptors with DXCollectionView and forbid raw SQL execution, arbitrary file browsing or hidden export shortcuts in v1.
-          touches: [src/Forge.App/Features/Diagnostics/DeveloperMenuPage.xaml]
-          devexpress: [DXCollectionView, DXPopup, DXButton]
-          apis: [Microsoft.Maui.Controls.ICommand]
-        testing:
-          - Menu descriptor tests and destructive confirmation UI tests.
-      - key: S32.05.03
-        title: Require local verification for sensitive diagnostics
-        wave: 3
-        size: m
-        platforms: [android, ios]
-        persona: team
-        concerns: [security, privacy]
-        userStory:
-          asA: Forge team member
-          iWant: sensitive screens gated again
-          soThat: metadata is not exposed after a casual phone handoff
-        requirements:
-          - Database inspector, data inventory and bundle review require recent device unlock or biometric confirmation where available.
-          - Authentication success is cached for no more than 5 minutes.
-          - Failure leaves the target screen closed.
-        acceptanceCriteria:
-          - id: AC1
-            given: debug menu is unlocked with no recent verification
-            when: database inspector is opened
-            then: a platform authentication prompt appears first
-          - id: AC2
-            given: authentication is cancelled
-            when: the prompt closes
-            then: inspector remains closed and no metadata is shown
-        implementation:
-          notes: >-
-            Create ILocalUserVerificationService with platform implementations in Forge.App. This gate protects support surfaces but does not replace SQLCipher or device lock.
-          touches: [src/Forge.Application/Security/ILocalUserVerificationService.cs]
-          apis: [AndroidX.Biometric, LocalAuthentication.LAContext]
-        testing:
-          - Cache-expiry unit tests and manual platform authentication tests.
-        openQuestions:
-          - Confirm the final MAUI 10 biometric dependency before implementation.
+    userStory:
+      asA: Forge team member
+      iWant: safe metadata inspection tools
+      soThat: schema issues can be diagnosed without raw health data
+    requirements:
+    - Inspector is available only in debug or support builds after debug-menu unlock.
+    - It shows table names, row counts, schema version, migrations and index list.
+    - Metadata loads in under 2 seconds on the 50,000 set fixture.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: a production build runs
+      when: debug gestures are performed
+      then: the inspector route remains unavailable
+    - id: AC2
+      given: a support build is unlocked
+      when: inspector opens on the large fixture
+      then: table counts and migrations load under 2 seconds
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Expose IDatabaseInspectorService with metadata queries only and no generic SQL box in v1. Gate UI by compilation symbol
+        and debug state.  Implement this in src/Forge.Core/Diagnostics/IDatabaseInspectorService.cs using Microsoft.Extensions.Logging,
+        app-private cache or AppDataDirectory storage, and DevExpress review controls where UI is needed. Use allow-listed
+        typed event properties such as route, status, duration bucket and file size, never arbitrary message templates or
+        domain objects. Enforce rotation, retention and local-only sharing through the OS sheet. A careless implementation
+        would log exception.ToString with notes, keep unlimited files, or add an automatic crash upload that breaks Forge
+        local-first privacy.
+      touches: [src/Forge.Core/Diagnostics/IDatabaseInspectorService.cs]
+      devexpress:
+      - DXCollectionView
+      - DXExpander
+      apis:
+      - SQLite PRAGMA table_info
+      - Microsoft.EntityFrameworkCore.Infrastructure
+    testing:
+    - Release route absence and metadata load performance tests.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: EF Core SQLite provider
+      url: https://learn.microsoft.com/ef/core/providers/sqlite/
+      note: Grounds the local SQLite provider used by ForgeDbContext.
+    - title: SQLite PRAGMA statements
+      url: https://www.sqlite.org/pragma.html
+      note: Grounds quick_check, integrity_check and SQLite runtime checks.
+    - title: GDPR Article 9
+      url: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679
+      note: Grounds treating health and fitness records as special-category data.
+- key: F32.05
+  title: Gate deliberate developer diagnostics
+  wave: 3
+  summary: >-
+    Hide internal diagnostics behind deliberate gestures, expiry and local verification so support tools do not leak into
+    normal use.
+  outcome: >-
+    Diagnostic tools are available when intended and absent or locked when risky.
+  concerns: [security, privacy]
+  dependsOn: [F32.03, F32.04]
+  stories:
+  - key: S32.05.01
+    title: Unlock a developer menu with a deliberate gesture
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: team
+    concerns: [security]
+    userStory:
+      asA: Forge team member
+      iWant: a hidden diagnostics menu
+      soThat: test tools do not clutter the product UI
+    requirements:
+    - Unlock requires seven taps on the app version row within 5 seconds.
+    - Production builds omit the menu or require a support flag.
+    - Unlock state expires after 30 minutes or app restart.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: a debug build shows About
+      when: version row is tapped seven times within 5 seconds
+      then: diagnostics menu appears within 300 ms
+    - id: AC2
+      given: the menu is unlocked
+      when: 31 minutes pass or the app restarts
+      then: the menu is locked again
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Keep unlock state in memory, not Preferences. Gate diagnostic routes with compilation symbols and IDebugMenuState
+        and show a DXPopup confirmation.  Implement this in src/Forge.App/Features/Settings/AboutPage.xaml using Microsoft.Extensions.Logging,
+        app-private cache or AppDataDirectory storage, and DevExpress review controls where UI is needed. Use allow-listed
+        typed event properties such as route, status, duration bucket and file size, never arbitrary message templates or
+        domain objects. Enforce rotation, retention and local-only sharing through the OS sheet. A careless implementation
+        would log exception.ToString with notes, keep unlimited files, or add an automatic crash upload that breaks Forge
+        local-first privacy.
+      touches: [src/Forge.App/Features/Settings/AboutPage.xaml]
+      devexpress:
+      - DXPopup
+      - DXButton
+      apis:
+      - Microsoft.Maui.Controls.GestureRecognizer
+    testing:
+    - Seven-tap timing, expiry and release-route tests.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: DevExpress MAUI CollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Grounds virtualised review, history and diagnostics lists.
+    - title: DevExpress MAUI Popup
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.DXPopup
+      note: Grounds explicit confirmations and review dialogs.
+    - title: .NET MAUI accessibility
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/accessibility
+      note: Grounds accessible review and confirmation screens.
+  - key: S32.05.02
+    title: Add safe actions to the developer menu
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: team
+    concerns: [security, privacy]
+    userStory:
+      asA: Forge team member
+      iWant: safe diagnostic actions in one place
+      soThat: ad hoc debug buttons do not spread through the app
+    requirements:
+    - Menu links to traces, inspector, storage usage, data inventory, event logs and bundle review.
+    - Destructive actions are grouped separately and require typed confirmation.
+    - Opening the menu writes no database data except a local technical event.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: the debug menu is unlocked
+      when: it opens
+      then: safe actions appear with build availability labels
+    - id: AC2
+      given: a destructive cache clear action is tapped
+      when: confirmation opens
+      then: CLEAR is required before file deletion
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Render grouped action descriptors with DXCollectionView and forbid raw SQL execution, arbitrary file browsing or hidden
+        export shortcuts in v1.  Implement this in src/Forge.App/Features/Diagnostics/DeveloperMenuPage.xaml using Microsoft.Extensions.Logging,
+        app-private cache or AppDataDirectory storage, and DevExpress review controls where UI is needed. Use allow-listed
+        typed event properties such as route, status, duration bucket and file size, never arbitrary message templates or
+        domain objects. Enforce rotation, retention and local-only sharing through the OS sheet. A careless implementation
+        would log exception.ToString with notes, keep unlimited files, or add an automatic crash upload that breaks Forge
+        local-first privacy.
+      touches: [src/Forge.App/Features/Diagnostics/DeveloperMenuPage.xaml]
+      devexpress:
+      - DXCollectionView
+      - DXPopup
+      - DXButton
+      apis:
+      - Microsoft.Maui.Controls.ICommand
+    testing:
+    - Menu descriptor tests and destructive confirmation UI tests.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    grounding:
+    - title: DevExpress MAUI CollectionView
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+      note: Grounds virtualised review, history and diagnostics lists.
+    - title: DevExpress MAUI Popup
+      url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.DXPopup
+      note: Grounds explicit confirmations and review dialogs.
+    - title: .NET MAUI accessibility
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/accessibility
+      note: Grounds accessible review and confirmation screens.
+  - key: S32.05.03
+    title: Require local verification for sensitive diagnostics
+    wave: 3
+    size: m
+    platforms: [android, ios]
+    persona: team
+    concerns: [security, privacy]
+    userStory:
+      asA: Forge team member
+      iWant: sensitive screens gated again
+      soThat: metadata is not exposed after a casual phone handoff
+    requirements:
+    - Database inspector, data inventory and bundle review require recent device unlock or biometric confirmation where 
+      available.
+    - Authentication success is cached for no more than 5 minutes.
+    - Failure leaves the target screen closed.
+    - No health data, food entries, body metrics or free-text notes may appear in diagnostics at any log level.
+    - Diagnostic files must remain local, bounded by rotation or retention limits, and shared only after explicit review
+      for the current incident.
+    acceptanceCriteria:
+    - id: AC1
+      given: debug menu is unlocked with no recent verification
+      when: database inspector is opened
+      then: a platform authentication prompt appears first
+    - id: AC2
+      given: authentication is cancelled
+      when: the prompt closes
+      then: inspector remains closed and no metadata is shown
+    - id: AC3
+      given: diagnostics are generated after workouts, meals, body metrics and notes exist
+      when: all log, trace and bundle files are scanned
+      then: zero health values, food names, body metric values or free-text notes are present
+    - id: AC4
+      given: the user does not tap the explicit Share action for this incident
+      when: diagnostics are produced and reviewed
+      then: Forge performs no upload, no background retry and no automatic recipient selection
+    implementation:
+      notes: >-
+        Create ILocalUserVerificationService with platform implementations in Forge.App. This gate protects support surfaces
+        but does not replace SQLCipher or device lock.  Implement this in src/Forge.Core/Security/ILocalUserVerificationService.cs
+        using Microsoft.Extensions.Logging, app-private cache or AppDataDirectory storage, and DevExpress review controls
+        where UI is needed. Use allow-listed typed event properties such as route, status, duration bucket and file size,
+        never arbitrary message templates or domain objects. Enforce rotation, retention and local-only sharing through the
+        OS sheet. A careless implementation would log exception.ToString with notes, keep unlimited files, or add an automatic
+        crash upload that breaks Forge local-first privacy.
+      touches: [src/Forge.Core/Security/ILocalUserVerificationService.cs]
+      apis:
+      - AndroidX.Biometric
+      - LocalAuthentication.LAContext
+    testing:
+    - Cache-expiry unit tests and manual platform authentication tests.
+    - Redaction fixture scanning every retained diagnostic artifact for seeded health, food, body metric and note 
+      values.
+    - No-network test proving diagnostics never transmit before explicit OS share action.
+    openQuestions:
+    - Confirm the final MAUI 10 biometric dependency before implementation.
+    grounding:
+    - title: GDPR Article 9
+      url: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679
+      note: Grounds treating health and fitness records as special-category data.
+    - title: .NET MAUI accessibility
+      url: https://learn.microsoft.com/dotnet/maui/fundamentals/accessibility
+      note: Grounds accessible review and confirmation screens.

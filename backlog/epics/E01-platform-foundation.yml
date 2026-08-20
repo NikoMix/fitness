@@ -77,8 +77,8 @@ features:
           iWant: a solution whose folder structure states the architecture unambiguously
           soThat: I know where new code belongs without asking anyone
         requirements:
-          - Solution contains Forge.Domain, Forge.Application, Forge.Infrastructure, Forge.Health and Forge.App under src/, and matching unit test projects under tests/.
-          - Forge.Domain and Forge.Application target net10.0 and reference neither Microsoft.Maui.* nor DevExpress.Maui.*.
+          - Solution contains Forge.Domain, Forge.Core, Forge.Infrastructure, Forge.Health and Forge.App under src/, and matching unit test projects under tests/.
+          - Forge.Domain and Forge.Core target net10.0 and reference neither Microsoft.Maui.* nor DevExpress.Maui.*.
           - Forge.App multi-targets net10.0-android and net10.0-ios only. Windows and Mac Catalyst target frameworks must be absent.
           - Android minimum SDK is API 26; iOS minimum deployment target is 15.0.
           - All package versions resolve from Directory.Packages.props; no PackageReference carries an inline Version attribute.
@@ -100,7 +100,7 @@ features:
             Create projects with dotnet new (classlib for the inner layers, maui for the head)
             then strip the generated Windows and Mac Catalyst target frameworks from Forge.App.
             Enforce the dependency rule with a NuGet-free guard: add a Directory.Build.targets
-            under src/Forge.Domain and src/Forge.Application containing a custom target that
+            under src/Forge.Domain and src/Forge.Core containing a custom target that
             runs before Build, inspects @(PackageReference) and @(ProjectReference), and raises
             an MSBuild Error for any identity matching Microsoft.Maui* or DevExpress*. This
             keeps the check in the compiler rather than relying on review discipline. Enable
@@ -109,7 +109,7 @@ features:
           touches:
             - Forge.sln
             - src/Forge.Domain/Forge.Domain.csproj
-            - src/Forge.Application/Forge.Application.csproj
+            - src/Forge.Core/Forge.Core.csproj
             - src/Forge.Infrastructure/Forge.Infrastructure.csproj
             - src/Forge.App/Forge.App.csproj
             - src/Directory.Build.targets
@@ -307,7 +307,7 @@ features:
           iWant: to navigate by route with typed parameters
           soThat: my ViewModel stays unit-testable and free of MAUI page types
         requirements:
-          - INavigationService is declared in Forge.Application and exposes GoToAsync, GoBackAsync and ShowModalAsync.
+          - INavigationService is declared in Forge.Core and exposes GoToAsync, GoBackAsync and ShowModalAsync.
           - Routes are declared as constants in one place; no magic strings at call sites.
           - Parameters are passed as a typed object, not a loosely typed dictionary, at the call site.
           - Navigating to an unregistered route throws a descriptive exception naming the route.
@@ -327,7 +327,7 @@ features:
             then: the modal is dismissed and the underlying tab retains its scroll position
         implementation:
           notes: >-
-            Declare INavigationService in Forge.Application/Abstractions so inner layers depend
+            Declare INavigationService in Forge.Core/Abstractions so inner layers depend
             only on the interface. Implement it in Forge.App/Navigation/ShellNavigationService
             over Shell.Current.GoToAsync. Register routes in a static ForgeRoutes class holding
             const strings, and register them with Routing.RegisterRoute at startup. Pass typed
@@ -337,7 +337,7 @@ features:
             modals by overriding OnBackButtonPressed on the modal page and delegating to the
             navigation service so the behaviour is defined in one place.
           touches:
-            - src/Forge.Application/Abstractions/INavigationService.cs
+            - src/Forge.Core/Abstractions/INavigationService.cs
             - src/Forge.App/Navigation/ShellNavigationService.cs
             - src/Forge.App/Navigation/ForgeRoutes.cs
           apis:
