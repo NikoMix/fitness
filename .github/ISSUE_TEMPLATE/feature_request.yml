@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose a new capability or product improvement.
+title: "[Feature]: "
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user need or workflow gap does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behaviour.
+    validations:
+      required: true
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Platforms
+      multiple: true
+      options:
+        - Android
+        - iOS
+    validations:
+      required: true
+  - type: textarea
+    id: accessibility
+    attributes:
+      label: Accessibility considerations
+      description: How should this remain usable with assistive technology, large text, and colour blindness?
+  - type: textarea
+    id: performance
+    attributes:
+      label: Performance considerations
+      description: Note any impact on startup, scrolling, memory, interaction latency, or Android package size.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

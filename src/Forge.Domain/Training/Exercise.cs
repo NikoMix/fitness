@@ -14,8 +14,29 @@ public sealed class Exercise : Entity
     /// <summary>Primary muscle group worked.</summary>
     public string? PrimaryMuscle { get; set; }
 
+    /// <summary>Secondary muscle groups that materially contribute to the movement.</summary>
+    public List<string> SecondaryMuscles { get; set; } = [];
+
     /// <summary>Equipment required, or <see langword="null"/> for bodyweight.</summary>
     public string? Equipment { get; set; }
+
+    /// <summary>How technically and physically demanding the exercise is for a typical trainee.</summary>
+    public ExerciseDifficulty Difficulty { get; set; } = ExerciseDifficulty.Beginner;
+
+    /// <summary>The broad direction or nature of force production.</summary>
+    public ExerciseForceType ForceType { get; set; } = ExerciseForceType.Mixed;
+
+    /// <summary>Concise execution steps, ordered from setup to finish.</summary>
+    public List<string> ExecutionSteps { get; set; } = [];
+
+    /// <summary>Common technique errors to avoid.</summary>
+    public List<string> CommonMistakes { get; set; } = [];
+
+    /// <summary>Short coaching cues that help the user perform the movement well.</summary>
+    public List<string> CoachingCues { get; set; } = [];
+
+    /// <summary>Safety notes and regressions that should be shown before loading the movement.</summary>
+    public List<string> SafetyNotes { get; set; } = [];
 
     /// <summary>Whether the movement is performed one side at a time.</summary>
     public bool IsUnilateral { get; set; }

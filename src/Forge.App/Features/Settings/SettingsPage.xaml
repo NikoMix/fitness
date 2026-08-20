@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Features.Settings.SettingsPage"
+             Title="Settings"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid Padding="{StaticResource PagePadding}" RowDefinitions="Auto,*" RowSpacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+            <Label Text="Settings"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Search settings" Style="{StaticResource CaptionText}" />
+            <dx:TextEdit Text="{Binding SearchText}"
+                         Style="{StaticResource ForgeTextEdit}" />
+        </VerticalStackLayout>
+
+        <dx:DXCollectionView Grid.Row="1"
+                             ItemsSource="{Binding FilteredItems}">
+            <dx:DXCollectionView.ItemTemplate>
+                <DataTemplate>
+                    <dx:DXBorder Style="{StaticResource ListRow}">
+                        <dx:DXBorder.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding NavigateCommand}" />
+                        </dx:DXBorder.GestureRecognizers>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                <Label Text="{Binding Group}"
+                                       Style="{StaticResource CaptionText}" />
+                                <Label Text="{Binding Title}"
+                                       Style="{StaticResource TitleText}" />
+                                <Label Text="{Binding Description}"
+                                       Style="{StaticResource SecondaryText}" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1"
+                                   Text="›"
+                                   Style="{StaticResource TitleText}"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </dx:DXBorder>
+                </DataTemplate>
+            </dx:DXCollectionView.ItemTemplate>
+        </dx:DXCollectionView>
+    </Grid>
+</ContentPage>

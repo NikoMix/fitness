@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Features.Settings.DeleteMyDataPage"
+             Title="Delete my data"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Delete my data"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Irreversible deletion"
+                           Style="{StaticResource TitleText}" />
+                    <Label Text="Because Forge has no cloud backup, deleted data cannot be recovered by you, by support or by reinstalling the app."
+                           Style="{StaticResource BodyText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="What will be erased" Style="{StaticResource TitleText}" />
+                    <Label Text="• The encrypted local SQLite database&#10;• The encryption key held in secure storage&#10;• Cached exercise or food media&#10;• App preferences, including unit and notification choices&#10;• Any temporary files created for exports"
+                           Style="{StaticResource BodyText}" />
+                    <Label Text="{Binding StorageSummary}" Style="{StaticResource SecondaryText}" />
+                    <Label Text="{Binding WiringStatus}" Style="{StaticResource CaptionText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Export first" Style="{StaticResource TitleText}" />
+                    <Label Text="If you want to keep a copy, export a backup before continuing. Backup export is a separate feature, but this deletion flow exposes the required hook."
+                           Style="{StaticResource SecondaryText}" />
+                    <dx:DXButton Content="Export backup before deleting"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Command="{Binding ExportBackupCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Deliberate confirmation" Style="{StaticResource TitleText}" />
+                    <Label Text="Type DELETE to enable permanent erasure."
+                           Style="{StaticResource SecondaryText}" />
+                    <dx:TextEdit Text="{Binding ConfirmationText}"
+                                 Style="{StaticResource ForgeTextEdit}" />
+                    <dx:DXButton Content="Erase all local data permanently"
+                                 Style="{StaticResource PrimaryButton}"
+                                 Command="{Binding EraseAllDataCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

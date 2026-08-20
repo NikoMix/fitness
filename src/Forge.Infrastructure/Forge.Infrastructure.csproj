@@ -16,4 +16,9 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="Content\exercise-catalogue.json" />
+    <EmbeddedResource Include="Content\exercise-catalogue.json" />
+  </ItemGroup>
+
 </Project>

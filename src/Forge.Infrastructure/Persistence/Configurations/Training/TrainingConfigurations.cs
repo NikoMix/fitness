@@ -2,12 +2,15 @@ using Forge.Domain.Measurement;
 using Forge.Domain.Training;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using System.Text.Json;
 
 namespace Forge.Infrastructure.Persistence.Configurations.Training;
 
 /// <summary>Maps <see cref="Exercise"/>.</summary>
 public sealed class ExerciseConfiguration : IEntityTypeConfiguration<Exercise>
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     /// <inheritdoc />
     public void Configure(EntityTypeBuilder<Exercise> builder)
     {
@@ -16,7 +19,27 @@ public sealed class ExerciseConfiguration : IEntityTypeConfiguration<Exercise>
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Name).HasMaxLength(200).IsRequired();
         builder.Property(e => e.PrimaryMuscle).HasMaxLength(100);
+        builder.Property(e => e.SecondaryMuscles)
+               .HasConversion(
+                   muscles => SerializeList(muscles),
+                   value => DeserializeList(value));
         builder.Property(e => e.Equipment).HasMaxLength(100);
+        builder.Property(e => e.ExecutionSteps)
+               .HasConversion(
+                   steps => SerializeList(steps),
+                   value => DeserializeList(value));
+        builder.Property(e => e.CommonMistakes)
+               .HasConversion(
+                   mistakes => SerializeList(mistakes),
+                   value => DeserializeList(value));
+        builder.Property(e => e.CoachingCues)
+               .HasConversion(
+                   cues => SerializeList(cues),
+                   value => DeserializeList(value));
+        builder.Property(e => e.SafetyNotes)
+               .HasConversion(
+                   notes => SerializeList(notes),
+                   value => DeserializeList(value));
 
         // The catalogue is browsed and searched constantly. Filtering by equipment is the
         // highest-value filter in the product because it answers "what can I actually do with
@@ -25,6 +48,14 @@ public sealed class ExerciseConfiguration : IEntityTypeConfiguration<Exercise>
         builder.HasIndex(e => e.Equipment);
         builder.HasIndex(e => e.Pattern);
     }
+
+    private static string SerializeList(List<string> values)
+        => JsonSerializer.Serialize(values, JsonOptions);
+
+    private static List<string> DeserializeList(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? []
+            : JsonSerializer.Deserialize<List<string>>(value, JsonOptions) ?? [];
 }
 
 /// <summary>Maps <see cref="WorkoutSession"/>.</summary>

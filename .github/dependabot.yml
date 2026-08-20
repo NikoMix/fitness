@@ -1,0 +1,39 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 5
+    groups:
+      maui-and-devexpress:
+        patterns:
+          - Microsoft.Maui.*
+          - DevExpress.Maui.*
+      ef-core:
+        patterns:
+          - Microsoft.EntityFrameworkCore*
+      test-stack:
+        patterns:
+          - xunit.*
+          - Shouldly
+          - NSubstitute
+          - coverlet.*
+      microsoft-extensions:
+        patterns:
+          - Microsoft.Extensions.*
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: Europe/Amsterdam
+    groups:
+      github-actions:
+        patterns:
+          - "*"

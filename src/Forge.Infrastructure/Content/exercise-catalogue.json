@@ -1,0 +1,2005 @@
+{
+  "version": 1,
+  "provenance": "Original Forge seed content written from scratch for offline distribution; do not copy third-party exercise databases.",
+  "exercises": [
+    {
+      "name": "Bodyweight Squat",
+      "pattern": "Squat",
+      "primaryMuscle": "Quadriceps",
+      "secondaryMuscles": [
+        "Glutes",
+        "Core"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set your feet firmly and brace before you descend.",
+        "Sit between your hips while keeping your whole foot grounded.",
+        "Drive the floor away and finish tall without leaning back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Whole foot heavy.",
+        "Knees follow toes.",
+        "Tall chest, quiet ribs."
+      ],
+      "safetyNotes": [
+        "Reduce depth or load if the knee or hip feels sharp pain.",
+        "Use a stable support when learning the pattern."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Goblet Squat",
+      "pattern": "Squat",
+      "primaryMuscle": "Quadriceps",
+      "secondaryMuscles": [
+        "Glutes",
+        "Upper back"
+      ],
+      "equipment": "Dumbbell",
+      "difficulty": "Beginner",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set your feet firmly and brace before you descend.",
+        "Sit between your hips while keeping your whole foot grounded.",
+        "Drive the floor away and finish tall without leaning back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Whole foot heavy.",
+        "Knees follow toes.",
+        "Tall chest, quiet ribs."
+      ],
+      "safetyNotes": [
+        "Reduce depth or load if the knee or hip feels sharp pain.",
+        "Use a stable support when learning the pattern."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Front Squat",
+      "pattern": "Squat",
+      "primaryMuscle": "Quadriceps",
+      "secondaryMuscles": [
+        "Glutes",
+        "Core",
+        "Upper back"
+      ],
+      "equipment": "Barbell",
+      "difficulty": "Advanced",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set your feet firmly and brace before you descend.",
+        "Sit between your hips while keeping your whole foot grounded.",
+        "Drive the floor away and finish tall without leaning back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Whole foot heavy.",
+        "Knees follow toes.",
+        "Tall chest, quiet ribs."
+      ],
+      "safetyNotes": [
+        "Reduce depth or load if the knee or hip feels sharp pain.",
+        "Use a stable support when learning the pattern."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Box Squat",
+      "pattern": "Squat",
+      "primaryMuscle": "Glutes",
+      "secondaryMuscles": [
+        "Quadriceps",
+        "Hamstrings"
+      ],
+      "equipment": "Barbell",
+      "difficulty": "Intermediate",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set your feet firmly and brace before you descend.",
+        "Sit between your hips while keeping your whole foot grounded.",
+        "Drive the floor away and finish tall without leaning back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Whole foot heavy.",
+        "Knees follow toes.",
+        "Tall chest, quiet ribs."
+      ],
+      "safetyNotes": [
+        "Reduce depth or load if the knee or hip feels sharp pain.",
+        "Use a stable support when learning the pattern."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Leg Press",
+      "pattern": "Squat",
+      "primaryMuscle": "Quadriceps",
+      "secondaryMuscles": [
+        "Glutes",
+        "Hamstrings"
+      ],
+      "equipment": "Machine",
+      "difficulty": "Beginner",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set your feet firmly and brace before you descend.",
+        "Sit between your hips while keeping your whole foot grounded.",
+        "Drive the floor away and finish tall without leaning back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Whole foot heavy.",
+        "Knees follow toes.",
+        "Tall chest, quiet ribs."
+      ],
+      "safetyNotes": [
+        "Reduce depth or load if the knee or hip feels sharp pain.",
+        "Use a stable support when learning the pattern."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Wall Sit",
+      "pattern": "Squat",
+      "primaryMuscle": "Quadriceps",
+      "secondaryMuscles": [
+        "Glutes",
+        "Core"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Static",
+      "executionSteps": [
+        "Set your feet firmly and brace before you descend.",
+        "Sit between your hips while keeping your whole foot grounded.",
+        "Drive the floor away and finish tall without leaning back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Whole foot heavy.",
+        "Knees follow toes.",
+        "Tall chest, quiet ribs."
+      ],
+      "safetyNotes": [
+        "Reduce depth or load if the knee or hip feels sharp pain.",
+        "Use a stable support when learning the pattern."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Hip Hinge Drill",
+      "pattern": "Hinge",
+      "primaryMuscle": "Hamstrings",
+      "secondaryMuscles": [
+        "Glutes",
+        "Core"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Mobility",
+      "executionSteps": [
+        "Stand tall and brace with soft knees.",
+        "Push your hips back until you feel tension through the back of the thighs.",
+        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Hips back, spine long.",
+        "Feel the hamstrings load.",
+        "Finish with glutes, not your low back."
+      ],
+      "safetyNotes": [
+        "Keep load close and stop if the low back takes over.",
+        "Choose a lighter implement until the hip hinge is consistent."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Romanian Deadlift",
+      "pattern": "Hinge",
+      "primaryMuscle": "Hamstrings",
+      "secondaryMuscles": [
+        "Glutes",
+        "Lower back"
+      ],
+      "equipment": "Barbell",
+      "difficulty": "Intermediate",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Stand tall and brace with soft knees.",
+        "Push your hips back until you feel tension through the back of the thighs.",
+        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Hips back, spine long.",
+        "Feel the hamstrings load.",
+        "Finish with glutes, not your low back."
+      ],
+      "safetyNotes": [
+        "Keep load close and stop if the low back takes over.",
+        "Choose a lighter implement until the hip hinge is consistent."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Dumbbell Romanian Deadlift",
+      "pattern": "Hinge",
+      "primaryMuscle": "Hamstrings",
+      "secondaryMuscles": [
+        "Glutes",
+        "Upper back"
+      ],
+      "equipment": "Dumbbell",
+      "difficulty": "Beginner",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Stand tall and brace with soft knees.",
+        "Push your hips back until you feel tension through the back of the thighs.",
+        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Hips back, spine long.",
+        "Feel the hamstrings load.",
+        "Finish with glutes, not your low back."
+      ],
+      "safetyNotes": [
+        "Keep load close and stop if the low back takes over.",
+        "Choose a lighter implement until the hip hinge is consistent."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Kettlebell Swing",
+      "pattern": "Hinge",
+      "primaryMuscle": "Glutes",
+      "secondaryMuscles": [
+        "Hamstrings",
+        "Core"
+      ],
+      "equipment": "Kettlebell",
+      "difficulty": "Intermediate",
+      "forceType": "Mixed",
+      "executionSteps": [
+        "Stand tall and brace with soft knees.",
+        "Push your hips back until you feel tension through the back of the thighs.",
+        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Hips back, spine long.",
+        "Feel the hamstrings load.",
+        "Finish with glutes, not your low back."
+      ],
+      "safetyNotes": [
+        "Keep load close and stop if the low back takes over.",
+        "Choose a lighter implement until the hip hinge is consistent."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Cable Pull Through",
+      "pattern": "Hinge",
+      "primaryMuscle": "Glutes",
+      "secondaryMuscles": [
+        "Hamstrings",
+        "Core"
+      ],
+      "equipment": "Cable",
+      "difficulty": "Beginner",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Stand tall and brace with soft knees.",
+        "Push your hips back until you feel tension through the back of the thighs.",
+        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Hips back, spine long.",
+        "Feel the hamstrings load.",
+        "Finish with glutes, not your low back."
+      ],
+      "safetyNotes": [
+        "Keep load close and stop if the low back takes over.",
+        "Choose a lighter implement until the hip hinge is consistent."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Trap Bar Deadlift",
+      "pattern": "Hinge",
+      "primaryMuscle": "Glutes",
+      "secondaryMuscles": [
+        "Quadriceps",
+        "Hamstrings",
+        "Upper back"
+      ],
+      "equipment": "Trap bar",
+      "difficulty": "Intermediate",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Stand tall and brace with soft knees.",
+        "Push your hips back until you feel tension through the back of the thighs.",
+        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Hips back, spine long.",
+        "Feel the hamstrings load.",
+        "Finish with glutes, not your low back."
+      ],
+      "safetyNotes": [
+        "Keep load close and stop if the low back takes over.",
+        "Choose a lighter implement until the hip hinge is consistent."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Push Up",
+      "pattern": "Push",
+      "primaryMuscle": "Chest",
+      "secondaryMuscles": [
+        "Triceps",
+        "Shoulders",
+        "Core"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set the shoulder blades and brace your trunk.",
+        "Lower or press with the elbows tracking comfortably from the body.",
+        "Finish with control and keep the neck relaxed."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Brace before you press.",
+        "Reach long without shrugging.",
+        "Control the lower."
+      ],
+      "safetyNotes": [
+        "Use a pain-free shoulder range and avoid flared, forced elbows.",
+        "Elevate the hands or reduce load if the wrist or shoulder complains."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Incline Push Up",
+      "pattern": "Push",
+      "primaryMuscle": "Chest",
+      "secondaryMuscles": [
+        "Triceps",
+        "Shoulders"
+      ],
+      "equipment": "Bench",
+      "difficulty": "Beginner",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set the shoulder blades and brace your trunk.",
+        "Lower or press with the elbows tracking comfortably from the body.",
+        "Finish with control and keep the neck relaxed."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Brace before you press.",
+        "Reach long without shrugging.",
+        "Control the lower."
+      ],
+      "safetyNotes": [
+        "Use a pain-free shoulder range and avoid flared, forced elbows.",
+        "Elevate the hands or reduce load if the wrist or shoulder complains."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Dumbbell Bench Press",
+      "pattern": "Push",
+      "primaryMuscle": "Chest",
+      "secondaryMuscles": [
+        "Triceps",
+        "Shoulders"
+      ],
+      "equipment": "Dumbbell",
+      "difficulty": "Intermediate",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set the shoulder blades and brace your trunk.",
+        "Lower or press with the elbows tracking comfortably from the body.",
+        "Finish with control and keep the neck relaxed."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Brace before you press.",
+        "Reach long without shrugging.",
+        "Control the lower."
+      ],
+      "safetyNotes": [
+        "Use a pain-free shoulder range and avoid flared, forced elbows.",
+        "Elevate the hands or reduce load if the wrist or shoulder complains."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Barbell Bench Press",
+      "pattern": "Push",
+      "primaryMuscle": "Chest",
+      "secondaryMuscles": [
+        "Triceps",
+        "Shoulders"
+      ],
+      "equipment": "Barbell",
+      "difficulty": "Intermediate",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set the shoulder blades and brace your trunk.",
+        "Lower or press with the elbows tracking comfortably from the body.",
+        "Finish with control and keep the neck relaxed."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Brace before you press.",
+        "Reach long without shrugging.",
+        "Control the lower."
+      ],
+      "safetyNotes": [
+        "Use a pain-free shoulder range and avoid flared, forced elbows.",
+        "Elevate the hands or reduce load if the wrist or shoulder complains."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Seated Dumbbell Shoulder Press",
+      "pattern": "Push",
+      "primaryMuscle": "Shoulders",
+      "secondaryMuscles": [
+        "Triceps",
+        "Upper chest"
+      ],
+      "equipment": "Dumbbell",
+      "difficulty": "Intermediate",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set the shoulder blades and brace your trunk.",
+        "Lower or press with the elbows tracking comfortably from the body.",
+        "Finish with control and keep the neck relaxed."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Brace before you press.",
+        "Reach long without shrugging.",
+        "Control the lower."
+      ],
+      "safetyNotes": [
+        "Use a pain-free shoulder range and avoid flared, forced elbows.",
+        "Elevate the hands or reduce load if the wrist or shoulder complains."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Cable Chest Press",
+      "pattern": "Push",
+      "primaryMuscle": "Chest",
+      "secondaryMuscles": [
+        "Triceps",
+        "Shoulders"
+      ],
+      "equipment": "Cable",
+      "difficulty": "Beginner",
+      "forceType": "Push",
+      "executionSteps": [
+        "Set the shoulder blades and brace your trunk.",
+        "Lower or press with the elbows tracking comfortably from the body.",
+        "Finish with control and keep the neck relaxed."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Brace before you press.",
+        "Reach long without shrugging.",
+        "Control the lower."
+      ],
+      "safetyNotes": [
+        "Use a pain-free shoulder range and avoid flared, forced elbows.",
+        "Elevate the hands or reduce load if the wrist or shoulder complains."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Band Row",
+      "pattern": "Pull",
+      "primaryMuscle": "Upper back",
+      "secondaryMuscles": [
+        "Lats",
+        "Biceps"
+      ],
+      "equipment": "Resistance band",
+      "difficulty": "Beginner",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Start with a long spine and shoulders set down away from the ears.",
+        "Pull by driving the elbows, not by shrugging.",
+        "Pause briefly, then return with control until the arms are long."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Lead with elbows.",
+        "Shoulders down.",
+        "Pause where the back works hardest."
+      ],
+      "safetyNotes": [
+        "Avoid yanking from a stretched shoulder position.",
+        "Choose assistance or a lighter load if the neck starts to tense."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "One Arm Dumbbell Row",
+      "pattern": "Pull",
+      "primaryMuscle": "Lats",
+      "secondaryMuscles": [
+        "Upper back",
+        "Biceps",
+        "Core"
+      ],
+      "equipment": "Dumbbell",
+      "difficulty": "Beginner",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Start with a long spine and shoulders set down away from the ears.",
+        "Pull by driving the elbows, not by shrugging.",
+        "Pause briefly, then return with control until the arms are long."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Lead with elbows.",
+        "Shoulders down.",
+        "Pause where the back works hardest."
+      ],
+      "safetyNotes": [
+        "Avoid yanking from a stretched shoulder position.",
+        "Choose assistance or a lighter load if the neck starts to tense."
+      ],
+      "isUnilateral": true,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Lat Pulldown",
+      "pattern": "Pull",
+      "primaryMuscle": "Lats",
+      "secondaryMuscles": [
+        "Upper back",
+        "Biceps"
+      ],
+      "equipment": "Machine",
+      "difficulty": "Beginner",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Start with a long spine and shoulders set down away from the ears.",
+        "Pull by driving the elbows, not by shrugging.",
+        "Pause briefly, then return with control until the arms are long."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Lead with elbows.",
+        "Shoulders down.",
+        "Pause where the back works hardest."
+      ],
+      "safetyNotes": [
+        "Avoid yanking from a stretched shoulder position.",
+        "Choose assistance or a lighter load if the neck starts to tense."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Pull Up",
+      "pattern": "Pull",
+      "primaryMuscle": "Lats",
+      "secondaryMuscles": [
+        "Upper back",
+        "Biceps",
+        "Core"
+      ],
+      "equipment": "Pull-up bar",
+      "difficulty": "Advanced",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Start with a long spine and shoulders set down away from the ears.",
+        "Pull by driving the elbows, not by shrugging.",
+        "Pause briefly, then return with control until the arms are long."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Lead with elbows.",
+        "Shoulders down.",
+        "Pause where the back works hardest."
+      ],
+      "safetyNotes": [
+        "Avoid yanking from a stretched shoulder position.",
+        "Choose assistance or a lighter load if the neck starts to tense."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Seated Cable Row",
+      "pattern": "Pull",
+      "primaryMuscle": "Upper back",
+      "secondaryMuscles": [
+        "Lats",
+        "Biceps"
+      ],
+      "equipment": "Cable",
+      "difficulty": "Beginner",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Start with a long spine and shoulders set down away from the ears.",
+        "Pull by driving the elbows, not by shrugging.",
+        "Pause briefly, then return with control until the arms are long."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Lead with elbows.",
+        "Shoulders down.",
+        "Pause where the back works hardest."
+      ],
+      "safetyNotes": [
+        "Avoid yanking from a stretched shoulder position.",
+        "Choose assistance or a lighter load if the neck starts to tense."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Face Pull",
+      "pattern": "Pull",
+      "primaryMuscle": "Rear delts",
+      "secondaryMuscles": [
+        "Upper back",
+        "Rotator cuff"
+      ],
+      "equipment": "Cable",
+      "difficulty": "Beginner",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Start with a long spine and shoulders set down away from the ears.",
+        "Pull by driving the elbows, not by shrugging.",
+        "Pause briefly, then return with control until the arms are long."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Lead with elbows.",
+        "Shoulders down.",
+        "Pause where the back works hardest."
+      ],
+      "safetyNotes": [
+        "Avoid yanking from a stretched shoulder position.",
+        "Choose assistance or a lighter load if the neck starts to tense."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Farmer Carry",
+      "pattern": "Carry",
+      "primaryMuscle": "Grip",
+      "secondaryMuscles": [
+        "Traps",
+        "Core",
+        "Glutes"
+      ],
+      "equipment": "Dumbbell",
+      "difficulty": "Beginner",
+      "forceType": "Carry",
+      "executionSteps": [
+        "Pick up the load with a braced trunk and tall posture.",
+        "Walk with quiet steps while resisting leaning or twisting.",
+        "Set the load down by hinging instead of rounding the back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Walk tall.",
+        "Quiet steps.",
+        "Do not let the load steer you."
+      ],
+      "safetyNotes": [
+        "Clear the walking path before lifting the load.",
+        "Set the weight down before grip failure changes posture."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Suitcase Carry",
+      "pattern": "Carry",
+      "primaryMuscle": "Core",
+      "secondaryMuscles": [
+        "Grip",
+        "Obliques",
+        "Glutes"
+      ],
+      "equipment": "Kettlebell",
+      "difficulty": "Beginner",
+      "forceType": "Carry",
+      "executionSteps": [
+        "Pick up the load with a braced trunk and tall posture.",
+        "Walk with quiet steps while resisting leaning or twisting.",
+        "Set the load down by hinging instead of rounding the back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Walk tall.",
+        "Quiet steps.",
+        "Do not let the load steer you."
+      ],
+      "safetyNotes": [
+        "Clear the walking path before lifting the load.",
+        "Set the weight down before grip failure changes posture."
+      ],
+      "isUnilateral": true,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Front Rack Carry",
+      "pattern": "Carry",
+      "primaryMuscle": "Core",
+      "secondaryMuscles": [
+        "Upper back",
+        "Glutes",
+        "Grip"
+      ],
+      "equipment": "Kettlebell",
+      "difficulty": "Intermediate",
+      "forceType": "Carry",
+      "executionSteps": [
+        "Pick up the load with a braced trunk and tall posture.",
+        "Walk with quiet steps while resisting leaning or twisting.",
+        "Set the load down by hinging instead of rounding the back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Walk tall.",
+        "Quiet steps.",
+        "Do not let the load steer you."
+      ],
+      "safetyNotes": [
+        "Clear the walking path before lifting the load.",
+        "Set the weight down before grip failure changes posture."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Overhead Carry",
+      "pattern": "Carry",
+      "primaryMuscle": "Shoulders",
+      "secondaryMuscles": [
+        "Core",
+        "Triceps",
+        "Upper back"
+      ],
+      "equipment": "Dumbbell",
+      "difficulty": "Advanced",
+      "forceType": "Carry",
+      "executionSteps": [
+        "Pick up the load with a braced trunk and tall posture.",
+        "Walk with quiet steps while resisting leaning or twisting.",
+        "Set the load down by hinging instead of rounding the back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Walk tall.",
+        "Quiet steps.",
+        "Do not let the load steer you."
+      ],
+      "safetyNotes": [
+        "Clear the walking path before lifting the load.",
+        "Set the weight down before grip failure changes posture."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Sandbag Bear Hug Carry",
+      "pattern": "Carry",
+      "primaryMuscle": "Upper back",
+      "secondaryMuscles": [
+        "Core",
+        "Glutes",
+        "Grip"
+      ],
+      "equipment": "Sandbag",
+      "difficulty": "Intermediate",
+      "forceType": "Carry",
+      "executionSteps": [
+        "Pick up the load with a braced trunk and tall posture.",
+        "Walk with quiet steps while resisting leaning or twisting.",
+        "Set the load down by hinging instead of rounding the back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Walk tall.",
+        "Quiet steps.",
+        "Do not let the load steer you."
+      ],
+      "safetyNotes": [
+        "Clear the walking path before lifting the load.",
+        "Set the weight down before grip failure changes posture."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Plate Pinch Carry",
+      "pattern": "Carry",
+      "primaryMuscle": "Grip",
+      "secondaryMuscles": [
+        "Forearms",
+        "Core"
+      ],
+      "equipment": "Weight plate",
+      "difficulty": "Intermediate",
+      "forceType": "Carry",
+      "executionSteps": [
+        "Pick up the load with a braced trunk and tall posture.",
+        "Walk with quiet steps while resisting leaning or twisting.",
+        "Set the load down by hinging instead of rounding the back."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Walk tall.",
+        "Quiet steps.",
+        "Do not let the load steer you."
+      ],
+      "safetyNotes": [
+        "Clear the walking path before lifting the load.",
+        "Set the weight down before grip failure changes posture."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Pallof Press",
+      "pattern": "Rotation",
+      "primaryMuscle": "Obliques",
+      "secondaryMuscles": [
+        "Core",
+        "Glutes"
+      ],
+      "equipment": "Cable",
+      "difficulty": "Beginner",
+      "forceType": "Static",
+      "executionSteps": [
+        "Anchor your feet and brace before the cable, band, or ball moves.",
+        "Rotate or resist rotation from the trunk while the hips stay controlled.",
+        "Return slowly and repeat without letting momentum take over."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Ribs over pelvis.",
+        "Move smoothly.",
+        "Resist the twist before you create it."
+      ],
+      "safetyNotes": [
+        "Move through a range your spine can control.",
+        "Avoid fast twisting if the back is irritated."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Band Anti Rotation Hold",
+      "pattern": "Rotation",
+      "primaryMuscle": "Obliques",
+      "secondaryMuscles": [
+        "Core",
+        "Shoulders"
+      ],
+      "equipment": "Resistance band",
+      "difficulty": "Beginner",
+      "forceType": "Static",
+      "executionSteps": [
+        "Anchor your feet and brace before the cable, band, or ball moves.",
+        "Rotate or resist rotation from the trunk while the hips stay controlled.",
+        "Return slowly and repeat without letting momentum take over."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Ribs over pelvis.",
+        "Move smoothly.",
+        "Resist the twist before you create it."
+      ],
+      "safetyNotes": [
+        "Move through a range your spine can control.",
+        "Avoid fast twisting if the back is irritated."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Cable Wood Chop",
+      "pattern": "Rotation",
+      "primaryMuscle": "Obliques",
+      "secondaryMuscles": [
+        "Core",
+        "Shoulders",
+        "Glutes"
+      ],
+      "equipment": "Cable",
+      "difficulty": "Intermediate",
+      "forceType": "Mixed",
+      "executionSteps": [
+        "Anchor your feet and brace before the cable, band, or ball moves.",
+        "Rotate or resist rotation from the trunk while the hips stay controlled.",
+        "Return slowly and repeat without letting momentum take over."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Ribs over pelvis.",
+        "Move smoothly.",
+        "Resist the twist before you create it."
+      ],
+      "safetyNotes": [
+        "Move through a range your spine can control.",
+        "Avoid fast twisting if the back is irritated."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Medicine Ball Rotational Throw",
+      "pattern": "Rotation",
+      "primaryMuscle": "Obliques",
+      "secondaryMuscles": [
+        "Core",
+        "Glutes",
+        "Shoulders"
+      ],
+      "equipment": "Medicine ball",
+      "difficulty": "Advanced",
+      "forceType": "Mixed",
+      "executionSteps": [
+        "Anchor your feet and brace before the cable, band, or ball moves.",
+        "Rotate or resist rotation from the trunk while the hips stay controlled.",
+        "Return slowly and repeat without letting momentum take over."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Ribs over pelvis.",
+        "Move smoothly.",
+        "Resist the twist before you create it."
+      ],
+      "safetyNotes": [
+        "Move through a range your spine can control.",
+        "Avoid fast twisting if the back is irritated."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Half Kneeling Cable Lift",
+      "pattern": "Rotation",
+      "primaryMuscle": "Core",
+      "secondaryMuscles": [
+        "Obliques",
+        "Glutes",
+        "Shoulders"
+      ],
+      "equipment": "Cable",
+      "difficulty": "Intermediate",
+      "forceType": "Mixed",
+      "executionSteps": [
+        "Anchor your feet and brace before the cable, band, or ball moves.",
+        "Rotate or resist rotation from the trunk while the hips stay controlled.",
+        "Return slowly and repeat without letting momentum take over."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Ribs over pelvis.",
+        "Move smoothly.",
+        "Resist the twist before you create it."
+      ],
+      "safetyNotes": [
+        "Move through a range your spine can control.",
+        "Avoid fast twisting if the back is irritated."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Dead Bug With Reach",
+      "pattern": "Rotation",
+      "primaryMuscle": "Core",
+      "secondaryMuscles": [
+        "Hip flexors",
+        "Obliques"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Static",
+      "executionSteps": [
+        "Anchor your feet and brace before the cable, band, or ball moves.",
+        "Rotate or resist rotation from the trunk while the hips stay controlled.",
+        "Return slowly and repeat without letting momentum take over."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Ribs over pelvis.",
+        "Move smoothly.",
+        "Resist the twist before you create it."
+      ],
+      "safetyNotes": [
+        "Move through a range your spine can control.",
+        "Avoid fast twisting if the back is irritated."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Reverse Lunge",
+      "pattern": "Lunge",
+      "primaryMuscle": "Glutes",
+      "secondaryMuscles": [
+        "Quadriceps",
+        "Hamstrings",
+        "Core"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Push",
+      "executionSteps": [
+        "Stand tall and brace before stepping or lowering.",
+        "Let the front foot stay grounded while the knee tracks over the toes.",
+        "Push through the working leg and regain balance before the next rep."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Own the landing.",
+        "Front foot planted.",
+        "Stand through the working leg."
+      ],
+      "safetyNotes": [
+        "Shorten the step or hold support if balance changes knee tracking.",
+        "Stop if the front knee has sharp pain."
+      ],
+      "isUnilateral": true,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Dumbbell Walking Lunge",
+      "pattern": "Lunge",
+      "primaryMuscle": "Quadriceps",
+      "secondaryMuscles": [
+        "Glutes",
+        "Hamstrings",
+        "Grip"
+      ],
+      "equipment": "Dumbbell",
+      "difficulty": "Intermediate",
+      "forceType": "Push",
+      "executionSteps": [
+        "Stand tall and brace before stepping or lowering.",
+        "Let the front foot stay grounded while the knee tracks over the toes.",
+        "Push through the working leg and regain balance before the next rep."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Own the landing.",
+        "Front foot planted.",
+        "Stand through the working leg."
+      ],
+      "safetyNotes": [
+        "Shorten the step or hold support if balance changes knee tracking.",
+        "Stop if the front knee has sharp pain."
+      ],
+      "isUnilateral": true,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Split Squat",
+      "pattern": "Lunge",
+      "primaryMuscle": "Quadriceps",
+      "secondaryMuscles": [
+        "Glutes",
+        "Core"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Push",
+      "executionSteps": [
+        "Stand tall and brace before stepping or lowering.",
+        "Let the front foot stay grounded while the knee tracks over the toes.",
+        "Push through the working leg and regain balance before the next rep."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Own the landing.",
+        "Front foot planted.",
+        "Stand through the working leg."
+      ],
+      "safetyNotes": [
+        "Shorten the step or hold support if balance changes knee tracking.",
+        "Stop if the front knee has sharp pain."
+      ],
+      "isUnilateral": true,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Bulgarian Split Squat",
+      "pattern": "Lunge",
+      "primaryMuscle": "Glutes",
+      "secondaryMuscles": [
+        "Quadriceps",
+        "Hamstrings",
+        "Core"
+      ],
+      "equipment": "Bench",
+      "difficulty": "Intermediate",
+      "forceType": "Push",
+      "executionSteps": [
+        "Stand tall and brace before stepping or lowering.",
+        "Let the front foot stay grounded while the knee tracks over the toes.",
+        "Push through the working leg and regain balance before the next rep."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Own the landing.",
+        "Front foot planted.",
+        "Stand through the working leg."
+      ],
+      "safetyNotes": [
+        "Shorten the step or hold support if balance changes knee tracking.",
+        "Stop if the front knee has sharp pain."
+      ],
+      "isUnilateral": true,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Step Up",
+      "pattern": "Lunge",
+      "primaryMuscle": "Glutes",
+      "secondaryMuscles": [
+        "Quadriceps",
+        "Hamstrings"
+      ],
+      "equipment": "Box",
+      "difficulty": "Beginner",
+      "forceType": "Push",
+      "executionSteps": [
+        "Stand tall and brace before stepping or lowering.",
+        "Let the front foot stay grounded while the knee tracks over the toes.",
+        "Push through the working leg and regain balance before the next rep."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Own the landing.",
+        "Front foot planted.",
+        "Stand through the working leg."
+      ],
+      "safetyNotes": [
+        "Shorten the step or hold support if balance changes knee tracking.",
+        "Stop if the front knee has sharp pain."
+      ],
+      "isUnilateral": true,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Lateral Lunge",
+      "pattern": "Lunge",
+      "primaryMuscle": "Adductors",
+      "secondaryMuscles": [
+        "Glutes",
+        "Quadriceps"
+      ],
+      "equipment": null,
+      "difficulty": "Intermediate",
+      "forceType": "Push",
+      "executionSteps": [
+        "Stand tall and brace before stepping or lowering.",
+        "Let the front foot stay grounded while the knee tracks over the toes.",
+        "Push through the working leg and regain balance before the next rep."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Own the landing.",
+        "Front foot planted.",
+        "Stand through the working leg."
+      ],
+      "safetyNotes": [
+        "Shorten the step or hold support if balance changes knee tracking.",
+        "Stop if the front knee has sharp pain."
+      ],
+      "isUnilateral": true,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Forearm Plank",
+      "pattern": "Core",
+      "primaryMuscle": "Core",
+      "secondaryMuscles": [
+        "Shoulders",
+        "Glutes"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Static",
+      "executionSteps": [
+        "Set your ribs down and lightly squeeze the glutes.",
+        "Hold the position while breathing behind the brace.",
+        "Stop before your low back arches or your shoulders collapse."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Breathe behind the brace.",
+        "Ribs down.",
+        "Stop before form breaks."
+      ],
+      "safetyNotes": [
+        "End the set when bracing is lost.",
+        "Use shorter holds rather than sagging through the low back."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Side Plank",
+      "pattern": "Core",
+      "primaryMuscle": "Obliques",
+      "secondaryMuscles": [
+        "Core",
+        "Shoulders",
+        "Glutes"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Static",
+      "executionSteps": [
+        "Set your ribs down and lightly squeeze the glutes.",
+        "Hold the position while breathing behind the brace.",
+        "Stop before your low back arches or your shoulders collapse."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Breathe behind the brace.",
+        "Ribs down.",
+        "Stop before form breaks."
+      ],
+      "safetyNotes": [
+        "End the set when bracing is lost.",
+        "Use shorter holds rather than sagging through the low back."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Hollow Body Hold",
+      "pattern": "Core",
+      "primaryMuscle": "Core",
+      "secondaryMuscles": [
+        "Hip flexors",
+        "Quadriceps"
+      ],
+      "equipment": null,
+      "difficulty": "Intermediate",
+      "forceType": "Static",
+      "executionSteps": [
+        "Set your ribs down and lightly squeeze the glutes.",
+        "Hold the position while breathing behind the brace.",
+        "Stop before your low back arches or your shoulders collapse."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Breathe behind the brace.",
+        "Ribs down.",
+        "Stop before form breaks."
+      ],
+      "safetyNotes": [
+        "End the set when bracing is lost.",
+        "Use shorter holds rather than sagging through the low back."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Stability Ball Stir The Pot",
+      "pattern": "Core",
+      "primaryMuscle": "Core",
+      "secondaryMuscles": [
+        "Shoulders",
+        "Obliques"
+      ],
+      "equipment": "Stability ball",
+      "difficulty": "Advanced",
+      "forceType": "Static",
+      "executionSteps": [
+        "Set your ribs down and lightly squeeze the glutes.",
+        "Hold the position while breathing behind the brace.",
+        "Stop before your low back arches or your shoulders collapse."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Breathe behind the brace.",
+        "Ribs down.",
+        "Stop before form breaks."
+      ],
+      "safetyNotes": [
+        "End the set when bracing is lost.",
+        "Use shorter holds rather than sagging through the low back."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Cable Crunch",
+      "pattern": "Core",
+      "primaryMuscle": "Abs",
+      "secondaryMuscles": [
+        "Hip flexors"
+      ],
+      "equipment": "Cable",
+      "difficulty": "Beginner",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Set your ribs down and lightly squeeze the glutes.",
+        "Hold the position while breathing behind the brace.",
+        "Stop before your low back arches or your shoulders collapse."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Breathe behind the brace.",
+        "Ribs down.",
+        "Stop before form breaks."
+      ],
+      "safetyNotes": [
+        "End the set when bracing is lost.",
+        "Use shorter holds rather than sagging through the low back."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Hanging Knee Raise",
+      "pattern": "Core",
+      "primaryMuscle": "Abs",
+      "secondaryMuscles": [
+        "Hip flexors",
+        "Grip"
+      ],
+      "equipment": "Pull-up bar",
+      "difficulty": "Intermediate",
+      "forceType": "Pull",
+      "executionSteps": [
+        "Set your ribs down and lightly squeeze the glutes.",
+        "Hold the position while breathing behind the brace.",
+        "Stop before your low back arches or your shoulders collapse."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Breathe behind the brace.",
+        "Ribs down.",
+        "Stop before form breaks."
+      ],
+      "safetyNotes": [
+        "End the set when bracing is lost.",
+        "Use shorter holds rather than sagging through the low back."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Brisk Walk",
+      "pattern": "Cardio",
+      "primaryMuscle": "Cardiorespiratory system",
+      "secondaryMuscles": [
+        "Calves",
+        "Glutes"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Locomotion",
+      "executionSteps": [
+        "Begin at a pace that lets you breathe rhythmically.",
+        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
+        "Increase speed only while technique stays quiet and controlled."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Easy rhythm first.",
+        "Relax the jaw and shoulders.",
+        "Let effort build gradually."
+      ],
+      "safetyNotes": [
+        "Build volume gradually and keep impact appropriate for joints.",
+        "Slow down if breathing or gait becomes uncontrolled."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Treadmill Run",
+      "pattern": "Cardio",
+      "primaryMuscle": "Cardiorespiratory system",
+      "secondaryMuscles": [
+        "Quadriceps",
+        "Hamstrings",
+        "Calves"
+      ],
+      "equipment": "Treadmill",
+      "difficulty": "Intermediate",
+      "forceType": "Locomotion",
+      "executionSteps": [
+        "Begin at a pace that lets you breathe rhythmically.",
+        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
+        "Increase speed only while technique stays quiet and controlled."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Easy rhythm first.",
+        "Relax the jaw and shoulders.",
+        "Let effort build gradually."
+      ],
+      "safetyNotes": [
+        "Build volume gradually and keep impact appropriate for joints.",
+        "Slow down if breathing or gait becomes uncontrolled."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Stationary Bike",
+      "pattern": "Cardio",
+      "primaryMuscle": "Cardiorespiratory system",
+      "secondaryMuscles": [
+        "Quadriceps",
+        "Glutes",
+        "Calves"
+      ],
+      "equipment": "Bike",
+      "difficulty": "Beginner",
+      "forceType": "Locomotion",
+      "executionSteps": [
+        "Begin at a pace that lets you breathe rhythmically.",
+        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
+        "Increase speed only while technique stays quiet and controlled."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Easy rhythm first.",
+        "Relax the jaw and shoulders.",
+        "Let effort build gradually."
+      ],
+      "safetyNotes": [
+        "Build volume gradually and keep impact appropriate for joints.",
+        "Slow down if breathing or gait becomes uncontrolled."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Row Ergometer",
+      "pattern": "Cardio",
+      "primaryMuscle": "Cardiorespiratory system",
+      "secondaryMuscles": [
+        "Lats",
+        "Quadriceps",
+        "Glutes"
+      ],
+      "equipment": "Rower",
+      "difficulty": "Intermediate",
+      "forceType": "Locomotion",
+      "executionSteps": [
+        "Begin at a pace that lets you breathe rhythmically.",
+        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
+        "Increase speed only while technique stays quiet and controlled."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Easy rhythm first.",
+        "Relax the jaw and shoulders.",
+        "Let effort build gradually."
+      ],
+      "safetyNotes": [
+        "Build volume gradually and keep impact appropriate for joints.",
+        "Slow down if breathing or gait becomes uncontrolled."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Jump Rope",
+      "pattern": "Cardio",
+      "primaryMuscle": "Calves",
+      "secondaryMuscles": [
+        "Shoulders",
+        "Cardiorespiratory system"
+      ],
+      "equipment": "Jump rope",
+      "difficulty": "Intermediate",
+      "forceType": "Locomotion",
+      "executionSteps": [
+        "Begin at a pace that lets you breathe rhythmically.",
+        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
+        "Increase speed only while technique stays quiet and controlled."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Easy rhythm first.",
+        "Relax the jaw and shoulders.",
+        "Let effort build gradually."
+      ],
+      "safetyNotes": [
+        "Build volume gradually and keep impact appropriate for joints.",
+        "Slow down if breathing or gait becomes uncontrolled."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Low Impact Step March",
+      "pattern": "Cardio",
+      "primaryMuscle": "Cardiorespiratory system",
+      "secondaryMuscles": [
+        "Hip flexors",
+        "Calves"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Locomotion",
+      "executionSteps": [
+        "Begin at a pace that lets you breathe rhythmically.",
+        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
+        "Increase speed only while technique stays quiet and controlled."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Easy rhythm first.",
+        "Relax the jaw and shoulders.",
+        "Let effort build gradually."
+      ],
+      "safetyNotes": [
+        "Build volume gradually and keep impact appropriate for joints.",
+        "Slow down if breathing or gait becomes uncontrolled."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "World's Greatest Stretch",
+      "pattern": "Mobility",
+      "primaryMuscle": "Hips",
+      "secondaryMuscles": [
+        "Thoracic spine",
+        "Hamstrings",
+        "Glutes"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Mobility",
+      "executionSteps": [
+        "Move into the starting position slowly and breathe out.",
+        "Explore the range without forcing the joint or bouncing.",
+        "Return with control and repeat on the other side when appropriate."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Move with your breath.",
+        "No bouncing.",
+        "Comfortable range only."
+      ],
+      "safetyNotes": [
+        "Stretch sensation is acceptable; sharp joint pain is not.",
+        "Use small ranges when returning from injury."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Cat Cow",
+      "pattern": "Mobility",
+      "primaryMuscle": "Spine",
+      "secondaryMuscles": [
+        "Core",
+        "Shoulders"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Mobility",
+      "executionSteps": [
+        "Move into the starting position slowly and breathe out.",
+        "Explore the range without forcing the joint or bouncing.",
+        "Return with control and repeat on the other side when appropriate."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Move with your breath.",
+        "No bouncing.",
+        "Comfortable range only."
+      ],
+      "safetyNotes": [
+        "Stretch sensation is acceptable; sharp joint pain is not.",
+        "Use small ranges when returning from injury."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Half Kneeling Hip Flexor Stretch",
+      "pattern": "Mobility",
+      "primaryMuscle": "Hip flexors",
+      "secondaryMuscles": [
+        "Glutes",
+        "Core"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Mobility",
+      "executionSteps": [
+        "Move into the starting position slowly and breathe out.",
+        "Explore the range without forcing the joint or bouncing.",
+        "Return with control and repeat on the other side when appropriate."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Move with your breath.",
+        "No bouncing.",
+        "Comfortable range only."
+      ],
+      "safetyNotes": [
+        "Stretch sensation is acceptable; sharp joint pain is not.",
+        "Use small ranges when returning from injury."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Thoracic Open Book",
+      "pattern": "Mobility",
+      "primaryMuscle": "Thoracic spine",
+      "secondaryMuscles": [
+        "Shoulders",
+        "Obliques"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Mobility",
+      "executionSteps": [
+        "Move into the starting position slowly and breathe out.",
+        "Explore the range without forcing the joint or bouncing.",
+        "Return with control and repeat on the other side when appropriate."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Move with your breath.",
+        "No bouncing.",
+        "Comfortable range only."
+      ],
+      "safetyNotes": [
+        "Stretch sensation is acceptable; sharp joint pain is not.",
+        "Use small ranges when returning from injury."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Banded Ankle Mobilization",
+      "pattern": "Mobility",
+      "primaryMuscle": "Ankles",
+      "secondaryMuscles": [
+        "Calves"
+      ],
+      "equipment": "Resistance band",
+      "difficulty": "Intermediate",
+      "forceType": "Mobility",
+      "executionSteps": [
+        "Move into the starting position slowly and breathe out.",
+        "Explore the range without forcing the joint or bouncing.",
+        "Return with control and repeat on the other side when appropriate."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Move with your breath.",
+        "No bouncing.",
+        "Comfortable range only."
+      ],
+      "safetyNotes": [
+        "Stretch sensation is acceptable; sharp joint pain is not.",
+        "Use small ranges when returning from injury."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    },
+    {
+      "name": "Shoulder Wall Slide",
+      "pattern": "Mobility",
+      "primaryMuscle": "Shoulders",
+      "secondaryMuscles": [
+        "Upper back",
+        "Rotator cuff"
+      ],
+      "equipment": null,
+      "difficulty": "Beginner",
+      "forceType": "Mobility",
+      "executionSteps": [
+        "Move into the starting position slowly and breathe out.",
+        "Explore the range without forcing the joint or bouncing.",
+        "Return with control and repeat on the other side when appropriate."
+      ],
+      "commonMistakes": [
+        "Rushing the setup before the brace is established.",
+        "Using momentum instead of owning the full range.",
+        "Letting discomfort turn into sharp or pinching pain."
+      ],
+      "coachingCues": [
+        "Move with your breath.",
+        "No bouncing.",
+        "Comfortable range only."
+      ],
+      "safetyNotes": [
+        "Stretch sensation is acceptable; sharp joint pain is not.",
+        "Use small ranges when returning from injury."
+      ],
+      "isUnilateral": false,
+      "provenance": "Original Forge seed content written from scratch for the offline catalogue."
+    }
+  ]
+}

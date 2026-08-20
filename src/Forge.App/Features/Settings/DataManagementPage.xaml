@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Features.Settings.DataManagementPage"
+             Title="Data management"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Data management"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Forge is local-first. There is no server copy of your workouts, nutrition, body metrics or settings."
+                   Style="{StaticResource SecondaryText}" />
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Storage usage" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding StorageUsage}" Style="{StaticResource BodyText}" />
+                    <dx:DXButton Content="Refresh storage usage"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Command="{Binding RefreshStorageCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Backup and export" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding BackupStatus}" Style="{StaticResource SecondaryText}" />
+                    <dx:DXButton Content="Export backup first"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Command="{Binding ExportBackupCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Delete my data" Style="{StaticResource TitleText}" />
+                    <Label Text="This opens the required irreversible deletion flow. It is never a single tap."
+                           Style="{StaticResource BodyText}" />
+                    <dx:DXButton Content="Open delete-my-data"
+                                 Style="{StaticResource PrimaryButton}"
+                                 Command="{Binding OpenDeleteMyDataCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

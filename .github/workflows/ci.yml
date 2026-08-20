@@ -80,17 +80,109 @@ jobs:
           dotnet restore tests/Forge.Core.Tests/Forge.Core.Tests.csproj
           dotnet restore tests/Forge.Infrastructure.Tests/Forge.Infrastructure.Tests.csproj
 
+      - name: Format and analyzer gate
+        run: |
+          dotnet format src/Forge.Domain/Forge.Domain.csproj --verify-no-changes --no-restore --verbosity minimal
+          dotnet format src/Forge.Core/Forge.Core.csproj --verify-no-changes --no-restore --verbosity minimal
+          dotnet format src/Forge.Infrastructure/Forge.Infrastructure.csproj --verify-no-changes --no-restore --verbosity minimal
+          dotnet format tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --verify-no-changes --no-restore --verbosity minimal
+          dotnet format tests/Forge.Core.Tests/Forge.Core.Tests.csproj --verify-no-changes --no-restore --verbosity minimal
+          dotnet format tests/Forge.Infrastructure.Tests/Forge.Infrastructure.Tests.csproj --verify-no-changes --no-restore --verbosity minimal
+
       - name: Build
         run: |
           dotnet build tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --no-restore -c Release
           dotnet build tests/Forge.Core.Tests/Forge.Core.Tests.csproj --no-restore -c Release
           dotnet build tests/Forge.Infrastructure.Tests/Forge.Infrastructure.Tests.csproj --no-restore -c Release
 
-      - name: Test
+      # A page that is routed but not registered for DI compiles, passes every unit test, and
+      # then throws the first time a user navigates to it. Features are built in parallel by
+      # different people, so this pairing is easy to get half-right. Cheap to check here.
+      - name: Verify routed pages are registered for dependency injection
+        shell: pwsh
+        run: ./tools/ci/Test-RouteRegistrations.ps1
+
+      - name: Test with coverlet coverage
         run: |
-          dotnet test tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --no-build -c Release
-          dotnet test tests/Forge.Core.Tests/Forge.Core.Tests.csproj --no-build -c Release
-          dotnet test tests/Forge.Infrastructure.Tests/Forge.Infrastructure.Tests.csproj --no-build -c Release
+          dotnet test tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --no-build -c Release --collect:"XPlat Code Coverage" --results-directory artifacts/coverage
+          dotnet test tests/Forge.Core.Tests/Forge.Core.Tests.csproj --no-build -c Release --collect:"XPlat Code Coverage" --results-directory artifacts/coverage
+          dotnet test tests/Forge.Infrastructure.Tests/Forge.Infrastructure.Tests.csproj --no-build -c Release --collect:"XPlat Code Coverage" --results-directory artifacts/coverage
+
+      - name: Enforce domain logic coverage threshold
+        shell: pwsh
+        run: ./tools/ci/Test-CoverageThreshold.ps1 -CoverageRoot artifacts/coverage -ThresholdPercent 70 -PathFilters 'src/Forge.Domain','src/Forge.Core'
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: core-coverlet-coverage
+          path: artifacts/coverage
+          if-no-files-found: error
+
+  android-size:
+    name: Android size budget
+    runs-on: ubuntu-latest
+    needs: [core, backlog]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: microsoft
+          java-version: '21'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-size-android-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-size-android-
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install android --skip-sign-check
+
+      - name: Build release AAB for size budget
+        run: dotnet publish src/Forge.App/Forge.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormats=aab -p:ApplicationVersion=${{ github.run_number }} -o artifacts/android-size
+
+      - name: Enforce 40 MB Android package budget
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_path="$(find artifacts/android-size -name '*.aab' -print -quit)"
+          if [ -z "$package_path" ]; then
+            echo "No Android AAB was produced." >&2
+            exit 1
+          fi
+
+          bytes="$(stat -c%s "$package_path")"
+          mib="$(awk "BEGIN { printf \"%.2f\", $bytes / 1048576 }")"
+          limit_bytes=$((40 * 1024 * 1024))
+
+          {
+            echo "## Android size budget"
+            echo ""
+            echo "| Artifact | Size | Budget |"
+            echo "| --- | ---: | ---: |"
+            echo "| $(basename "$package_path") | ${mib} MiB | 40.00 MiB |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$bytes" -gt "$limit_bytes" ]; then
+            echo "Android package is ${mib} MiB, exceeding the 40 MiB budget." >&2
+            exit 1
+          fi
+
+      - name: Upload Android size artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-size-budget-aab
+          path: artifacts/android-size/**/*.aab
+          if-no-files-found: error
 
   android:
     name: Android build

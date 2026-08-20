@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Features.Settings.NotificationSettingsPage"
+             Title="Notifications"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Notification preferences"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="These preferences only control local reminder intent. Notification delivery is wired by the notification epic."
+                   Style="{StaticResource SecondaryText}" />
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <CheckBox IsChecked="{Binding WorkoutRemindersEnabled}" />
+                    <Label Text="Workout reminders" Style="{StaticResource TitleText}" />
+                    <CheckBox IsChecked="{Binding MealRemindersEnabled}" />
+                    <Label Text="Meal reminders" Style="{StaticResource TitleText}" />
+                    <CheckBox IsChecked="{Binding HydrationRemindersEnabled}" />
+                    <Label Text="Hydration reminders" Style="{StaticResource TitleText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <CheckBox IsChecked="{Binding QuietHoursEnabled}" />
+                    <Label Text="Quiet hours" Style="{StaticResource TitleText}" />
+                    <Label Text="Start, for example 22:00" Style="{StaticResource CaptionText}" />
+                    <dx:TextEdit Text="{Binding QuietHoursStart}" Style="{StaticResource ForgeTextEdit}" />
+                    <Label Text="End, for example 07:00" Style="{StaticResource CaptionText}" />
+                    <dx:TextEdit Text="{Binding QuietHoursEnd}" Style="{StaticResource ForgeTextEdit}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
