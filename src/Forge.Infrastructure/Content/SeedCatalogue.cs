@@ -26,6 +26,23 @@ public static class SeedCatalogue
     /// <summary>Gets the parsed offline exercise catalogue.</summary>
     public static IReadOnlyList<Exercise> Exercises => CachedExercises.Value;
 
+    /// <summary>
+    /// Opens the raw embedded catalogue JSON.
+    /// </summary>
+    /// <remarks>
+    /// Exposed so startup can hand the stream to <c>SeedContentImporter</c>, which performs the
+    /// versioned, idempotent import that preserves user-created exercises. Reusing that path
+    /// avoids a second, subtly different seeding implementation living in the app head.
+    /// </remarks>
+    /// <returns>A readable stream over the embedded catalogue. The caller owns disposal.</returns>
+    public static Stream OpenCatalogueStream()
+    {
+        var assembly = typeof(SeedCatalogue).Assembly;
+        return assembly.GetManifestResourceStream(ResourceName)
+            ?? throw new InvalidOperationException(
+                $"The embedded exercise catalogue '{ResourceName}' was not found in {assembly.GetName().Name}.");
+    }
+
     /// <summary>Finds an exercise by its display name.</summary>
     public static Exercise? FindByName(string name)
     {
