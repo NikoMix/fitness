@@ -1,0 +1,148 @@
+name: CI
+
+# Validates every pull request and every push to main.
+#
+# The jobs are split by cost. Core and backlog validation run on Linux in under a couple of
+# minutes and catch the majority of mistakes; the platform builds are slower and only need to
+# run once the cheap gates are green. Failing fast on the cheap jobs keeps the feedback loop
+# tight while parallel feature work is landing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same branch makes the in-flight run redundant.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  backlog:
+    name: Validate backlog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache PowerShell modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/powershell/Modules
+          key: psmodules-powershell-yaml-v1
+
+      - name: Install powershell-yaml
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
+            Install-Module powershell-yaml -Scope CurrentUser -Force -AllowClobber
+          }
+
+      - name: Validate backlog YAML
+        shell: pwsh
+        run: ./tools/backlog-sync/Invoke-BacklogSync.ps1 -Validate
+
+  core:
+    name: Core libraries and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # The inner layers target plain net10.0 and carry no MAUI dependency, so they build and
+      # test on Linux with no workload installation. That is the point of the dependency rule:
+      # the majority of the product logic is verifiable without an emulator or a Mac.
+      - name: Restore
+        run: |
+          dotnet restore src/Forge.Domain/Forge.Domain.csproj
+          dotnet restore src/Forge.Core/Forge.Core.csproj
+          dotnet restore src/Forge.Infrastructure/Forge.Infrastructure.csproj
+          dotnet restore tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj
+          dotnet restore tests/Forge.Core.Tests/Forge.Core.Tests.csproj
+          dotnet restore tests/Forge.Infrastructure.Tests/Forge.Infrastructure.Tests.csproj
+
+      - name: Build
+        run: |
+          dotnet build tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --no-restore -c Release
+          dotnet build tests/Forge.Core.Tests/Forge.Core.Tests.csproj --no-restore -c Release
+          dotnet build tests/Forge.Infrastructure.Tests/Forge.Infrastructure.Tests.csproj --no-restore -c Release
+
+      - name: Test
+        run: |
+          dotnet test tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --no-build -c Release
+          dotnet test tests/Forge.Core.Tests/Forge.Core.Tests.csproj --no-build -c Release
+          dotnet test tests/Forge.Infrastructure.Tests/Forge.Infrastructure.Tests.csproj --no-build -c Release
+
+  android:
+    name: Android build
+    runs-on: ubuntu-latest
+    needs: [core, backlog]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: microsoft
+          java-version: '21'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-android-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-android-
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install android --skip-sign-check
+
+      - name: Build
+        run: dotnet build src/Forge.App/Forge.App.csproj -f net10.0-android -c Release
+
+  ios:
+    name: iOS build
+    runs-on: macos-latest
+    needs: [core, backlog]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-ios-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-ios-
+
+      - name: Install MAUI iOS workload
+        run: dotnet workload install ios --skip-sign-check
+
+      # No code signing here. This job proves the iOS head compiles; signed device builds and
+      # TestFlight upload belong to the release workflow, where the signing secrets live.
+      - name: Build
+        run: dotnet build src/Forge.App/Forge.App.csproj -f net10.0-ios -c Release

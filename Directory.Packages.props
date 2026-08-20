@@ -66,15 +66,19 @@
     <PackageVersion Include="Plugin.InAppBilling" Version="10.0.0" />
   </ItemGroup>
 
+  <!--
+    Testing.
+
+    Shouldly provides assertions rather than FluentAssertions: from v8 FluentAssertions moved
+    to a paid commercial licence, which is a liability for a commercial application. Shouldly
+    is MIT licensed and free for commercial use.
+  -->
   <ItemGroup Label="Testing">
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageVersion Include="xunit.v3" Version="4.1.0" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.7" />
-    <PackageVersion Include="FluentAssertions" Version="7.2.0" />
-    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.0" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="$(EfCoreVersion)" />
-    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
-    <PackageVersion Include="Verify.Xunit" Version="30.10.0" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,36 @@
+<Project>
+
+  <!--
+    Architecture guard for the inner layers.
+
+    Forge.Domain and Forge.Core must never depend on MAUI or DevExpress. That rule is
+    what keeps the product logic unit-testable without an emulator, and what will allow the
+    Windows and Mac Catalyst heads to be added in v1.1 without rework.
+
+    Documenting the rule is not enough - it only survives if it is enforced by the compiler,
+    so a violation fails the build with an explanation rather than passing review unnoticed.
+  -->
+
+  <Target Name="ForgeGuardInnerLayerDependencies"
+          BeforeTargets="CollectPackageReferences;ResolveAssemblyReferences"
+          Condition="'$(MSBuildProjectName)' == 'Forge.Domain' Or '$(MSBuildProjectName)' == 'Forge.Core'">
+
+    <ItemGroup>
+      <_ForbiddenPackage Include="@(PackageReference)"
+                         Condition="$([System.String]::Copy('%(Identity)').StartsWith('Microsoft.Maui')) Or
+                                    $([System.String]::Copy('%(Identity)').StartsWith('DevExpress'))" />
+      <_ForbiddenProject Include="@(ProjectReference)"
+                         Condition="$([System.String]::Copy('%(Filename)').StartsWith('Forge.App')) Or
+                                    $([System.String]::Copy('%(Filename)').StartsWith('Forge.Infrastructure'))" />
+    </ItemGroup>
+
+    <Error Condition="'@(_ForbiddenPackage)' != ''"
+           Code="FORGE001"
+           Text="Architecture violation in $(MSBuildProjectName): package reference '%(_ForbiddenPackage.Identity)' is not allowed. Forge.Domain and Forge.Core must stay free of MAUI and DevExpress so they remain unit-testable and so the desktop heads can be added in v1.1. Move this code to Forge.App or Forge.Infrastructure and depend on an abstraction instead. See docs/architecture/overview.md section 2." />
+
+    <Error Condition="'@(_ForbiddenProject)' != ''"
+           Code="FORGE002"
+           Text="Architecture violation in $(MSBuildProjectName): project reference to '%(_ForbiddenProject.Filename)' inverts the dependency rule. Dependencies point inward only: Forge.App and Forge.Infrastructure depend on Forge.Core and Forge.Domain, never the reverse. See docs/architecture/overview.md section 2." />
+  </Target>
+
+</Project>
