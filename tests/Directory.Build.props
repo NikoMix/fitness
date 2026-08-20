@@ -1,0 +1,31 @@
+<Project>
+
+  <!--
+    Shared settings for test projects.
+
+    The root Directory.Build.props must be imported explicitly: MSBuild stops at the first
+    Directory.Build.props it finds walking up the tree, so omitting this would silently drop
+    every repository-wide setting for test projects.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+
+    <!--
+      CA1707 objects to underscores in member names. Underscored test names are the established
+      convention for readable test output - a failure reading
+      "The_estimate_never_falls_below_the_load_actually_lifted" is far more useful in a CI log
+      than its PascalCase equivalent. The rule is suppressed for tests only; production code
+      still enforces it.
+
+      CA1515 wants test types internal, which conflicts with xUnit discovery.
+    -->
+    <NoWarn>$(NoWarn);CA1707;CA1515</NoWarn>
+
+    <!-- Test projects document intent through naming and comments, not XML doc comments. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>
