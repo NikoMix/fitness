@@ -49,6 +49,19 @@ public sealed class Exercise : Entity
     /// survive that untouched. Conflating the two would silently destroy user data on update.
     /// </remarks>
     public bool IsUserCreated { get; set; }
+
+    /// <summary>Whether the user pinned this exercise in their local library.</summary>
+    public bool IsFavourite { get; private set; }
+
+    /// <summary>When the user last opened or selected this exercise, in UTC.</summary>
+    public DateTimeOffset? LastUsedUtc { get; private set; }
+
+    /// <summary>Updates the local favourite marker for this exercise.</summary>
+    public void SetFavourite(bool isFavourite) => IsFavourite = isFavourite;
+
+    /// <summary>Records that the user recently interacted with this exercise.</summary>
+    /// <param name="usedUtc">The UTC moment of use.</param>
+    public void MarkUsed(DateTimeOffset usedUtc) => LastUsedUtc = usedUtc;
 }
 
 /// <summary>A single training session, whether planned or unplanned.</summary>

@@ -18,7 +18,9 @@ public sealed class TrainingPlanConfiguration : IEntityTypeConfiguration<Trainin
         builder.Property(plan => plan.Name).HasMaxLength(200).IsRequired();
         builder.Property(plan => plan.Description).HasMaxLength(1200);
         builder.HasMany(plan => plan.Days).WithOne().HasForeignKey(day => day.TrainingPlanId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(plan => plan.Days).AutoInclude();
         builder.HasIndex(plan => plan.IsTemplate);
+        builder.HasIndex(plan => plan.IsActive);
     }
 }
 
@@ -33,6 +35,7 @@ public sealed class PlanDayConfiguration : IEntityTypeConfiguration<PlanDay>
         builder.HasKey(day => day.Id);
         builder.Property(day => day.Name).HasMaxLength(160).IsRequired();
         builder.HasMany(day => day.Exercises).WithOne().HasForeignKey(exercise => exercise.PlanDayId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(day => day.Exercises).AutoInclude();
         builder.HasIndex(day => new { day.TrainingPlanId, day.Ordinal });
         builder.HasIndex(day => day.ScheduledDay);
     }
@@ -55,6 +58,7 @@ public sealed class PlannedExerciseConfiguration : IEntityTypeConfiguration<Plan
         builder.Property(exercise => exercise.SecondaryMuscles)
                .HasConversion(muscles => JsonSerializer.Serialize(muscles, JsonOptions), value => DeserializeList(value));
         builder.HasMany(exercise => exercise.Sets).WithOne().HasForeignKey(set => set.PlannedExerciseId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(exercise => exercise.Sets).AutoInclude();
         builder.HasIndex(exercise => new { exercise.PlanDayId, exercise.Ordinal });
         builder.HasIndex(exercise => exercise.Pattern);
     }

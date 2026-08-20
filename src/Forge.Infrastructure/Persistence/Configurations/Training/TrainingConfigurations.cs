@@ -47,6 +47,8 @@ public sealed class ExerciseConfiguration : IEntityTypeConfiguration<Exercise>
         builder.HasIndex(e => e.Name);
         builder.HasIndex(e => e.Equipment);
         builder.HasIndex(e => e.Pattern);
+        builder.HasIndex(e => e.IsFavourite);
+        builder.HasIndex(e => e.LastUsedUtc);
     }
 
     private static string SerializeList(List<string> values)

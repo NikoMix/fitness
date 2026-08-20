@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Coaching.ReadinessPage"
+             Title="Readiness"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Readiness" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="The score is a weighted breakdown, not an oracle." Style="{StaticResource SecondaryText}" />
+            <dx:DXButton Content="Refresh readiness" Style="{StaticResource PrimaryButton}" Command="{Binding LoadReadinessCommand}" />
+
+            <controls:ForgeCard Title="Today" Subtitle="Input breakdown below">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <dx:RadialProgressBar Value="{Binding ScoreProgress}" HeightRequest="140" WidthRequest="140" HorizontalOptions="Center" />
+                    <Label Text="{Binding Score, StringFormat='{0}/100'}" Style="{StaticResource HeadlineText}" HorizontalOptions="Center" />
+                    <Label Text="{Binding MissingInputs}" Style="{StaticResource SecondaryText}" />
+                    <Label Text="{Binding MedicalDisclaimer}" Style="{StaticResource CaptionText}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <dx:DXCollectionView ItemsSource="{Binding Components}" HeightRequest="340">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                <Label Text="{Binding Name}" Style="{StaticResource TitleText}" />
+                                <Label Text="{Binding Value}" Style="{StaticResource BodyText}" />
+                                <Label Text="{Binding Explanation}" Style="{StaticResource SecondaryText}" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

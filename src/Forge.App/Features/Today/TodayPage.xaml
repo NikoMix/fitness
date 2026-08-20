@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Today.TodayPage"
+             x:Name="Page"
+             Title="Today"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Today" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Your local dashboard for the next useful fitness action." Style="{StaticResource SecondaryText}" />
+
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="160" />
+
+            <controls:ForgeCard Title="{Binding SessionTitle}" Subtitle="{Binding SessionSubtitle}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <controls:EmptyState Glyph="＋"
+                                         IsVisible="{Binding HasNoScheduledSession}"
+                                         Headline="Plan your first session"
+                                         Message="Create or pick a workout and Forge will show the next exercise, target sets and progress rings here."
+                                         ActionText="Find training options"
+                                         ActionCommand="{Binding CreatePlanCommand}" />
+                    <dx:DXButton Content="Start an open workout" Style="{StaticResource PrimaryButton}" Command="{Binding StartWorkoutCommand}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <Label Text="Activity rings" Style="{StaticResource SectionHeaderText}" />
+            <HorizontalStackLayout Spacing="{StaticResource SpaceM}"
+                                   BindableLayout.ItemsSource="{Binding Rings}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource Card}" WidthRequest="150">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceS}" HorizontalOptions="Center">
+                                <dx:RadialProgressBar Value="{Binding Progress}"
+                                                      StartAngle="-90"
+                                                      SweepAngle="360"
+                                                      HeightRequest="112"
+                                                      WidthRequest="112" />
+                                <Label Text="{Binding Label}" Style="{StaticResource TitleText}" HorizontalTextAlignment="Center" />
+                                <Label Text="{Binding Detail}" Style="{StaticResource CaptionText}" HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </HorizontalStackLayout>
+
+            <controls:ForgeCard Title="Next action" Subtitle="Small, concrete and local">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{Binding NextActionTitle}" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding NextActionDetail}" Style="{StaticResource BodyText}" />
+                    <dx:DXButton Content="Log today's training" Style="{StaticResource WorkoutActionButton}" Command="{Binding StartWorkoutCommand}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <Label Text="Recent activity" Style="{StaticResource SectionHeaderText}" />
+            <controls:EmptyState IsVisible="{Binding HasNoRecentActivity}"
+                                 Glyph="•"
+                                 Headline="No activity yet"
+                                 Message="After your first workout or body metric entry, a short recap will appear here so Today feels alive without fake sample data."
+                                 ActionText="Start logging"
+                                 ActionCommand="{Binding StartWorkoutCommand}" />
+            <dx:DXCollectionView ItemsSource="{Binding RecentActivity}" IsVisible="{Binding HasRecentActivity}" HeightRequest="240">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                    <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
+                                    <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="{Binding When}" Style="{StaticResource CaptionText}" VerticalTextAlignment="Center" />
+                            </Grid>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

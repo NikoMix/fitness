@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Progress.ProgressPage"
+             x:Name="Page"
+             Title="Progress"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Progress" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Review trends, records and body metrics from your local training log." Style="{StaticResource SecondaryText}" />
+
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+
+            <controls:ForgeCard Title="Start with one logged session" Subtitle="Empty charts are hidden until they can teach you something">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Forge will keep first-run progress screens purposeful: no blank axes, no fake trends, and no records from warm-up volume." Style="{StaticResource BodyText}" />
+                    <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
+                    <dx:DXButton Content="Log training" Style="{StaticResource PrimaryButton}" Command="{Binding StartLoggingCommand}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <Label Text="Explore" Style="{StaticResource SectionHeaderText}" />
+            <dx:DXCollectionView ItemsSource="{Binding Destinations}" HeightRequest="420">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                    <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
+                                    <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                                </VerticalStackLayout>
+                                <dx:DXButton Grid.Column="1"
+                                             Content="Open"
+                                             Style="{StaticResource TextButton}"
+                                             Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenDestinationCommand}"
+                                             CommandParameter="{Binding .}" />
+                            </Grid>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

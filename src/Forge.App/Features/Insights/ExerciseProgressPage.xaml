@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Insights.ExerciseProgressPage"
+             Title="Exercise progress"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Exercise progress" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Strength trends appear after you log working sets for an exercise." Style="{StaticResource SecondaryText}" />
+
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="260" />
+
+            <controls:EmptyState IsVisible="{Binding IsEmpty}"
+                                Glyph="↗"
+                                Headline="Log a few working sets"
+                                 Message="Forge will chart estimated 1RM only when the set is within the supported 1-10 rep range, and it will show the formula used."
+                                 ActionText="Go to training"
+                                 ActionCommand="{Binding LogWorkoutCommand}" />
+
+            <controls:ForgeCard IsVisible="{Binding HasData}" Title="{Binding ExerciseName}" Subtitle="Estimated 1RM · formula-labelled and approximate">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <dx:ChartView HeightRequest="260">
+                        <dx:ChartView.Series>
+                            <dx:LineSeries DisplayName="Estimated 1RM">
+                                <dx:LineSeries.Data>
+                                    <dx:SeriesDataAdapter DataSource="{Binding EstimatePoints}" ArgumentDataMember="DateLabel">
+                                        <dx:ValueDataMember Type="Value" Member="EstimatedOneRepMaxKilograms" />
+                                    </dx:SeriesDataAdapter>
+                                </dx:LineSeries.Data>
+                            </dx:LineSeries>
+                        </dx:ChartView.Series>
+                    </dx:ChartView>
+                    <Label Text="{Binding FormulaNote}" Style="{StaticResource CaptionText}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

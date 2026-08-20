@@ -102,6 +102,13 @@ jobs:
         shell: pwsh
         run: ./tools/ci/Test-RouteRegistrations.ps1
 
+      # Resolving a repository and a unit of work separately gives each its own DbContext, so
+      # the save commits an empty change tracker and the writes vanish with no error at all.
+      # Nothing about that failure is visible in a build or a unit test, so guard the seam.
+      - name: Verify database access goes through the data-session seam
+        shell: pwsh
+        run: ./tools/ci/Test-DataAccessPatterns.ps1
+
       - name: Test with coverlet coverage
         run: |
           dotnet test tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --no-build -c Release --collect:"XPlat Code Coverage" --results-directory artifacts/coverage

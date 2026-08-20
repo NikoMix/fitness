@@ -16,6 +16,9 @@ public sealed class TrainingPlan : Entity
     /// <summary>Whether this row is shipped template data rather than a user's own plan.</summary>
     public bool IsTemplate { get; set; }
 
+    /// <summary>Whether this is the user's active programme for Today and workout start.</summary>
+    public bool IsActive { get; set; }
+
     /// <summary>Fixed weekdays or flexible frequency scheduling.</summary>
     public PlanScheduleMode ScheduleMode { get; set; } = PlanScheduleMode.Flexible;
 
@@ -24,6 +27,65 @@ public sealed class TrainingPlan : Entity
 
     /// <summary>Days contained by the plan, in intended order.</summary>
     public ICollection<PlanDay> Days { get; } = [];
+
+    /// <summary>Creates an editable user-owned copy of this plan.</summary>
+    public TrainingPlan CreateEditableCopy(string? name = null, bool isActive = true)
+    {
+        var copy = new TrainingPlan
+        {
+            Name = string.IsNullOrWhiteSpace(name) ? Name : name,
+            Description = Description,
+            IsTemplate = false,
+            IsActive = isActive,
+            ScheduleMode = ScheduleMode,
+            TargetSessionsPerWeek = TargetSessionsPerWeek
+        };
+
+        foreach (var day in Days.OrderBy(day => day.Ordinal))
+        {
+            var dayCopy = new PlanDay
+            {
+                Name = day.Name,
+                Ordinal = day.Ordinal,
+                ScheduledDay = day.ScheduledDay
+            };
+
+            foreach (var exercise in day.Exercises.OrderBy(exercise => exercise.Ordinal))
+            {
+                var exerciseCopy = new PlannedExercise
+                {
+                    ExerciseId = exercise.ExerciseId,
+                    ExerciseName = exercise.ExerciseName,
+                    Pattern = exercise.Pattern,
+                    PrimaryMuscle = exercise.PrimaryMuscle,
+                    SecondaryMuscles = [.. exercise.SecondaryMuscles],
+                    BlockType = exercise.BlockType,
+                    GroupKey = exercise.GroupKey,
+                    Ordinal = exercise.Ordinal
+                };
+
+                foreach (var set in exercise.Sets.OrderBy(set => set.Ordinal))
+                {
+                    exerciseCopy.Sets.Add(new PlannedSet
+                    {
+                        Ordinal = set.Ordinal,
+                        TargetRepsMin = set.TargetRepsMin,
+                        TargetRepsMax = set.TargetRepsMax,
+                        TargetLoad = set.TargetLoad,
+                        TargetRpe = set.TargetRpe,
+                        Rest = set.Rest,
+                        IsWarmUp = set.IsWarmUp
+                    });
+                }
+
+                dayCopy.Exercises.Add(exerciseCopy);
+            }
+
+            copy.Days.Add(dayCopy);
+        }
+
+        return copy;
+    }
 }
 
 /// <summary>One planned training day inside a programme.</summary>

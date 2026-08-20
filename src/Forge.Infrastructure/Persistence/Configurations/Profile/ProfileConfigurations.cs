@@ -16,11 +16,18 @@ public sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserProf
         builder.HasKey(e => e.Id);
         builder.Property(e => e.DisplayName).HasMaxLength(120).IsRequired();
         builder.Property(e => e.AvailableEquipment).HasMaxLength(500);
+        builder.Property(e => e.MovementLimitations).HasMaxLength(1000);
         builder.Property(e => e.DateOfBirth).HasConversion(d => d, d => d);
         builder.Property(e => e.Height)
                .HasConversion(l => l.Centimetres, cm => Length.FromCentimetres(cm))
                .HasPrecision(8, 2)
                .HasColumnName("HeightCentimetres");
+        builder.Property(e => e.TargetWeight)
+               .HasConversion(m => m.HasValue ? m.Value.Kilograms : (decimal?)null, kg => kg.HasValue ? Mass.FromKilograms(kg.Value) : null)
+               .HasPrecision(10, 3)
+               .HasColumnName("TargetWeightKilograms");
+        builder.Property(e => e.TargetDailyCalories)
+               .HasPrecision(8, 0);
 
         builder.HasIndex(e => e.DisplayName);
     }

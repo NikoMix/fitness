@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Insights.InsightsPage"
+             x:Name="Page"
+             Title="Insights"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Insights" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Deterministic, on-device analysis that explains where every number came from." Style="{StaticResource SecondaryText}" />
+
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+
+            <controls:ForgeCard Title="Analytics hub" Subtitle="No cloud inference, no black boxes">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Open a focused view when you want progression, records, or body metric trends. New accounts start empty on purpose; Forge only claims what your local log supports." Style="{StaticResource BodyText}" />
+                    <Label Text="{Binding HistorySummary}" Style="{StaticResource SecondaryText}" />
+                    <dx:DXButton Content="Exercise progress" Style="{StaticResource PrimaryButton}" Command="{Binding OpenExerciseProgressCommand}" />
+                    <dx:DXButton Content="Personal records" Style="{StaticResource SecondaryButton}" Command="{Binding OpenPersonalRecordsCommand}" />
+                    <dx:DXButton Content="Body metrics" Style="{StaticResource SecondaryButton}" Command="{Binding OpenBodyMetricsCommand}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <Label Text="What Forge will explain" Style="{StaticResource SectionHeaderText}" />
+            <dx:DXCollectionView ItemsSource="{Binding Highlights}" HeightRequest="280">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
+                                <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

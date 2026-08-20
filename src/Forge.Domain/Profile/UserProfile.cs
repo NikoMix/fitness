@@ -1,4 +1,5 @@
 using Forge.Domain.Common;
+using Forge.Domain.Measurement;
 
 namespace Forge.Domain.Profile;
 
@@ -23,9 +24,35 @@ public sealed class UserProfile : Entity
     /// <summary>Primary goal.</summary>
     public FitnessGoal Goal { get; set; } = FitnessGoal.Unspecified;
 
+    /// <summary>Target body weight for weight-change goals.</summary>
+    public Mass? TargetWeight { get; set; }
+
+    /// <summary>Planned goal timeframe in whole weeks.</summary>
+    public int? GoalTimeframeWeeks { get; set; }
+
+    /// <summary>Optional daily energy target in kilocalories.</summary>
+    public decimal? TargetDailyCalories { get; set; }
+
     /// <summary>Comma-separated equipment names available for training.</summary>
     public string AvailableEquipment { get; set; } = "Bodyweight";
 
+    /// <summary>Free-text movement limitations or injuries the user wants Forge to consider.</summary>
+    public string MovementLimitations { get; set; } = string.Empty;
+
     /// <summary>Training days available per week.</summary>
     public int TrainingDaysPerWeek { get; set; } = 3;
+
+    /// <summary>Builds a safety proposal from the persisted goal and the latest body metric.</summary>
+    public GoalSafetyProposal CreateSafetyProposal(BodyMetric latestMetric)
+    {
+        ArgumentNullException.ThrowIfNull(latestMetric);
+
+        return new GoalSafetyProposal(
+            latestMetric.Weight,
+            Height,
+            BiologicalSex,
+            TargetWeight,
+            GoalTimeframeWeeks,
+            TargetDailyCalories);
+    }
 }

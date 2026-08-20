@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Coaching.MorningCheckInPage"
+             Title="Morning check-in"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Morning check-in" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Rate each manual input from 1 to 5. Sleep can be manual or health-store sourced when available." Style="{StaticResource SecondaryText}" />
+
+            <controls:ForgeCard Title="Subjective recovery" Subtitle="Manual-first and local">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Energy" Style="{StaticResource TitleText}" />
+                    <dx:NumericEdit Value="{Binding Energy}" Style="{StaticResource ForgeNumericEdit}" />
+                    <Label Text="Soreness" Style="{StaticResource TitleText}" />
+                    <dx:NumericEdit Value="{Binding Soreness}" Style="{StaticResource ForgeNumericEdit}" />
+                    <Label Text="Motivation" Style="{StaticResource TitleText}" />
+                    <dx:NumericEdit Value="{Binding Motivation}" Style="{StaticResource ForgeNumericEdit}" />
+                    <Label Text="Stress" Style="{StaticResource TitleText}" />
+                    <dx:NumericEdit Value="{Binding Stress}" Style="{StaticResource ForgeNumericEdit}" />
+                    <Label Text="Sleep hours (optional)" Style="{StaticResource TitleText}" />
+                    <dx:NumericEdit Value="{Binding SleepHours}" Style="{StaticResource ForgeNumericEdit}" />
+                    <dx:DXButton Content="Save check-in" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
+                    <Label Text="{Binding SaveStatus}" Style="{StaticResource CaptionText}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

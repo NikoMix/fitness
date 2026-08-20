@@ -1,0 +1,786 @@
+{
+  "version": 1,
+  "provenance": "Original Forge sample food catalogue for offline first-run nutrition logging.",
+  "foods": [
+    {
+      "id": "cef40b91-f7dd-56ee-a927-e47b9c0b4a29",
+      "name": "Rolled oats",
+      "brand": null,
+      "energyKilocalories": 389,
+      "proteinGrams": 16.9,
+      "carbohydrateGrams": 66.3,
+      "fatGrams": 6.9,
+      "fibreGrams": 10.6,
+      "sugarGrams": 0.9,
+      "sodiumMilligrams": 2,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup dry",
+          "grams": 81
+        },
+        {
+          "name": "1 serving",
+          "grams": 40
+        }
+      ]
+    },
+    {
+      "id": "9bf9e02f-ef09-5067-af5b-c1f95d0741f0",
+      "name": "Greek yogurt, plain",
+      "brand": null,
+      "energyKilocalories": 73,
+      "proteinGrams": 9.9,
+      "carbohydrateGrams": 3.9,
+      "fatGrams": 1.9,
+      "fibreGrams": 0,
+      "sugarGrams": 3.6,
+      "sodiumMilligrams": 36,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 245
+        },
+        {
+          "name": "1 serving",
+          "grams": 170
+        }
+      ]
+    },
+    {
+      "id": "9d693ff4-9b57-504d-a40c-09e8d29b7b62",
+      "name": "Banana",
+      "brand": null,
+      "energyKilocalories": 89,
+      "proteinGrams": 1.1,
+      "carbohydrateGrams": 22.8,
+      "fatGrams": 0.3,
+      "fibreGrams": 2.6,
+      "sugarGrams": 12.2,
+      "sodiumMilligrams": 1,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 medium",
+          "grams": 118
+        },
+        {
+          "name": "1 serving",
+          "grams": 118
+        }
+      ]
+    },
+    {
+      "id": "83a74bf7-b4ef-53eb-b6c1-80d620033041",
+      "name": "Blueberries",
+      "brand": null,
+      "energyKilocalories": 57,
+      "proteinGrams": 0.7,
+      "carbohydrateGrams": 14.5,
+      "fatGrams": 0.3,
+      "fibreGrams": 2.4,
+      "sugarGrams": 10,
+      "sodiumMilligrams": 1,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 148
+        },
+        {
+          "name": "1 serving",
+          "grams": 80
+        }
+      ]
+    },
+    {
+      "id": "b5a6b2c7-095b-5d79-8252-295a1f7b080e",
+      "name": "Apple",
+      "brand": null,
+      "energyKilocalories": 52,
+      "proteinGrams": 0.3,
+      "carbohydrateGrams": 13.8,
+      "fatGrams": 0.2,
+      "fibreGrams": 2.4,
+      "sugarGrams": 10.4,
+      "sodiumMilligrams": 1,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 medium",
+          "grams": 182
+        },
+        {
+          "name": "1 serving",
+          "grams": 150
+        }
+      ]
+    },
+    {
+      "id": "bcd16a0c-8e2f-53db-bb58-bf71dd7ffb33",
+      "name": "Peanut butter",
+      "brand": null,
+      "energyKilocalories": 588,
+      "proteinGrams": 25.1,
+      "carbohydrateGrams": 20,
+      "fatGrams": 50,
+      "fibreGrams": 6,
+      "sugarGrams": 9.2,
+      "sodiumMilligrams": 17,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 tablespoon",
+          "grams": 16
+        },
+        {
+          "name": "1 serving",
+          "grams": 32
+        }
+      ]
+    },
+    {
+      "id": "945c8316-882b-5a7b-b76a-7ac4832c0154",
+      "name": "Whole egg",
+      "brand": null,
+      "energyKilocalories": 143,
+      "proteinGrams": 12.6,
+      "carbohydrateGrams": 0.7,
+      "fatGrams": 9.5,
+      "fibreGrams": 0,
+      "sugarGrams": 0.4,
+      "sodiumMilligrams": 142,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 large",
+          "grams": 50
+        },
+        {
+          "name": "2 eggs",
+          "grams": 100
+        }
+      ]
+    },
+    {
+      "id": "af0af6ca-b83a-541c-9067-343cae0298b1",
+      "name": "Chicken breast, cooked",
+      "brand": null,
+      "energyKilocalories": 165,
+      "proteinGrams": 31,
+      "carbohydrateGrams": 0,
+      "fatGrams": 3.6,
+      "fibreGrams": 0,
+      "sugarGrams": 0,
+      "sodiumMilligrams": 74,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 palm",
+          "grams": 120
+        },
+        {
+          "name": "1 serving",
+          "grams": 150
+        }
+      ]
+    },
+    {
+      "id": "ba2d0442-1455-5864-84ba-614c410d8d9a",
+      "name": "Turkey mince, lean",
+      "brand": null,
+      "energyKilocalories": 149,
+      "proteinGrams": 27,
+      "carbohydrateGrams": 0,
+      "fatGrams": 4.5,
+      "fibreGrams": 0,
+      "sugarGrams": 0,
+      "sodiumMilligrams": 80,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 serving",
+          "grams": 125
+        },
+        {
+          "name": "2 servings",
+          "grams": 250
+        }
+      ]
+    },
+    {
+      "id": "1d0928bc-7891-5b95-a833-2b6ffdaa806f",
+      "name": "Salmon fillet",
+      "brand": null,
+      "energyKilocalories": 208,
+      "proteinGrams": 20,
+      "carbohydrateGrams": 0,
+      "fatGrams": 13,
+      "fibreGrams": 0,
+      "sugarGrams": 0,
+      "sodiumMilligrams": 59,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 fillet",
+          "grams": 170
+        },
+        {
+          "name": "1 serving",
+          "grams": 140
+        }
+      ]
+    },
+    {
+      "id": "cd8f61dd-04f3-548e-9cd5-a8b554207104",
+      "name": "Tuna in spring water",
+      "brand": null,
+      "energyKilocalories": 116,
+      "proteinGrams": 25.5,
+      "carbohydrateGrams": 0,
+      "fatGrams": 0.8,
+      "fibreGrams": 0,
+      "sugarGrams": 0,
+      "sodiumMilligrams": 247,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 can drained",
+          "grams": 120
+        },
+        {
+          "name": "1 serving",
+          "grams": 100
+        }
+      ]
+    },
+    {
+      "id": "42f7d5b3-9b97-5a07-bb69-6e0f8000f666",
+      "name": "Tofu, firm",
+      "brand": null,
+      "energyKilocalories": 144,
+      "proteinGrams": 15.7,
+      "carbohydrateGrams": 3.9,
+      "fatGrams": 8.7,
+      "fibreGrams": 2.3,
+      "sugarGrams": 0.6,
+      "sodiumMilligrams": 14,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 block quarter",
+          "grams": 100
+        },
+        {
+          "name": "1 serving",
+          "grams": 150
+        }
+      ]
+    },
+    {
+      "id": "f29b72ec-78ac-5b16-a530-9e2c59fa1d37",
+      "name": "Black beans, cooked",
+      "brand": null,
+      "energyKilocalories": 132,
+      "proteinGrams": 8.9,
+      "carbohydrateGrams": 23.7,
+      "fatGrams": 0.5,
+      "fibreGrams": 8.7,
+      "sugarGrams": 0.3,
+      "sodiumMilligrams": 1,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 172
+        },
+        {
+          "name": "1 serving",
+          "grams": 130
+        }
+      ]
+    },
+    {
+      "id": "12b2e441-4055-5d85-ab3a-02af61c382c1",
+      "name": "Lentils, cooked",
+      "brand": null,
+      "energyKilocalories": 116,
+      "proteinGrams": 9,
+      "carbohydrateGrams": 20.1,
+      "fatGrams": 0.4,
+      "fibreGrams": 7.9,
+      "sugarGrams": 1.8,
+      "sodiumMilligrams": 2,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 198
+        },
+        {
+          "name": "1 serving",
+          "grams": 150
+        }
+      ]
+    },
+    {
+      "id": "75f362c3-0129-52e4-9aba-04b7b26f7419",
+      "name": "White rice, cooked",
+      "brand": null,
+      "energyKilocalories": 130,
+      "proteinGrams": 2.7,
+      "carbohydrateGrams": 28.2,
+      "fatGrams": 0.3,
+      "fibreGrams": 0.4,
+      "sugarGrams": 0.1,
+      "sodiumMilligrams": 1,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 158
+        },
+        {
+          "name": "1 serving",
+          "grams": 180
+        }
+      ]
+    },
+    {
+      "id": "d8affe12-6272-5e68-b436-efd7679940c3",
+      "name": "Brown rice, cooked",
+      "brand": null,
+      "energyKilocalories": 112,
+      "proteinGrams": 2.3,
+      "carbohydrateGrams": 23.5,
+      "fatGrams": 0.8,
+      "fibreGrams": 1.8,
+      "sugarGrams": 0.4,
+      "sodiumMilligrams": 5,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 195
+        },
+        {
+          "name": "1 serving",
+          "grams": 180
+        }
+      ]
+    },
+    {
+      "id": "a1b3e307-e83b-555c-bfe6-f70a9fbcef7e",
+      "name": "Quinoa, cooked",
+      "brand": null,
+      "energyKilocalories": 120,
+      "proteinGrams": 4.4,
+      "carbohydrateGrams": 21.3,
+      "fatGrams": 1.9,
+      "fibreGrams": 2.8,
+      "sugarGrams": 0.9,
+      "sodiumMilligrams": 7,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 185
+        },
+        {
+          "name": "1 serving",
+          "grams": 160
+        }
+      ]
+    },
+    {
+      "id": "af9e5ed9-f56b-5824-b5db-125f165b064a",
+      "name": "Whole wheat bread",
+      "brand": null,
+      "energyKilocalories": 247,
+      "proteinGrams": 13,
+      "carbohydrateGrams": 41,
+      "fatGrams": 4.2,
+      "fibreGrams": 7,
+      "sugarGrams": 6,
+      "sodiumMilligrams": 400,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 slice",
+          "grams": 38
+        },
+        {
+          "name": "2 slices",
+          "grams": 76
+        }
+      ]
+    },
+    {
+      "id": "cd2177ff-fb98-5f34-96d4-55c9fb76ed5c",
+      "name": "Pasta, cooked",
+      "brand": null,
+      "energyKilocalories": 158,
+      "proteinGrams": 5.8,
+      "carbohydrateGrams": 30.9,
+      "fatGrams": 0.9,
+      "fibreGrams": 1.8,
+      "sugarGrams": 0.6,
+      "sodiumMilligrams": 1,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 140
+        },
+        {
+          "name": "1 serving",
+          "grams": 180
+        }
+      ]
+    },
+    {
+      "id": "b3535f62-55b8-584e-bd10-a190c27b7d62",
+      "name": "Sweet potato, baked",
+      "brand": null,
+      "energyKilocalories": 90,
+      "proteinGrams": 2,
+      "carbohydrateGrams": 20.7,
+      "fatGrams": 0.2,
+      "fibreGrams": 3.3,
+      "sugarGrams": 6.5,
+      "sodiumMilligrams": 36,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 medium",
+          "grams": 130
+        },
+        {
+          "name": "1 serving",
+          "grams": 150
+        }
+      ]
+    },
+    {
+      "id": "379eca1b-b514-544f-bb92-74737b88d088",
+      "name": "Broccoli, cooked",
+      "brand": null,
+      "energyKilocalories": 35,
+      "proteinGrams": 2.4,
+      "carbohydrateGrams": 7.2,
+      "fatGrams": 0.4,
+      "fibreGrams": 3.3,
+      "sugarGrams": 1.4,
+      "sodiumMilligrams": 41,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 156
+        },
+        {
+          "name": "1 serving",
+          "grams": 100
+        }
+      ]
+    },
+    {
+      "id": "a706100b-4911-5b12-b833-6cf7636f9bfc",
+      "name": "Spinach",
+      "brand": null,
+      "energyKilocalories": 23,
+      "proteinGrams": 2.9,
+      "carbohydrateGrams": 3.6,
+      "fatGrams": 0.4,
+      "fibreGrams": 2.2,
+      "sugarGrams": 0.4,
+      "sodiumMilligrams": 79,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup raw",
+          "grams": 30
+        },
+        {
+          "name": "1 serving",
+          "grams": 85
+        }
+      ]
+    },
+    {
+      "id": "58cc36b2-d805-5371-a798-d1fd2aedf564",
+      "name": "Avocado",
+      "brand": null,
+      "energyKilocalories": 160,
+      "proteinGrams": 2,
+      "carbohydrateGrams": 8.5,
+      "fatGrams": 14.7,
+      "fibreGrams": 6.7,
+      "sugarGrams": 0.7,
+      "sodiumMilligrams": 7,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 half",
+          "grams": 100
+        },
+        {
+          "name": "1 serving",
+          "grams": 50
+        }
+      ]
+    },
+    {
+      "id": "e935497e-d640-5e53-a736-c97f2e10adf7",
+      "name": "Olive oil",
+      "brand": null,
+      "energyKilocalories": 884,
+      "proteinGrams": 0,
+      "carbohydrateGrams": 0,
+      "fatGrams": 100,
+      "fibreGrams": 0,
+      "sugarGrams": 0,
+      "sodiumMilligrams": 2,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 tablespoon",
+          "grams": 14
+        },
+        {
+          "name": "1 teaspoon",
+          "grams": 4.5
+        }
+      ]
+    },
+    {
+      "id": "72cb58aa-c5f0-56fa-9fcc-d4e89af994f0",
+      "name": "Cheddar cheese",
+      "brand": null,
+      "energyKilocalories": 403,
+      "proteinGrams": 24.9,
+      "carbohydrateGrams": 1.3,
+      "fatGrams": 33.1,
+      "fibreGrams": 0,
+      "sugarGrams": 0.5,
+      "sodiumMilligrams": 621,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 slice",
+          "grams": 28
+        },
+        {
+          "name": "1 serving",
+          "grams": 30
+        }
+      ]
+    },
+    {
+      "id": "752b5245-c349-59a3-8879-be2adece6e22",
+      "name": "Cottage cheese",
+      "brand": null,
+      "energyKilocalories": 98,
+      "proteinGrams": 11.1,
+      "carbohydrateGrams": 3.4,
+      "fatGrams": 4.3,
+      "fibreGrams": 0,
+      "sugarGrams": 2.7,
+      "sodiumMilligrams": 364,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 226
+        },
+        {
+          "name": "1 serving",
+          "grams": 150
+        }
+      ]
+    },
+    {
+      "id": "38b5dfab-94ed-5b2d-bc71-45d839aeebc8",
+      "name": "Almonds",
+      "brand": null,
+      "energyKilocalories": 579,
+      "proteinGrams": 21.2,
+      "carbohydrateGrams": 21.6,
+      "fatGrams": 49.9,
+      "fibreGrams": 12.5,
+      "sugarGrams": 4.4,
+      "sodiumMilligrams": 1,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 handful",
+          "grams": 28
+        },
+        {
+          "name": "1 serving",
+          "grams": 28
+        }
+      ]
+    },
+    {
+      "id": "9a77a895-5774-5045-a7b4-010d172ed432",
+      "name": "Whey protein powder",
+      "brand": "Forge sample",
+      "energyKilocalories": 400,
+      "proteinGrams": 80,
+      "carbohydrateGrams": 8,
+      "fatGrams": 6,
+      "fibreGrams": 2,
+      "sugarGrams": 4,
+      "sodiumMilligrams": 200,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 scoop",
+          "grams": 30
+        },
+        {
+          "name": "2 servings",
+          "grams": 60
+        }
+      ]
+    },
+    {
+      "id": "71a73566-af41-5dac-9238-6a135e94d034",
+      "name": "Hummus",
+      "brand": null,
+      "energyKilocalories": 166,
+      "proteinGrams": 7.9,
+      "carbohydrateGrams": 14.3,
+      "fatGrams": 9.6,
+      "fibreGrams": 6,
+      "sugarGrams": 0.3,
+      "sodiumMilligrams": 379,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "2 tablespoons",
+          "grams": 30
+        },
+        {
+          "name": "1 serving",
+          "grams": 60
+        }
+      ]
+    },
+    {
+      "id": "83ad0a00-6fdb-56a5-b7df-bdf23f4c7ecb",
+      "name": "Milk, semi-skimmed",
+      "brand": null,
+      "energyKilocalories": 50,
+      "proteinGrams": 3.4,
+      "carbohydrateGrams": 4.8,
+      "fatGrams": 1.8,
+      "fibreGrams": 0,
+      "sugarGrams": 4.8,
+      "sodiumMilligrams": 44,
+      "servings": [
+        {
+          "name": "100 g",
+          "grams": 100
+        },
+        {
+          "name": "1 cup",
+          "grams": 244
+        },
+        {
+          "name": "1 serving",
+          "grams": 250
+        }
+      ]
+    }
+  ]
+}
