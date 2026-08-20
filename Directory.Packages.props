@@ -40,8 +40,16 @@
   <ItemGroup Label="MVVM and UI">
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="CommunityToolkit.Maui" Version="15.0.0" />
+    <!-- DevExpress has no media control, so exercise video uses the toolkit MediaElement. -->
     <PackageVersion Include="CommunityToolkit.Maui.MediaElement" Version="10.0.0" />
+    <!--
+      SkiaSharp is pulled in transitively by DevExpress.Maui.Gauges, which renders through it.
+      The version is pinned here so the Lottie package below cannot silently drag in a
+      different major version and break gauge rendering.
+    -->
     <PackageVersion Include="SkiaSharp.Views.Maui.Controls" Version="3.119.1" />
+    <!-- Lottie for celebration moments; DevExpress ships no equivalent. -->
+    <PackageVersion Include="SkiaSharp.Extended.UI.Maui" Version="3.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Data">
