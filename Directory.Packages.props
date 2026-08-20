@@ -1,0 +1,80 @@
+<Project>
+
+  <!--
+    Central Package Management for Forge.
+    Every PackageReference in the repository resolves its version from here.
+
+    DevExpress is pinned to 26.1.4 to match the DevExpress 26.1 installation on the
+    development machine. Do not float this version - DevExpress ships breaking changes
+    between minor releases and the local install is the reference for designer support.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    <DevExpressVersion>26.1.4</DevExpressVersion>
+    <MauiVersion>10.0.20</MauiVersion>
+    <EfCoreVersion>10.0.11</EfCoreVersion>
+    <ExtensionsVersion>10.0.0</ExtensionsVersion>
+  </PropertyGroup>
+
+  <ItemGroup Label="DevExpress .NET MAUI">
+    <PackageVersion Include="DevExpress.Maui.Controls" Version="$(DevExpressVersion)" />
+    <PackageVersion Include="DevExpress.Maui.CollectionView" Version="$(DevExpressVersion)" />
+    <PackageVersion Include="DevExpress.Maui.Editors" Version="$(DevExpressVersion)" />
+    <PackageVersion Include="DevExpress.Maui.Charts" Version="$(DevExpressVersion)" />
+    <PackageVersion Include="DevExpress.Maui.DataGrid" Version="$(DevExpressVersion)" />
+    <PackageVersion Include="DevExpress.Maui.Scheduler" Version="$(DevExpressVersion)" />
+    <PackageVersion Include="DevExpress.Maui.Gauges" Version="$(DevExpressVersion)" />
+    <PackageVersion Include="DevExpress.Maui.TreeView" Version="$(DevExpressVersion)" />
+    <PackageVersion Include="DevExpress.Maui.Pdf" Version="$(DevExpressVersion)" />
+    <PackageVersion Include="DevExpress.Maui.Core" Version="$(DevExpressVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="MAUI">
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageVersion Include="Microsoft.Maui.Controls.Compatibility" Version="$(MauiVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="MVVM and UI">
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="CommunityToolkit.Maui" Version="15.0.0" />
+    <PackageVersion Include="CommunityToolkit.Maui.MediaElement" Version="10.0.0" />
+    <PackageVersion Include="SkiaSharp.Views.Maui.Controls" Version="3.119.1" />
+  </ItemGroup>
+
+  <ItemGroup Label="Data">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="3.0.5" />
+  </ItemGroup>
+
+  <ItemGroup Label="Platform extensions">
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(ExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(ExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(ExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(ExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="$(ExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="$(ExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(ExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(ExtensionsVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Device capabilities">
+    <PackageVersion Include="Plugin.LocalNotification" Version="14.1.1" />
+    <PackageVersion Include="Plugin.InAppBilling" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit.v3" Version="4.1.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.7" />
+    <PackageVersion Include="FluentAssertions" Version="7.2.0" />
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Verify.Xunit" Version="30.10.0" />
+  </ItemGroup>
+
+</Project>

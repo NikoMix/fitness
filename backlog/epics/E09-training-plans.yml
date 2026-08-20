@@ -1,0 +1,842 @@
+key: E09
+title: Training Plan Builder and Programmes
+domain: training
+wave: 3
+summary: Forge gives newcomers a safe path from zero to a structured training week, while giving experienced lifters enough control to build periodised
+  programmes without a spreadsheet. Plans stay local, editable, schedulable and portable without any backend account.
+problem: People churn when an app asks them to design a programme before they know the movements, volume or progression rule. Experienced users
+  churn when template-only apps cannot represent the programme they already follow.
+outcome: A user can pick or build a plan, understand its weekly demand, schedule it flexibly, adapt it when life or equipment changes, and start
+  a workout from clear targets.
+successMetrics:
+- 80 percent of first-run users create or select a plan and schedule the first session in under 4 minutes.
+- Plan validation calculates estimated duration and muscle-group volume for 100 exercises in under 300 ms.
+- Plan export and import round-trip exercises, targets, progression rules and schedule metadata with zero loss.
+nonGoals:
+- No coach marketplace, remote publishing, account sync or backend sharing in v1.
+- No generative AI plan creation in v1.
+- No wearable companion plan editing in v1.
+risks:
+- risk: Progression rules are encoded in ViewModels and become impossible to test or reuse.
+  mitigation: Put all programme maths in Forge.Domain and Forge.Application services, with ViewModels exposing DTOs only.
+  severity: high
+- risk: Flexible scheduling makes a missed workout feel like failure.
+  mitigation: Model missed sessions as neutral reschedulable work and avoid guilt language.
+  severity: medium
+dependsOn:
+- E01
+grounding:
+- &id005
+  title: DevExpress Scheduler for .NET MAUI
+  url: https://docs.devexpress.com/MAUI/403734
+  note: Scheduler views back the plan calendar and occurrence display.
+- &id001
+  title: DevExpress MAUI DXCollectionView
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+  note: Virtualized list control for exercises, templates, sets and swipe actions.
+- &id003
+  title: DevExpress MAUI NumericEdit
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.NumericEdit
+  note: Numeric entry control for sets, reps, load, RPE and rest durations.
+- &id002
+  title: DevExpress MAUI BottomSheet
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.BottomSheet
+  note: Bottom sheet control for quick actions without leaving the main flow.
+- &id004
+  title: DevExpress MAUI TabView
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.TabView
+  note: Tab control used for builder sections and workout subviews.
+features:
+- key: F09.01
+  title: Offer ready-made programmes for common goals
+  wave: 3
+  summary: Curated templates let a newcomer start training without understanding programme design, while still showing enough detail to build
+    trust before the first workout.
+  outcome: The library contains goal-based templates that can be previewed, filtered and copied into an editable local plan.
+  stories:
+  - key: S09.01.01
+    title: Seed beginner and goal-based programme templates
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: to choose a proven plan for my goal
+      soThat: I can start without building one from scratch
+    requirements:
+    - 'Seed at least seven templates: full-body beginner, upper/lower, push-pull-legs, strength 5x5, hypertrophy, home bodyweight-only and minimal-equipment.'
+    - Each template includes goal, experience level, weekly frequency, estimated duration, equipment list and safety notes.
+    - Template imports are versioned and never overwrite a customized user copy.
+    acceptanceCriteria:
+    - id: AC1
+      given: a fresh install with an empty database
+      when: template import completes
+      then: at least seven templates are available within 2 s
+    - id: AC2
+      given: a user copy already exists
+      when: a template version updates
+      then: the user copy remains unchanged
+    implementation:
+      notes: Store templates as versioned compressed JSON assets in Forge.Infrastructure and import them through the catalogue seed pipeline.
+        Distinguish PlanTemplate from UserTrainingPlan so editing a copied template never mutates seed content. Copy by template id through Forge.Application.
+      touches:
+      - src/Forge.Infrastructure/Content/TrainingTemplates
+      - src/Forge.Domain/Training/Plans
+      - src/Forge.Application/Training/Plans
+      devexpress:
+      - dx:DXCollectionView
+      - dx:TabView
+      apis:
+      - System.Text.Json
+      - SQLite EF Core
+    concerns:
+    - offline
+    testing:
+    - Unit test template import idempotence.
+  - key: S09.01.02
+    title: Preview template fit before plan creation
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: to compare schedule, equipment and difficulty
+      soThat: I do not pick a plan that cannot fit my week
+    requirements:
+    - Preview shows weekly days, exercise count, equipment, estimated duration range and primary muscle groups.
+    - Templates filter by goal, experience level, equipment and days per week.
+    - Filtering 50 templates completes within 150 ms after load.
+    acceptanceCriteria:
+    - id: AC1
+      given: 50 local templates
+      when: the user filters to home and 3 days per week
+      then: results update within 150 ms and all visible templates match
+    - id: AC2
+      given: a template requires a barbell
+      when: barbell is excluded
+      then: a visible equipment mismatch warning appears before copying
+    implementation:
+      notes: Build the browser in Forge.App/Features/Plans/Templates with dx:DXCollectionView cards and a dx:BottomSheet filter panel. Forge.Application
+        returns TemplatePreviewDto values with computed duration and equipment badges. DevExpress filter types must not leak into application
+        services.
+      touches:
+      - src/Forge.App/Features/Plans/Templates
+      - src/Forge.Application/Training/Plans/TemplateQueries.cs
+      devexpress:
+      - dx:DXCollectionView
+      - dx:BottomSheet
+    concerns:
+    - devexpress
+    - perf
+  - key: S09.01.03
+    title: Copy a template into an editable personal plan
+    wave: 3
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: to adjust a template safely
+      soThat: I can make it fit my injury history and schedule
+    requirements:
+    - Copying creates a UserTrainingPlan with its own id and version 1.
+    - The copied plan opens directly in the builder with all targets editable.
+    - Copying 120 exercise rows completes within 1 s.
+    acceptanceCriteria:
+    - id: AC1
+      given: a template has 80 prescriptions
+      when: the user taps Use this programme
+      then: an editable plan appears with 80 prescriptions and version 1
+    - id: AC2
+      given: the copied plan is edited
+      when: the original template is inspected
+      then: no template field has changed
+    implementation:
+      notes: Implement copy as a single SQLite transaction in Forge.Application and Infrastructure. Navigate to the builder only after commit.
+        Store sourceTemplateId on the user plan for local analytics without requiring a backend.
+      touches:
+      - src/Forge.Application/Training/Plans/CreatePlanFromTemplateUseCase.cs
+      - src/Forge.Infrastructure/Persistence/TrainingPlanRepository.cs
+      apis:
+      - SQLite EF Core transactions
+    concerns:
+    - offline
+  concerns:
+  - offline
+  - devexpress
+  grounding:
+  - *id001
+  - *id002
+- key: F09.02
+  title: Build custom plans with days and blocks
+  wave: 3
+  summary: The custom builder covers training days, warm-ups, working exercises, supersets, circuits, cooldowns, rest targets and touch reordering
+    without becoming a spreadsheet.
+  outcome: A user can construct, validate and save a complete week from scratch as a durable local plan.
+  stories:
+  - key: S09.02.01
+    title: Create a plan with training days and ordered blocks
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to create named days with warm-up, work and cooldown blocks
+      soThat: my programme matches how I train
+    requirements:
+    - A custom plan can contain 1 to 14 training days.
+    - Each day supports warm-up, exercise, superset, circuit and cooldown blocks.
+    - Reordering persists within 200 ms and survives process death.
+    acceptanceCriteria:
+    - id: AC1
+      given: a plan with four days
+      when: Day 4 is dragged before Day 2
+      then: the new order persists within 200 ms after relaunch
+    - id: AC2
+      given: a new plan has zero days
+      when: the user taps Save
+      then: save is blocked and a field error names the missing day
+    implementation:
+      notes: Use dx:TabView for day sections and dx:DXCollectionView for ordered blocks under Forge.App/Features/Plans/PlanBuilder. Persist order
+        as SortIndex values in Forge.Domain and rewrite affected indices in one application transaction.
+      touches:
+      - src/Forge.App/Features/Plans/PlanBuilder
+      - src/Forge.Domain/Training/Plans/TrainingDay.cs
+      devexpress:
+      - dx:TabView
+      - dx:DXCollectionView
+    concerns:
+    - devexpress
+    - offline
+  - key: S09.02.02
+    title: Add exercise targets for sets, reps, load, RPE and rest
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to set precise targets per exercise
+      soThat: exercise mode can show target versus actual
+    requirements:
+    - Targets support sets, rep range, load target, RPE target, rest duration and notes.
+    - Ranges enforce sets 1 to 20, reps 1 to 100, RPE 1.0 to 10.0 and rest 0 to 900 seconds.
+    - Invalid input displays an inline error and writes no invalid rows.
+    acceptanceCriteria:
+    - id: AC1
+      given: an exercise editor
+      when: sets is entered as 0
+      then: save is blocked and the sets field announces an error
+    - id: AC2
+      given: a target is 3 sets, 8 to 10 reps, RPE 8 and 120 s rest
+      when: the plan is reopened
+      then: all values match exactly
+    implementation:
+      notes: Create ExercisePrescription value objects in Forge.Domain so validation is shared by plan builder and workout execution. Use dx:NumericEdit
+        for numeric targets. Store load as absolute weight, percentage of 1RM, bodyweight, or not specified.
+      touches:
+      - src/Forge.Domain/Training/Plans/ExercisePrescription.cs
+      - src/Forge.App/Features/Plans/PlanBuilder/ExerciseTargetEditor.xaml
+      devexpress:
+      - dx:NumericEdit
+      - dx:BottomSheet
+  - key: S09.02.03
+    title: Represent supersets and circuits in the builder
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to group exercises into supersets and circuits
+      soThat: Forge executes them in the order I intended
+    requirements:
+    - A superset contains 2 to 5 exercises before shared rest.
+    - A circuit contains 2 to 12 exercises and 1 to 10 rounds.
+    - Grouped blocks support child add, remove and reorder.
+    acceptanceCriteria:
+    - id: AC1
+      given: a superset has two exercises
+      when: a third is added with 90 s shared rest
+      then: the block saves with three children and one 90 s rest value
+    - id: AC2
+      given: a circuit has 12 exercises
+      when: the user tries to add another
+      then: the add action is disabled
+    implementation:
+      notes: Model SupersetBlock and CircuitBlock in Forge.Domain instead of tagging exercises with a group string. The UI may use one-level nested
+        dx:DXCollectionView rows but the domain must reject deeper nesting because it is hard to execute on a phone.
+      touches:
+      - src/Forge.Domain/Training/Plans/PlanBlock.cs
+      - src/Forge.App/Features/Plans/PlanBuilder/GroupedBlockEditor.xaml
+      devexpress:
+      - dx:DXCollectionView
+      - dx:NumericEdit
+  - key: S09.02.04
+    title: Adapt a plan when equipment or availability changes
+    wave: 3
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: to revise around missing equipment or fewer days
+      soThat: one disrupted week does not make the programme unusable
+    requirements:
+    - The user can mark equipment unavailable and receive same-pattern substitutions.
+    - Reducing weekly availability proposes moved or merged sessions without deleting history.
+    - A preview lists every changed exercise and day before acceptance.
+    acceptanceCriteria:
+    - id: AC1
+      given: a plan contains barbell back squat
+      when: barbell is marked unavailable
+      then: the preview suggests at least one same-pattern substitute and keeps the plan unchanged
+    - id: AC2
+      given: a 4-day plan
+      when: availability changes to 3 days
+      then: Forge proposes a 3-session schedule and lists moved exercises
+    implementation:
+      notes: Implement adaptation as a proposal in Forge.Application, not direct edits. Query local exercise metadata by movement pattern, muscles
+        and equipment. Accepting a proposal creates a new plan version rather than rewriting the original.
+      touches:
+      - src/Forge.Application/Training/Plans/AdaptPlanUseCase.cs
+      - src/Forge.App/Features/Plans/Adaptation
+      devexpress:
+      - dx:BottomSheet
+      - dx:DXCollectionView
+    concerns:
+    - offline
+  concerns:
+  - devexpress
+  - offline
+  grounding:
+  - *id001
+  - *id003
+  - *id004
+- key: F09.03
+  title: Apply periodisation and progression rules
+  wave: 3
+  summary: Progression turns exercise lists into programmes. Forge supports simple and advanced models with explicit maths so workout execution
+    can compute next targets predictably.
+  outcome: A plan can carry tested progression rules per exercise or block, and future targets are computed locally.
+  stories:
+  - key: S09.03.01
+    title: Add linear and double progression models
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: progression to be automatic and understandable
+      soThat: I know what to do next time
+    requirements:
+    - Linear progression adds a configured load increment after all target sets are completed at or below target RPE.
+    - Double progression increases reps within a range first, then increases load and resets reps to the lower bound.
+    - The next target preview explains the calculation in the user's units.
+    acceptanceCriteria:
+    - id: AC1
+      given: a 5x5 squat target at 60 kg with 2.5 kg increments
+      when: all five sets are completed at RPE 8 or lower
+      then: the next preview shows 62.5 kg for 5x5
+    - id: AC2
+      given: a 3x8-12 row target at 20 kg
+      when: the user completes 12, 12 and 12 reps
+      then: the next preview increases load and resets reps to 8
+    implementation:
+      notes: 'Place progression in Forge.Domain/Training/Progression. Linear formula: nextLoad = currentLoad + increment when every working set
+        meets reps and actualRpe <= targetRpe. Double progression increases reps until upper bound is achieved for all sets, then load increases
+        and reps reset to lower bound.'
+      touches:
+      - src/Forge.Domain/Training/Progression
+      - src/Forge.Application/Training/Progression
+      devexpress:
+      - dx:NumericEdit
+  - key: S09.03.02
+    title: Add percentage-of-1RM and RPE autoregulation models
+    wave: 3
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to use percentage and RPE based targets
+      soThat: my plan matches strength programming styles
+    requirements:
+    - Percentage targets compute load as trainingMax times percentage, rounded to configured plate increment.
+    - RPE autoregulation adjusts next load from -10 percent to +5 percent based on actual versus target RPE.
+    - The UI shows the training max source and rounded load before saving.
+    acceptanceCriteria:
+    - id: AC1
+      given: training max is 100 kg, target is 75 percent and increment is 2.5 kg
+      when: the target is calculated
+      then: the displayed load is exactly 75 kg
+    - id: AC2
+      given: target RPE is 8 and actual RPE is 10
+      when: the next target is calculated
+      then: load decreases by at least 5 percent and no more than 10 percent
+    implementation:
+      notes: 'Percentage formula: prescribedLoad = roundToIncrement(trainingMax * percent / 100). RPE autoregulation should use a tested rule
+        table, not a black box: target+2 reduces 5 to 10 percent, target+1 holds or reduces 2.5 percent, easier sets may increase up to 5 percent.'
+      touches:
+      - src/Forge.Domain/Training/Progression/PercentageOneRepMaxModel.cs
+      - src/Forge.Domain/Training/Progression/RpeAutoregulationModel.cs
+      devexpress:
+      - dx:NumericEdit
+      - dx:BottomSheet
+  - key: S09.03.03
+    title: Schedule deload weeks and progression pauses
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: planned lighter weeks built into my programme
+      soThat: I can back off before burnout
+    requirements:
+    - A deload week can reduce load, sets, or both by percentages.
+    - A plan can pause progression for 1 to 4 sessions after a failed target or user choice.
+    - Deload and pause indicators appear in calendar and target preview.
+    acceptanceCriteria:
+    - id: AC1
+      given: a week has 50 percent set deload and 10 percent load deload
+      when: targets are generated
+      then: sets are halved with minimum 1 and load is reduced by exactly 10 percent before rounding
+    - id: AC2
+      given: progression is paused for two sessions
+      when: three future workouts are generated
+      then: two keep the previous target and the third resumes progression
+    implementation:
+      notes: 'Represent deloads as calendar-scoped modifiers on a plan version. Formula: deloadSets = max(1, round(baseSets * setMultiplier));
+        deloadLoad = roundToIncrement(baseLoad * loadMultiplier). Store progression pauses as remaining session counts on progression state.'
+      touches:
+      - src/Forge.Domain/Training/Plans/DeloadRule.cs
+      - src/Forge.Application/Training/Plans/GenerateScheduledTargetsUseCase.cs
+      devexpress:
+      - dx:SchedulerView
+  concerns:
+  - offline
+  grounding:
+  - *id003
+  - *id005
+- key: F09.04
+  title: Schedule plans on the training calendar
+  wave: 3
+  summary: Plan scheduling connects intention to action. Forge supports fixed-day and flexible plans, then handles missed sessions with neutral
+    rescheduling instead of guilt-heavy streak language.
+  outcome: The calendar shows upcoming sessions, lets the user reschedule missed work and provides a clear start point for workout execution.
+  stories:
+  - key: S09.04.01
+    title: Place fixed-day sessions on a SchedulerView calendar
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: to assign workouts to specific weekdays
+      soThat: my plan matches my routine
+    requirements:
+    - Fixed schedules map each training day to weekdays with optional start time.
+    - The calendar shows the next 12 weeks without pre-creating workout logs.
+    - Tapping a session opens details and Start workout in no more than two taps.
+    acceptanceCriteria:
+    - id: AC1
+      given: a Monday, Wednesday and Friday plan
+      when: the month calendar opens
+      then: the next 12 weeks show exactly three sessions per week
+    - id: AC2
+      given: a scheduled session is tapped
+      when: the detail sheet opens
+      then: Start workout is reachable with one additional tap
+    implementation:
+      notes: Use DevExpress scheduler views through the dx:SchedulerView alias for plan calendar placement. Project appointments from recurrence
+        rules instead of storing future logs. Starting a workout passes planVersionId and scheduledOccurrenceDate to E10.
+      touches:
+      - src/Forge.App/Features/Plans/Schedule
+      - src/Forge.Application/Training/Scheduling
+      devexpress:
+      - dx:SchedulerView
+      - dx:BottomSheet
+    grounding:
+    - *id005
+  - key: S09.04.02
+    title: Support flexible frequency-based scheduling
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: to schedule 3 workouts any days
+      soThat: I can succeed without fixed weekdays
+    requirements:
+    - Flexible schedules support 1 to 7 sessions per week with optional minimum rest days.
+    - Today can suggest the next due session without assigning a fixed weekday.
+    - Completing a flexible session recalculates remaining sessions for the week.
+    acceptanceCriteria:
+    - id: AC1
+      given: a 3x weekly plan has one minimum rest day
+      when: Workout A is completed Monday
+      then: Workout B is not suggested before Wednesday
+    - id: AC2
+      given: two of three sessions are complete by Sunday
+      when: the calendar opens
+      then: one remaining due session is shown without marking failure
+    implementation:
+      notes: FlexibleSchedulePolicy should be distinct from fixed weekdays. Calculate next due dates from completed workout history and rest-day
+        constraints in Forge.Application. Use neutral copy such as remaining this week rather than failed.
+      touches:
+      - src/Forge.Domain/Training/Scheduling/FlexibleSchedulePolicy.cs
+      - src/Forge.Application/Training/Scheduling/NextSessionQuery.cs
+      devexpress:
+      - dx:SchedulerView
+    concerns:
+    - offline
+  - key: S09.04.03
+    title: Reschedule missed sessions without failure language
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: to move a missed session calmly
+      soThat: I keep training after life interrupts me
+    requirements:
+    - A missed session is detected only after the local day ends and no workout was completed.
+    - The user can move, skip or keep the missed session from a bottom sheet.
+    - Skipping takes one tap and records a neutral skip reason without breaking the plan sequence.
+    acceptanceCriteria:
+    - id: AC1
+      given: a Monday session has no completed workout
+      when: the app opens Tuesday
+      then: the occurrence appears as missed with Move, Skip and Keep options
+    - id: AC2
+      given: the user skips a missed session
+      when: the calendar reopens
+      then: the skipped occurrence remains visible in history and the next occurrence is unchanged
+    implementation:
+      notes: MissedSessionResolver compares scheduled occurrences to completed workout logs using local dates. Present dx:BottomSheet actions
+        with shame-free wording. A skip is an event attached to an occurrence and must not delete the scheduled occurrence.
+      touches:
+      - src/Forge.Application/Training/Scheduling/MissedSessionResolver.cs
+      - src/Forge.App/Features/Plans/Schedule/MissedSessionSheet.xaml
+      devexpress:
+      - dx:BottomSheet
+      - dx:SchedulerView
+  concerns:
+  - devexpress
+  - offline
+  grounding:
+  - *id005
+  - *id002
+- key: F09.05
+  title: Manage plan library, versions and sharing
+  wave: 3
+  summary: Local-only plans still need to be portable. Users can duplicate experiments, keep historical versions, export files and use compact
+    QR payloads without accounts.
+  outcome: Plans can be duplicated, versioned, exported, imported and organized with deterministic conflict handling.
+  stories:
+  - key: S09.05.01
+    title: Maintain a searchable local plan library
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to find current and archived plans quickly
+      soThat: I can switch focus without losing history
+    requirements:
+    - The library lists active, archived and template-derived plans with search by name and goal.
+    - 200 plans scroll at 60 fps with no frame above 16.6 ms.
+    - Archiving hides a plan from Start workout but keeps history and export available.
+    acceptanceCriteria:
+    - id: AC1
+      given: 200 local plans exist
+      when: the user scrolls the library
+      then: scrolling sustains 60 fps with no frame above 16.6 ms
+    - id: AC2
+      given: a plan is archived
+      when: the Train tab opens
+      then: it is not the default start option but remains under Archived
+    implementation:
+      notes: Use dx:DXCollectionView virtualization and query lightweight PlanLibraryItemDto projections rather than hydrating whole plans. Archive
+        is a status, not deletion. Search is local SQLite over normalized name and goal fields for v1.
+      touches:
+      - src/Forge.App/Features/Plans/Library
+      - src/Forge.Application/Training/Plans/PlanLibraryQuery.cs
+      devexpress:
+      - dx:DXCollectionView
+      - dx:TabView
+    concerns:
+    - perf
+    - offline
+  - key: S09.05.02
+    title: Duplicate plans and create immutable versions
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to branch and version a programme
+      soThat: I can compare changes without destroying old history
+    requirements:
+    - Duplicating creates a new plan with version 1 and no completed workout history.
+    - Editing a plan with completed workouts creates a new immutable plan version.
+    - Workout history remains linked to the plan version that generated it.
+    acceptanceCriteria:
+    - id: AC1
+      given: a plan has completed workouts
+      when: squat targets are changed
+      then: a new plan version is created and old workouts keep the old version id
+    - id: AC2
+      given: a plan is duplicated
+      when: the duplicate opens
+      then: it has a distinct plan id and zero workout log references
+    implementation:
+      notes: UserTrainingPlan owns immutable PlanVersion children. Workout logs reference PlanVersionId. Draft versions can mutate until the first
+        workout completes; afterwards edits fork a new version to preserve analytics integrity.
+      touches:
+      - src/Forge.Domain/Training/Plans/UserTrainingPlan.cs
+      - src/Forge.Infrastructure/Persistence/PlanVersionConfiguration.cs
+      apis:
+      - SQLite EF Core transactions
+  - key: S09.05.03
+    title: Export and import plans as files
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to export and import plan files
+      soThat: sharing works without a Forge account
+    requirements:
+    - Export produces JSON with schemaVersion, metadata, exercises, schedule and progression rules.
+    - Import validates schemaVersion and exercise references before creating rows.
+    - Duplicate external ids offer Keep both or Replace and complete within 2 s for 120 prescriptions.
+    acceptanceCriteria:
+    - id: AC1
+      given: a plan has 120 prescriptions
+      when: it is exported and imported
+      then: the imported plan matches every serialized field
+    - id: AC2
+      given: an import has an unknown schemaVersion
+      when: the file is selected
+      then: no rows are written and the error names the schemaVersion
+    implementation:
+      notes: Implement ForgePlanPackageDto in Forge.Application and serialize with System.Text.Json. Use MAUI file picker and share APIs only
+        in Forge.App. Validate before writes, then import inside one transaction with stable catalogue ids and embedded custom exercise fallbacks.
+      touches:
+      - src/Forge.Application/Training/Sharing
+      - src/Forge.App/Features/Plans/Sharing
+      apis:
+      - System.Text.Json
+      - Microsoft.Maui.Storage.FilePicker
+      - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+    concerns:
+    - offline
+    - privacy
+  - key: S09.05.04
+    title: Share compact plans by QR code when safe
+    wave: 3
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: to scan a compact plan from another device
+      soThat: I can start quickly without exchanging files
+    requirements:
+    - QR sharing is available only when compressed payload is 2 KB or smaller.
+    - Plans above the QR limit route to file export.
+    - QR imports use the same validation path as file imports.
+    acceptanceCriteria:
+    - id: AC1
+      given: a compact plan compresses to 1.8 KB
+      when: Share QR is selected
+      then: a QR code is shown and scanning imports the same fields
+    - id: AC2
+      given: a plan compresses to 3 KB
+      when: Share QR is selected
+      then: Forge offers file export instead
+    implementation:
+      notes: QR is a convenience path over the same plan package. Compress, base64url encode and cap payloads at 2 KB for reliable scanning. Use
+        shared import validation so QR cannot bypass schema or safety checks.
+      touches:
+      - src/Forge.Application/Training/Sharing/PlanQrPayload.cs
+      - src/Forge.App/Features/Plans/Sharing/PlanQrSheet.xaml
+      devexpress:
+      - dx:BottomSheet
+      apis:
+      - System.IO.Compression
+    concerns:
+    - offline
+    openQuestions:
+    - Confirm whether QR scanning ships here or in the camera and barcode scanning epic.
+  concerns:
+  - offline
+  - privacy
+  grounding:
+  - *id001
+  - *id002
+- key: F09.06
+  title: Evaluate plan quality and training load
+  wave: 3
+  summary: Forge warns when a plan is obviously lopsided or unrealistic. These checks are not medical advice, but they give users a safety and
+    quality signal.
+  outcome: Every plan shows estimated duration, weekly muscle-group volume and actionable warnings for extreme imbalance.
+  stories:
+  - key: S09.06.01
+    title: Estimate session duration from sets and rest
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: to know how long each session will take
+      soThat: I pick a plan that fits my day
+    requirements:
+    - Estimated duration includes warm-up, effort time, rest, circuits and cooldown.
+    - The estimate displays a range no wider than 20 percent for ordinary strength sessions.
+    - Editing a day with 40 sets recalculates within 200 ms.
+    acceptanceCriteria:
+    - id: AC1
+      given: a day has 15 sets, 90 s rest and 30 s effort per set
+      when: duration is calculated
+      then: the estimate is between 29 and 36 minutes
+    - id: AC2
+      given: a day has 40 sets
+      when: rest changes from 60 s to 90 s
+      then: duration updates within 200 ms
+    implementation:
+      notes: Create SessionDurationEstimator in Forge.Application. Sum block overhead, effort seconds, rest seconds, timed circuit durations and
+        warm-up or cooldown minutes. Label it estimated because real rest varies.
+      touches:
+      - src/Forge.Application/Training/Plans/SessionDurationEstimator.cs
+      - src/Forge.App/Features/Plans/PlanQuality
+      devexpress:
+      - dx:NumericEdit
+    concerns:
+    - perf
+  - key: S09.06.02
+    title: Calculate weekly volume by muscle group
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to see set volume per muscle group
+      soThat: I can spot gaps before stalls
+    requirements:
+    - Weekly volume counts hard sets per primary and secondary muscle group with secondary weighted at 0.5.
+    - The view displays chest, back, quads, hamstrings, glutes, shoulders, biceps, triceps, calves and core.
+    - A 150-prescription plan calculates volume within 300 ms.
+    acceptanceCriteria:
+    - id: AC1
+      given: bench press has chest primary and triceps secondary for 3 sets
+      when: volume is calculated
+      then: chest increases by 3.0 and triceps by 1.5
+    - id: AC2
+      given: a 150-prescription plan
+      when: the volume panel opens
+      then: all totals render within 300 ms
+    implementation:
+      notes: Use exercise catalogue metadata for muscle groups and never infer muscles from names. Return MuscleGroupVolumeDto from Forge.Application.
+        Secondary weighting is deliberately simple and testable for v1.
+      touches:
+      - src/Forge.Application/Training/Plans/WeeklyVolumeCalculator.cs
+      - src/Forge.Domain/Training/Exercises/MuscleGroup.cs
+      devexpress:
+      - dx:DXCollectionView
+    concerns:
+    - perf
+  - key: S09.06.03
+    title: Warn when a plan is badly skewed or unsafe
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: to be warned about obvious imbalance
+      soThat: I do not blindly follow a poor plan
+    requirements:
+    - Warn when push sets exceed pull sets by more than 2:1 for two consecutive weeks.
+    - Warn when any major muscle group exceeds 30 hard sets per week or is below 4 sets in a hypertrophy plan.
+    - Warnings include one suggested action and can be dismissed per plan version.
+    acceptanceCriteria:
+    - id: AC1
+      given: a plan has 24 push sets and 8 pull sets
+      when: quality is evaluated
+      then: a push-pull warning shows ratio 3:1
+    - id: AC2
+      given: a warning is dismissed
+      when: the same version reopens
+      then: the warning remains dismissed and a new version evaluates again
+    implementation:
+      notes: Implement deterministic PlanQualityRule classes in Forge.Application. Copy should say consider adding rather than must because this
+        is guidance, not diagnosis. Store dismissals keyed by planVersionId and warningCode.
+      touches:
+      - src/Forge.Application/Training/Plans/QualityRules
+      - src/Forge.App/Features/Plans/PlanQuality/PlanWarningsView.xaml
+      devexpress:
+      - dx:BottomSheet
+      - dx:DXCollectionView
+    concerns:
+    - a11y
+  concerns:
+  - perf
+  - a11y
+  grounding:
+  - *id001
+  - *id002

@@ -1,0 +1,904 @@
+key: E12
+title: Health Platform Integration
+domain: health
+wave: 1
+summary: >-
+  Connect Forge to the mobile health stores users already trust, while keeping Forge local-only,
+  consent-led and usable when permissions are denied. Android uses Health Connect, including
+  Samsung Health data that syncs into it, and iOS uses HealthKit through the .NET for iOS SDK.
+problem: >-
+  Users do not want to re-enter steps, sleep, heart rate, workouts, hydration or body metrics
+  they already capture elsewhere, but they also need a clear reason to grant access to highly
+  sensitive health data and a full manual experience if they say no.
+outcome: >-
+  Forge reads and writes supported health data on Android and iOS through one application
+  abstraction, starts the Google Play declaration early enough for launch, explains every data
+  type requested, syncs in batches without duplicates, and remains fully functional with manual
+  entry only.
+successMetrics:
+  - Google Play Health Apps declaration is submitted in Wave 1 with all required evidence and tracked until approval or rejection.
+  - At least 95 percent of granted health sync attempts complete within 30 seconds for a 30-day delta window on a mid-tier device.
+  - Zero health data types can be read or written without an explicit, granular and revocable user consent record.
+  - A Forge workout written to Health Connect or HealthKit is not double-counted when the next read sync runs.
+nonGoals:
+  - No direct Samsung Health Data SDK integration; partner approval, uncertain timelines and Samsung-only reach make it unsuitable for v1.
+  - No Samsung-only stress score, VO2 max, ECG, continuous glucose or cycle prediction data in v1.
+  - No Mac Catalyst or Windows health integration before wave 6.
+  - No cloud sync, server-side processing, advertising use or iCloud storage of health data.
+risks:
+  - risk: Google Play rejects or delays the Health Apps declaration, blocking shipment of Health Connect read permissions.
+    mitigation: Submit in Wave 1 with a public privacy policy URL, in-app rationale screenshots, data-type justification and a fallback plan that disables platform sync while preserving manual entry.
+    severity: critical
+  - risk: Users see HealthKit denied access and no data as the same empty result, leading Forge to show a misleading error.
+    mitigation: Treat empty HealthKit reads as unknown state, explain the platform limitation and offer a direct path to manual entry and Settings.
+    severity: high
+  - risk: A completed Forge workout is written to the platform and then imported back as a second workout.
+    mitigation: Persist external record identifiers and a content fingerprint for every write and use both during delta sync deduplication.
+    severity: high
+grounding:
+  - title: Health Connect overview
+    url: https://developer.android.com/health-and-fitness/health-connect
+    note: Confirms Health Connect stores health and fitness data with granular data types.
+  - title: Health Connect policy requirement
+    url: https://support.google.com/googleplay/android-developer/answer/12991134
+    note: Explains Google Play requirements for permissions accessing sensitive health and fitness data.
+  - title: HealthKit documentation
+    url: https://developer.apple.com/documentation/healthkit
+    note: Official API surface for reading and writing health data on iOS.
+  - title: App Store Review Guideline 5.1.3
+    url: https://developer.apple.com/app-store/review/guidelines/#health-and-health-research
+    note: Requires health data to avoid advertising use and inappropriate storage.
+
+features:
+  - key: F12.01
+    title: Establish the health data abstraction and package choice
+    wave: 1
+    summary: >-
+      Define the shared contract that the app calls and choose the Android binding layer before
+      platform work spreads into feature code.
+    outcome: >-
+      Forge.Application owns a stable IHealthDataService contract and Forge.Health owns all
+      platform-specific Health Connect and HealthKit implementation details.
+    concerns: [privacy]
+    stories:
+      - key: S12.01.01
+        title: Define IHealthDataService without platform leakage
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [privacy]
+        userStory:
+          asA: developer building progress and coaching features
+          iWant: one health data abstraction in the application layer
+          soThat: I can consume platform data without referencing Android, iOS, MAUI or DevExpress types
+        requirements:
+          - IHealthDataService is declared in Forge.Application and references only Forge.Domain value objects and plain .NET types.
+          - The contract exposes capability discovery, granular consent status, read delta sync, write workout and revoke consent operations.
+          - Supported data types include steps, sleep with stages, water, nutrition energy, heart rate, workouts, body mass and active energy.
+          - Every read and write method requires a data-type consent token that can be revoked per type.
+        acceptanceCriteria:
+          - id: AC1
+            given: the Forge.Application project is built
+            when: its assembly references are inspected
+            then: no reference starts with Microsoft.Maui, DevExpress, Android, UIKit or HealthKit
+          - id: AC2
+            given: a caller attempts to read heart rate without an active consent record
+            when: IHealthDataService.ReadDeltaAsync is invoked
+            then: it returns a typed ConsentRequired result and performs no platform API call
+          - id: AC3
+            given: the Android and iOS projects both register their implementation
+            when: the service provider is validated
+            then: exactly one IHealthDataService resolves per target framework
+        implementation:
+          notes: >-
+            Put IHealthDataService and immutable request or result records under
+            src/Forge.Application/Health. Put HealthDataType, HealthConsentState and sync cursor
+            value objects in Forge.Domain only if they contain domain rules and no platform names.
+            Implement AndroidHealthDataService and IosHealthDataService in src/Forge.Health with
+            conditional target folders. Keep errors typed instead of throwing for normal denial or
+            unavailable-platform cases, because manual entry must remain the happy fallback.
+          touches:
+            - src/Forge.Application/Health/IHealthDataService.cs
+            - src/Forge.Application/Health/HealthSyncRequest.cs
+            - src/Forge.Health/Android/AndroidHealthDataService.cs
+            - src/Forge.Health/iOS/IosHealthDataService.cs
+          apis:
+            - System.Threading.CancellationToken
+        testing:
+          - Add architecture tests proving Forge.Application references no platform assemblies.
+          - Add contract tests with fake platform adapters for consent-required and unavailable results.
+
+      - key: S12.01.02
+        title: Evaluate Health Connect binding options for Android
+        wave: 1
+        size: s
+        platforms: [android]
+        persona: team
+        concerns: [privacy]
+        userStory:
+          asA: developer implementing Android health sync
+          iWant: an evidence-based binding choice
+          soThat: Forge does not commit to a package that blocks required data types or permissions
+        requirements:
+          - Compare Xamarin.AndroidX.Health.Connect.ConnectClient with Plugin.Maui.Health against every v1 read and write data type.
+          - Record package version, target framework compatibility, permission support, write support and maintenance risk.
+          - Select one adapter for implementation and isolate it behind Forge.Health so it can be replaced later.
+          - Do not choose a direct Samsung Health SDK path.
+        acceptanceCriteria:
+          - id: AC1
+            given: the evaluation branch is complete
+            when: the decision note is reviewed
+            then: it lists each required data type and marks support as supported, missing or uncertain for both packages
+          - id: AC2
+            given: the selected package is referenced
+            when: dotnet restore runs for net10.0-android
+            then: restore succeeds without adding the package to Forge.Application or Forge.Domain
+          - id: AC3
+            given: a reviewer searches the repository
+            when: Samsung Health SDK namespaces or package names are searched
+            then: none are present outside the non-goal text in backlog and documentation
+        implementation:
+          notes: >-
+            Create a short ADR under docs/adr rather than scattering package rationale in comments.
+            Prototype the smallest possible Android adapter in Forge.Health, not Forge.App, and map
+            package DTOs into Forge.Application records immediately. The binding must support the
+            Android 14 framework path and the Play-distributed APK path for Android 9 to 13. If
+            Plugin.Maui.Health hides any permission or record type Forge needs, choose the direct
+            Xamarin.AndroidX.Health.Connect.ConnectClient binding and keep the adapter thin.
+          touches:
+            - docs/adr/ADR-0012-health-connect-binding.md
+            - src/Forge.Health/Forge.Health.csproj
+            - src/Forge.Health/Android/HealthConnectAdapter.cs
+          apis:
+            - Xamarin.AndroidX.Health.Connect.ConnectClient
+            - Plugin.Maui.Health
+        testing:
+          - Restore and compile Forge.Health for net10.0-android after the selected package is added.
+          - Add adapter unit tests around the mapping layer with platform calls substituted.
+        grounding:
+          - title: Health Connect overview
+            url: https://developer.android.com/health-and-fitness/health-connect
+            note: Confirms Health Connect is the Android integration surface.
+
+      - key: S12.01.03
+        title: Register platform health services through dependency injection
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer composing the app
+          iWant: health services registered by target framework
+          soThat: feature code receives the correct implementation without conditional logic
+        requirements:
+          - Forge.Health exposes AddForgeHealth(this IServiceCollection) from a shared registration class.
+          - Android registers Health Connect services only for net10.0-android and iOS registers HealthKit services only for net10.0-ios.
+          - Unit test fakes can replace IHealthDataService without constructing platform handlers.
+        acceptanceCriteria:
+          - id: AC1
+            given: the Android target is built
+            when: the service provider validates registrations
+            then: AndroidHealthDataService is the concrete IHealthDataService
+          - id: AC2
+            given: the iOS target is built
+            when: the service provider validates registrations
+            then: IosHealthDataService is the concrete IHealthDataService
+          - id: AC3
+            given: a ViewModel unit test runs on net10.0
+            when: it substitutes IHealthDataService
+            then: no platform assembly is loaded
+        implementation:
+          notes: >-
+            Put AddForgeHealth in Forge.Health/HealthServiceCollectionExtensions.cs and call it from
+            Forge.App feature registration. Use partial classes or conditional compilation inside
+            Forge.Health only, never in ViewModels. Register platform availability probes separately
+            so tests can simulate missing Health Connect, missing HealthKit entitlement or user
+            revocation without launching an emulator.
+          touches:
+            - src/Forge.Health/HealthServiceCollectionExtensions.cs
+            - src/Forge.App/Features/FeatureRegistration.cs
+          apis:
+            - Microsoft.Extensions.DependencyInjection
+        testing:
+          - Add DI validation tests for Android and iOS target builds.
+          - Add ViewModel unit tests using a fake IHealthDataService on a plain net10.0 runner.
+
+  - key: F12.02
+    title: Clear Android Health Connect store gates and permissions
+    wave: 1
+    summary: >-
+      Start the long-lead Google Play approval process and implement the Android permission journey
+      in a way that survives Android 14 review requirements.
+    outcome: >-
+      Android users see a transparent Health Connect flow, reviewers see the required declaration
+      evidence, and the app degrades to manual entry if approval, availability or permission fails.
+    concerns: [store-blocker, long-lead, privacy]
+    stories:
+      - key: S12.02.01
+        title: Submit the Google Play Health Apps declaration in Wave 1
+        wave: 1
+        size: m
+        platforms: [android]
+        persona: team
+        concerns: [store-blocker, long-lead, privacy]
+        userStory:
+          asA: release owner
+          iWant: the Health Apps declaration submitted before feature-complete
+          soThat: a 4 to 8 week approval window does not block launch at store submission
+        requirements:
+          - Prepare and submit the Google Play Health Apps declaration for every requested Health Connect read permission.
+          - Include a public privacy policy URL reachable without login and an in-app link to the same policy.
+          - Include screenshots or screen recordings of the in-app permission rationale and granular consent screen.
+          - Justify each data type in product terms and document the fallback if Google rejects the request.
+          - Track reviewer response date, requested changes and resubmission date in the release checklist.
+        acceptanceCriteria:
+          - id: AC1
+            given: the declaration package is ready
+            when: a reviewer checks the evidence folder
+            then: it contains the privacy policy URL, rationale screenshots, data-type justification and rejection fallback plan
+          - id: AC2
+            given: Google Play returns a rejection
+            when: the release checklist is updated
+            then: the issue records the rejection reason, owner, corrective action and resubmission deadline within one business day
+          - id: AC3
+            given: Health Connect approval is absent at release-candidate cut
+            when: the Android build is configured
+            then: Health Connect read permissions are disabled by feature flag and manual entry remains available
+        implementation:
+          notes: >-
+            Treat this as release engineering, not polish. Add a docs/release/health-connect-
+            declaration.md checklist with each requested permission, the matching screen in Forge,
+            the user benefit and the exact privacy policy URL. The fallback must be implemented as
+            a local feature flag that removes read permission requests and hides platform sync,
+            rather than delaying the whole app. The known lead time is 4 to 8 weeks with no
+            published SLA, so this story belongs in Wave 1 even though health insights ship later.
+          touches:
+            - docs/release/health-connect-declaration.md
+            - src/Forge.App/Features/Health/HealthFeatureFlags.cs
+          apis:
+            - Google Play Console Health Apps declaration
+        testing:
+          - Dry-run the declaration checklist with a reviewer who did not author the health epic.
+          - Verify the no-approval feature flag removes all Health Connect read permission requests from the Android manifest.
+        grounding:
+          - title: Health Connect policy requirement
+            url: https://support.google.com/googleplay/android-developer/answer/12991134
+            note: Google Play guidance for permissions that access sensitive health and fitness data.
+
+      - key: S12.02.02
+        title: Add Health Connect manifest entries and rationale alias
+        wave: 1
+        size: m
+        platforms: [android]
+        persona: team
+        concerns: [store-blocker, privacy]
+        userStory:
+          asA: Android reviewer
+          iWant: Forge to expose the required permission rationale activity and alias
+          soThat: Health Connect permissions meet Android 14 and Google Play expectations
+        requirements:
+          - AndroidManifest.xml declares only the Health Connect permissions for approved v1 data types.
+          - The manifest includes both an activity and an activity-alias for the permissions rationale.
+          - The rationale screen explains each requested data type, why Forge uses it and how to revoke access.
+          - The activity does not request permission directly; it only explains before launching the platform permission flow.
+        acceptanceCriteria:
+          - id: AC1
+            given: the Android manifest is inspected
+            when: Health Connect rationale entries are searched
+            then: both an activity and an activity-alias exist and point to the rationale implementation
+          - id: AC2
+            given: the user opens the Health Connect permission rationale
+            when: TalkBack reads the screen
+            then: every data type, purpose and revocation instruction is announced in order
+          - id: AC3
+            given: an unapproved data type such as ECG is searched in the manifest
+            when: the manifest is inspected
+            then: no matching permission is present
+        implementation:
+          notes: >-
+            Add a native Android Activity under Forge.App/Platforms/Android for the rationale and
+            expose it through the required activity-alias. Keep the UI text sourced from shared
+            resource strings so the in-app consent screen and the manifest rationale cannot drift.
+            Do not add Samsung-specific permissions. The common failure is adding the activity but
+            omitting the alias, which can pass local testing and still fail Android 14 review.
+          touches:
+            - src/Forge.App/Platforms/Android/AndroidManifest.xml
+            - src/Forge.App/Platforms/Android/HealthPermissionsRationaleActivity.cs
+            - src/Forge.App/Resources/Strings/HealthConsent.resx
+          apis:
+            - android.permission.health.READ_STEPS
+            - android.permission.health.READ_HEART_RATE
+        testing:
+          - Add an Android manifest inspection test asserting the activity and activity-alias are both present.
+          - Manual TalkBack pass on the rationale activity.
+        grounding:
+          - title: Health Connect policy requirement
+            url: https://support.google.com/googleplay/android-developer/answer/12991134
+            note: Grounds the permissions and rationale evidence expected by Google Play.
+
+      - key: S12.02.03
+        title: Check Health Connect availability before requesting access
+        wave: 1
+        size: m
+        platforms: [android]
+        persona: newcomer
+        concerns: [privacy]
+        userStory:
+          asA: Maya using an older Android phone
+          iWant: Forge to tell me whether Health Connect is available or needs an update
+          soThat: I understand why automatic sync is not ready and can still log manually
+        requirements:
+          - Detect Android 14 framework availability and Android 9 to 13 Play-distributed Health Connect availability separately.
+          - Show an update or install path when Health Connect is missing or outdated.
+          - Never request permissions until the availability check reports Health Connect is installed and usable.
+          - Manual entry remains visible and usable in the same flow.
+        acceptanceCriteria:
+          - id: AC1
+            given: an Android 13 device without the Health Connect APK
+            when: the user opens health sync setup
+            then: Forge shows an install prompt and does not request any Health Connect permission
+          - id: AC2
+            given: an Android 14 device with framework Health Connect available
+            when: the user opens health sync setup
+            then: Forge proceeds to the rationale screen without showing an install prompt
+          - id: AC3
+            given: Health Connect is unavailable
+            when: the user taps Continue manually
+            then: the app opens manual entry setup and records no health platform consent
+        implementation:
+          notes: >-
+            Implement availability probing in AndroidHealthAvailabilityProbe inside Forge.Health and
+            surface a typed status through IHealthDataService.GetCapabilitiesAsync. The setup page
+            in Forge.App should use dx:DXPopup for the install or update explanation and a primary
+            manual-entry path. Keep Play Store intents inside the Android platform folder. This
+            protects older devices from a dead permission dialog and keeps the privacy contract
+            honest by not asking for data access before the platform exists.
+          touches:
+            - src/Forge.Health/Android/AndroidHealthAvailabilityProbe.cs
+            - src/Forge.App/Features/Health/HealthSyncSetupPage.xaml
+            - src/Forge.App/Features/Health/HealthSyncSetupViewModel.cs
+          devexpress:
+            - DXPopup
+            - DXButton
+          apis:
+            - Xamarin.AndroidX.Health.Connect.ConnectClient
+        testing:
+          - Emulator tests for Android 13 without Health Connect and Android 14 with framework Health Connect.
+          - Unit tests for capability states unavailable, update required and available.
+        grounding:
+          - title: Health Connect overview
+            url: https://developer.android.com/health-and-fitness/health-connect
+            note: Establishes Health Connect as the availability target.
+
+  - key: F12.03
+    title: Implement iOS HealthKit authorization and constraints
+    wave: 1
+    summary: >-
+      Add the iOS entitlement, usage descriptions and authorization behaviour needed for HealthKit
+      while respecting App Review and HealthKit privacy constraints.
+    outcome: >-
+      iOS users can grant Forge access to specific HealthKit categories, understand denied or empty
+      data states, and keep using Forge manually without any cloud or advertising use of health data.
+    concerns: [privacy, store-blocker]
+    stories:
+      - key: S12.03.01
+        title: Add HealthKit entitlement and usage descriptions
+        wave: 1
+        size: s
+        platforms: [ios]
+        persona: team
+        concerns: [store-blocker, privacy]
+        userStory:
+          asA: iOS release owner
+          iWant: HealthKit capabilities declared correctly
+          soThat: App Review sees why Forge requests health data and the app can call HealthKit APIs
+        requirements:
+          - Entitlements.plist enables HealthKit for the iOS target only.
+          - Info.plist contains NSHealthShareUsageDescription and NSHealthUpdateUsageDescription with user-facing Forge language.
+          - Usage descriptions mention reading activity and writing completed Forge workouts, not advertising or cloud storage.
+          - No HealthKit entitlement is added to Windows, Mac Catalyst or shared libraries.
+        acceptanceCriteria:
+          - id: AC1
+            given: the iOS app bundle is built
+            when: its entitlements are inspected
+            then: HealthKit is enabled and no unrelated health capability is present
+          - id: AC2
+            given: Info.plist is inspected
+            when: HealthKit usage keys are searched
+            then: both share and update usage descriptions are present and non-empty
+          - id: AC3
+            given: the usage strings are reviewed
+            when: advertising, tracking or iCloud are searched
+            then: no text suggests health data is used for those purposes
+        implementation:
+          notes: >-
+            Add the entitlement in src/Forge.App/Platforms/iOS/Entitlements.plist and set the
+            Info.plist descriptions in platform resources. Keep copy short and specific because iOS
+            shows it in system UI. The write description is required because Forge writes completed
+            workouts and active energy back to HealthKit. Do not place these strings in shared
+            service code, and do not enable any cloud capability for health data.
+          touches:
+            - src/Forge.App/Platforms/iOS/Entitlements.plist
+            - src/Forge.App/Platforms/iOS/Info.plist
+          apis:
+            - HealthKit
+        testing:
+          - Build the iOS app and inspect the generated entitlements with codesign tooling in CI where available.
+          - Manual simulator or device check that the system prompt displays the Forge usage text.
+        grounding:
+          - title: HealthKit documentation
+            url: https://developer.apple.com/documentation/healthkit
+            note: Official iOS HealthKit API reference.
+          - title: App Store Review Guideline 5.1.3
+            url: https://developer.apple.com/app-store/review/guidelines/#health-and-health-research
+            note: Grounds the health data advertising and storage restrictions.
+
+      - key: S12.03.02
+        title: Request granular HealthKit authorization with explicit consent
+        wave: 1
+        size: m
+        platforms: [ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: Alex who already uses Apple Health
+          iWant: to choose exactly which categories Forge can read or write
+          soThat: I can share useful data without granting unnecessary access
+        requirements:
+          - Forge shows an in-app granular consent screen before the HealthKit system authorization prompt.
+          - Read categories include steps, sleep stages, dietary energy, water, heart rate, workouts, body mass and active energy.
+          - Write categories include completed workouts and active energy produced by Forge workouts.
+          - Revoking a data type in Forge stops future reads or writes for that type even if HealthKit still allows it.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user enables steps and sleep but disables heart rate
+            when: HealthKit authorization is requested
+            then: Forge requests read access for steps and sleep only and does not request heart rate
+          - id: AC2
+            given: the user revokes water consent inside Forge
+            when: the next sync runs
+            then: no water samples are requested from HealthKit and the local consent record is marked revoked
+          - id: AC3
+            given: the user enables workout write consent
+            when: HealthKit shows its system sheet
+            then: completed workouts are listed in the requested share types
+        implementation:
+          notes: >-
+            Build the consent screen in Forge.App/Features/Health using dx:DXCollectionView with
+            one row per HealthDataType and dx:DXSwitch-style editor templates. Persist explicit
+            consent in encrypted SQLite through Forge.Infrastructure before calling
+            HKHealthStore.RequestAuthorization. The platform grant is necessary but not sufficient:
+            every sync operation must also check Forge's own revocable consent record, because GDPR
+            Article 9 consent needs to be granular and revocable inside the product.
+          touches:
+            - src/Forge.App/Features/Health/HealthConsentPage.xaml
+            - src/Forge.App/Features/Health/HealthConsentViewModel.cs
+            - src/Forge.Infrastructure/Persistence/HealthConsentRecord.cs
+            - src/Forge.Health/iOS/IosHealthAuthorizationService.cs
+          devexpress:
+            - DXCollectionView
+            - DXSwitch
+          apis:
+            - HealthKit.HKHealthStore
+        testing:
+          - Unit tests mapping selected data types to HealthKit read and share sets.
+          - UI test that toggling a data type updates the persisted consent record before authorization is requested.
+        grounding:
+          - title: HealthKit documentation
+            url: https://developer.apple.com/documentation/healthkit
+            note: Documents HKHealthStore and authorization concepts.
+
+      - key: S12.03.03
+        title: Handle HealthKit denial and empty data honestly
+        wave: 1
+        size: m
+        platforms: [ios]
+        persona: masters
+        concerns: [privacy]
+        userStory:
+          asA: Tom who is cautious about health permissions
+          iWant: Forge not to pressure me or mislabel empty HealthKit data
+          soThat: I can use the app manually while staying in control
+        requirements:
+          - Forge never claims it can distinguish HealthKit read denial from no data for a category.
+          - Empty HealthKit reads show an unknown or no data message with manual entry actions, not an error.
+          - The explanation includes how to change permissions in iOS Settings and Apple Health.
+          - Analytics or logs must not record inferred denial for a health category.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user denies sleep read access in the HealthKit system sheet
+            when: Forge syncs sleep
+            then: the UI says no sleep data is available or permission may be off and offers manual entry
+          - id: AC2
+            given: a category has zero HealthKit samples but permission was granted
+            when: Forge syncs that category
+            then: the UI displays the same non-accusatory empty state as the denied case
+          - id: AC3
+            given: local logs are inspected after a denied HealthKit read
+            when: log entries are searched
+            then: no entry states or infers that the user denied a specific health permission
+        implementation:
+          notes: >-
+            Model HealthKit empty reads as HealthReadResult.EmptyOrNotAuthorized and make the UI
+            copy explicit about the ambiguity. Do not add retry loops or nag banners, because the
+            platform intentionally hides read denial. Use dx:DXPopup for a neutral explanation with
+            Settings guidance and a manual-entry button. Logging should record only a non-sensitive
+            category count and duration, never a suspected denial reason.
+          touches:
+            - src/Forge.Health/iOS/IosHealthDataService.cs
+            - src/Forge.App/Features/Health/HealthEmptyStateView.xaml
+            - src/Forge.Infrastructure/Diagnostics/ForgeLogEvents.cs
+          devexpress:
+            - DXPopup
+            - DXButton
+          apis:
+            - HealthKit.HKHealthStore
+        testing:
+          - Unit test that HealthKit zero-sample and denied scenarios map to the same user-facing result.
+          - Manual iOS test denying one read category and confirming manual entry remains available.
+        grounding:
+          - title: HealthKit documentation
+            url: https://developer.apple.com/documentation/healthkit
+            note: Grounds the platform authorization model and data access behaviour.
+
+  - key: F12.04
+    title: Sync health data in both directions with deduplication
+    wave: 1
+    summary: >-
+      Move data between Forge and the platform stores in small, reliable batches so insights get
+      useful context and completed Forge workouts close the user's rings.
+    outcome: >-
+      Granted data types sync in the background, Forge workouts are written back, and records are
+      not counted twice when the same activity appears from multiple paths.
+    concerns: [privacy, perf]
+    stories:
+      - key: S12.04.01
+        title: Read core activity and body metrics by delta window
+        wave: 1
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy, perf]
+        userStory:
+          asA: Alex tracking progress across apps
+          iWant: Forge to import my recent activity, sleep, heart and body metrics
+          soThat: progress charts and coaching use data I already collected
+        requirements:
+          - Read steps, sleep sessions with stages, water, nutrition energy, heart rate, workouts, body mass and active energy where the platform grants access.
+          - Initial sync imports at most 90 days unless the user explicitly chooses a shorter range.
+          - Delta sync stores a per-platform cursor and imports only changed data after the previous cursor.
+          - Each batch commits in 500 records or fewer and yields off the UI thread between batches.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user grants steps and sleep only
+            when: initial sync runs for 90 days
+            then: Forge imports steps and sleep records and creates no heart rate, water or nutrition records
+          - id: AC2
+            given: 1200 changed samples are available
+            when: delta sync runs
+            then: at least three database commits occur and no commit contains more than 500 samples
+          - id: AC3
+            given: the app is backgrounded during sync
+            when: it resumes
+            then: sync continues from the last committed cursor without duplicating committed samples
+        implementation:
+          notes: >-
+            Implement HealthSyncOrchestrator in Forge.Application and platform readers in
+            Forge.Health that return normalized sample envelopes with external source id, start and
+            end time, data type and unit. Persist samples through Forge.Infrastructure in one local
+            transaction per batch. Never expose raw HealthKit or Health Connect records beyond
+            Forge.Health. Use background-friendly cancellation and resume from the last durable
+            cursor rather than keeping long transactions open while the app is suspended.
+          touches:
+            - src/Forge.Application/Health/HealthSyncOrchestrator.cs
+            - src/Forge.Infrastructure/Persistence/HealthSampleEntity.cs
+            - src/Forge.Health/Android/AndroidHealthReader.cs
+            - src/Forge.Health/iOS/IosHealthReader.cs
+          apis:
+            - HealthKit
+            - Xamarin.AndroidX.Health.Connect.ConnectClient
+        testing:
+          - Contract tests for 90-day initial window and per-type consent filtering.
+          - Integration test with a fake platform source containing 1200 samples verifying batch sizes and cursor persistence.
+
+      - key: S12.04.02
+        title: Write completed Forge workouts to platform stores
+        wave: 1
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: Alex finishing a Forge workout
+          iWant: the workout written back to Apple Health or Health Connect
+          soThat: my rings, activity history and other health apps stay unified
+        requirements:
+          - Write completed workout sessions only after explicit workout write consent is active.
+          - Include start time, end time, workout type, active energy where available and non-sensitive Forge source metadata.
+          - Failed writes are queued locally and retried at most three times with backoff while consent remains active.
+          - The user can disable workout writes without disabling reads.
+        acceptanceCriteria:
+          - id: AC1
+            given: workout write consent is enabled
+            when: a strength workout is completed in Forge
+            then: one platform workout record is created with matching start time, end time and workout type
+          - id: AC2
+            given: workout write consent is disabled
+            when: a workout is completed
+            then: no HealthKit or Health Connect write API is called and the workout remains saved locally
+          - id: AC3
+            given: the first platform write fails due to a transient error
+            when: the retry worker runs
+            then: it retries no more than three times and preserves the local workout regardless of outcome
+        implementation:
+          notes: >-
+            Add a HealthWorkoutExportService in Forge.Application that subscribes to completed
+            workout events from the training domain and calls IHealthDataService.WriteWorkoutAsync.
+            Platform writers live in Forge.Health and map Forge workout categories conservatively,
+            defaulting to other or traditionalStrengthTraining when no exact platform type exists.
+            Store outbound queue records in encrypted SQLite with no free-text notes, because health
+            exports are special-category data and must survive process death without leaking detail.
+          touches:
+            - src/Forge.Application/Health/HealthWorkoutExportService.cs
+            - src/Forge.Infrastructure/Persistence/HealthOutboundQueueEntity.cs
+            - src/Forge.Health/Android/AndroidHealthWriter.cs
+            - src/Forge.Health/iOS/IosHealthWriter.cs
+          apis:
+            - HealthKit.HKWorkout
+            - Xamarin.AndroidX.Health.Connect.ConnectClient
+        testing:
+          - Unit tests for consent gating, retry limit and workout type mapping.
+          - Device smoke test confirming a completed workout appears in the platform health app.
+        grounding:
+          - title: HealthKit documentation
+            url: https://developer.apple.com/documentation/healthkit
+            note: Official API for writing workout objects on iOS.
+
+      - key: S12.04.03
+        title: Deduplicate imported and exported workouts
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: Alex syncing across several fitness apps
+          iWant: Forge to recognise workouts it already wrote
+          soThat: my training volume and calorie charts are not inflated
+        requirements:
+          - Store platform external identifiers for every imported or exported workout when the platform supplies them.
+          - Generate a deterministic fingerprint from source app, start time, duration, workout type and active energy tolerance.
+          - Treat records within 60 seconds start time and 5 percent duration tolerance as duplicate candidates requiring deterministic resolution.
+          - Never delete a platform record as part of deduplication in v1.
+        acceptanceCriteria:
+          - id: AC1
+            given: Forge exports a workout and the next sync reads the same external identifier
+            when: deduplication runs
+            then: the imported record links to the existing Forge workout and does not create a second workout
+          - id: AC2
+            given: two workouts start 30 seconds apart with the same type and duration within 5 percent
+            when: one lacks an external identifier
+            then: Forge marks them as duplicate candidates and keeps one counted workout in summaries
+          - id: AC3
+            given: a duplicate candidate is resolved
+            when: platform data is inspected
+            then: no HealthKit or Health Connect delete operation has been issued
+        implementation:
+          notes: >-
+            Implement HealthDeduplicationService in Forge.Application over normalized health sample
+            envelopes and local workout aggregates. Prefer exact external ids, then use a stable
+            fingerprint for records that arrive without ids. Store both the raw external id and the
+            fingerprint in Forge.Infrastructure so future syncs are deterministic. Do not delete or
+            mutate platform records in v1; deduplication only controls Forge's local counting and
+            links source records for auditability.
+          touches:
+            - src/Forge.Application/Health/HealthDeduplicationService.cs
+            - src/Forge.Infrastructure/Persistence/HealthSourceLinkEntity.cs
+        testing:
+          - Unit tests for exact id match, fingerprint match, tolerance boundaries and non-duplicate cases.
+          - Regression test that exported workouts imported on the next sync are counted once.
+
+      - key: S12.04.04
+        title: Schedule privacy-preserving background sync
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy, perf]
+        userStory:
+          asA: Sam returning after a busy day
+          iWant: Forge to refresh health context quietly
+          soThat: my Today screen is current without me waiting at launch
+        requirements:
+          - Sync runs opportunistically on app resume and at platform-approved background times, never more often than once every 30 minutes per data type.
+          - Background sync obeys battery saver and low power mode by skipping non-critical reads.
+          - Sync status is visible in-app with last successful sync time per data type.
+          - Revoked consent cancels scheduled work for that data type before the next read or write.
+        acceptanceCriteria:
+          - id: AC1
+            given: sync completed 10 minutes ago
+            when: the app resumes
+            then: no platform read is started for the same data type
+          - id: AC2
+            given: the device enters low power mode
+            when: a scheduled sync window opens
+            then: Forge skips optional health reads and records a skipped due to power state status
+          - id: AC3
+            given: the user revokes heart rate consent
+            when: scheduled work is inspected
+            then: no pending heart rate sync job remains
+        implementation:
+          notes: >-
+            Build a HealthSyncScheduler abstraction in Forge.Application and implement platform
+            triggers in Forge.App because background execution is an app-head concern. The scheduler
+            should enqueue work to the orchestrator with a per-data-type throttle and power-state
+            checks. Store only sync status, cursor and counts, not raw values, in diagnostic status
+            surfaces. Use DevExpress gauges sparingly for status, not live health values.
+          touches:
+            - src/Forge.Application/Health/HealthSyncScheduler.cs
+            - src/Forge.App/Platforms/Android/HealthBackgroundSync.cs
+            - src/Forge.App/Platforms/iOS/HealthBackgroundSync.cs
+            - src/Forge.App/Features/Health/HealthSyncStatusPage.xaml
+          devexpress:
+            - DXCollectionView
+            - RadialGauge
+          apis:
+            - Microsoft.Maui.ApplicationModel.AppInfo
+        testing:
+          - Unit tests for 30-minute throttling and consent revocation cancellation.
+          - Manual Android and iOS background-resume smoke tests on physical devices.
+
+  - key: F12.05
+    title: Make consent, transparency and manual fallback first-class
+    wave: 1
+    summary: >-
+      Give users a clear privacy control surface for special-category data and make the product
+      valuable even when no platform health access is available.
+    outcome: >-
+      Users can see what Forge reads and writes, revoke each data type, understand consequences,
+      and continue with manual logging at every point.
+    concerns: [privacy, a11y]
+    stories:
+      - key: S12.05.01
+        title: Build a transparent per-data-type consent centre
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy, a11y]
+        userStory:
+          asA: Maya deciding whether to connect health data
+          iWant: a plain-language list of every data type Forge reads or writes
+          soThat: I can grant only what feels useful and revoke it later
+        requirements:
+          - The consent centre lists each supported data type, direction, purpose, last sync time and current consent state.
+          - The user can grant or revoke each data type independently.
+          - Revocation takes effect before the next sync and preserves already-imported local data unless the user chooses deletion.
+          - The screen links to the public privacy policy and the local delete data flow.
+        acceptanceCriteria:
+          - id: AC1
+            given: the consent centre is opened
+            when: the user reviews steps, sleep and workout writes
+            then: each row shows read or write direction, purpose and current state
+          - id: AC2
+            given: the user revokes steps consent
+            when: the next sync cycle runs
+            then: no step read occurs and the consent state displays revoked
+          - id: AC3
+            given: a screen reader is active
+            when: the user navigates the consent rows
+            then: each row announces data type, direction, state and action
+        implementation:
+          notes: >-
+            Use dx:DXCollectionView grouped by read and write direction with accessible row
+            templates and dx:DXButton actions. The ViewModel consumes IHealthDataService capability
+            and consent state but never platform types. Persist consent records with timestamp,
+            version of copy accepted and revocation timestamp so compliance review can prove explicit
+            consent without sending anything to a server. Link to the privacy policy URL required by
+            both store processes.
+          touches:
+            - src/Forge.App/Features/Health/HealthConsentCenterPage.xaml
+            - src/Forge.App/Features/Health/HealthConsentCenterViewModel.cs
+            - src/Forge.Infrastructure/Persistence/HealthConsentRecord.cs
+          devexpress:
+            - DXCollectionView
+            - DXButton
+        testing:
+          - UI tests for grant, revoke and screen-reader labels on consent rows.
+          - Unit test proving revoked consent blocks the orchestrator before platform calls.
+
+      - key: S12.05.02
+        title: Provide manual entry fallback for every health surface
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy, offline]
+        userStory:
+          asA: Sam who does not grant health permissions
+          iWant: all Forge health-dependent features to accept manual values
+          soThat: I can use Forge without connecting Apple Health or Health Connect
+        requirements:
+          - Steps, sleep, water, nutrition energy, heart rate, workouts, body mass and active energy surfaces expose manual entry where used in v1.
+          - Manual entries are clearly labelled as manual in storage and history.
+          - Health permission denial never blocks workout execution, nutrition logging or progress screens.
+          - Manual entries can be edited or deleted locally without contacting a platform store.
+        acceptanceCriteria:
+          - id: AC1
+            given: all health platform permissions are denied
+            when: the user opens Today, Progress and Workout completion screens
+            then: each screen renders with manual entry actions and no blocking permission dialog
+          - id: AC2
+            given: the user manually enters body mass
+            when: history is viewed
+            then: the row is labelled manual and can be edited or deleted
+          - id: AC3
+            given: Health Connect is unavailable
+            when: a workout is completed
+            then: the workout saves locally within 200 ms and does not require platform sync
+        implementation:
+          notes: >-
+            Add source metadata to health-related entities in Forge.Infrastructure so imported,
+            exported and manual records can be distinguished. Reuse DevExpress editors such as
+            NumericEdit and DateEdit for manual input. The fallback is not an error path; it is the
+            default privacy-preserving mode. Avoid modal permission nagging after denial and expose
+            reconnect through the consent centre instead.
+          touches:
+            - src/Forge.Infrastructure/Persistence/HealthSampleEntity.cs
+            - src/Forge.App/Features/Health/ManualHealthEntryPage.xaml
+            - src/Forge.App/Features/Progress/ProgressViewModel.cs
+          devexpress:
+            - NumericEdit
+            - DateEdit
+            - DXCollectionView
+        testing:
+          - UI smoke test with a fake IHealthDataService returning ConsentRequired for every type.
+          - Unit tests for manual source labelling, edit and delete behaviour.
+
+      - key: S12.05.03
+        title: Explain health data use before first sync
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy, a11y]
+        userStory:
+          asA: Maya seeing health sync for the first time
+          iWant: a short explanation of what Forge reads, writes and never does
+          soThat: I can make a confident consent decision
+        requirements:
+          - The first-run explanation states that Forge is local-only and has no backend in v1.
+          - The explanation states health data is not used for advertising and is not stored in iCloud.
+          - The explanation links to manual entry, the consent centre and the privacy policy.
+          - The user can dismiss health sync setup and continue onboarding.
+        acceptanceCriteria:
+          - id: AC1
+            given: a new user reaches health sync setup
+            when: the explanation appears
+            then: it includes read data, write data, local-only storage, no advertising and manual fallback statements
+          - id: AC2
+            given: the user taps Not now
+            when: onboarding continues
+            then: no health platform permission prompt is shown and the next onboarding step opens
+          - id: AC3
+            given: dynamic type is set to the largest accessibility size
+            when: the explanation screen renders
+            then: all text remains visible without horizontal scrolling
+        implementation:
+          notes: >-
+            Build a concise explanation page in Forge.App/Features/Health using dx:DXStackLayout
+            and dx:DXBorder cards rather than a dense legal screen. Copy must be shared with store
+            declaration evidence where possible. Do not trigger platform prompts from page load;
+            prompts only follow an explicit Connect action after the user has seen data-type
+            choices. This protects trust and produces deterministic App Review screenshots.
+          touches:
+            - src/Forge.App/Features/Health/HealthSyncIntroPage.xaml
+            - src/Forge.App/Resources/Strings/HealthConsent.resx
+          devexpress:
+            - DXStackLayout
+            - DXBorder
+            - DXButton
+        testing:
+          - UI test for Not now path asserting no platform authorization call is made.
+          - Accessibility snapshot test at largest dynamic type.

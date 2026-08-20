@@ -1,0 +1,648 @@
+key: E30
+title: CI/CD, Build and Release Engineering
+domain: quality
+wave: 1
+summary: >-
+  Forge needs a release pipeline that turns mobile-only source code into signed
+  Android and iOS artefacts, validates them quickly, and distributes them to
+  testers without leaking credentials.
+problem: >-
+  Manual mobile builds are easy to misconfigure and hard to reproduce. If
+  signing material, versioning, store uploads or build-size checks live on one
+  developer machine, release quality depends on memory instead of automation.
+outcome: >-
+  GitHub Actions validates pull requests, produces signed AAB and iOS release
+  artefacts, uploads to internal testing channels, enforces the 40 MB Android APK
+  budget and keeps local builds aligned with CI.
+successMetrics:
+  - Warm pull request validation completes in less than 15 minutes.
+  - Every release candidate has signed Android and iOS artefacts linked to one commit SHA.
+  - Android per-ABI APK size remains below 40 MB.
+  - No signing material is committed to the repository or printed in CI logs.
+nonGoals:
+  - No desktop build or release lane in v1.
+  - No automatic production store release without protected-environment approval.
+  - No custom build server beyond an optional self-hosted macOS runner if documented and maintained.
+risks:
+  - risk: >-
+      iOS CI runner choice creates hidden manual work.
+    mitigation: >-
+      Prefer hosted macOS for repeatability and document any self-hosted MacBook
+      Pro choice with maintenance ownership.
+    severity: high
+  - risk: >-
+      Signing secrets leak through workflow logs or repository files.
+    mitigation: >-
+      Use protected secrets, scan for signing material and delete decoded files
+      after each job.
+    severity: critical
+grounding:
+  - title: GitHub Actions documentation
+    url: https://docs.github.com/actions
+    note: Foundation for all CI and release workflows.
+  - title: .NET MAUI Android deployment
+    url: https://learn.microsoft.com/dotnet/maui/android/deployment/
+    note: Official Android publish and signing guidance.
+  - title: .NET MAUI iOS deployment
+    url: https://learn.microsoft.com/dotnet/maui/ios/deployment/
+    note: Official iOS publish guidance.
+features:
+  - key: F30.01
+    title: Validate pull requests quickly and completely
+    wave: 1
+    summary: >-
+      Create GitHub Actions validation that restores, builds, tests and formats
+      the mobile-only solution before changes merge.
+    outcome: >-
+      Every pull request receives a fast, reproducible signal for Android and
+      iOS buildability plus net10.0 tests.
+    concerns: [ci, quality]
+    stories:
+      - key: S30.01.01
+        title: Create GitHub Actions pull request validation workflow
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer opening a pull request
+          iWant: automated validation for restore, build, test and format
+          soThat: broken code is caught before review time is wasted
+        requirements:
+          - Workflow runs on pull_request for main and release branches.
+          - The workflow restores with locked dependencies, builds net10.0-android and net10.0-ios, runs non-device tests and verifies dotnet format.
+          - The normal pull request workflow completes in less than 15 minutes when caches are warm.
+        acceptanceCriteria:
+          - id: AC1
+            given: a pull request changes application code
+            when: the validation workflow runs with warm caches
+            then: restore, build, tests and format complete in less than 15 minutes
+          - id: AC2
+            given: a developer introduces a formatting change
+            when: dotnet format verification runs
+            then: the workflow fails and reports the file that needs formatting
+        implementation:
+          notes: >-
+            Use GitHub Actions with explicit mobile TFMs so v1 remains Android
+            and iOS only. Keep reusable commands in tools/ci scripts consumed by
+            both workflows and local developers, which prevents hidden CI-only
+            behaviour and makes release failures reproducible.
+          touches:
+            - .github/workflows/pr.yml
+            - tools/ci/build.ps1
+            - tools/ci/test.ps1
+          apis:
+            - GitHub Actions
+            - dotnet format
+        testing:
+          - Validate the workflow on a branch that changes both app and test code.
+        grounding:
+          - title: dotnet format
+            url: https://learn.microsoft.com/dotnet/core/tools/dotnet-format
+            note: Formatting verification command used in PR validation.
+
+      - key: S30.01.02
+        title: Cache SDK, NuGet and workload assets safely
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer waiting for CI
+          iWant: caching that speeds builds without reusing stale dependencies
+          soThat: validation is fast enough to trust on every pull request
+        requirements:
+          - NuGet package cache is keyed by global.json, Directory.Packages.props and project files.
+          - MAUI workload cache is keyed by .NET SDK version 10.0.400 and workload manifest state.
+          - A package version change invalidates the cache and restores from source.
+        acceptanceCriteria:
+          - id: AC1
+            given: Directory.Packages.props changes
+            when: the pull request workflow starts
+            then: the NuGet cache key changes and dependencies restore from source
+          - id: AC2
+            given: two consecutive validation runs use identical inputs
+            when: the second run completes
+            then: restore and workload preparation are at least 30 percent faster than the first run
+        implementation:
+          notes: >-
+            Use actions/cache with conservative keys and clear restore keys. Do
+            not cache signing material or generated release artefacts. Emit cache
+            hit status in the job summary so slow runs can be explained without
+            reading raw logs.
+          touches:
+            - .github/workflows/pr.yml
+          apis:
+            - actions/cache
+        testing:
+          - Compare one cold and one warm workflow run and record timings in the workflow summary.
+        grounding:
+          - title: Caching dependencies in GitHub Actions
+            url: https://docs.github.com/actions/using-workflows/caching-dependencies-to-speed-up-workflows
+            note: Official cache key and restore key behaviour.
+
+      - key: S30.01.03
+        title: Run dependency review and vulnerability checks
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: maintainer reviewing dependency changes
+          iWant: automated alerts for vulnerable or risky package updates
+          soThat: supply-chain issues are visible before they merge
+        requirements:
+          - Dependabot version updates are configured weekly for NuGet and GitHub Actions.
+          - Dependency review fails pull requests that introduce a known critical or high vulnerability.
+          - NuGet audit output is captured in CI and uploaded with the validation summary.
+        acceptanceCriteria:
+          - id: AC1
+            given: a pull request introduces a package with a known high vulnerability
+            when: dependency review runs
+            then: the workflow fails and names the package and advisory
+          - id: AC2
+            given: a Dependabot pull request is opened
+            when: validation runs
+            then: the same build, test and dependency gates apply as for human pull requests
+        implementation:
+          notes: >-
+            Configure dependabot.yml for the NuGet and actions ecosystems, then
+            add dependency-review-action to pull requests. Keep exceptions in a
+            reviewed YAML file with owner and expiry rather than hidden workflow conditions.
+          touches:
+            - .github/dependabot.yml
+            - .github/workflows/pr.yml
+            - docs/security/dependency-exceptions.yml
+          apis:
+            - Dependabot
+            - dependency-review-action
+        testing:
+          - Add a dry-run dependency review fixture if the action supports it.
+        grounding:
+          - title: Dependabot version updates
+            url: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+            note: dependabot.yml configuration options.
+
+  - key: F30.02
+    title: Build signed Android and iOS release artefacts
+    wave: 1
+    summary: >-
+      Produce store-ready AAB and iOS archive outputs with secure signing and
+      monotonically increasing versions.
+    outcome: >-
+      Release workflows generate signed artefacts suitable for Play internal
+      testing and TestFlight without committing credentials.
+    concerns: [release, security]
+    stories:
+      - key: S30.02.01
+        title: Produce a signed Android App Bundle
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner shipping Android builds
+          iWant: a repeatable signed AAB from GitHub Actions
+          soThat: the Play Console can accept internal testing builds without manual repackaging
+        requirements:
+          - The release workflow publishes net10.0-android in Release configuration as an AAB.
+          - The AAB is signed with a release keystore supplied from GitHub Secrets at runtime.
+          - A failed signing step stops the release and does not produce an unsigned artefact labelled as release.
+        acceptanceCriteria:
+          - id: AC1
+            given: release workflow runs with valid Android signing secrets
+            when: the Android publish job completes
+            then: one signed AAB artefact is uploaded and its signature verifies successfully
+          - id: AC2
+            given: the keystore secret is missing
+            when: the workflow runs
+            then: the job fails before publishing and no unsigned AAB artefact is uploaded
+        implementation:
+          notes: >-
+            Use dotnet publish for net10.0-android with MSBuild signing
+            properties passed from environment variables. Decode the keystore
+            only inside the runner workspace, delete it in a cleanup step and
+            keep Play upload separate from build.
+          touches:
+            - .github/workflows/release.yml
+            - tools/ci/build-release.ps1
+            - src/Forge.App/Forge.App.csproj
+          apis:
+            - dotnet publish
+            - Android App Bundle
+        testing:
+          - Verify the AAB signature with apksigner or bundletool in CI.
+        grounding:
+          - title: Publish a .NET MAUI Android app
+            url: https://learn.microsoft.com/dotnet/maui/android/deployment/
+            note: Android MAUI publishing and signing.
+
+      - key: S30.02.02
+        title: Produce an iOS archive on the right runner
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner shipping iOS builds
+          iWant: an honest iOS build lane that chooses hosted macOS or a maintained self-hosted Mac
+          soThat: TestFlight builds are repeatable and not tied to a manual Visual Studio session
+        requirements:
+          - The iOS release job runs on macOS with Xcode and .NET 10.0.400 compatible workloads installed.
+          - The workflow documents the trade-off between GitHub-hosted macOS runners and the developer MacBook Pro as a self-hosted runner.
+          - The job produces a signed iOS archive or IPA suitable for upload to App Store Connect.
+        acceptanceCriteria:
+          - id: AC1
+            given: the iOS release job starts
+            when: runner diagnostics run
+            then: the log prints macOS version, Xcode version and .NET SDK version before restore
+          - id: AC2
+            given: the runner decision document is inspected
+            when: trade-offs are reviewed
+            then: it states reliability, secret exposure, cost and maintenance implications for hosted and self-hosted options
+        implementation:
+          notes: >-
+            Prefer a GitHub-hosted macOS runner for repeatability when cost and
+            queue times are acceptable. Use the MacBook Pro as a self-hosted
+            runner only if hosted runners cannot satisfy signing or tooling, and
+            then treat it as maintained build infrastructure. Pair to Mac is useful locally, not as the only CI path.
+          touches:
+            - .github/workflows/release.yml
+            - docs/release/ios-runner-decision.md
+            - tools/ci/build-release.ps1
+          apis:
+            - GitHub Actions macOS runners
+            - Xcode
+            - dotnet publish
+        testing:
+          - Run one dry-run archive on the selected runner and record duration and failure mode.
+        grounding:
+          - title: GitHub-hosted runners
+            url: https://docs.github.com/actions/using-github-hosted-runners/about-github-hosted-runners
+            note: Hosted runner capabilities and image lifecycle.
+
+      - key: S30.02.03
+        title: Handle signing material only through GitHub Secrets
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: maintainer protecting release credentials
+          iWant: keystores, certificates and provisioning profiles handled securely
+          soThat: a leaked repository cannot sign fraudulent Forge builds
+        requirements:
+          - Android keystore, passwords, Apple certificate, certificate password and provisioning profile are stored only as GitHub Secrets or environment-protected secrets.
+          - No signing material, certificate, provisioning profile or keystore file is committed to the repository.
+          - Workflow logs must not print secret values, decoded file contents or certificate private keys.
+        acceptanceCriteria:
+          - id: AC1
+            given: a repository scan runs after release workflow changes
+            when: signing file patterns are checked
+            then: no keystore, p12, mobileprovision or private key file is present in git
+          - id: AC2
+            given: a release job runs
+            when: logs are inspected
+            then: secret values are masked and no decoded signing file content appears
+        implementation:
+          notes: >-
+            Create a signing setup document covering creation, rotation and
+            revocation without placing files in source control. Materialise
+            secrets into files only inside the runner workspace, restrict access
+            where possible and delete files after use.
+          touches:
+            - docs/release/signing-material.md
+            - .github/workflows/release.yml
+            - .gitignore
+          apis:
+            - GitHub Secrets
+            - GitHub Environments
+        testing:
+          - Add a CI secret scan for signing file extensions and private key headers.
+        grounding:
+          - title: Using secrets in GitHub Actions
+            url: https://docs.github.com/actions/security-guides/using-secrets-in-github-actions
+            note: Official guidance for encrypted secrets in workflows.
+
+      - key: S30.02.04
+        title: Increment Android and iOS versions monotonically
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner preparing store uploads
+          iWant: automated version numbers that never go backwards
+          soThat: stores accept every new build without manual editing
+        requirements:
+          - Android versionCode is a positive integer that increases for every uploaded build.
+          - iOS CFBundleVersion is a monotonically increasing build number for every App Store Connect upload.
+          - VersionName and CFBundleShortVersionString follow the release tag semantic version.
+        acceptanceCriteria:
+          - id: AC1
+            given: two release builds are created from sequential commits
+            when: version metadata is inspected
+            then: the second Android versionCode and iOS CFBundleVersion are both greater than the first
+          - id: AC2
+            given: the computed build number is not greater than the latest store build
+            when: the release workflow runs
+            then: upload is skipped and the job fails with the conflicting number
+        implementation:
+          notes: >-
+            Generate version metadata from release tags plus a monotonic run
+            number or store query. Do not let developers hand-edit manifests for
+            each build. Apply the same metadata in local release scripts.
+          touches:
+            - tools/release/version.ps1
+            - src/Forge.App/Forge.App.csproj
+            - .github/workflows/release.yml
+          apis:
+            - MSBuild application version properties
+        testing:
+          - Unit test version calculation for tag, pre-release and retry scenarios.
+
+  - key: F30.03
+    title: Publish builds to testing tracks
+    wave: 1
+    summary: >-
+      Automate the hand-off from signed artefacts to Play internal testing and
+      TestFlight so testers receive builds quickly and traceably.
+    outcome: >-
+      A tagged release candidate can be uploaded to Android and iOS testing
+      programmes with release notes and changelog attached.
+    concerns: [release]
+    stories:
+      - key: S30.03.01
+        title: Upload Android builds to Play internal testing
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner distributing Android candidates
+          iWant: automated Play Console internal testing upload
+          soThat: testers receive the exact signed AAB produced by CI
+        requirements:
+          - The release workflow uploads the signed AAB to the Play Console internal testing track.
+          - Upload uses a least-privilege service account key stored as a protected secret.
+          - The workflow records the Play track, versionCode and package name in the job summary.
+        acceptanceCriteria:
+          - id: AC1
+            given: a release candidate is tagged with valid Play credentials
+            when: the Android upload job runs
+            then: the internal testing track contains the new versionCode and release notes
+          - id: AC2
+            given: Play credentials are absent or invalid
+            when: the upload job runs
+            then: the job fails without exposing credential content
+        implementation:
+          notes: >-
+            Use a maintained Play Developer API upload action or a small script
+            around the publishing API. Scope the service account to only the
+            Forge app and keep upload separate from build so failed submission
+            does not require rebuilding or resigning.
+          touches:
+            - .github/workflows/release.yml
+            - tools/release/upload-play.ps1
+          apis:
+            - Google Play Developer Publishing API
+        testing:
+          - Dry-run against an internal testing draft before enabling release candidate uploads.
+        grounding:
+          - title: Publish to Google Play with .NET MAUI
+            url: https://learn.microsoft.com/dotnet/maui/android/deployment/publish-google-play
+            note: Official MAUI Google Play publishing flow.
+
+      - key: S30.03.02
+        title: Upload iOS builds to TestFlight
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner distributing iOS candidates
+          iWant: automated upload to App Store Connect for TestFlight processing
+          soThat: iOS testers receive CI-built candidates without manual organiser steps
+        requirements:
+          - The release workflow uploads the signed iOS archive or IPA to App Store Connect.
+          - Upload authentication uses App Store Connect API credentials stored as protected secrets.
+          - If App Store Connect processing does not begin within 30 minutes, the workflow reports a failed release hand-off.
+        acceptanceCriteria:
+          - id: AC1
+            given: a valid signed iOS artefact is produced
+            when: the upload job runs
+            then: App Store Connect shows the build processing for the expected CFBundleVersion
+          - id: AC2
+            given: processing has not started after 30 minutes
+            when: the workflow polls App Store Connect
+            then: the job fails and reports the upload identifier
+        implementation:
+          notes: >-
+            Use the selected macOS runner with App Store Connect API credentials
+            in protected secrets. The workflow should tolerate normal processing
+            delay but not silently mark a missing build as successful.
+          touches:
+            - .github/workflows/release.yml
+            - tools/release/upload-testflight.ps1
+          apis:
+            - App Store Connect API
+            - xcrun altool
+        testing:
+          - Upload one internal build to TestFlight and verify it appears for internal testers.
+        grounding:
+          - title: TestFlight overview
+            url: https://developer.apple.com/help/app-store-connect/test-a-beta-version/overview-of-testing-with-testflight
+            note: Apple beta distribution workflow.
+
+      - key: S30.03.03
+        title: Generate changelog and release notes from merged work
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner preparing tester communication
+          iWant: release notes generated from pull requests and curated before upload
+          soThat: testers understand what changed without reading commit history
+        requirements:
+          - Release notes are generated from merged pull requests since the previous release tag.
+          - Notes are grouped into Added, Changed, Fixed and Known issues.
+          - Tester notes are capped at 500 characters before store upload.
+        acceptanceCriteria:
+          - id: AC1
+            given: a release candidate is created after three merged pull requests
+            when: the changelog step runs
+            then: notes include each pull request under an appropriate heading
+          - id: AC2
+            given: generated tester notes exceed 500 characters
+            when: the release workflow validates them
+            then: the workflow fails before upload and reports the character count
+        implementation:
+          notes: >-
+            Generate a draft from GitHub metadata but require human review for
+            wording before upload. Store final notes as a release artefact so
+            App Store Connect, Play Console and GitHub releases describe the same build.
+          touches:
+            - tools/release/changelog.ps1
+            - docs/release/notes/
+          apis:
+            - GitHub CLI
+            - GitHub Releases
+        testing:
+          - Unit test grouping and character-limit enforcement.
+
+      - key: S30.03.04
+        title: Apply release branching and tagging policy
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: maintainer stabilising a release
+          iWant: a documented branch and tag model for mobile release candidates
+          soThat: hotfixes and release builds are traceable to exact commits
+        requirements:
+          - Release branches follow release/vMajor.Minor naming and are created only from main.
+          - Release candidate tags follow vMajor.Minor.Patch-rc.N and production tags follow vMajor.Minor.Patch.
+          - Every tag points to a commit that passed the release quality gate.
+        acceptanceCriteria:
+          - id: AC1
+            given: a production tag is pushed for a commit without a passing release gate
+            when: the release workflow validates the tag
+            then: the workflow fails before any store upload
+          - id: AC2
+            given: a hotfix branch is merged to a release branch
+            when: the release checklist runs
+            then: a tracking item exists to merge the fix back to main within 48 hours
+        implementation:
+          notes: >-
+            Document the policy and enforce the mechanical parts in the release
+            workflow. Mobile store releases have review loops, so tags and
+            branches must remain stable enough to reproduce exactly what was uploaded.
+          touches:
+            - docs/release/branching-and-tagging.md
+            - .github/workflows/release.yml
+        testing:
+          - Add workflow validation for valid tag names and annotated tag metadata.
+
+  - key: F30.04
+    title: Control artefact size and release risk
+    wave: 1
+    summary: >-
+      Add practical release engineering checks that keep mobile artefacts small,
+      traceable and safe to ship.
+    outcome: >-
+      The pipeline blocks oversized builds, exposes release risks and keeps CI
+      aligned with local developer commands.
+    concerns: [perf, release]
+    stories:
+      - key: S30.04.01
+        title: Fail Android builds over the 40 MB APK budget
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner guarding mobile install size
+          iWant: an automated size budget check for Android per-ABI APKs
+          soThat: the app stays within the architecture performance budget before store upload
+        requirements:
+          - The release workflow produces or extracts per-ABI APKs from the Android release build for measurement.
+          - Each per-ABI APK must be less than 40 MB.
+          - The workflow fails before Play upload when any per-ABI APK is 40 MB or larger.
+        acceptanceCriteria:
+          - id: AC1
+            given: an Android build produces a 41 MB arm64 APK
+            when: the size budget step runs
+            then: the release workflow fails and reports the APK path and size
+          - id: AC2
+            given: an Android build is 38 MB per ABI
+            when: the size report is generated
+            then: the workflow continues and uploads the report artefact
+        implementation:
+          notes: >-
+            Keep the budget aligned with the architecture overview and E28. Even
+            though Play receives an AAB, measuring per-ABI APK output gives a
+            user-facing install-size proxy. Use bundletool or MSBuild APK outputs.
+          touches:
+            - tools/release/check-android-size.ps1
+            - .github/workflows/release.yml
+          apis:
+            - bundletool
+            - dotnet publish
+        testing:
+          - Add script tests with synthetic file sizes at 39.9 MB and 40.0 MB.
+
+      - key: S30.04.02
+        title: Make local release builds reproduce CI artefacts
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer debugging a release build
+          iWant: one documented local command that produces the same artefacts as CI
+          soThat: I can reproduce failures without guessing hidden workflow steps
+        requirements:
+          - tools/ci/build-release.ps1 accepts platform android or ios and uses the same MSBuild properties as CI.
+          - The script prints .NET SDK version, workload list, Git SHA and version number at the start of every run.
+          - The script fails fast when required signing secrets are absent rather than falling back to debug signing.
+        acceptanceCriteria:
+          - id: AC1
+            given: signing variables are present for a tagged commit
+            when: the Android release script runs locally
+            then: the generated AAB contains the same version name, version code and commit SHA as CI
+          - id: AC2
+            given: signing variables are absent
+            when: the release script is run
+            then: the script fails before compilation and names the missing variable without printing secret values
+        implementation:
+          notes: >-
+            Put release commands in PowerShell scripts consumed by both
+            developers and GitHub Actions. Never embed secrets in scripts; read
+            them from environment variables and validate presence only.
+          touches:
+            - tools/ci/build-release.ps1
+            - docs/release/local-release-builds.md
+            - .github/workflows/release.yml
+          apis:
+            - dotnet publish
+        testing:
+          - Run the local release script in CI to prove it is the real build path.
+
+      - key: S30.04.03
+        title: Publish release artefact provenance and approvals
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: maintainer investigating a shipped build
+          iWant: metadata linking store artefacts to source, workflow and approvals
+          soThat: every distributed build can be traced back to one commit and one pipeline run
+        requirements:
+          - Every release artefact includes commit SHA, workflow run ID, build number and package identifier in a provenance file.
+          - Store upload jobs target protected GitHub environments with reviewer approval for production.
+          - The provenance file contains no secret values, signing passwords or private key material.
+        acceptanceCriteria:
+          - id: AC1
+            given: a release candidate is produced
+            when: the provenance file is opened
+            then: it contains commit SHA, workflow run ID, package identifier and build number
+          - id: AC2
+            given: a production upload is triggered from a tag
+            when: the workflow reaches the production environment
+            then: the upload job waits for reviewer approval before accessing production secrets
+        implementation:
+          notes: >-
+            Generate a small JSON provenance document as part of release
+            packaging and attach it to the GitHub release. Use GitHub
+            Environments as the boundary between validation and store-facing actions.
+          touches:
+            - tools/release/write-provenance.ps1
+            - .github/workflows/release.yml
+          apis:
+            - GitHub Environments
+            - GitHub Releases
+        testing:
+          - Validate the provenance JSON schema and protected-environment pause in CI dry runs.

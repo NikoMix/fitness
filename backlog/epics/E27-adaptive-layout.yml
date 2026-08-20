@@ -1,0 +1,774 @@
+key: E27
+title: Adaptive Layout and Responsive Experience
+domain: design
+wave: 2
+summary: >-
+  Forge v1 is phone-first, but users will still open it on tablets, iPads, landscape phones and foldables. This epic creates adaptive layout rules, breakpoint services, safe-area handling, text scaling and reachability patterns so the app never feels broken outside phone portrait.
+problem: >-
+  A mobile-only app that assumes one narrow portrait viewport will fail in real use: keyboards cover forms, notches hide controls, tablets waste space, foldables split content at hinges, large text truncates labels and landscape workout or video modes become awkward.
+outcome: >-
+  Forge keeps phone portrait as the primary target while adapting cleanly to tablet, iPad, landscape and foldable postures on Android and iOS, with safe insets, keyboard avoidance, 200 percent text scaling and lower-third primary actions.
+successMetrics:
+  - 'Core Wave 2 screens pass layout tests at 360 x 800, 430 x 932, 768 x 1024 and landscape phone viewports with no clipped critical content.'
+  - 'Exercise library and nutrition screens support one-pane phone and two-pane tablet layouts with selection state preserved across rotation.'
+  - 'All validated input forms avoid the soft keyboard using dx:SafeKeyboardAreaView or MAUI SafeAreaEdges with focused controls fully visible.'
+  - 'At 200 percent text scale, primary flows complete with no horizontal scrolling and no critical text truncation.'
+nonGoals:
+  - 'No desktop-specific UX in waves 1 through 5.'
+  - 'No multi-window productivity mode in v1.'
+  - 'No separate tablet product surface that diverges from phone functionality.'
+risks:
+  - risk: 'Tablet and foldable work becomes a second design system instead of adaptive reuse.'
+    mitigation: 'Define breakpoint tokens and adaptive containers once, then require feature screens to use those primitives.'
+    severity: medium
+  - risk: 'Large text and safe-area fixes are left until late when every screen needs rework.'
+    mitigation: 'Add automated gallery and core-flow layout tests at 200 percent text scale in Wave 2.'
+    severity: high
+grounding:
+  - title: '.NET MAUI safe area layout'
+    url: https://learn.microsoft.com/dotnet/maui/user-interface/safe-area?view=net-maui-10.0
+    note: 'Documents SafeAreaEdges for notches, system bars and keyboard-aware layouts in .NET 10.'
+  - title: 'DevExpress SafeKeyboardAreaView'
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Core.SafeKeyboardAreaView
+    note: 'DevExpress container that shrinks vertically to avoid the device keyboard.'
+  - title: '.NET MAUI device display information'
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/device/display?view=net-maui-10.0
+    note: 'Provides screen metrics and orientation change notifications.'
+  - title: '.NET MAUI TwoPaneView layout'
+    url: https://learn.microsoft.com/dotnet/maui/user-interface/controls/twopaneview?view=net-maui-10.0
+    note: 'Documents foldable and responsive two-pane layout support.'
+  - title: '.NET MAUI customize UI by device idiom'
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/customize-ui-appearance?view=net-maui-10.0
+    note: 'Covers OnIdiom and device idiom based UI adaptations.'
+
+features:
+  - key: F27.01
+    title: 'Establish breakpoint and orientation foundations'
+    wave: 2
+    summary: >-
+      Define responsive rules and services that all screens use instead of hard-coding device widths or assuming portrait orientation.
+    outcome: >-
+      Feature teams can bind to semantic size classes and orientation states from reusable adaptive containers.
+    concerns: [a11y]
+    stories:
+      - key: S27.01.01
+        title: 'Define Forge breakpoint and size-class tokens'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: 'developer working on Forge'
+          iWant: 'shared breakpoint tokens and size classes'
+          soThat: 'every feature adapts at the same thresholds'
+        requirements:
+          - 'Breakpoints include compact under 600 dp, medium from 600 to 839 dp and expanded at 840 dp or wider.'
+          - 'Size class calculation uses effective width after safe-area insets, not raw physical pixels.'
+          - 'Breakpoint changes raise notifications within 100 ms of rotation or size change.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'a viewport has 599 dp effective width'
+            when: 'the breakpoint service evaluates it'
+            then: 'it reports compact size class'
+          - id: AC2
+            given: 'the device rotates from portrait to landscape'
+            when: 'effective width crosses 600 dp'
+            then: 'subscribers receive one size-class change notification within 100 ms'
+        implementation:
+          notes: >-
+            Implement IAdaptiveLayoutService in Forge.App/Adaptive using DeviceDisplay.Current and page safe-area information from the view layer. Expose Compact, Medium and Expanded to XAML behaviours; keep MAUI device APIs out of Forge.Application.
+          touches:
+            - 'src/Forge.App/Adaptive'
+          devexpress:
+            - 'DXDockLayout'
+            - 'DXStackLayout'
+          apis:
+            - 'Microsoft.Maui.Devices.DeviceDisplay'
+            - 'Microsoft.Maui.Devices.DisplayInfo'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.01.02
+        title: 'Protect phone portrait as the primary layout target'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: 'Maya using Forge on a small phone'
+          iWant: 'phone portrait screens to remain simple and reachable'
+          soThat: 'I can complete core tasks one-handed'
+        requirements:
+          - 'Core Wave 2 screens have approved compact portrait layouts at 360 x 800 dp.'
+          - 'Primary actions sit in the lower third unless the screen is read-only or keyboard-focused.'
+          - 'No compact portrait layout requires horizontal scrolling.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'exercise library, exercise detail, nutrition search and profile screens render at 360 x 800 dp'
+            when: 'compact portrait snapshots are captured'
+            then: 'each screen shows its primary action in the lower third or records a justified read-only exception'
+          - id: AC2
+            given: '200 percent text scale is active on a 360 dp phone'
+            when: 'the same screens render'
+            then: 'no horizontal scrolling is needed to read critical labels or complete primary actions'
+        implementation:
+          notes: >-
+            Add compact portrait baselines to the design gallery and require feature pages to use bottom action slots from AdaptivePageScaffold. Tablet and foldable layouts should enhance the same content rather than replace phone-first navigation.
+          touches:
+            - 'src/Forge.App/Controls'
+          devexpress:
+            - 'DXDockLayout'
+            - 'DXButton'
+            - 'DXCollectionView'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.01.03
+        title: 'Preserve adaptive state across rotation and resume'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        userStory:
+          asA: 'Alex rotating during a workout'
+          iWant: 'Forge to keep my current context'
+          soThat: 'I do not lose the set or screen I was using'
+        requirements:
+          - 'Current route, selected item key, scroll offset and focused input restore after orientation change.'
+          - 'Rotation layout recalculation completes within 250 ms after new display info.'
+          - 'The same state restoration path runs after app suspend and resume when size class changes.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'the user is editing reps in a workout row'
+            when: 'the phone rotates to landscape and back to portrait'
+            then: 'the same row and input remain focused with the typed value intact'
+          - id: AC2
+            given: 'the app resumes on a tablet after size changed'
+            when: 'size class recalculates'
+            then: 'the selected item and scroll offset restore within 250 ms'
+        implementation:
+          notes: >-
+            Extend the E01 app-state snapshot with adaptive layout state in Forge.App only. Store identifiers and offsets, not visual elements, and restore after the page completes first layout to avoid racing DXCollectionView virtualization.
+          touches:
+            - 'src/Forge.App/Adaptive'
+          devexpress:
+            - 'DXCollectionView'
+            - 'NumericEdit'
+          apis:
+            - 'Microsoft.Maui.Devices.DeviceDisplay'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+  - key: F27.02
+    title: 'Support tablet and foldable master-detail experiences'
+    wave: 2
+    summary: >-
+      Adapt content-heavy areas to larger and hinged screens with two-pane experiences while preserving full phone functionality.
+    outcome: >-
+      Exercise and nutrition workflows use available space on tablets and foldables without creating separate products.
+    concerns: [devexpress]
+    stories:
+      - key: S27.02.01
+        title: 'Add reusable one-pane and two-pane adaptive containers'
+        wave: 2
+        size: l
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: 'developer working on Forge'
+          iWant: 'reusable adaptive containers'
+          soThat: 'I can support phone and tablet without duplicating page logic'
+        requirements:
+          - 'AdaptivePaneView switches between single-pane navigation and two-pane layout from the shared breakpoint service.'
+          - 'Selection state survives switching between one-pane and two-pane modes.'
+          - 'Pane widths use tokenized ratios and never leave a content pane narrower than 320 dp.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'an exercise is selected in two-pane layout'
+            when: 'the viewport narrows to compact'
+            then: 'the detail becomes the active single pane and the selected exercise remains selected'
+          - id: AC2
+            given: 'expanded width is 900 dp'
+            when: 'AdaptivePaneView lays out two panes'
+            then: 'neither pane is narrower than 320 dp and the list pane uses the configured token width'
+        implementation:
+          notes: >-
+            Implement AdaptivePaneView over Grid and DevExpress layout primitives, reserving TwoPaneView for hinge-aware foldable cases. Bind to primitive selection keys so state survives mode changes without depending on feature ViewModel types.
+          touches:
+            - 'src/Forge.App/Controls'
+          devexpress:
+            - 'DXDockLayout'
+            - 'DXCollectionView'
+            - 'DXBorder'
+          apis:
+            - 'Microsoft.Maui.Controls.Grid'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.02.02
+        title: 'Add two-pane exercise library and nutrition browsing'
+        wave: 2
+        size: l
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [devexpress]
+        userStory:
+          asA: 'Maya browsing on a tablet'
+          iWant: 'list and detail visible together on larger screens'
+          soThat: 'I can compare movements or foods without constant back navigation'
+        requirements:
+          - 'Medium and expanded widths show exercise or nutrition list and detail in two panes.'
+          - 'Compact widths keep the phone list-to-detail navigation.'
+          - 'Empty selection displays a helpful detail placeholder with one recommended next action.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'an expanded tablet viewport opens the exercise library'
+            when: 'no exercise is selected'
+            then: 'the list pane is visible and detail pane shows an empty selection placeholder with one action'
+          - id: AC2
+            given: 'compact width opens the same selected item'
+            when: 'the user selects an exercise or food'
+            then: 'the app navigates to a single detail page with selection preserved'
+        implementation:
+          notes: >-
+            Use AdaptivePaneView with DXCollectionView for lists and the existing detail content in pane two. Keep selection in ViewModels as primitive identifiers and reuse E02 EmptyStateView for no-selection placeholders.
+          touches:
+            - 'src/Forge.App/Features'
+          devexpress:
+            - 'DXCollectionView'
+            - 'DXBorder'
+            - 'DXButton'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.02.03
+        title: 'Support Android foldable hinge and posture changes'
+        wave: 2
+        size: l
+        platforms: [android]
+        persona: enthusiast
+        concerns: [devexpress]
+        userStory:
+          asA: 'Alex using a foldable Android device'
+          iWant: 'Forge to avoid placing content under the hinge'
+          soThat: 'I can use both screens without controls disappearing'
+        requirements:
+          - 'Foldable support uses Microsoft.Maui.Controls.Foldable where available and degrades to AdaptivePaneView when posture data is unavailable.'
+          - 'No interactive control overlaps hinge or fold bounds in spanned posture.'
+          - 'Posture changes update layout within 250 ms and preserve selected item state.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'the app is spanned across a supported Android foldable hinge'
+            when: 'the exercise library renders'
+            then: 'list and detail panes sit on separate sides of the hinge with no button or row intersecting hinge bounds'
+          - id: AC2
+            given: 'posture changes from spanned to single screen'
+            when: 'layout recalculates'
+            then: 'the selected item remains active and layout updates within 250 ms'
+        implementation:
+          notes: >-
+            Add Microsoft.Maui.Controls.Foldable to Forge.App and call UseFoldable for Android. Wrap TwoPaneView behind FoldablePaneHost so feature pages do not depend directly on foldable APIs; DevExpress controls remain inside panes.
+          touches:
+            - 'src/Forge.App/Controls'
+          devexpress:
+            - 'DXCollectionView'
+            - 'DXBorder'
+          apis:
+            - 'Microsoft.Maui.Controls.Foldable.TwoPaneView'
+            - 'Microsoft.Maui.Foldable.UseFoldable'
+            - 'Microsoft.Maui.Foldable.DualScreenInfo'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+        grounding:
+          - title: '.NET MAUI TwoPaneView layout'
+            url: https://learn.microsoft.com/dotnet/maui/user-interface/controls/twopaneview?view=net-maui-10.0
+            note: 'Documents TwoPaneView modes and Android foldable support.'
+  - key: F27.03
+    title: 'Handle safe areas, keyboard and landscape modes'
+    wave: 2
+    summary: >-
+      Ensure system UI, notches, gesture bars, keyboards and landscape use cases never obscure the controls users need during workouts, video playback or data entry.
+    outcome: >-
+      Forms, tabs, videos and workout screens respect device insets and remain usable through orientation changes.
+    concerns: [a11y, devexpress]
+    stories:
+      - key: S27.03.01
+        title: 'Apply safe areas for notches, Dynamic Island and gesture insets'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: 'Maya using a notched phone'
+          iWant: 'navigation and content clear of system areas'
+          soThat: 'I do not miss controls hidden by the device shape'
+        requirements:
+          - 'Top content respects status bar, notch and Dynamic Island insets on iOS.'
+          - 'Bottom navigation and primary actions clear Android gesture navigation and iOS home indicator areas.'
+          - 'Decorative backgrounds may extend edge-to-edge only when interactive content remains inside safe bounds.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'an iPhone with Dynamic Island displays the Today tab'
+            when: 'layout bounds are measured'
+            then: 'no heading, button or list row intersects the top safe area bounds'
+          - id: AC2
+            given: 'Android gesture navigation is enabled'
+            when: 'the tab shell and bottom action bar render'
+            then: 'all tappable controls are at least 8 dp above the gesture inset'
+        implementation:
+          notes: >-
+            Use .NET MAUI SafeAreaEdges for page-level layout and centralize bottom inset padding in AdaptivePageScaffold. Decorative backgrounds can extend behind system bars only through explicit style names.
+          touches:
+            - 'src/Forge.App/Controls'
+          devexpress:
+            - 'DXDockLayout'
+            - 'TabView'
+            - 'DXButton'
+          apis:
+            - 'Microsoft.Maui.SafeAreaEdges'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.03.02
+        title: 'Add keyboard avoidance for forms with SafeKeyboardAreaView'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [devexpress]
+        userStory:
+          asA: 'Priya editing food quantities'
+          iWant: 'the keyboard to avoid fields and save buttons'
+          soThat: 'I can finish forms without manual scrolling games'
+        requirements:
+          - 'Data-entry pages wrap form content and bottom actions in dx:SafeKeyboardAreaView or an approved SafeAreaEdges SoftInput container.'
+          - 'The focused input and primary action remain fully visible when the keyboard is open.'
+          - 'Keyboard open or close layout shift completes within 250 ms with no content overlap.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'the food quantity form is open on a 360 dp phone'
+            when: 'NumericEdit receives focus and the keyboard opens'
+            then: 'the focused editor and Save action are fully visible above the keyboard'
+          - id: AC2
+            given: 'the keyboard is dismissed'
+            when: 'layout returns to normal'
+            then: 'no form content remains offset and the focused value is unchanged'
+        implementation:
+          notes: >-
+            Prefer dx:SafeKeyboardAreaView around editor-heavy forms because DevExpress documents keyboard-aware shrinking. Where a page uses plain MAUI layouts, SafeAreaEdges SoftInput is acceptable only with tests proving editors and bottom actions remain visible.
+          touches:
+            - 'src/Forge.App/Controls'
+          devexpress:
+            - 'SafeKeyboardAreaView'
+            - 'TextEdit'
+            - 'NumericEdit'
+            - 'DXButton'
+          apis:
+            - 'Microsoft.Maui.SafeAreaEdges'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+        grounding:
+          - title: 'DevExpress SafeKeyboardAreaView'
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Core.SafeKeyboardAreaView
+            note: 'Documents the DevExpress keyboard avoidance container.'
+      - key: S27.03.03
+        title: 'Optimise landscape workout mode and video playback'
+        wave: 2
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [perf]
+        userStory:
+          asA: 'Alex watching an exercise demo'
+          iWant: 'landscape to prioritise video and logging controls'
+          soThat: 'I can learn the movement and continue the workout without rotating back'
+        requirements:
+          - 'Landscape exercise video mode uses MediaElement for video and places key logging controls within reachable side or lower zones.'
+          - 'Workout timer, current exercise name and primary set action remain visible in landscape.'
+          - 'Orientation changes during video playback preserve playback position within 1 second.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'an exercise demo is playing at 37 seconds'
+            when: 'the phone rotates from portrait to landscape'
+            then: 'playback resumes within 1 second of 37 seconds and timer, exercise name and set action remain visible'
+          - id: AC2
+            given: 'landscape workout mode runs on a 16:9 phone'
+            when: 'controls are measured'
+            then: 'the primary set action is reachable in the lower or side thumb zone and is at least 48 x 48 dp'
+        implementation:
+          notes: >-
+            Use CommunityToolkit.Maui.MediaElement as the sanctioned video fallback from the architecture overview. Wrap video plus DevExpress workout controls in LandscapeWorkoutScaffold and persist playback position before orientation changes.
+          touches:
+            - 'src/Forge.App/Features/Workout'
+          devexpress:
+            - 'DXButton'
+            - 'DXDockLayout'
+            - 'RadialGauge'
+          apis:
+            - 'CommunityToolkit.Maui.MediaElement'
+            - 'Microsoft.Maui.Devices.DeviceDisplay'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+  - key: F27.04
+    title: 'Guarantee large text and accessibility scaling'
+    wave: 2
+    summary: >-
+      Make sure adaptive layouts and components survive 200 percent text scaling without clipped labels, hidden validation or broken reading order.
+    outcome: >-
+      Users with large text settings can complete core flows on phone, tablet and landscape without losing information.
+    concerns: [a11y]
+    dependsOn: [E02]
+    stories:
+      - key: S27.04.01
+        title: 'Add 200 percent text-scaling layout tests for core flows'
+        wave: 2
+        size: l
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y, quality]
+        userStory:
+          asA: 'Tom using maximum text size'
+          iWant: 'Forge layouts to reflow instead of clipping'
+          soThat: 'I can complete workouts and nutrition entries independently'
+        requirements:
+          - 'Tests cover onboarding summary, exercise library, exercise detail, workout set row, food search and food quantity forms.'
+          - 'At 200 percent text scale, no critical label, value, validation message or primary action is clipped.'
+          - 'Horizontal scrolling is forbidden for core phone flows unless the content is a data table with an explicit exception.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'Android text scale is set to 200 percent'
+            when: 'the core-flow layout test runs at 360 dp width'
+            then: 'zero critical elements are clipped, overlapped or horizontally off-screen'
+          - id: AC2
+            given: 'iOS largest accessibility text category is active'
+            when: 'the food quantity form renders'
+            then: 'field label, validation text and Save action are all visible after vertical scrolling only'
+        implementation:
+          notes: >-
+            Extend the E02 gallery text-scale harness to real core pages with seeded local data. Mark critical elements with AutomationId and a CriticalContent attached property so tests report actionable measured bounds.
+          touches:
+            - 'src/Forge.App/DesignTests'
+          devexpress:
+            - 'DXCollectionView'
+            - 'TextEdit'
+            - 'NumericEdit'
+            - 'DXButton'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.04.02
+        title: 'Reflow validation and helper text in forms'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [a11y, devexpress]
+        userStory:
+          asA: 'Priya correcting a food entry'
+          iWant: 'validation messages to remain visible at large text'
+          soThat: 'I can fix mistakes without guessing what went wrong'
+        requirements:
+          - 'Validation messages wrap to at least three lines before truncating.'
+          - 'Helper text and validation text never overlap editor borders or adjacent controls.'
+          - 'The first invalid field is scrolled into view and announced within 500 ms of validation failure.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'a 120-character validation message renders at 200 percent text scale'
+            when: 'the form is displayed'
+            then: 'the message wraps to visible lines and does not overlap the next field'
+          - id: AC2
+            given: 'the user submits a form with two invalid fields'
+            when: 'validation fails'
+            then: 'the first invalid field is visible and announced within 500 ms'
+        implementation:
+          notes: >-
+            Create ValidationMessageView and FormFieldLayout wrappers around DevExpress editors. Validation state can come from ViewModels as strings and severity values, but scrolling and announcement belong to the view layer.
+          touches:
+            - 'src/Forge.App/Controls'
+          devexpress:
+            - 'TextEdit'
+            - 'NumericEdit'
+            - 'ComboBoxEdit'
+            - 'SafeKeyboardAreaView'
+          apis:
+            - 'Microsoft.Maui.Controls.SemanticScreenReader'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.04.03
+        title: 'Preserve logical reading order in adaptive panes'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: 'Tom using a screen reader'
+          iWant: 'adaptive layouts to read in a logical order'
+          soThat: 'two-pane screens do not become confusing'
+        requirements:
+          - 'Compact layout reads heading, content, primary action and secondary actions in visual order.'
+          - 'Two-pane layout reads list pane heading and selected detail heading without bouncing unpredictably between panes.'
+          - 'Changing size class restores focus to the equivalent logical item within 500 ms.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'TalkBack is active on a tablet two-pane exercise library'
+            when: 'the user swipes forward from the list heading'
+            then: 'focus moves through list controls before entering the selected detail pane'
+          - id: AC2
+            given: 'a selected detail heading has focus'
+            when: 'the device rotates and layout changes to compact'
+            then: 'focus lands on the same detail heading within 500 ms'
+        implementation:
+          notes: >-
+            Add SemanticProperties and traversal behaviours to AdaptivePaneView. Avoid relying on raw XAML order after panes are rearranged because visual and logical order can diverge.
+          touches:
+            - 'src/Forge.App/Controls'
+          devexpress:
+            - 'DXCollectionView'
+            - 'DXBorder'
+          apis:
+            - 'Microsoft.Maui.Controls.SemanticProperties'
+            - 'Microsoft.Maui.Controls.SemanticScreenReader'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+  - key: F27.05
+    title: 'Optimise one-handed reachability and thumb-safe actions'
+    wave: 2
+    summary: >-
+      Place primary actions where users can reach them during workouts and protect dangerous or secondary actions from accidental taps.
+    outcome: >-
+      Core actions remain reachable in the lower third on phones while larger layouts preserve safe and predictable action placement.
+    concerns: [a11y]
+    dependsOn: [F27.01, E02]
+    stories:
+      - key: S27.05.01
+        title: 'Create lower-third primary action slots'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [a11y]
+        userStory:
+          asA: 'Alex holding a phone one-handed'
+          iWant: 'primary workout actions near my thumb'
+          soThat: 'I can log without changing grip'
+        requirements:
+          - 'AdaptivePageScaffold provides a bottom primary action slot with safe-area padding.'
+          - 'On compact portrait screens, primary actions appear with their centre in the lower 40 percent of the viewport.'
+          - 'Read-only pages may omit the slot but must not place primary actions only in the top app bar.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'compact portrait workout, food detail and exercise detail screens render'
+            when: 'action positions are measured'
+            then: 'each primary action centre is within the lower 40 percent of the viewport'
+          - id: AC2
+            given: 'bottom safe-area inset changes'
+            when: 'the page scaffold recalculates layout'
+            then: 'the primary action remains fully visible and at least 8 dp above the inset'
+        implementation:
+          notes: >-
+            Add primary, secondary and destructive action slots to AdaptivePageScaffold using DXDockLayout. Feature pages should project actions into slots rather than positioning their own floating buttons.
+          touches:
+            - 'src/Forge.App/Controls'
+          devexpress:
+            - 'DXDockLayout'
+            - 'DXButton'
+            - 'BottomSheet'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.05.02
+        title: 'Separate destructive actions from primary thumb zones'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [a11y]
+        userStory:
+          asA: 'Sam editing a plan'
+          iWant: 'destructive actions away from the main thumb path'
+          soThat: 'I do not delete progress by mistake'
+        requirements:
+          - 'Destructive actions are not colocated with the primary action unless separated by at least 24 dp and confirmation.'
+          - 'Irreversible destructive actions require confirmation through shared popup or bottom sheet.'
+          - 'Destructive action labels include a verb and object, not only an icon.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'a screen contains Save and Delete actions'
+            when: 'compact portrait layout renders'
+            then: 'Delete is outside the primary action cluster or separated by at least 24 dp with confirmation required'
+          - id: AC2
+            given: 'a destructive icon is visible'
+            when: 'accessibility labels are inspected'
+            then: 'the label includes the action and object, such as Delete plan'
+        implementation:
+          notes: >-
+            Extend ActionPlacementRules and IconActionButton so destructive action placement is testable. Use shared DXPopup or BottomSheet confirmations and aim for separation plus confirmation, not hidden functionality.
+          touches:
+            - 'src/Forge.App/Adaptive'
+          devexpress:
+            - 'DXButton'
+            - 'DXPopup'
+            - 'BottomSheet'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.05.03
+        title: 'Add adaptive floating and sticky action behaviour'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [perf]
+        userStory:
+          asA: 'Priya logging food quickly'
+          iWant: 'important actions to stay available while lists scroll'
+          soThat: 'I do not need to scroll repeatedly'
+        requirements:
+          - 'Floating actions collapse into sticky bottom bars when text scale or safe-area constraints make floating placement unsafe.'
+          - 'Sticky actions do not cover the last list item; scrolling to the end reveals all content above the action area.'
+          - 'Floating or sticky action transitions respect reduced-motion settings from E03.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'a long food list has a sticky Log action'
+            when: 'the user scrolls to the final item'
+            then: 'the final item is fully visible above the sticky action with at least 8 dp spacing'
+          - id: AC2
+            given: '200 percent text scale is active'
+            when: 'a floating action would overlap content'
+            then: 'it converts to a sticky bottom bar instead of covering text'
+        implementation:
+          notes: >-
+            Implement AdaptiveActionHost as part of the page scaffold. It should calculate available space from safe areas, text scale and keyboard state, then choose floating or sticky presentation.
+          touches:
+            - 'src/Forge.App/Controls'
+          devexpress:
+            - 'DXButton'
+            - 'DXDockLayout'
+            - 'DXCollectionView'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+  - key: F27.06
+    title: 'Document adaptive layout rules and equivalence'
+    wave: 2
+    summary: >-
+      Keep adaptive behaviour understandable and prevent larger-screen layouts from silently dropping actions available on phone.
+    outcome: >-
+      Later feature teams have measurable adaptive rules and tests that preserve capability equivalence.
+    concerns: [quality]
+    stories:
+      - key: S27.06.01
+        title: 'Keep tablet and foldable layouts content-equivalent to phone'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [quality]
+        userStory:
+          asA: 'developer working on Forge'
+          iWant: 'adaptive layouts to expose the same capabilities'
+          soThat: 'larger screens do not drift into unsupported variants'
+        requirements:
+          - 'Every primary action available in compact phone layout is available in medium, expanded and foldable layouts.'
+          - 'Adaptive layout tests compare action inventories by automation identifier across size classes.'
+          - 'Any deliberate omission requires an exception with owner and expiry.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'exercise detail renders in compact and expanded layouts'
+            when: 'automation identifiers are collected'
+            then: 'the set of primary and secondary actions is identical across both layouts'
+          - id: AC2
+            given: 'a feature hides a phone action on tablet'
+            when: 'action inventory tests run'
+            then: 'the test fails unless the omission is listed in an approved exception file'
+        implementation:
+          notes: >-
+            Add ActionInventoryTestHelpers that crawl named interactive elements in UI tests. Require adaptive containers to preserve AutomationId values when moving content between panes.
+          touches:
+            - 'src/Forge.App/DesignTests'
+          devexpress:
+            - 'DXButton'
+            - 'DXCollectionView'
+            - 'BottomSheet'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.06.02
+        title: 'Document adaptive layout rules and exceptions'
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: 'developer working on Forge'
+          iWant: 'adaptive layout rules with measurable examples'
+          soThat: 'I do not re-litigate breakpoints or reachability on every screen'
+        requirements:
+          - 'Documentation covers breakpoints, pane selection, landscape, foldables, keyboard avoidance, text scaling and primary action placement.'
+          - 'Each rule names the automated test or manual checklist that enforces it.'
+          - 'Exceptions require product owner approval and an expiry or follow-up story.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'the adaptive layout README is opened'
+            when: 'a developer searches for keyboard, foldable, large text or lower third'
+            then: 'each term has a rule, example and enforcement reference'
+          - id: AC2
+            given: 'an exception file has an entry without owner or expiry'
+            when: 'adaptive documentation tests run'
+            then: 'the test fails and reports the incomplete exception'
+        implementation:
+          notes: >-
+            Place adaptive documentation near src/Forge.App/Adaptive so it evolves with code. Link to gallery pages, test classes and example screens rather than static screenshots only.
+          touches:
+            - 'src/Forge.App/Adaptive'
+          devexpress:
+            - 'SafeKeyboardAreaView'
+            - 'DXDockLayout'
+            - 'DXCollectionView'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'
+      - key: S27.06.03
+        title: 'Add adaptive regression snapshots for representative viewports'
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [quality]
+        userStory:
+          asA: 'developer working on Forge'
+          iWant: 'viewport regressions to be caught automatically'
+          soThat: 'layout bugs are found before device testing'
+        requirements:
+          - 'Snapshots cover 360 x 800, 430 x 932, 768 x 1024 and landscape phone viewports.'
+          - 'Diffs over 0.5 percent fail unless approved with a linked design-system change.'
+          - 'Snapshots include text scale 100 percent and 200 percent for at least compact phone layouts.'
+        acceptanceCriteria:
+          - id: AC1
+            given: 'a component shifts a primary action outside the lower-third zone'
+            when: 'adaptive snapshots and layout assertions run'
+            then: 'the test fails and reports the affected viewport'
+          - id: AC2
+            given: 'no adaptive files changed'
+            when: 'snapshot tests run twice on the same runner'
+            then: 'diffs remain below 0.1 percent pixels'
+        implementation:
+          notes: >-
+            Extend the E02 visual regression workflow with adaptive viewport sets and store baselines under tests/Forge.App.Design.Tests/AdaptiveBaselines. Pair pixel diffs with semantic layout assertions for action zones and clipped text.
+          touches:
+            - 'src/Forge.App/DesignTests'
+          devexpress:
+            - 'DXCollectionView'
+            - 'DXBorder'
+            - 'DXButton'
+        testing:
+          - 'Add an automated layout or behaviour test for the stated thresholds.'
+          - 'Add a gallery example covering happy path and edge state.'

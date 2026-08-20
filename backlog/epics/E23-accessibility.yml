@@ -1,0 +1,755 @@
+key: E23
+title: Accessibility and Inclusive Design
+domain: compliance
+wave: 3
+summary: >-
+  Forge must be usable by people who rely on screen readers, large text, switch control,
+  keyboard navigation, captions, haptics and reduced motion. This epic makes inclusive design a
+  launch requirement rather than a late polish pass.
+problem: >-
+  Fitness apps often fail at the exact moments users need them most: mid-workout timers change
+  too quickly, buttons are small, charts rely on colour, videos have no captions and large text
+  breaks the layout. Those failures exclude users and can create safety risks during exercise.
+outcome: >-
+  Core Android and iOS flows meet WCAG 2.2 AA intent, follow platform accessibility guidance, and
+  are verified by both automated checks and manual testing with TalkBack, VoiceOver and motor
+  accessibility tools.
+successMetrics:
+  - 100 percent of release-blocking screens have meaningful accessible names, roles and traversal order.
+  - Text scales to 200 percent on workout, nutrition, progress and settings screens with zero clipped primary actions.
+  - Manual assistive-technology test passes cover TalkBack, VoiceOver, switch control and external keyboard before release candidate.
+nonGoals:
+  - No separate simplified app mode that hides core Forge features from disabled users.
+  - No reliance on automated accessibility checks as the only acceptance signal.
+  - No desktop-specific accessibility work in v1.
+risks:
+  - risk: Dynamic workout values spam screen readers every second and make the workout screen unusable.
+    mitigation: Use throttled live-region announcements and user-controlled detail levels for changing values.
+    severity: high
+  - risk: Large text fixes are postponed until visual QA and require broad layout rewrites.
+    mitigation: Require 200 percent text testing on each new screen as it is built.
+    severity: high
+  - risk: Video and audio cues become the only way to understand exercises or timers.
+    mitigation: Require captions, transcripts and haptic or visual alternatives for every media cue.
+    severity: medium
+grounding:
+  - title: WCAG 2.2 Recommendation
+    url: https://www.w3.org/TR/WCAG22/
+    note: Target accessibility standard for launch quality.
+  - title: .NET MAUI accessibility
+    url: https://learn.microsoft.com/dotnet/maui/fundamentals/accessibility
+    note: MAUI semantics, screen-reader text and automation properties.
+  - title: Apple accessibility design guidance
+    url: https://developer.apple.com/design/human-interface-guidelines/accessibility
+    note: iOS platform expectations for accessible mobile experiences.
+  - title: Android accessibility principles
+    url: https://developer.android.com/guide/topics/ui/accessibility/principles
+    note: Android guidance for labels, touch targets and traversal.
+
+features:
+  - key: F23.01
+    title: Make screen reader navigation reliable in dynamic flows
+    wave: 3
+    summary: >-
+      Provide meaningful labels, roles, traversal order and announcements, with special handling
+      for workout screens where timers and values change constantly.
+    outcome: >-
+      TalkBack and VoiceOver users can start, execute and finish a workout without losing context
+      or being overwhelmed by repeated announcements.
+    concerns: [a11y]
+    stories:
+      - key: S23.01.01
+        title: Label all primary controls and data visualisations
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: screen-reader user
+          iWant: every button, tab, input and chart summary to have a meaningful name
+          soThat: I can understand Forge without seeing the screen
+        requirements:
+          - Every interactive control on launch-critical screens has an accessible name, role and state.
+          - Progress charts expose a textual summary with the same key values shown visually.
+          - Icon-only buttons include labels that name the action, not the icon shape.
+        acceptanceCriteria:
+          - id: AC1
+            given: TalkBack is enabled on Android
+            when: the user swipes through Today, Train, Nutrition, Progress and Profile
+            then: every focusable item announces a meaningful name and role without reading raw icon file names
+          - id: AC2
+            given: VoiceOver is enabled on iOS
+            when: the user focuses a progress chart
+            then: the announcement includes the chart title, date range and the current value summary
+        implementation:
+          notes: >-
+            Use MAUI SemanticProperties.Description, Hint and AutomationProperties.Name in XAML,
+            with resource-backed strings from E24. For DevExpress charts and gauges, provide
+            adjacent accessible summary labels because complex visuals may not expose all data
+            points usefully to native accessibility APIs. Keep these summaries bound to the same
+            ViewModel values as the visual control to prevent drift.
+          touches:
+            - src/Forge.App/Features/Today
+            - src/Forge.App/Features/Workout
+            - src/Forge.App/Features/Progress
+          devexpress:
+            - ChartView
+            - RadialGauge
+          apis:
+            - Microsoft.Maui.Controls.SemanticProperties
+            - Microsoft.Maui.Controls.AutomationProperties
+        testing:
+          - Manual TalkBack pass verifies all launch-critical screens.
+          - UI automation asserts no icon-only button lacks AutomationProperties.Name.
+        grounding:
+          - title: WCAG 2.2 Name, Role, Value
+            url: https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html
+            note: Controls must expose name, role and state programmatically.
+
+      - key: S23.01.02
+        title: Define logical traversal order for workout execution
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [a11y]
+        userStory:
+          asA: lifter using a screen reader during a workout
+          iWant: focus to move through the workout screen in task order
+          soThat: I can log sets without swiping through decorative or stale content
+        requirements:
+          - Workout focus order starts with exercise name, current set inputs, timer controls and next action.
+          - Decorative imagery and purely visual separators are removed from the accessibility tree.
+          - Modal sheets return focus to the button that opened them when dismissed.
+        acceptanceCriteria:
+          - id: AC1
+            given: VoiceOver is enabled and a workout is active
+            when: the user swipes forward from the top of the screen
+            then: focus reaches exercise name, set fields, timer controls and Complete Set in that order
+          - id: AC2
+            given: an exercise options bottom sheet is opened from the workout screen
+            when: the user dismisses it
+            then: focus returns to the options button that opened the sheet
+        implementation:
+          notes: >-
+            Keep the workout page layout order close to the task order rather than relying on
+            platform-specific traversal overrides everywhere. Where DevExpress BottomSheet is used,
+            explicitly manage focus on open and close in the page code-behind through a small
+            IAccessibilityFocusService abstraction, because ViewModels must not reference MAUI UI
+            elements.
+          touches:
+            - src/Forge.App/Features/Workout/WorkoutPage.xaml
+            - src/Forge.App/Accessibility/AccessibilityFocusService.cs
+          devexpress:
+            - BottomSheet
+            - TextEdit
+            - NumericEdit
+        testing:
+          - Manual VoiceOver and TalkBack traversal scripts for active workout and bottom sheets.
+          - UI test verifies modal close restores focus anchor.
+        grounding:
+          - title: WCAG 2.2 Focus Order
+            url: https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html
+            note: Focus order must preserve meaning and operability.
+
+      - key: S23.01.03
+        title: Throttle live announcements for timers and changing values
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: screen-reader user resting between sets
+          iWant: timer and set changes announced at useful moments only
+          soThat: speech output helps me instead of interrupting every second
+        requirements:
+          - Rest timers announce start, final 10 seconds, completion and user-triggered changes by default.
+          - Constantly changing values do not announce more than once every 10 seconds unless the user focuses them.
+          - Users can disable workout live announcements while keeping visual and haptic cues.
+        acceptanceCriteria:
+          - id: AC1
+            given: a 90-second rest timer is running with TalkBack enabled
+            when: no user interaction occurs
+            then: announcements occur at start, 10 seconds remaining and completion, not every second
+          - id: AC2
+            given: the user focuses the timer value
+            when: they perform the screen-reader read-current-item gesture
+            then: the current remaining time is announced immediately
+        implementation:
+          notes: >-
+            Add an IAccessibilityAnnouncementService in Forge.App that wraps platform
+            announcement APIs and accepts throttling policies. The workout ViewModel should emit
+            semantic events such as RestStarted and RestComplete, not raw per-second ticks. This
+            keeps timing logic testable and avoids flooding TalkBack or VoiceOver queues.
+          touches:
+            - src/Forge.App/Accessibility/AccessibilityAnnouncementService.cs
+            - src/Forge.App/Features/Workout/WorkoutViewModel.cs
+          apis:
+            - Microsoft.Maui.ApplicationModel.MainThread
+        testing:
+          - Unit test verifies announcement throttling for 30, 90 and 180 second timers.
+          - Manual screen-reader test verifies no per-second speech spam.
+        grounding:
+          - title: WCAG 2.2 Status Messages
+            url: https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html
+            note: Dynamic status changes should be conveyed without disrupting focus.
+
+  - key: F23.02
+    title: Support scalable text, contrast and touch targets
+    wave: 3
+    summary: >-
+      Ensure Forge remains readable and operable for low-vision users and users with motor
+      impairments by supporting large text, strong contrast and platform-sized hit targets.
+    outcome: >-
+      Primary screens keep content visible at 200 percent text scale, never rely on colour alone,
+      and meet platform touch target minimums.
+    concerns: [a11y]
+    stories:
+      - key: S23.02.01
+        title: Scale text to 200 percent without truncating actions
+        wave: 3
+        size: l
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: user with large text enabled
+          iWant: Forge layouts to reflow instead of clipping
+          soThat: I can read and act on workout and nutrition information safely
+        requirements:
+          - Launch-critical screens are tested at 100, 150 and 200 percent platform text scale.
+          - Primary actions remain visible and tappable at 200 percent without horizontal scrolling.
+          - Numeric input fields show full values for realistic maxima such as 999.5 kg and 9999 kcal.
+        acceptanceCriteria:
+          - id: AC1
+            given: Android font size is set to maximum
+            when: the workout logging screen is opened
+            then: exercise name, set inputs and Complete Set are visible without overlapping or clipping
+          - id: AC2
+            given: iOS Larger Text is enabled at 200 percent equivalent
+            when: nutrition daily summary is opened
+            then: calorie, protein, carbohydrate and fat values remain readable with primary action visible
+        implementation:
+          notes: >-
+            Prefer MAUI dynamic font sizing and vertical reflow over fixed heights. DevExpress
+            editors should use layout containers that can wrap labels above controls at large
+            sizes. Add a visual regression profile for large text so future UI work cannot
+            silently reintroduce clipping.
+          touches:
+            - src/Forge.App/Resources/Styles/Typography.xaml
+            - src/Forge.App/Features/Workout
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - NumericEdit
+            - DXStackLayout
+        testing:
+          - Screenshot comparison for 100, 150 and 200 percent text scale on representative Android and iOS devices.
+        grounding:
+          - title: WCAG 2.2 Resize Text
+            url: https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html
+            note: Text must resize up to 200 percent without loss of content or functionality.
+
+      - key: S23.02.02
+        title: Verify contrast and avoid colour-only meaning
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [a11y]
+        userStory:
+          asA: colour-blind or low-vision user
+          iWant: status and progress cues to use text, shape or icon changes as well as colour
+          soThat: I can understand them in any theme
+        requirements:
+          - Text and essential icons meet WCAG AA contrast thresholds in light and dark themes.
+          - Success, warning, error and selected states are conveyed by text, iconography or shape in addition to colour.
+          - Charts include legends or labels that do not require distinguishing colour alone.
+        acceptanceCriteria:
+          - id: AC1
+            given: the design token palette is scanned
+            when: foreground and background pairs used in production styles are checked
+            then: normal text pairs meet 4.5:1 and large text pairs meet 3:1 contrast
+          - id: AC2
+            given: a workout set is marked failed
+            when: the screen is viewed in greyscale
+            then: the failed state remains distinguishable by label or icon, not colour alone
+        implementation:
+          notes: >-
+            Build a token-level contrast test around DevExpress semantic theme roles rather than
+            one-off screenshots. Where charts use colour series, bind visible labels or patterns
+            so the meaning survives greyscale. This should complement E02 design tokens, not fork
+            the colour system inside individual pages.
+          touches:
+            - src/Forge.App/Resources/Styles/Colors.xaml
+            - tests/Forge.App.Tests/Accessibility/ContrastTests.cs
+          devexpress:
+            - ChartView
+            - ThemeManager
+        testing:
+          - Automated contrast test for all declared semantic foreground and background pairs.
+          - Manual greyscale pass for workout status, nutrition macro status and selected tabs.
+        grounding:
+          - title: WCAG 2.2 Contrast Minimum
+            url: https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
+            note: Defines AA contrast thresholds.
+          - title: WCAG 2.2 Use of Color
+            url: https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html
+            note: Colour must not be the only visual means of conveying information.
+
+      - key: S23.02.03
+        title: Enforce mobile touch target minimums
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: user tapping mid-workout with sweaty hands
+          iWant: controls to be large enough and spaced enough
+          soThat: I do not log the wrong set or miss a timer action
+        requirements:
+          - Primary and destructive controls meet at least 44x44 pt on iOS and 48x48 dp on Android.
+          - Adjacent destructive and primary actions have at least 8 dp or pt spacing unless separated by a confirmation step.
+          - Swipe actions have an accessible alternative button.
+        acceptanceCriteria:
+          - id: AC1
+            given: the workout screen is measured on Android density-independent pixels
+            when: tappable controls are inspected
+            then: each primary target is at least 48x48 dp
+          - id: AC2
+            given: a list item exposes a swipe-to-delete action
+            when: switch control or keyboard navigation is used
+            then: the same delete action is available without performing a swipe gesture
+        implementation:
+          notes: >-
+            Define minimum hit target styles in shared XAML resources and apply them to DXButton,
+            list item templates and editor trailing buttons. For DevExpress swipe actions, add a
+            visible overflow or context button reachable by keyboard and screen reader because
+            swipe gestures are not universally available.
+          touches:
+            - src/Forge.App/Resources/Styles/Controls.xaml
+            - src/Forge.App/Controls/AccessibleSwipeActions.xaml
+          devexpress:
+            - DXButton
+            - DXCollectionView
+        testing:
+          - UI measurement test fails controls below the platform minimum on representative pages.
+          - Manual switch control test verifies swipe-only actions have alternatives.
+        grounding:
+          - title: WCAG 2.2 Target Size Minimum
+            url: https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html
+            note: Establishes minimum target-size expectations.
+
+  - key: F23.03
+    title: Provide motion, media and sensory alternatives
+    wave: 3
+    summary: >-
+      Respect reduced-motion settings and ensure video, audio and haptic cues are redundant rather
+      than the sole source of workout or safety information.
+    outcome: >-
+      Users can understand exercises, timers and alerts through more than one sensory channel and
+      can disable motion that may cause discomfort.
+    concerns: [a11y]
+    stories:
+      - key: S23.03.01
+        title: Honour Reduce Motion across animations and transitions
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: user sensitive to motion
+          iWant: animations and transitions to calm down when my device requests reduced motion
+          soThat: Forge does not cause discomfort during regular use
+        requirements:
+          - System Reduce Motion or animator-duration settings are read on startup and resume.
+          - Celebration animations, page transitions and chart entrance animations have reduced alternatives.
+          - Users can override motion intensity inside Forge settings.
+        acceptanceCriteria:
+          - id: AC1
+            given: iOS Reduce Motion is enabled
+            when: a workout completion celebration would play
+            then: Forge shows a static success state instead of a Lottie or high-motion animation
+          - id: AC2
+            given: Android animator duration scale is set to off
+            when: the user navigates between primary tabs
+            then: no custom Forge animation longer than 100 ms is played
+        implementation:
+          notes: >-
+            Centralise motion decisions in a MotionPreferences service under Forge.App/Motion so
+            individual screens do not query platform settings inconsistently. The service should
+            expose semantic choices such as Full, Reduced and None, and animation helpers should
+            use those choices before starting SkiaSharp or MAUI animations.
+          touches:
+            - src/Forge.App/Motion/MotionPreferences.cs
+            - src/Forge.App/Features/Workout/CompletionView.xaml
+          apis:
+            - Microsoft.Maui.ApplicationModel.AppInfo
+        testing:
+          - Manual platform test with iOS Reduce Motion and Android animator scale disabled.
+          - Unit test verifies user override takes precedence over default animation level.
+        grounding:
+          - title: WCAG 2.2 Animation from Interactions
+            url: https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html
+            note: Motion triggered by interaction should be disableable unless essential.
+
+      - key: S23.03.02
+        title: Add captions and transcripts for exercise videos
+        wave: 3
+        size: l
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: user who cannot hear video audio
+          iWant: captions and transcripts for exercise demonstrations
+          soThat: I can learn form cues without relying on sound
+        requirements:
+          - Every bundled exercise video has synchronised captions or an approved no-speech marker.
+          - A transcript or step list is available beside each video and is readable offline.
+          - Caption text scales with platform text settings and remains visible over the video.
+        acceptanceCriteria:
+          - id: AC1
+            given: an exercise has an instructional video with spoken cues
+            when: the video is played offline
+            then: captions are available and match the spoken cue timing within one second
+          - id: AC2
+            given: captions are disabled
+            when: the user opens Exercise details
+            then: a text transcript or step list containing the same instructional cues is visible
+        implementation:
+          notes: >-
+            Use CommunityToolkit.Maui.MediaElement for playback as approved by the architecture
+            gap list, and store caption metadata beside exercise seed content. Do not bake text
+            into video frames because E24 needs captions localised independently. The exercise
+            detail ViewModel should expose transcript segments as data, not as a video-specific
+            UI concern.
+          touches:
+            - src/Forge.App/Features/Exercises/ExerciseDetailPage.xaml
+            - src/Forge.Infrastructure/Content/ExerciseMediaManifest.cs
+            - src/Forge.App/Resources/Raw/exercise-captions
+          apis:
+            - CommunityToolkit.Maui.MediaElement
+        testing:
+          - Content validation fails any spoken exercise video without caption and transcript assets.
+          - Manual large-text pass verifies captions stay readable over video.
+        grounding:
+          - title: WCAG 2.2 Captions Prerecorded
+            url: https://www.w3.org/WAI/WCAG22/Understanding/captions-prerecorded.html
+            note: Prerecorded audio in synchronised media needs captions.
+
+      - key: S23.03.03
+        title: Provide visual and haptic alternatives for audio cues
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [a11y]
+        userStory:
+          asA: user training in a noisy gym or with hearing loss
+          iWant: timer and safety cues to appear visually and through haptics
+          soThat: I do not miss important workout information
+        requirements:
+          - Every audio cue has a visual state change and optional haptic pattern.
+          - Haptics can be disabled independently of sound.
+          - Critical cues such as rest complete and unsafe target warnings remain visible until acknowledged or superseded.
+        acceptanceCriteria:
+          - id: AC1
+            given: sound is muted and haptics are enabled
+            when: a rest timer completes
+            then: Forge vibrates with the configured pattern and shows a visible Rest complete state
+          - id: AC2
+            given: haptics and sound are both disabled
+            when: a safety warning appears
+            then: the warning remains visible until the user dismisses it or changes the unsafe input
+        implementation:
+          notes: >-
+            Route cue events through a MultimodalCueService with sound, haptic and visual outputs
+            configured separately. The workout screen owns the persistent visual state so cues do
+            not disappear if haptic feedback is unavailable on a device. Keep haptic patterns
+            short and non-essential because not every device supports them equally.
+          touches:
+            - src/Forge.App/Accessibility/MultimodalCueService.cs
+            - src/Forge.App/Features/Workout/WorkoutCueBanner.xaml
+          apis:
+            - Microsoft.Maui.Devices.HapticFeedback
+        testing:
+          - Unit test verifies each registered audio cue has visual and haptic metadata.
+          - Manual device test verifies rest completion cue with sound disabled.
+        grounding:
+          - title: WCAG 2.2 Sensory Characteristics
+            url: https://www.w3.org/WAI/WCAG22/Understanding/sensory-characteristics.html
+            note: Instructions should not rely on a single sensory characteristic.
+
+  - key: F23.04
+    title: Support motor access, keyboard operation and timing control
+    wave: 3
+    summary: >-
+      Make Forge operable for users who navigate by switch control, external keyboard or slower
+      interactions, especially during time-bound workout flows.
+    outcome: >-
+      Core flows can be completed without precise gestures, with sufficient time to act and clear
+      focus indication.
+    concerns: [a11y]
+    stories:
+      - key: S23.04.01
+        title: Enable switch control and external keyboard navigation
+        wave: 3
+        size: l
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: user navigating without touch gestures
+          iWant: to operate Forge with switch control or an external keyboard
+          soThat: I can complete workouts and settings changes independently
+        requirements:
+          - Primary screens support forward and backward focus navigation with visible focus indication.
+          - Enter or Space activates focused buttons and list actions where the platform supports it.
+          - Gesture-only interactions have button or menu alternatives.
+        acceptanceCriteria:
+          - id: AC1
+            given: an external keyboard is connected to an Android device
+            when: the user presses Tab through the workout screen
+            then: focus moves through actionable controls and Enter activates Complete Set
+          - id: AC2
+            given: iOS Switch Control is enabled
+            when: the user opens Profile settings
+            then: every primary action can be reached and activated without a swipe gesture
+        implementation:
+          notes: >-
+            Keep native focusable controls rather than replacing them with custom gesture-only
+            views. For DevExpress collection items, expose explicit action buttons in item
+            templates when keyboard or switch navigation is active. Add a visible focus style in
+            shared resources so focus is discoverable in both light and dark themes.
+          touches:
+            - src/Forge.App/Resources/Styles/Focus.xaml
+            - src/Forge.App/Controls/AccessibleActionRow.xaml
+          devexpress:
+            - DXCollectionView
+            - DXButton
+        testing:
+          - Manual keyboard pass on Android and iOS simulator or device.
+          - Manual Switch Control pass on iOS for onboarding, workout and settings.
+        grounding:
+          - title: WCAG 2.2 Keyboard
+            url: https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html
+            note: Functionality should be operable through a keyboard interface.
+
+      - key: S23.04.02
+        title: Let users extend or disable rest timer deadlines
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [a11y]
+        userStory:
+          asA: user who needs more time between actions
+          iWant: rest timers and prompts to be extendable
+          soThat: time limits do not force mistakes or unsafe movement
+        requirements:
+          - Rest timers provide Extend, Pause and Skip actions when active.
+          - No destructive or data-loss action times out without an explicit user choice.
+          - Timer completion does not automatically advance to a set input screen if the user has enabled reduced timing pressure.
+        acceptanceCriteria:
+          - id: AC1
+            given: a rest timer has 5 seconds remaining
+            when: the user taps Extend
+            then: the configured extension is added and the timer continues from the new remaining value
+          - id: AC2
+            given: reduced timing pressure is enabled
+            when: a rest timer reaches zero
+            then: Forge announces completion but waits for the user to proceed manually
+        implementation:
+          notes: >-
+            Implement timing controls in the workout ViewModel so they are testable and do not
+            depend on a specific page. Persist the reduced timing pressure preference locally.
+            This is both accessibility and safety work, because rushing a fatigued user can lead
+            to poor form or mislogged sets.
+          touches:
+            - src/Forge.App/Features/Workout/RestTimerViewModel.cs
+            - src/Forge.App/Features/Settings/AccessibilitySettingsPage.xaml
+          devexpress:
+            - DXButton
+        testing:
+          - Unit tests cover Extend, Pause, Skip and reduced timing pressure at timer completion.
+        grounding:
+          - title: WCAG 2.2 Timing Adjustable
+            url: https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html
+            note: Users need control over time limits unless timing is essential.
+
+      - key: S23.04.03
+        title: Provide an accessibility settings hub
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: user with specific access needs
+          iWant: one place to adjust Forge accessibility preferences
+          soThat: I can tune motion, cues, announcements and timing without hunting through screens
+        requirements:
+          - Settings exposes Forge-specific toggles for reduced motion, live announcements, haptics, captions default and reduced timing pressure.
+          - Defaults follow platform accessibility settings on first launch.
+          - Changing a setting takes effect without restarting the app.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user disables haptics in Forge settings
+            when: a rest timer completes
+            then: no Forge haptic is triggered while the visual cue still appears
+          - id: AC2
+            given: iOS Reduce Motion is enabled before first launch
+            when: Forge creates accessibility preferences
+            then: Forge reduced motion is enabled by default
+        implementation:
+          notes: >-
+            Add an AccessibilityPreferences service under Forge.App and persist values with
+            Preferences. Screens should subscribe to preference changes through a simple
+            application event so updates apply immediately. Keep the hub in Settings, but expose
+            shortcuts from workout and video screens for preferences relevant in context.
+          touches:
+            - src/Forge.App/Features/Settings/AccessibilitySettingsPage.xaml
+            - src/Forge.App/Accessibility/AccessibilityPreferences.cs
+          devexpress:
+            - DXCollectionView
+            - SwitchEdit
+          apis:
+            - Microsoft.Maui.Storage.Preferences
+        testing:
+          - Unit test verifies platform defaults seed Forge preferences on first run only.
+          - UI test verifies toggles update active workout cues without restart.
+
+  - key: F23.05
+    title: Validate accessibility continuously and publish the commitment
+    wave: 3
+    summary: >-
+      Add automated checks, manual assistive-technology testing and an accessibility statement so
+      accessibility remains measurable throughout release work.
+    outcome: >-
+      Accessibility regressions are caught in CI where possible, known limitations are documented,
+      and real-device manual testing covers what automation misses.
+    concerns: [a11y]
+    stories:
+      - key: S23.05.01
+        title: Add automated accessibility checks to CI
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [a11y]
+        userStory:
+          asA: developer changing UI
+          iWant: automated checks to catch obvious accessibility regressions
+          soThat: missing labels and contrast failures do not reach manual QA
+        requirements:
+          - CI checks for missing accessible names on interactive controls in launch-critical XAML.
+          - CI checks token contrast pairs used by production styles.
+          - Accessibility checks fail with file paths and control names that can be fixed directly.
+        acceptanceCriteria:
+          - id: AC1
+            given: a DXButton without text or AutomationProperties.Name is added to a critical screen
+            when: CI runs
+            then: the accessibility check fails and reports the XAML file path
+          - id: AC2
+            given: a colour token pair drops below 4.5:1 for normal text
+            when: contrast tests run
+            then: CI fails with the token names and measured ratio
+        implementation:
+          notes: >-
+            Start with repository-level static checks because full mobile accessibility scanners
+            are harder to stabilise in early CI. Parse XAML for known interactive controls and
+            enforce accessible names, then add unit tests for colour contrast. Keep this additive
+            to manual testing because automation cannot judge whether a label is meaningful.
+          touches:
+            - tools/accessibility
+            - tests/Forge.App.Tests/Accessibility
+            - .github/workflows
+        testing:
+          - CI fixtures include one passing and one failing XAML file for missing labels.
+        grounding:
+          - title: WCAG Evaluation Tools Overview
+            url: https://www.w3.org/WAI/test-evaluate/tools/
+            note: Automation helps but does not replace human evaluation.
+
+      - key: S23.05.02
+        title: Run manual assistive-technology release testing
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [a11y]
+        userStory:
+          asA: release owner
+          iWant: a manual accessibility test matrix with real assistive technology
+          soThat: Forge is validated in the conditions users actually rely on
+        requirements:
+          - Manual matrix covers TalkBack, VoiceOver, Switch Control, external keyboard, large text, Reduce Motion and captions.
+          - Tests cover onboarding, workout execution, nutrition logging, progress review, settings and deletion entry points.
+          - Failures are triaged as release-blocking when they prevent completing a core task.
+        acceptanceCriteria:
+          - id: AC1
+            given: the release candidate build is ready
+            when: the accessibility matrix is executed
+            then: each required assistive technology has a dated pass, fail or not-applicable result with device details
+          - id: AC2
+            given: a tester cannot complete workout logging with VoiceOver
+            when: the result is recorded
+            then: the release checklist marks the issue as blocking until fixed or explicitly accepted
+        implementation:
+          notes: >-
+            Store the matrix in docs/quality/accessibility-test-matrix.md and make it part of the
+            release checklist. Include scripted tasks with expected outcomes rather than vague
+            exploratory notes. Manual testing should use at least one physical Android and one
+            physical iOS device because simulator behaviour differs for haptics, captions and
+            some assistive technologies.
+          touches:
+            - docs/quality/accessibility-test-matrix.md
+            - docs/release/store-compliance.yml
+        testing:
+          - Release checklist validates that the current build number appears in the manual matrix.
+
+      - key: S23.05.03
+        title: Publish an accessibility statement and feedback route
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: user with access needs
+          iWant: to know Forge's accessibility commitment and how to report barriers
+          soThat: I can trust that problems will be addressed
+        requirements:
+          - Accessibility statement is reachable from Settings and a public URL.
+          - Statement names the target standard as WCAG 2.2 AA plus platform guidance.
+          - Statement includes known limitations, last review date and contact route.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user opens Settings Legal and Accessibility
+            when: they select Accessibility Statement
+            then: the statement opens and includes target standard, known limitations and contact route
+          - id: AC2
+            given: the public statement URL is requested without authentication
+            when: the release link check runs
+            then: it returns HTTP 200 over HTTPS
+        implementation:
+          notes: >-
+            Publish docs/legal/accessibility-statement.md through the same static hosting path as
+            the privacy policy, and reference it from the in-app legal settings. Keep known
+            limitations honest and dated. The statement should not claim full conformance until
+            the manual test matrix supports that claim.
+          touches:
+            - docs/legal/accessibility-statement.md
+            - src/Forge.App/Features/Settings/LegalSettingsPage.xaml
+          devexpress:
+            - DXButton
+        testing:
+          - Link checker verifies public statement URL availability before release.
+        grounding:
+          - title: W3C Accessibility Statements
+            url: https://www.w3.org/WAI/planning/statements/
+            note: Guidance for publishing accessible and transparent statements.

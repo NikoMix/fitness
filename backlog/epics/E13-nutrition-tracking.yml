@@ -1,0 +1,650 @@
+key: E13
+title: Nutrition, Food Logging and Macro Tracking
+domain: nutrition
+wave: 3
+summary: >-
+  Forge delivers offline food logging, macro tracking and nutrition safety without a server. A trimmed bundled catalogue, optional larger local data, local barcode lookup, careful portions, target explanations and qualitative tracking make nutrition useful while preserving privacy.
+problem: >-
+  Most nutrition apps rely on cloud food databases and aggressive weight-loss loops. Forge v1 has no backend, so users need fast local lookup, realistic size limits, clear licence attribution and guardrails that avoid reinforcing restrictive behaviour.
+outcome: >-
+  Users can log meals offline, understand macro and calorie progress, correct mistakes quickly, and choose calorie-hidden tracking when numbers are not helpful.
+successMetrics:
+  - Search over 100000 local foods returns the first page within 200 ms.
+  - Barcode matches open the local food detail within 500 ms after decode.
+  - The bundled starter catalogue remains under 12 MB compressed and the Android APK stays under 40 MB per ABI.
+nonGoals:
+  - No Forge backend, cloud sync, social database or server-side lookup in v1.
+  - No medical diagnosis, treatment plan or guaranteed health outcome.
+  - No desktop implementation in waves 1 to 5.
+risks:
+  - risk: The offline catalogue could exceed the APK budget.
+    mitigation: Ship a trimmed starter subset and keep larger catalogues as optional downloads stored outside the APK.
+    severity: high
+  - risk: Open Food Facts quality and licence duties could be mishandled.
+    mitigation: Store provenance, cite ODbL and DbCL terms, exclude images in v1, and add CI licence manifest checks.
+    severity: high
+  - risk: Targets could encourage unsafe restriction.
+    mitigation: Enforce calorie floors, refuse extreme deficits, avoid shame copy and support calorie-hidden mode.
+    severity: critical
+dependsOn: [E01]
+grounding:
+  - title: Forge architecture overview
+    url: https://github.com/NikoMix/fitness/blob/main/docs/architecture/overview.md
+    note: Local-only architecture, SQLite, mobile platforms and 40 MB APK budget.
+  - title: DevExpress MAUI DXCollectionView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+    note: Virtualized lists for large local datasets.
+  - title: DevExpress MAUI AutoCompleteEdit
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.AutoCompleteEdit
+    note: Asynchronous local search suggestions.
+  - title: DevExpress MAUI NumericEdit
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.NumericEdit
+    note: Bounded numeric entry.
+  - title: DevExpress MAUI BottomSheet
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.BottomSheet
+    note: Fast focused entry sheets.
+  - title: USDA FoodData Central API guide and licensing
+    url: https://fdc.nal.usda.gov/api-guide/
+    note: States FDC data is public domain under CC0 1.0 and requests citation.
+  - title: Open Food Facts data reuse terms
+    url: https://world.openfoodfacts.org/data
+    note: States OFF database is ODbL, contents are DbCL, images are CC BY-SA, and the CSV is about 0.9 GB compressed.
+  - title: Open Database License 1.0
+    url: https://opendatacommons.org/licenses/odbl/1-0/
+    note: Defines ODbL share-alike duties for derivative databases.
+  - title: ZXing.Net.MAUI package documentation
+    url: https://www.nuget.org/packages/ZXing.Net.Maui
+    note: Documents MAUI barcode scanning and camera permissions.
+  - title: DevExpress MAUI PieChartView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.PieChartView
+    note: Macro split chart.
+  - title: DevExpress MAUI RadialGauge
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Gauges.RadialGauge
+    note: Calorie budget ring.
+  - title: DevExpress MAUI ChartView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+    note: Weekly trends.
+
+features:
+  - key: F13.01
+    title: Provide offline food data and barcode lookup
+    wave: 3
+    summary: >-
+      Replace cloud lookup with a bundled USDA-first catalogue, selected Open Food Facts barcode rows and an explicit licence surface.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S13.01.01
+        title: Import a trimmed bundled food database
+        wave: 3
+        size: l
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: "Forge developer"
+          iWant: "import a trimmed bundled food database"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Bundle a compressed starter catalogue no larger than 12 MB.
+          - Import at least 50000 foods with calories, macros, fibre, sugar, sodium and micronutrients when available.
+          - Persist source, release, source id and nutrient provenance for every row.
+        acceptanceCriteria:
+          - id: AC1
+            given: a fresh install is offline
+            when: catalogue import completes
+            then: at least 50000 foods are searchable and the APK remains below 40 MB per ABI
+          - id: AC2
+            given: the import is killed midway
+            when: the app restarts
+            then: import resumes without duplicate foods and finishes within 45 s total device time
+        implementation:
+          notes: >-
+            Implement a streaming importer in Forge.Infrastructure that reads compressed JSON or CSV into encrypted SQLite. Prefer USDA Foundation, SR Legacy and FNDDS for generic foods, then a high-quality Open Food Facts subset for barcode-rich branded products. Keep all DTOs plain so DevExpress never leaks into Application.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Microsoft.EntityFrameworkCore.Sqlite
+            - SQLitePCLRaw.bundle_e_sqlcipher
+        testing:
+          - Add unit and UI coverage for S13.01.01 acceptance criteria including offline and error paths.
+      - key: S13.01.02
+        title: Scan barcodes against the local index
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "scan barcodes against the local index"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Use ZXing.Net.Maui because barcode scanning is a documented DevExpress gap.
+          - Support EAN-8, EAN-13, UPC-A and UPC-E.
+          - On scan miss, open a product not found BottomSheet with manual name, serving and macro fields.
+        acceptanceCriteria:
+          - id: AC1
+            given: a barcode exists locally
+            when: it is scanned in airplane mode
+            then: the food detail opens within 500 ms after decode
+          - id: AC2
+            given: a barcode is missing
+            when: scan completes
+            then: manual-add appears within 300 ms and can save a local barcode food in 5 fields or fewer
+        implementation:
+          notes: >-
+            Create a barcode page in Forge.App with CameraBarcodeReaderView and an Application lookup service backed by a SQLite barcode index. The miss path is the critical UX moment, so present a compact dx:BottomSheet rather than a dead end or cloud lookup.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+            - dx:NumericEdit
+          apis:
+            - ZXing.Net.Maui.Controls
+            - Android CAMERA permission
+            - iOS NSCameraUsageDescription
+        testing:
+          - Add unit and UI coverage for S13.01.02 acceptance criteria including offline and error paths.
+      - key: S13.01.03
+        title: Show food data licence attribution
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [compliance]
+        userStory:
+          asA: "Forge developer"
+          iWant: "show food data licence attribution"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Show USDA FoodData Central suggested citation.
+          - Show Open Food Facts ODbL, DbCL and source manifest when OFF data is present.
+          - CI fails when catalogue rows lack source, release, row count or transformation notes.
+        acceptanceCriteria:
+          - id: AC1
+            given: OFF rows are bundled
+            when: Nutrition Data sources opens
+            then: Open Food Facts, ODbL 1.0, DbCL 1.0 and source manifest are visible within 2 taps
+          - id: AC2
+            given: the OFF subset is transformed
+            when: CI licence check runs
+            then: the build fails unless share-alike review metadata is present
+        implementation:
+          notes: >-
+            Generate a DataSourceManifest.json beside each catalogue asset and render it from Nutrition settings. Exclude Open Food Facts images in v1 because image licensing and copyright caveats differ from database field reuse.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Creative Commons CC0 1.0
+            - Open Database License 1.0
+        testing:
+          - Add unit and UI coverage for S13.01.03 acceptance criteria including offline and error paths.
+  - key: F13.02
+    title: Model nutrients, portions, meals and corrections
+    wave: 3
+    summary: >-
+      Create source-aware nutrient storage, careful portion conversion and editable meal entries with custom foods and saved meals.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S13.02.01
+        title: Store nutrient values and meal log snapshots
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: "Forge developer"
+          iWant: "store nutrient values and meal log snapshots"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Represent calories, protein, carbohydrate, fat, fibre, sugar, sodium and micronutrients per 100 g.
+          - Store unknown nutrient values distinctly from zero.
+          - Snapshot calculated nutrients on each log entry.
+        acceptanceCriteria:
+          - id: AC1
+            given: a food has unknown vitamin D and zero trans fat
+            when: it is logged
+            then: unknown and zero are stored as distinct states
+          - id: AC2
+            given: catalogue nutrients change later
+            when: yesterday's log opens
+            then: the historical nutrient snapshot is unchanged
+        implementation:
+          notes: >-
+            Put nutrient value objects and FoodLogEntry in Forge.Domain, with EF owned rows for snapshots. This prevents historical reports shifting when catalogue data updates and makes recipes reuse the same nutrient math.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          apis:
+            - Microsoft.EntityFrameworkCore
+        testing:
+          - Add unit and UI coverage for S13.02.01 acceptance criteria including offline and error paths.
+      - key: S13.02.02
+        title: Convert portions and serving sizes safely
+        wave: 3
+        size: l
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: "Forge user"
+          iWant: "convert portions and serving sizes safely"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Support grams, millilitres, ounces, pounds, serving, piece, cup, tablespoon and teaspoon where conversion exists.
+          - Refuse volume-to-mass conversion without food-specific density or serving data.
+          - Validate equivalent quantity from 0.1 g to 9999 g.
+        acceptanceCriteria:
+          - id: AC1
+            given: 2 tbsp peanut butter equals 32 g
+            when: the user logs 1 tbsp
+            then: Forge stores 16 g equivalent and exactly half the nutrients
+          - id: AC2
+            given: cup is selected without density
+            when: save is attempted
+            then: save is disabled with a food-specific conversion message
+        implementation:
+          notes: >-
+            Build PortionPickerBottomSheet with dx:NumericEdit and put conversion rules in Domain, not the UI. Never use a universal cup-to-gram conversion because this is a common real-world error.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+            - dx:NumericEdit
+        testing:
+          - Add unit and UI coverage for S13.02.02 acceptance criteria including offline and error paths.
+      - key: S13.02.03
+        title: Manage custom foods, saved meals and edits
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "manage custom foods, saved meals and edits"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Custom foods require name, serving size, calories and macros.
+          - Saved meals expand into individual entries inside one SQLite transaction.
+          - Edit and delete log entries with 10 second undo.
+        acceptanceCriteria:
+          - id: AC1
+            given: a custom food has 250 calories per 100 g
+            when: 80 g is logged
+            then: the entry records 200 calories and appears in search within 200 ms
+          - id: AC2
+            given: a saved meal has 3 foods
+            when: it is logged
+            then: all 3 entries are written atomically or none are written
+        implementation:
+          notes: >-
+            Use soft deletion for custom foods so historical snapshots stay readable. Present edit and delete through DXCollectionView swipe actions and compact BottomSheet forms.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+            - dx:BottomSheet
+            - dx:NumericEdit
+        testing:
+          - Add unit and UI coverage for S13.02.03 acceptance criteria including offline and error paths.
+  - key: F13.03
+    title: Make food logging fast
+    wave: 3
+    summary: >-
+      Offer autocomplete search, shortcuts and quick-add macros so repeat logging is not a chore.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S13.03.01
+        title: Search foods with autocomplete and virtualized results
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: "Forge user"
+          iWant: "search foods with autocomplete and virtualized results"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Use dx:AutoCompleteEdit with a 2 character threshold and 150 ms debounce.
+          - Use dx:DXCollectionView for virtualized result pages over at least 100000 foods.
+          - Rank exact, recent, favourite and high-confidence source results first.
+        acceptanceCriteria:
+          - id: AC1
+            given: 100000 foods are indexed
+            when: the user types chicken
+            then: the first 25 results render within 200 ms after debounce
+          - id: AC2
+            given: no result matches
+            when: search completes
+            then: Create custom food and Quick add macros actions are visible
+        implementation:
+          notes: >-
+            Implement cancellable local search over SQLite indexes or FTS5 and bind small result DTOs to AutoCompleteEdit and DXCollectionView. Never query a network endpoint.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:AutoCompleteEdit
+            - dx:DXCollectionView
+          apis:
+            - SQLite FTS5
+        testing:
+          - Add unit and UI coverage for S13.03.01 acceptance criteria including offline and error paths.
+      - key: S13.03.02
+        title: Log recent, frequent, favourite and copied foods
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "log recent, frequent, favourite and copied foods"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Show recents from 14 days and frequents from 90 days.
+          - Let users favourite foods and saved meals.
+          - Copy a previous day with meal groups preserved and confirmation above 20 entries.
+        acceptanceCriteria:
+          - id: AC1
+            given: oatmeal was logged yesterday
+            when: Add food opens
+            then: oatmeal can be logged from Recents in 2 taps
+          - id: AC2
+            given: yesterday has 24 entries
+            when: Copy previous day is selected
+            then: Forge shows the exact entry count before writing anything
+        implementation:
+          notes: >-
+            Build shortcuts as projections over log and favourite tables instead of mutable counters. Copy-day writes should use one transaction and a copy batch id for undo.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+            - dx:BottomSheet
+        testing:
+          - Add unit and UI coverage for S13.03.02 acceptance criteria including offline and error paths.
+      - key: S13.03.03
+        title: Quick-add calories and macros
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: enthusiast
+        userStory:
+          asA: "Forge user"
+          iWant: "quick-add calories and macros"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Provide quick-add fields for calories, protein, carbohydrate and fat.
+          - Warn when entered calories differ from 4-4-9 macro calories by more than 15 percent.
+          - Allow calorie-only save with no permanent food created.
+        acceptanceCriteria:
+          - id: AC1
+            given: 200 calories and no macros are entered
+            when: save is tapped
+            then: a calorie-only meal entry is added within 200 ms
+          - id: AC2
+            given: macros imply 400 calories but 200 is entered
+            when: validation runs
+            then: a mismatch warning appears before save
+        implementation:
+          notes: >-
+            Model quick add as a distinct log entry type. Use dx:BottomSheet and dx:NumericEdit for fast entry, and exclude free-text notes from diagnostic logs.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+            - dx:NumericEdit
+        testing:
+          - Add unit and UI coverage for S13.03.03 acceptance criteria including offline and error paths.
+  - key: F13.04
+    title: Calculate targets and show dashboards
+    wave: 3
+    summary: >-
+      Explain calorie and macro targets, display daily progress and show weekly trends without false precision.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S13.04.01
+        title: Calculate calorie and macro targets with uncertainty
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        userStory:
+          asA: "Forge user"
+          iWant: "calculate calorie and macro targets with uncertainty"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Estimate TDEE from local profile and activity multiplier.
+          - Show formula inputs, multiplier and a plus or minus 10 percent uncertainty range.
+          - Recalculate when bodyweight, goal or activity setting changes.
+        acceptanceCriteria:
+          - id: AC1
+            given: profile data exists
+            when: target details opens
+            then: BMR estimate, multiplier, TDEE and uncertainty range are shown
+          - id: AC2
+            given: bodyweight changes by 2 kg
+            when: targets refresh
+            then: calories and protein grams recalculate within 200 ms
+        implementation:
+          notes: >-
+            Put target calculation in Forge.Domain behind explicit inputs and outputs. The UI explanation sheet must say the result is an estimate, not medical advice.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+            - dx:NumericEdit
+        testing:
+          - Add unit and UI coverage for S13.04.01 acceptance criteria including offline and error paths.
+      - key: S13.04.02
+        title: Show daily macro split and calorie budget
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "show daily macro split and calorie budget"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Use dx:PieChartView for macro calorie split.
+          - Use dx:RadialGauge for calorie budget when calories are visible.
+          - Update totals within 100 ms after add, edit or delete.
+        acceptanceCriteria:
+          - id: AC1
+            given: three meals are logged
+            when: dashboard opens
+            then: PieChartView percentages match macro calories within 0.5 percentage points
+          - id: AC2
+            given: a 500 calorie entry is deleted
+            when: transaction commits
+            then: RadialGauge and meal total update within 100 ms
+        implementation:
+          notes: >-
+            Bind chart and gauge controls to summary DTOs from Application. Keep meal groups in DXCollectionView and avoid judgemental empty states.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:PieChartView
+            - dx:RadialGauge
+            - dx:DXCollectionView
+        testing:
+          - Add unit and UI coverage for S13.04.02 acceptance criteria including offline and error paths.
+      - key: S13.04.03
+        title: Chart weekly nutrition trends neutrally
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: enthusiast
+        userStory:
+          asA: "Forge user"
+          iWant: "chart weekly nutrition trends neutrally"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Use dx:ChartView for 7 and 28 day calories, protein, fibre and sodium.
+          - Mark incomplete days when fewer than 2 meals or fewer than 800 calories are logged.
+          - Avoid streaks, failure language and punitive colours.
+        acceptanceCriteria:
+          - id: AC1
+            given: 28 day view is selected
+            when: trends render
+            then: at most 28 points per series load within 300 ms
+          - id: AC2
+            given: a day has 300 calories and one snack
+            when: weekly average is calculated
+            then: the day is marked incomplete and excluded unless included manually
+        implementation:
+          notes: >-
+            Trend queries return aggregated daily points from Application. Copy must say incomplete day, not failed day, and state must not rely on red or green alone.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:ChartView
+        testing:
+          - Add unit and UI coverage for S13.04.03 acceptance criteria including offline and error paths.
+  - key: F13.05
+    title: Add nutrition safety and qualitative tracking
+    wave: 3
+    summary: >-
+      Make harm reduction part of the product through calorie floors, non-shaming copy, support links and calorie-hidden tracking.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S13.05.01
+        title: Enforce calorie floors and refuse extreme deficits
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [safety]
+        userStory:
+          asA: "Forge user"
+          iWant: "enforce calorie floors and refuse extreme deficits"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Warn below 1200 calories for adults.
+          - Refuse deficits greater than 25 percent of estimated TDEE.
+          - Refuse any target below 1000 calories and never promise weight-loss speed.
+        acceptanceCriteria:
+          - id: AC1
+            given: TDEE is 2200 calories
+            when: a 700 calorie deficit is selected
+            then: Forge refuses it because it exceeds 25 percent of TDEE
+          - id: AC2
+            given: 950 calories is entered
+            when: validation runs
+            then: save is disabled and the previous safe target remains
+        implementation:
+          notes: >-
+            Hard validation belongs in Domain so every target entry point obeys it. Use neutral safety wording and no hidden v1 override.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+        testing:
+          - Add unit and UI coverage for S13.05.01 acceptance criteria including offline and error paths.
+      - key: S13.05.02
+        title: Signpost support and remove restrictive reinforcement
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [safety, compliance]
+        userStory:
+          asA: "Forge user"
+          iWant: "signpost support and remove restrictive reinforcement"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Provide a discreet Help with food tracking link from settings and warnings.
+          - Show at least 3 support resources and a crisis caveat.
+          - Forbid streaks, cheat meal, bad food, failed day and burn it off copy.
+        acceptanceCriteria:
+          - id: AC1
+            given: support page opens
+            when: content renders
+            then: at least 3 support resources and Disable nutrition reminders are visible
+          - id: AC2
+            given: nutrition strings are scanned
+            when: copy lint runs
+            then: zero forbidden restrictive terms are present
+        implementation:
+          notes: >-
+            Store support content locally in resources and add deterministic string linting. The page collects no symptoms and simply signposts external help.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Add unit and UI coverage for S13.05.02 acceptance criteria including offline and error paths.
+      - key: S13.05.03
+        title: Hide calories and track qualitatively
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [safety, privacy]
+        userStory:
+          asA: "Forge user"
+          iWant: "hide calories and track qualitatively"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Hide calorie totals, budgets and kcal labels globally within 2 taps.
+          - Allow meal check-ins and qualitative protein tags while hidden.
+          - Prevent widgets, notifications and accessibility labels from leaking calories.
+        acceptanceCriteria:
+          - id: AC1
+            given: Hide calorie numbers is enabled
+            when: dashboard, trends and notifications preview open
+            then: no numeric calorie value or kcal label appears
+          - id: AC2
+            given: the setting is disabled
+            when: existing logs reload
+            then: previous calorie totals reappear within 200 ms without data loss
+        implementation:
+          notes: >-
+            Redact at ViewModel DTO construction, not only XAML visibility, because hidden labels can leak through accessibility or notifications. Replace the calorie ring with neutral meal completion cards.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+            - dx:RadialGauge
+        testing:
+          - Add unit and UI coverage for S13.05.03 acceptance criteria including offline and error paths.

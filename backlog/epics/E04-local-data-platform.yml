@@ -1,0 +1,563 @@
+key: E04
+title: Local Data Platform and Persistence
+domain: data
+wave: 1
+summary: >-
+  Forge local persistence is the system of record for workouts, nutrition, hydration, body metrics and achievements. This epic establishes encrypted EF Core 10 with SQLite, safe migrations, versioned catalogues, repositories, query budgets and recovery paths for a product with no backend copy.
+problem: >-
+  A data-loss bug in Forge is unrecoverable because the device is the only copy. The platform must prevent unsafe key storage, boot-looping migrations, catalogue overwrites, partial workout writes and slow queries before product teams build on top of it.
+outcome: >-
+  Android and iOS builds open an encrypted SQLCipher database, migrate safely, import exercise and food catalogues, preserve user data during updates, query three years of enthusiast history within budget, and route integrity failures to recovery instead of a crash loop.
+successMetrics:
+  - Encrypted database initialises in under 500 ms after the key is available.
+  - Latest 100 workouts query returns in under 150 ms with 50,000 set records.
+  - Food search over 100,000 catalogue items returns 50 ranked results in under 200 ms after debounce.
+  - Fault injection during set logging never leaves a partial set row.
+nonGoals:
+  - No cloud sync, backend restore, remote account or multi-device conflict resolution.
+  - No desktop platform work in waves 1 to 5.
+  - No analytics or diagnostic upload from the persistence layer.
+risks:
+  - risk: The SQLCipher key is stored in Preferences, source or logs.
+    mitigation: Centralise key creation behind SecureStorage and test that no key material is written elsewhere.
+    severity: critical
+  - risk: A failed migration traps the app before export or recovery can run.
+    mitigation: Use a startup migration state machine that opens recovery without repeated automatic retries.
+    severity: critical
+  - risk: Catalogue updates overwrite user-created exercises or foods.
+    mitigation: Separate immutable catalogue rows from user overrides and test upgrade deltas.
+    severity: high
+grounding:
+  - title: EF Core SQLite provider
+    url: https://learn.microsoft.com/ef/core/providers/sqlite/
+    note: Defines the SQLite provider used by Forge.Infrastructure.
+  - title: Applying EF Core migrations
+    url: https://learn.microsoft.com/ef/core/managing-schemas/migrations/applying
+    note: Documents migration APIs and deployment considerations.
+  - title: .NET MAUI secure storage
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/secure-storage
+    note: Documents SecureStorage for Android and iOS secrets.
+  - title: SQLite integrity_check PRAGMA
+    url: https://www.sqlite.org/pragma.html#pragma_integrity_check
+    note: Defines quick_check and integrity_check for corruption detection.
+features:
+  - key: F04.01
+    title: Establish encrypted EF Core storage
+    wave: 1
+    summary: >-
+      Create the production DbContext, SQLCipher connection factory and secure key lifecycle used by every persistence feature.
+    outcome: >-
+      Forge opens only an encrypted database and fails safely when key material is unavailable.
+    concerns: [security, privacy, offline]
+    stories:
+      - key: S04.01.01
+        title: Configure ForgeDbContext for EF Core SQLite
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [offline]
+        userStory:
+          asA: Forge team member
+          iWant: a single DbContext behind application abstractions
+          soThat: all features use the same tested database boundary
+        requirements:
+          - ForgeDbContext lives in Forge.Infrastructure/Persistence and uses EF Core 10 with SQLite.
+          - Forge.Domain and Forge.Application reference neither EF Core, MAUI nor DevExpress.
+          - Database files are created under FileSystem.AppDataDirectory and never under cache or logs.
+        acceptanceCriteria:
+          - id: AC1
+            given: a clean Android or iOS install
+            when: persistence initialises
+            then: SELECT 1 succeeds through ForgeDbContext within 50 ms
+          - id: AC2
+            given: the inner projects are inspected
+            when: assembly references are listed
+            then: no EF Core, MAUI or DevExpress reference is present
+        implementation:
+          notes: >-
+            Keep DbContext and mappings in Forge.Infrastructure/Persistence, expose only Forge.Application interfaces, and configure the migrations assembly explicitly so domain code remains persistence-ignorant.
+          touches: [src/Forge.Infrastructure/Persistence/ForgeDbContext.cs, src/Forge.Infrastructure/Persistence/PersistenceRegistration.cs]
+          apis: [Microsoft.EntityFrameworkCore, Microsoft.EntityFrameworkCore.Sqlite]
+        testing:
+          - Integration test opening a project-local SQLite database through production registration.
+      - key: S04.01.02
+        title: Store the SQLCipher key in secure storage only
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [security, privacy]
+        userStory:
+          asA: Forge team member
+          iWant: database key management backed by platform secure storage
+          soThat: copying app files alone cannot expose health records
+        requirements:
+          - A 256-bit random key is generated on first run with a cryptographic RNG.
+          - The key is stored through SecureStorage and never in Preferences, source, logs or files.
+          - If a database exists but the key is missing, Forge opens recovery and does not create an empty database.
+        acceptanceCriteria:
+          - id: AC1
+            given: no key exists on first launch
+            when: persistence starts
+            then: one 256-bit key is generated and saved through SecureStorage
+          - id: AC2
+            given: an encrypted database exists and the key is deleted
+            when: the app starts
+            then: a recovery error appears within 1 second and the database timestamp is unchanged
+        implementation:
+          notes: >-
+            Declare ISqlCipherKeyStore in Forge.Application and use a MAUI SecureStorage adapter in the app head, keeping SQLCipher key material out of logs and diagnostics.
+          touches: [src/Forge.Application/Abstractions/Security/ISqlCipherKeyStore.cs, src/Forge.App/Platform/SecureStorageAdapter.cs]
+          apis: [Microsoft.Maui.Storage.SecureStorage, System.Security.Cryptography.RandomNumberGenerator, SQLitePCLRaw.bundle_e_sqlcipher]
+        testing:
+          - Unit tests for one-time key creation and missing-key recovery.
+      - key: S04.01.03
+        title: Verify encryption at rest in regression tests
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [security]
+        userStory:
+          asA: Forge team member
+          iWant: automated proof that local data is encrypted
+          soThat: plaintext database regressions are caught before release
+        requirements:
+          - Opening the production database without the key must fail.
+          - The first 4 KB of the database must not contain the SQLite format header.
+          - Supplying the correct key must read schema and migration history.
+        acceptanceCriteria:
+          - id: AC1
+            given: a seeded encrypted database exists
+            when: a plain SQLite connection opens it without key
+            then: the operation fails with a not-readable database error
+          - id: AC2
+            given: the database header is scanned
+            when: the first 4 KB are inspected
+            then: SQLite format 3 is absent
+        implementation:
+          notes: >-
+            Create Infrastructure tests that open the file with and without the production SQLCipher connection factory and redact all connection strings in failures.
+          touches: [tests/Forge.Infrastructure.Tests/Persistence/DatabaseEncryptionTests.cs]
+          apis: [Microsoft.Data.Sqlite, SQLitePCLRaw.bundle_e_sqlcipher]
+        testing:
+          - Run encryption regression tests on every persistence or package change.
+  - key: F04.02
+    title: Migrate and model the domain safely
+    wave: 1
+    summary: >-
+      Define schema, migrations, audit fields, soft deletes and optimistic concurrency for records Forge must never lose.
+    outcome: >-
+      Core entities migrate predictably and preserve historical truth when edited or deleted.
+    concerns: [privacy, offline]
+    dependsOn: [F04.01]
+    stories:
+      - key: S04.02.01
+        title: Define core entities and EF mappings
+        wave: 1
+        size: l
+        platforms: [android, ios]
+        persona: team
+        concerns: [privacy]
+        userStory:
+          asA: Forge team member
+          iWant: shared schema for Forge records
+          soThat: feature teams do not invent incompatible tables
+        requirements:
+          - Schema includes users, exercises, plans, workouts, sets, foods, meals, hydration, body metrics and achievements.
+          - Every user-created row has a GUID key, CreatedAtUtc, UpdatedAtUtc and nullable DeletedAtUtc.
+          - Health and nutrition values store explicit units using decimal precision where appropriate.
+        acceptanceCriteria:
+          - id: AC1
+            given: a newly migrated database
+            when: the EF model is inspected
+            then: all ten core aggregate areas have mapped tables with GUID keys
+          - id: AC2
+            given: a set, meal and body metric are saved
+            when: rows are read back
+            then: audit timestamps are populated within 1 second of save time
+        implementation:
+          notes: >-
+            Keep entities in Forge.Domain/Entities and mapping classes in Forge.Infrastructure/Persistence/Configurations. Separate catalogue base records from user overrides.
+          touches: [src/Forge.Domain/Entities, src/Forge.Infrastructure/Persistence/Configurations]
+          apis: [Microsoft.EntityFrameworkCore.Metadata.Builders]
+        testing:
+          - Model validation tests for keys, timestamps, precision and delete behaviours.
+      - key: S04.02.02
+        title: Apply startup migrations without a boot loop
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [offline]
+        userStory:
+          asA: returner user
+          iWant: safe database upgrades after app updates
+          soThat: a bad migration cannot lock me out of years of records
+        requirements:
+          - Startup checks pending migrations before feature pages query data.
+          - Migration failures are recorded with migration id, app version and timestamp.
+          - The same failing migration is not retried automatically more than once per app version.
+        acceptanceCriteria:
+          - id: AC1
+            given: a database is two migrations behind
+            when: the updated app starts
+            then: migrations apply in order and normal navigation opens
+          - id: AC2
+            given: a migration throws
+            when: the app is relaunched three times
+            then: the recovery surface opens each time without startup crash
+        implementation:
+          notes: >-
+            Build a PersistenceStartupCoordinator that runs after key availability and before route activation, records technical failure markers, and routes to a recovery page.
+          touches: [src/Forge.Infrastructure/Persistence/PersistenceStartupCoordinator.cs, src/Forge.App/Features/Diagnostics/DataRecoveryPage.xaml]
+          devexpress: [DXPopup, DXButton]
+          apis: [Microsoft.EntityFrameworkCore.Migrations]
+        testing:
+          - Integration test with a deliberately failing migration and relaunch loop.
+      - key: S04.02.03
+        title: Add audit timestamps, soft delete and concurrency tokens
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [privacy]
+        userStory:
+          asA: Forge team member
+          iWant: consistent edit, delete and conflict semantics
+          soThat: imports and foreground edits do not silently overwrite user data
+        requirements:
+          - SaveChanges automatically manages CreatedAtUtc and UpdatedAtUtc.
+          - Soft-deleted rows are hidden by default and included only by explicit export or repair options.
+          - User-editable entities carry a concurrency token mapped to application-layer conflicts.
+        acceptanceCriteria:
+          - id: AC1
+            given: a workout set is edited twice
+            when: the row is inspected
+            then: CreatedAtUtc remains stable and UpdatedAtUtc increases each time
+          - id: AC2
+            given: two contexts save conflicting exercise overrides
+            when: the second save commits
+            then: a typed conflict result is returned and the first value remains
+        implementation:
+          notes: >-
+            Implement auditable and concurrency-tracked interfaces in Domain, SaveChanges interception in DbContext, and repository-level conflict mapping without exposing EF types.
+          touches: [src/Forge.Domain/Common, src/Forge.Infrastructure/Persistence/ForgeDbContext.cs]
+          apis: [Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor, Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException]
+        testing:
+          - Repository tests for soft-delete filters and optimistic concurrency conflicts.
+  - key: F04.03
+    title: Import versioned seed catalogues
+    wave: 1
+    summary: >-
+      Load exercise and food catalogues from compressed JSON assets while preserving user-created records across content updates.
+    outcome: >-
+      First run works offline and later releases can apply deltas safely.
+    concerns: [perf, offline]
+    dependsOn: [F04.01]
+    stories:
+      - key: S04.03.01
+        title: Import the compressed exercise catalogue on first run
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [perf]
+        userStory:
+          asA: newcomer user
+          iWant: exercises available without network
+          soThat: I can build a workout immediately
+        requirements:
+          - Exercise seed content ships as compressed JSON under app raw assets.
+          - Import records catalogue version, checksum and timestamp.
+          - First-run import of 2,000 exercises completes in under 3 seconds and is idempotent.
+        acceptanceCriteria:
+          - id: AC1
+            given: a clean install is offline
+            when: first-run import completes
+            then: at least 2,000 exercises are searchable and version metadata exists
+          - id: AC2
+            given: the same asset version imports twice
+            when: row counts are compared
+            then: the count is unchanged and no duplicate catalogue ids exist
+        implementation:
+          notes: >-
+            Stream gzip JSON through an asset reader abstraction and upsert by stable catalogue id. Mark manifest completion only after all rows commit.
+          touches: [src/Forge.App/Resources/Raw/Catalogues/exercises.json.gz, src/Forge.Infrastructure/Catalogues/ExerciseCatalogueImporter.cs]
+          apis: [System.IO.Compression.GZipStream, System.Text.Json]
+        testing:
+          - Idempotent import and corrupted asset tests.
+      - key: S04.03.02
+        title: Import the large food catalogue in resumable batches
+        wave: 1
+        size: l
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [perf, offline]
+        userStory:
+          asA: cutter user
+          iWant: a large local food catalogue without slow startup
+          soThat: food logging is useful from the first session
+        requirements:
+          - Food seed content supports at least 100,000 items.
+          - The shell becomes interactive within 2.0 seconds even if full import continues.
+          - Batch progress survives process death without duplicate rows and search shows indexing state.
+        acceptanceCriteria:
+          - id: AC1
+            given: a clean install has a 100,000 item food asset
+            when: the app starts
+            then: the shell is interactive within 2.0 seconds and import continues
+          - id: AC2
+            given: import is killed at 40 percent
+            when: the app restarts
+            then: import resumes and final row count exactly matches the asset
+        implementation:
+          notes: >-
+            Run food import as an Infrastructure job with small transactions and checkpointed batch progress, exposing IFoodCatalogueStatus to the food search UI.
+          touches: [src/Forge.Infrastructure/Catalogues/FoodCatalogueImporter.cs, src/Forge.Application/Nutrition/IFoodCatalogueStatus.cs]
+          devexpress: [DXCollectionView]
+          apis: [System.IO.Compression.GZipStream, System.Threading.Channels]
+        testing:
+          - Resume-after-kill test and startup budget test.
+      - key: S04.03.03
+        title: Update catalogues without overwriting user overrides
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: enthusiast user
+          iWant: catalogue updates to preserve my custom data
+          soThat: upgrading Forge never destroys my history
+        requirements:
+          - Catalogue rows and user-created rows have distinct source markers.
+          - User overrides win over base catalogue changes.
+          - Deprecated catalogue rows remain referenceable by historical workouts or meals.
+        acceptanceCriteria:
+          - id: AC1
+            given: a user renamed a catalogue exercise through an override
+            when: a new catalogue version changes the base name
+            then: the user still sees the override while the base row updates separately
+          - id: AC2
+            given: a food used in a historical meal is removed from the new catalogue
+            when: the update runs
+            then: the historical meal still resolves its logged display name
+        implementation:
+          notes: >-
+            Separate base catalogue content from user overrides and never hard-delete catalogue rows during import. Store inserted, updated, deprecated and skipped counts.
+          touches: [src/Forge.Domain/Catalogues, src/Forge.Infrastructure/Catalogues/CatalogueUpdateService.cs]
+          apis: [Microsoft.EntityFrameworkCore]
+        testing:
+          - Integration tests for override preservation and deprecated references.
+  - key: F04.04
+    title: Optimise repositories and hot queries
+    wave: 1
+    summary: >-
+      Expose application-facing repositories and tune indexes for workout history, active writes and food search at realistic local scale.
+    outcome: >-
+      Feature teams get fast, cancellable operations without EF Core leakage.
+    concerns: [perf]
+    dependsOn: [F04.02, F04.03]
+    stories:
+      - key: S04.04.01
+        title: Expose repository and unit-of-work abstractions
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [offline]
+        userStory:
+          asA: Forge team member
+          iWant: repository interfaces in Forge.Application
+          soThat: ViewModels and use cases never depend on EF Core
+        requirements:
+          - Repositories cover workouts, exercises, foods, meals, hydration, body metrics and achievements.
+          - Repository methods never return IQueryable, DbSet or EF Core types.
+          - Cross-aggregate writes use explicit unit-of-work services and CancellationToken.
+        acceptanceCriteria:
+          - id: AC1
+            given: repository interfaces are inspected
+            when: public members are listed
+            then: no IQueryable, DbSet or EF Core type appears
+          - id: AC2
+            given: a meal and hydration write share a unit of work and one save fails
+            when: the operation completes
+            then: both writes are rolled back
+        implementation:
+          notes: >-
+            Prefer specific query methods and projection records over generic repositories. Put interfaces in Application and concrete EF implementations in Infrastructure.
+          touches: [src/Forge.Application/Abstractions/Persistence, src/Forge.Infrastructure/Persistence/Repositories]
+          apis: [System.Threading.CancellationToken]
+        testing:
+          - API surface test for no EF leakage and rollback integration test.
+      - key: S04.04.02
+        title: Index workout history for three years of use
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [perf]
+        userStory:
+          asA: enthusiast user
+          iWant: history and progress queries to remain fast
+          soThat: consistent logging does not make Forge slower
+        requirements:
+          - Scale fixture represents 5 sessions per week for 3 years, roughly 50,000 set records.
+          - Latest 100 workouts query returns in under 150 ms.
+          - Latest 500 sets for one exercise returns in under 150 ms and uses an index.
+        acceptanceCriteria:
+          - id: AC1
+            given: the 50,000 set fixture exists
+            when: latest 100 workouts query runs
+            then: p95 duration is under 150 ms
+          - id: AC2
+            given: the same fixture exists
+            when: latest 500 sets for one exercise are queried
+            then: p95 duration is under 150 ms and query plan uses an index
+        implementation:
+          notes: >-
+            Add composite indexes for user, started date, exercise and completed date. Verify SQLite EXPLAIN QUERY PLAN in tests instead of relying on workstation timing alone.
+          touches: [src/Forge.Infrastructure/Persistence/Configurations/WorkoutConfiguration.cs, tests/Forge.Infrastructure.Tests/Persistence/QueryPlanTests.cs]
+          apis: [SQLite EXPLAIN QUERY PLAN]
+        testing:
+          - Performance fixture and query-plan assertions for workout hot paths.
+      - key: S04.04.03
+        title: Make local food search fast at catalogue scale
+        wave: 1
+        size: l
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [perf]
+        userStory:
+          asA: cutter user
+          iWant: food results to appear quickly as I type
+          soThat: nutrition logging feels lighter than a spreadsheet
+        requirements:
+          - Search supports 100,000 catalogue items plus user foods.
+          - The first 50 ranked results return under 200 ms after a 250 ms debounce.
+          - Barcode lookup returns exact matches in under 100 ms with under 10 MB transient allocation.
+        acceptanceCriteria:
+          - id: AC1
+            given: a 100,000 item catalogue exists
+            when: the user searches a three-character prefix
+            then: 50 results render in under 200 ms after debounce
+          - id: AC2
+            given: an exact barcode exists
+            when: barcode search runs
+            then: the matching food appears first in under 100 ms
+        implementation:
+          notes: >-
+            Implement IFoodSearchService behind a FoodSearchIndex. Use SQLite FTS5 if SQLCipher includes it on both platforms, otherwise indexed normalised prefix columns.
+          touches: [src/Forge.Infrastructure/Persistence/Search/FoodSearchIndex.cs, src/Forge.App/Features/Nutrition/FoodSearchPage.xaml]
+          devexpress: [DXCollectionView, TextEdit]
+          apis: [SQLite FTS5]
+        testing:
+          - Food search performance test over 100,000 rows.
+        openQuestions:
+          - Confirm FTS5 support in the chosen SQLCipher native package on Android and iOS before relying on it exclusively.
+  - key: F04.05
+    title: Detect corruption and recover safely
+    wave: 1
+    summary: >-
+      Run integrity checks, keep safety copies and reconcile interrupted operations so crashes do not become silent data loss.
+    outcome: >-
+      Forge detects store health problems and guides recovery without destructive automatic repair.
+    concerns: [security, privacy, offline]
+    dependsOn: [F04.01, F04.02]
+    stories:
+      - key: S04.05.01
+        title: Run integrity checks on a safe cadence
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy, perf]
+        userStory:
+          asA: returner user
+          iWant: Forge to detect corruption early
+          soThat: I can back up or restore while recovery is possible
+        requirements:
+          - PRAGMA quick_check runs weekly during idle time.
+          - PRAGMA integrity_check runs after abnormal shutdown markers.
+          - Results store technical status only and a check yields after 5 seconds if no longer idle.
+        acceptanceCriteria:
+          - id: AC1
+            given: the last check was over 7 days ago
+            when: the app enters idle state
+            then: quick_check runs and records timestamp plus pass or fail
+          - id: AC2
+            given: an abnormal shutdown marker exists
+            when: the app reaches idle
+            then: full integrity_check is scheduled before the marker is cleared
+        implementation:
+          notes: >-
+            Implement DatabaseIntegrityService in Infrastructure using quick_check routinely and full integrity_check only for risk signals. Store summaries without row contents.
+          touches: [src/Forge.Infrastructure/Persistence/Integrity/DatabaseIntegrityService.cs]
+          apis: [SQLite PRAGMA quick_check, SQLite PRAGMA integrity_check]
+        testing:
+          - Abnormal shutdown scheduling test and integrity performance test.
+      - key: S04.05.02
+        title: Create safety copies before recovery actions
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [security, privacy]
+        userStory:
+          asA: Forge team member
+          iWant: recovery to preserve the original database
+          soThat: an attempted repair cannot make data loss worse
+        requirements:
+          - An encrypted safety copy is created before destructive recovery.
+          - At most two automatic safety copies are retained unless exported.
+          - Recovery refuses to start if free space is less than database size plus 50 MB.
+        acceptanceCriteria:
+          - id: AC1
+            given: a corrupt database enters recovery
+            when: the user starts a repair action
+            then: an encrypted safety copy is created before the original file is changed
+          - id: AC2
+            given: free space is below the required threshold
+            when: recovery is requested
+            then: Forge refuses and shows exact additional space required
+        implementation:
+          notes: >-
+            Copy encrypted database, WAL and SHM files as one group into AppDataDirectory/Recovery and expose typed low-space failures to the recovery UI.
+          touches: [src/Forge.Infrastructure/Persistence/Recovery/DatabaseSafetyCopyService.cs]
+          devexpress: [DXPopup, DXButton]
+          apis: [Microsoft.Maui.Storage.FileSystem]
+        testing:
+          - Safety-copy readability, low-space and retention tests.
+      - key: S04.05.03
+        title: Reconcile incomplete operations after restart
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [offline]
+        userStory:
+          asA: enthusiast user
+          iWant: Forge to clean up interrupted writes
+          soThat: a dead battery does not create duplicate or half-finished records
+        requirements:
+          - Critical writes record an operation id before commit and mark it complete after commit.
+          - Startup scans incomplete operations before normal navigation.
+          - Reconciliation is idempotent and handles 100 markers in under 500 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: a crash leaves an incomplete set-log marker
+            when: the app restarts
+            then: no orphaned set exists and the marker is cleared
+          - id: AC2
+            given: 100 stale completed markers exist
+            when: reconciliation runs
+            then: markers are cleaned in under 500 ms
+        implementation:
+          notes: >-
+            Add a bounded OperationJournal table for critical writes such as set logging and meal save. Store operation ids and technical types only, never reps, weights or food names.
+          touches: [src/Forge.Infrastructure/Persistence/Recovery/OperationJournal.cs]
+          apis: [Microsoft.EntityFrameworkCore]
+        testing:
+          - Fault-injection tests for interrupted set and meal operations.

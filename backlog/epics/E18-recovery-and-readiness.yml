@@ -1,0 +1,776 @@
+key: E18
+title: Recovery, Sleep and Readiness
+domain: insights
+wave: 5
+summary: >-
+  Recovery and readiness helps users connect sleep, recent load, soreness and subjective wellbeing
+  with training choices. It uses Health Connect and HealthKit data through the E12 abstraction when
+  available, falls back to manual entry when not, and keeps every score transparent enough for a
+  user to challenge.
+problem: >-
+  Training decisions often ignore recovery until performance drops or pain appears. Sleep and
+  wellbeing data can help, but opaque scores and weak correlation claims can mislead users into
+  treating noisy associations as medical facts.
+outcome: >-
+  Forge provides a morning check-in, sleep trends, soreness tracking, rest and mobility guidance,
+  readiness scoring and cautious correlation insights with visible inputs, weights and minimum
+  sample sizes.
+successMetrics:
+  - 60 percent of weekly active users complete at least 3 morning check-ins per week during beta.
+  - 90 percent of readiness score views expand the input breakdown at least once in usability testing.
+  - Zero correlation insight is shown with fewer than the configured minimum 20 paired samples.
+nonGoals:
+  - No sleep-stage diagnosis, medical sleep advice or treatment recommendations.
+  - No wearable companion app in v1.
+  - No direct Samsung Health SDK integration; Android sleep data comes through Health Connect via E12.
+risks:
+  - risk: Users may treat readiness as a medical or injury prediction score.
+    mitigation: Show the formula inputs, weights and not-medical-advice copy beside the score and avoid red danger labels.
+    severity: high
+  - risk: Platform health permissions are denied or unavailable, making recovery feel broken.
+    mitigation: Provide manual sleep and wellbeing entry with equivalent analytics eligibility where possible.
+    severity: medium
+  - risk: Correlation insights overstate causation.
+    mitigation: Require minimum sample sizes, use association language and include a "does not prove cause" sentence on every insight.
+    severity: high
+dependsOn: [E10, E12, E16, E17]
+grounding:
+  - title: Android Health Connect
+    url: https://developer.android.com/health-and-fitness/guides/health-connect
+    note: Official Android health data source that E12 wraps behind IHealthDataService.
+  - title: Apple HealthKit sleep analysis
+    url: https://developer.apple.com/documentation/healthkit/hkcategorytypesleepanalysis
+    note: Official HealthKit sleep category type used through E12 on iOS.
+  - title: DevExpress MAUI RadialGauge
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Gauges.RadialGauge
+    note: Primary readiness score and input ring display.
+  - title: DevExpress MAUI ChartView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+    note: Trend, correlation and sleep chart surface.
+  - title: CDC sleep and health
+    url: https://www.cdc.gov/sleep/about/index.html
+    note: General public-health grounding that sleep is important without implying app diagnosis.
+
+features:
+  - key: F18.01
+    title: Import and enter sleep data safely
+    wave: 5
+    summary: >-
+      Use the health platform abstraction from E12 for sleep where permission exists, and provide
+      manual sleep entry when it does not.
+    outcome: >-
+      Sleep analytics work for users with Health Connect, HealthKit, denied permissions or no wearable.
+    concerns: [privacy, devexpress]
+    stories:
+      - key: S18.01.01
+        title: Read sleep summaries through the health data abstraction
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [privacy]
+        userStory:
+          asA: Tom, wearing a sleep-capable device
+          iWant: Forge to use my platform sleep data
+          soThat: I do not need to enter sleep twice
+        requirements:
+          - >-
+            Sleep reads go only through E12 IHealthDataService and never call Health Connect or
+            HealthKit directly from the Recovery feature.
+          - >-
+            Imported summaries include sleep start, sleep end, total duration and source label when
+            the platform provides it.
+          - >-
+            Permission denied state appears within 500 ms and offers manual entry instead of an
+            error screen.
+        acceptanceCriteria:
+          - id: AC1
+            given: HealthKit or Health Connect returns 8 hours of sleep for last night
+            when: Recovery sync runs
+            then: the sleep summary displays 8 h 0 min and the source is labelled platform
+          - id: AC2
+            given: sleep permission is denied
+            when: the Recovery tab opens
+            then: the screen shows manual entry within 500 ms and makes no repeated permission prompt
+        implementation:
+          notes: >-
+            Coordinate with E12 by consuming only Forge.Application/Abstractions/IHealthDataService.
+            Do not add platform-specific sleep code in Forge.App. SleepSummaryImporter should
+            convert platform records into local SleepSummary entities, de-duplicate by time range
+            and source, and store the user's permission state for calm empty states.
+          touches:
+            - src/Forge.Application/Recovery/SleepSummaryImporter.cs
+            - src/Forge.Application/Abstractions/IHealthDataService.cs
+            - src/Forge.App/Features/Insights/Recovery/SleepPermissionStateView.xaml
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Health Connect via Forge.Health
+            - HealthKit via Forge.Health
+        testing:
+          - Unit test importer de-duplicates overlapping platform records.
+          - Manual permission denial test on Android and iOS.
+
+      - key: S18.01.02
+        title: Add manual sleep entry when platform data is unavailable
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [devexpress]
+        userStory:
+          asA: Maya, without a wearable
+          iWant: to enter sleep manually
+          soThat: readiness still works for me
+        requirements:
+          - >-
+            Manual entry captures sleep date, bedtime, wake time, perceived quality from 1 to 5
+            and optional wake count.
+          - >-
+            Duration supports sleep crossing midnight and rejects durations below 1 hour or above
+            16 hours.
+          - >-
+            Manual entries can be edited or deleted and changes recalculate readiness within 300 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: bedtime 23:00 and wake time 07:00
+            when: the manual entry is saved
+            then: duration is stored as 8 h 0 min and readiness recalculation completes within 300 ms
+          - id: AC2
+            given: bedtime 03:00 and wake time 03:30
+            when: the user saves
+            then: validation blocks the save and states that sleep duration must be at least 1 hour
+        implementation:
+          notes: >-
+            Create ManualSleepEntryPage under Recovery and bind DevExpress editors to a
+            SleepEntryViewModel that performs validation before persistence. Use local SQLite only.
+            Keep the optional wake count numeric and avoid free-text notes in v1 to reduce privacy
+            and localisation burden.
+          touches:
+            - src/Forge.App/Features/Insights/Recovery/ManualSleepEntryPage.xaml
+            - src/Forge.Application/Recovery/SleepEntryService.cs
+          devexpress:
+            - dx:DateEdit
+            - dx:NumericEdit
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for crossing midnight, minimum duration and maximum duration validation.
+
+      - key: S18.01.03
+        title: Trend sleep quality and duration over time
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [devexpress, perf]
+        userStory:
+          asA: Tom, watching recovery
+          iWant: to see sleep duration and quality trends
+          soThat: I can notice sustained changes instead of one bad night
+        requirements:
+          - >-
+            Sleep trend shows nightly duration bars and a 7 day moving average line for duration
+            after at least 7 sleep records.
+          - >-
+            Perceived quality trend is shown separately from duration and never merged into one
+            unexplained score.
+          - >-
+            A chart with 365 nights renders within 300 ms and pans at 60 fps.
+        acceptanceCriteria:
+          - id: AC1
+            given: 7 sleep records with durations
+            when: the trend opens
+            then: the seventh moving-average point equals the mean of the 7 durations rounded to 0.1 hours
+          - id: AC2
+            given: 365 sleep records
+            when: the 1 year range opens
+            then: dx:ChartView renders within 300 ms and pans at 60 fps with no frame above 16.6 ms
+        implementation:
+          notes: >-
+            Reuse the moving-average utility from E16 where possible and expose sleep trends through
+            SleepTrendService in Forge.Application. Render duration as a bar series and moving
+            average as a line series in dx:ChartView. Keep quality on a separate TabView tab to
+            avoid implying that quality and duration are interchangeable.
+          touches:
+            - src/Forge.Application/Recovery/SleepTrendService.cs
+            - src/Forge.App/Features/Insights/Recovery/SleepTrendPage.xaml
+          devexpress:
+            - dx:ChartView
+            - dx:TabView
+        testing:
+          - Unit tests for moving averages with missing nights.
+          - UI performance test with 365 nightly records.
+
+  - key: F18.02
+    title: Build transparent readiness scoring and morning check-ins
+    wave: 5
+    summary: >-
+      Combine sleep, recent load, subjective wellbeing and resting heart rate where available into
+      a composite score that is useful because users can inspect and edit the inputs.
+    outcome: >-
+      Readiness is a transparent daily summary, not a black-box command.
+    concerns: [devexpress, privacy]
+    stories:
+      - key: S18.02.01
+        title: Capture morning energy, soreness, motivation and stress
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [devexpress, a11y]
+        userStory:
+          asA: Maya, checking in before training
+          iWant: a quick morning questionnaire
+          soThat: Forge can adjust guidance to how I feel today
+        requirements:
+          - >-
+            Check-in captures energy, whole-body soreness, motivation and stress on 1 to 5 scales
+            in under 30 seconds.
+          - >-
+            The user can skip any day without penalty copy and can edit the current day until
+            midnight local time.
+          - >-
+            Accessibility labels announce each scale value and direction clearly.
+        acceptanceCriteria:
+          - id: AC1
+            given: a user selects 4 values and taps Save
+            when: persistence completes
+            then: the check-in is durable in SQLite within 200 ms and appears in today's readiness inputs
+          - id: AC2
+            given: a screen reader is active
+            when: focus enters the energy scale
+            then: the control announces the current value and that 5 is highest energy
+        implementation:
+          notes: >-
+            Implement MorningCheckInService in Forge.Application/Recovery and render the entry
+            surface with DevExpress editors or accessible selectable chips. Store one check-in per
+            local date and avoid shame copy for skipped days. E17 can consume the resulting
+            IReadinessSnapshotProvider for bad-day adjustments.
+          touches:
+            - src/Forge.Application/Recovery/MorningCheckInService.cs
+            - src/Forge.App/Features/Insights/Recovery/MorningCheckInPage.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:RadialGauge
+        testing:
+          - Unit tests for one check-in per local date and edit window.
+          - Manual screen reader test for all scale controls.
+
+      - key: S18.02.02
+        title: Calculate readiness with visible weights and inputs
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [devexpress]
+        userStory:
+          asA: Tom, seeing a readiness score
+          iWant: to know exactly what drove it
+          soThat: I can decide whether to follow the recommendation
+        requirements:
+          - >-
+            Readiness score is a 0 to 100 composite using default weights of 35 percent sleep, 25
+            percent recent load, 25 percent subjective wellbeing and 15 percent resting heart rate
+            when heart rate is available.
+          - >-
+            If resting heart rate is unavailable, its 15 percent weight is redistributed
+            proportionally across the other available inputs and the UI states this.
+          - >-
+            Inputs, weights and input freshness are visible on the readiness detail screen.
+        acceptanceCriteria:
+          - id: AC1
+            given: sleep 80, load 60, wellbeing 70 and heart rate 90
+            when: readiness is calculated with default weights
+            then: the score is 74.0 and all four weights are displayed
+          - id: AC2
+            given: heart rate is unavailable
+            when: readiness is calculated
+            then: the remaining weights sum to 100 percent and the detail states that heart rate was unavailable
+        implementation:
+          notes: >-
+            Put ReadinessScoreCalculator in Forge.Domain/Recovery as a pure weighted-average
+            function returning score plus contribution breakdown. Data freshness and availability
+            are assembled in Forge.Application. Render the score with dx:RadialGauge and a
+            DXCollectionView breakdown. Avoid red danger styling because this is not a medical risk
+            score.
+          touches:
+            - src/Forge.Domain/Recovery/ReadinessScoreCalculator.cs
+            - src/Forge.Application/Recovery/ReadinessService.cs
+            - src/Forge.App/Features/Insights/Recovery/ReadinessPage.xaml
+          devexpress:
+            - dx:RadialGauge
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for weighted score, missing heart rate redistribution and stale inputs.
+
+      - key: S18.02.03
+        title: Incorporate resting heart rate when available
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [privacy]
+        userStory:
+          asA: Tom, tracking resting heart rate
+          iWant: it included only when the platform provides it reliably
+          soThat: the readiness score improves without forcing manual data
+        requirements:
+          - >-
+            Resting heart rate is read only through E12 IHealthDataService and is optional for all
+            readiness features.
+          - >-
+            Heart-rate contribution requires at least 7 readings in the last 14 days.
+          - >-
+            Missing or stale heart-rate data never blocks sleep, check-in or load readiness.
+        acceptanceCriteria:
+          - id: AC1
+            given: 7 resting heart rate readings in the last 14 days
+            when: readiness inputs are assembled
+            then: heart rate is marked available and contributes 15 percent before redistribution
+          - id: AC2
+            given: 6 readings in the last 14 days
+            when: readiness inputs are assembled
+            then: heart rate is marked insufficient and readiness still calculates from other inputs
+        implementation:
+          notes: >-
+            Create RestingHeartRateInputProvider in Forge.Application that consumes the health
+            abstraction only. The provider should return availability reason codes so the UI can
+            explain unavailable, denied, stale or insufficient without platform branching. Do not
+            store raw high-frequency heart data in Recovery; persist only daily resting summaries.
+          touches:
+            - src/Forge.Application/Recovery/RestingHeartRateInputProvider.cs
+            - src/Forge.Infrastructure/Persistence/RestingHeartRateSummary.cs
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Health Connect via Forge.Health
+            - HealthKit via Forge.Health
+        testing:
+          - Unit tests for 7 of 14 day sufficiency and stale data reasons.
+
+  - key: F18.03
+    title: Track soreness and adapt daily recovery guidance
+    wave: 5
+    summary: >-
+      Capture muscle-group soreness, combine it with planned training, and recommend rest,
+      substitutions, mobility or reduced work when the local rules justify it.
+    outcome: >-
+      Recovery guidance helps users adjust today without pretending to diagnose pain or injury.
+    concerns: [devexpress]
+    stories:
+      - key: S18.03.01
+        title: Track muscle-group soreness and affected areas
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [devexpress]
+        userStory:
+          asA: Tom, feeling soreness after training
+          iWant: to mark which muscle groups are sore
+          soThat: Forge can avoid piling work onto the same area
+        requirements:
+          - >-
+            Soreness entries capture muscle group and severity from 0 to 5 for the current day.
+          - >-
+            At least the same muscle groups used by E16 balance are available.
+          - >-
+            Entries above 3 are highlighted in guidance but are not labelled as injury.
+        acceptanceCriteria:
+          - id: AC1
+            given: quads soreness is saved as 4 of 5
+            when: today's guidance loads
+            then: quads is marked high soreness and the stored severity is 4
+          - id: AC2
+            given: the user changes quads soreness from 4 to 1
+            when: the entry is saved
+            then: readiness and session guidance recalculate within 300 ms
+        implementation:
+          notes: >-
+            Implement MuscleSorenessService with one row per muscle group per local date. Use the
+            same muscle-group taxonomy as E16 to avoid incompatible labels. Render the entry list
+            with dx:DXCollectionView and bounded numeric editors. Copy must distinguish soreness
+            from pain and direct users to injury settings for injuries.
+          touches:
+            - src/Forge.Application/Recovery/MuscleSorenessService.cs
+            - src/Forge.App/Features/Insights/Recovery/SorenessEntryPage.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:NumericEdit
+        testing:
+          - Unit tests for one entry per muscle group per date and recalculation trigger.
+
+      - key: S18.03.02
+        title: Adapt recommended sessions from soreness and readiness
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [devexpress]
+        userStory:
+          asA: Sam, sore from yesterday
+          iWant: today’s session guidance to account for affected muscles
+          soThat: I can train around fatigue safely
+        requirements:
+          - >-
+            If a planned session targets a muscle group with soreness 4 or higher, guidance offers
+            reduce volume, substitute movement or rest depending on readiness score.
+          - >-
+            The recommendation must include the soreness input, readiness score and planned target
+            muscle in its explanation.
+          - >-
+            User override is allowed and recorded locally.
+        acceptanceCriteria:
+          - id: AC1
+            given: quads soreness 4, readiness 45 and a planned squat session
+            when: session guidance is generated
+            then: the card offers rest or reduced lower-body work and names quads soreness and readiness 45
+          - id: AC2
+            given: soreness 2 and readiness 80
+            when: session guidance is generated
+            then: no soreness-based reduction is shown
+        implementation:
+          notes: >-
+            Expose RecoveryGuidanceService to E17 so adaptive coaching can combine soreness,
+            readiness and programme context. Keep the rules deterministic and pass results through
+            E17 CoachingSafetyService before applying changes. Render guidance cards with
+            dx:DXCollectionView in the Today and workout-start flows.
+          touches:
+            - src/Forge.Application/Recovery/RecoveryGuidanceService.cs
+            - src/Forge.App/Features/Today/RecoveryGuidanceCard.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:RadialGauge
+        testing:
+          - Unit tests for soreness 4 threshold, readiness branches and override persistence.
+
+      - key: S18.03.03
+        title: Recommend rest days without guilt copy
+        wave: 5
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: Maya, unsure whether to rest
+          iWant: rest-day guidance that feels constructive
+          soThat: I recover without feeling like I failed
+        requirements:
+          - >-
+            Rest-day cards appear when readiness is below 40, high soreness affects the planned
+            primary muscles, or the user has trained 6 consecutive days.
+          - >-
+            Copy includes one recovery action such as walk, mobility or sleep routine and avoids
+            shame terms.
+          - >-
+            Rest recommendations are dismissible for the day.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user has trained 6 consecutive days
+            when: Today loads
+            then: a rest-day card appears with one concrete recovery action
+          - id: AC2
+            given: readiness 65, no high soreness and 2 consecutive training days
+            when: Today loads
+            then: no rest-day recommendation appears
+        implementation:
+          notes: >-
+            Keep rest-day logic in RecoveryGuidanceService and expose copy resources with banned
+            shame terms tested similarly to E17 nudges. Rest cards should not alter the programme
+            automatically; they offer actions and route to mobility or wind-down routines.
+          touches:
+            - src/Forge.Application/Recovery/RestDayRule.cs
+            - src/Forge.App/Features/Today/RestDayCard.xaml
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for readiness, soreness and 6 day consecutive triggers.
+          - Text test rejecting shame terms in rest-day copy.
+
+  - key: F18.04
+    title: Provide mobility and wind-down routines
+    wave: 5
+    summary: >-
+      Offer local recovery routines that match training and sleep context, helping users take the
+      next constructive action after a hard session or before bedtime.
+    outcome: >-
+      Users can follow short mobility, stretching and wind-down routines without leaving Forge.
+    concerns: [devexpress]
+    stories:
+      - key: S18.04.01
+        title: Offer mobility routines by sore muscle group
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [devexpress]
+        userStory:
+          asA: Tom, sore after leg day
+          iWant: a short mobility routine matched to sore areas
+          soThat: I have a safe-feeling recovery action
+        requirements:
+          - >-
+            Routine suggestions match one or more sore muscle groups and last 5, 10 or 15 minutes.
+          - >-
+            Each movement has a duration, setup cue and stop-if-pain warning.
+          - >-
+            The app does not claim that mobility cures soreness or prevents injury.
+        acceptanceCriteria:
+          - id: AC1
+            given: hamstrings soreness 4
+            when: mobility suggestions load
+            then: at least one hamstring-focused routine is shown with duration and stop-if-pain warning
+          - id: AC2
+            given: no soreness entries
+            when: the mobility screen opens
+            then: the default general recovery routine appears and states it is optional
+        implementation:
+          notes: >-
+            Seed mobility routine content as local JSON in Forge.Infrastructure so it can be
+            reviewed by product and updated without remote services. Render routines with
+            dx:DXCollectionView and use the existing exercise demo fallback only if a movement has
+            media from the exercise catalogue. Avoid medical claims in routine descriptions.
+          touches:
+            - src/Forge.Infrastructure/Seed/MobilityRoutines.json
+            - src/Forge.Application/Recovery/MobilityRoutineService.cs
+            - src/Forge.App/Features/Insights/Recovery/MobilityRoutinePage.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:TabView
+        testing:
+          - Unit tests matching routines to sore muscle groups.
+          - Content test confirming every movement includes stop-if-pain text.
+
+      - key: S18.04.02
+        title: Create wind-down routines tied to training schedule
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [devexpress]
+        userStory:
+          asA: Maya, training tomorrow morning
+          iWant: a bedtime wind-down prompt
+          soThat: I give tomorrow’s session a better chance
+        requirements:
+          - >-
+            Wind-down routine appears on evenings before planned training days when the user has
+            enabled recovery reminders.
+          - >-
+            The routine includes 3 to 5 steps and takes no more than 15 minutes.
+          - >-
+            Reminder timing is local-device only and can be disabled from the routine card.
+        acceptanceCriteria:
+          - id: AC1
+            given: a planned workout tomorrow and reminders enabled
+            when: the evening window begins
+            then: a wind-down card appears with 3 to 5 steps and total duration no greater than 15 minutes
+          - id: AC2
+            given: reminders are disabled
+            when: the same schedule condition is met
+            then: no wind-down reminder is scheduled or displayed
+        implementation:
+          notes: >-
+            Coordinate with existing local notification infrastructure rather than creating a second
+            scheduler. The recovery domain should provide WindDownRecommendationService and the
+            app head should request local notification scheduling only through the existing local
+            notification abstraction. The routine card itself is local and works without permission.
+          touches:
+            - src/Forge.Application/Recovery/WindDownRecommendationService.cs
+            - src/Forge.App/Features/Insights/Recovery/WindDownRoutineView.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:TabView
+          apis:
+            - Plugin.LocalNotification via existing notification abstraction
+        testing:
+          - Unit tests for planned training day and reminder disabled branches.
+          - Manual notification permission denial test on Android and iOS.
+
+      - key: S18.04.03
+        title: Flag overtraining warning signals cautiously
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [devexpress]
+        userStory:
+          asA: Tom, noticing fatigue
+          iWant: Forge to flag concerning patterns carefully
+          soThat: I know when to back off or seek professional advice
+        requirements:
+          - >-
+            Warning signals require at least 2 of the following over 7 days: declining performance,
+            readiness below 40, high soreness, poor sleep or elevated resting heart rate.
+          - >-
+            Copy uses cautious wording such as recovery warning signs, not overtraining diagnosis.
+          - >-
+            The card includes rest guidance and a seek professional advice line for pain, illness
+            or persistent symptoms.
+        acceptanceCriteria:
+          - id: AC1
+            given: readiness below 40 for 3 days and high soreness for 4 days
+            when: warning evaluation runs
+            then: a recovery warning card appears with both signals listed
+          - id: AC2
+            given: only poor sleep is present
+            when: warning evaluation runs
+            then: no warning card appears because fewer than 2 signals are present
+        implementation:
+          notes: >-
+            Implement RecoveryWarningRule as a deterministic signal counter. Do not diagnose
+            overtraining or assign severity labels like dangerous. The trace should list present
+            and absent signals, and the UI should link to rest-day and mobility actions. This rule
+            must also feed E17 deload recommendations without duplicating the logic.
+          touches:
+            - src/Forge.Application/Recovery/RecoveryWarningRule.cs
+            - src/Forge.App/Features/Insights/Recovery/RecoveryWarningCard.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:RadialGauge
+        testing:
+          - Unit tests for 2 signal threshold and persistent symptom copy.
+
+  - key: F18.05
+    title: Surface sleep-performance correlations responsibly
+    wave: 5
+    summary: >-
+      Make recovery tracking feel worthwhile by showing cautious associations between sleep,
+      readiness and performance only when enough paired samples exist.
+    outcome: >-
+      Users see useful patterns such as stronger sessions after longer sleep without mistaking them for proof of cause.
+    concerns: [devexpress, privacy]
+    stories:
+      - key: S18.05.01
+        title: Correlate sleep with training performance after minimum samples
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [devexpress]
+        userStory:
+          asA: Alex, wondering whether sleep affects lifts
+          iWant: cautious sleep-performance insights
+          soThat: I know which habits are worth paying attention to
+        requirements:
+          - >-
+            Sleep-performance correlation requires at least 20 paired nights and workouts for the
+            same metric before any claim is shown.
+          - >-
+            Insights use association language such as your squat was 8 percent higher after 7 or
+            more hours of sleep and include does not prove cause.
+          - >-
+            Outlier handling excludes performance points more than 3 standard deviations from the
+            user's rolling mean and reports the exclusion count.
+        acceptanceCriteria:
+          - id: AC1
+            given: 20 paired squat workouts and prior-night sleep records with 8 percent higher average after 7 plus hours
+            when: correlation insights run
+            then: the insight states 8 percent higher, names 20 samples and includes does not prove cause
+          - id: AC2
+            given: 19 paired samples
+            when: correlation insights run
+            then: no insight appears and the eligibility reason states that 20 paired samples are required
+        implementation:
+          notes: >-
+            Implement CorrelationInsightService in Forge.Application with conservative minimum
+            samples and simple group comparisons before considering more complex statistics. Use
+            E16 performance projections and E18 sleep summaries. Render the insight with
+            dx:ChartView plus a text explanation, because the copy is as important as the chart.
+          touches:
+            - src/Forge.Application/Recovery/CorrelationInsightService.cs
+            - src/Forge.App/Features/Insights/Recovery/CorrelationInsightPage.xaml
+          devexpress:
+            - dx:ChartView
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for 20 sample threshold, 3 standard deviation outlier exclusion and association copy.
+
+      - key: S18.05.02
+        title: Show readiness and performance trend associations
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [devexpress]
+        userStory:
+          asA: Tom, comparing good and bad days
+          iWant: to see whether readiness aligns with performance
+          soThat: I can decide how much weight to give the score
+        requirements:
+          - >-
+            Readiness-performance association requires at least 20 workouts with same-day readiness
+            scores and comparable exercise metrics.
+          - >-
+            The view groups performance into readiness bands below 50, 50 to 74 and 75 plus.
+          - >-
+            The UI shows sample counts for every band and hides any band with fewer than 5 samples.
+        acceptanceCriteria:
+          - id: AC1
+            given: 24 workouts with readiness scores split across all bands
+            when: the association view opens
+            then: each band with at least 5 samples displays average performance and sample count
+          - id: AC2
+            given: a readiness band with 4 samples
+            when: the chart renders
+            then: that band is hidden and the explanation states fewer than 5 samples
+        implementation:
+          notes: >-
+            Extend CorrelationInsightService with readiness-band summaries. Keep calculations
+            aggregated in Forge.Application and expose hidden-band reasons to the UI. Render bands
+            as a dx:ChartView bar series with adjacent DXCollectionView explanation rows so users
+            can read exact sample counts without interpreting chart colours alone.
+          touches:
+            - src/Forge.Application/Recovery/ReadinessPerformanceAssociationService.cs
+            - src/Forge.App/Features/Insights/Recovery/ReadinessAssociationView.xaml
+          devexpress:
+            - dx:ChartView
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for 20 workout eligibility and 5 sample band hiding.
+
+      - key: S18.05.03
+        title: Export recovery insights with caveats included
+        wave: 5
+        size: s
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy, devexpress]
+        userStory:
+          asA: Alex, discussing recovery with a coach
+          iWant: to export a recovery chart with caveats
+          soThat: context is not lost when I share it
+        requirements:
+          - >-
+            Recovery chart export includes chart title, date range, sample count and non-causation
+            caveat in the exported image.
+          - >-
+            The export preview redacts raw sleep times unless the user enables Include exact sleep
+            times for that export.
+          - >-
+            Temporary export files are deleted within 5 seconds of share completion or cancellation.
+        acceptanceCriteria:
+          - id: AC1
+            given: a sleep-performance insight with 24 samples
+            when: Export image is tapped
+            then: the preview includes the sample count 24 and the phrase does not prove cause
+          - id: AC2
+            given: Include exact sleep times is disabled
+            when: the recovery export is generated
+            then: the image contains sleep duration bands but no exact bedtime or wake time values
+        implementation:
+          notes: >-
+            Reuse the chart export service from E16 but provide a RecoveryExportPolicy that adds
+            sample counts and caveats and redacts exact sleep times by default. This keeps sharing
+            behaviour consistent across insights while recognising that sleep times are sensitive.
+          touches:
+            - src/Forge.App/Features/Insights/Recovery/RecoveryExportPolicy.cs
+            - src/Forge.App/Features/Insights/Shared/ChartExportService.cs
+          devexpress:
+            - dx:ChartView
+            - dx:RadialGauge
+          apis:
+            - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+        testing:
+          - UI test confirming caveats appear in exported recovery images.
+          - Privacy test confirming exact sleep times are redacted by default.

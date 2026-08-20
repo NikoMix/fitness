@@ -1,0 +1,634 @@
+key: E31
+title: App Store Readiness and Launch
+domain: quality
+wave: 5
+summary: >-
+  Forge cannot launch on engineering quality alone. The app also needs store
+  records, compliant declarations, credible listing assets, beta operations and
+  a careful staged rollout.
+problem: >-
+  A mobile fitness app can be delayed or rejected by missing health declarations,
+  privacy disclosures, poor listing assets or unsupported health claims even when
+  the binary is stable.
+outcome: >-
+  Android and iOS store submissions are complete, compliant and supported by
+  launch evidence, beta feedback, rollout gates and a post-launch response process.
+successMetrics:
+  - All required store metadata, screenshots and declarations are complete before production submission.
+  - Google Play Health Apps declaration approval is recorded before any launch date depending on Health Connect permissions.
+  - Beta runs include at least 10 testers across Android and iOS and no unresolved critical defects.
+  - Initial rollout starts at no more than 10 percent and advances only after documented health checks.
+nonGoals:
+  - No new privacy or health-permission implementation beyond coordination with E12 and E25.
+  - No backend telemetry or analytics SDK for launch monitoring.
+  - No desktop store preparation in v1.
+dependsOn: [E12, E25, E30]
+risks:
+  - risk: >-
+      Google Play Health Apps declaration lead time blocks launch.
+    mitigation: >-
+      Submit at least 8 weeks before planned launch and maintain a launch gate
+      tied to E12 approval evidence.
+    severity: critical
+  - risk: >-
+      Store listing makes health or weight-loss claims the app cannot substantiate.
+    mitigation: >-
+      Run copy through a rejection-focused checklist and require review before submission.
+    severity: high
+grounding:
+  - title: App Store Connect Help
+    url: https://developer.apple.com/help/app-store-connect/
+    note: Official Apple submission and store metadata documentation.
+  - title: Google Play Console Help
+    url: https://support.google.com/googleplay/android-developer/
+    note: Official Google Play store and testing documentation.
+  - title: Publish your health app on Google Play
+    url: https://developer.android.com/health-and-fitness/health-connect/publish
+    note: Official guidance for Health Connect launch requirements.
+features:
+  - key: F31.01
+    title: Prepare store accounts, declarations and compliance gates
+    wave: 5
+    summary: >-
+      Finish the store administrative work that can block launch even when the
+      app build is ready.
+    outcome: >-
+      App Store Connect and Play Console are configured with required
+      declarations, privacy inputs and review-ready metadata.
+    concerns: [release, compliance]
+    stories:
+      - key: S31.01.01
+        title: Configure App Store Connect and Play Console app records
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner preparing launch
+          iWant: store records created before the final build is ready
+          soThat: administrative setup does not delay submission
+        requirements:
+          - App Store Connect app record exists with bundle identifier, SKU, primary locale and category Fitness.
+          - Play Console app record exists with package name, default language, app category Health and Fitness and internal testing track.
+          - Both records reference the same Forge app name, tagline and support contact details.
+        acceptanceCriteria:
+          - id: AC1
+            given: store setup checklist is reviewed
+            when: App Store Connect and Play Console records are opened
+            then: bundle ID, package name, category and support contact match the checklist
+          - id: AC2
+            given: production submission is attempted before declarations are complete
+            when: the launch gate runs
+            then: submission is blocked and the missing declaration names are listed
+        implementation:
+          notes: >-
+            Create the store records early in Wave 5 using the developer accounts
+            already owned. Keep identifiers aligned with signed builds from E30
+            and capture store configuration evidence in docs/launch for review.
+          touches:
+            - docs/launch/store-setup-checklist.md
+          apis:
+            - App Store Connect
+            - Google Play Console
+        testing:
+          - Peer review store setup evidence before enabling production submission.
+
+      - key: S31.01.02
+        title: Complete age rating and health app questionnaires
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner answering store compliance forms
+          iWant: consistent questionnaire answers for fitness content
+          soThat: the app is rated accurately and avoids preventable rejection
+        requirements:
+          - Apple age rating questionnaire is completed and stored as reviewed evidence.
+          - Google Play target audience and content rating questionnaires are completed with matching answers where policies overlap.
+          - Health and fitness guidance is described as tracking and educational support, not medical diagnosis or treatment.
+        acceptanceCriteria:
+          - id: AC1
+            given: age rating evidence is reviewed
+            when: Apple and Google questionnaire answers are compared
+            then: health, medical and user-generated content answers are consistent or have documented platform-specific reasons
+          - id: AC2
+            given: a questionnaire answer claims medical diagnosis
+            when: checklist validation runs
+            then: the item is flagged for correction before submission
+        implementation:
+          notes: >-
+            Treat questionnaires as compliance artefacts, not last-minute form
+            filling. Forge should be positioned as fitness tracking and guidance,
+            not a medical device. Coordinate privacy-sensitive answers with E25.
+          touches:
+            - docs/launch/age-rating-evidence.md
+        testing:
+          - Compliance review signs off the questionnaire evidence before submission.
+
+      - key: S31.01.03
+        title: Gate launch on Google Play Health Apps declaration approval
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: team
+        dependsOn: [E12]
+        userStory:
+          asA: project owner planning the launch date
+          iWant: the Health Apps declaration dependency visible as a launch gate
+          soThat: Google approval lead time does not surprise the team
+        requirements:
+          - Launch plan records the Google Play Health Apps declaration as a dependency on E12.
+          - The declaration is submitted at least 8 weeks before the planned production launch date when Health Connect permissions are in scope.
+          - Launch status remains blocked until Google approval is recorded with date, reviewer and permission set.
+        acceptanceCriteria:
+          - id: AC1
+            given: the launch plan is generated for a date less than 8 weeks away
+            when: Health Connect permissions are still in scope
+            then: the plan marks launch date at risk and names the Google Play Health Apps declaration gate
+          - id: AC2
+            given: Google approval is received
+            when: the gate record is updated
+            then: approval date, permission set and evidence link are recorded before production rollout
+        implementation:
+          notes: >-
+            Make this an explicit launch-date gate because the architecture
+            overview calls out a 4-8 week approval path for Health Connect read
+            permissions. Cross-reference E12 rather than duplicating health
+            permission implementation stories.
+          touches:
+            - docs/launch/launch-plan.yml
+            - docs/launch/google-health-apps-declaration.md
+          apis:
+            - Google Play Health Apps declaration
+        testing:
+          - Launch readiness script fails while the gate lacks approval evidence.
+        grounding:
+          - title: Health apps declaration form
+            url: https://support.google.com/googleplay/android-developer/answer/14738291?hl=en
+            note: Official Play Console declaration guidance.
+
+      - key: S31.01.04
+        title: Complete Privacy Nutrition Labels and Data Safety submissions
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: team
+        dependsOn: [E25]
+        userStory:
+          asA: privacy reviewer preparing store submission
+          iWant: store privacy disclosures that match Forge local-only behaviour
+          soThat: users receive accurate privacy promises before installing
+        requirements:
+          - Apple Privacy Nutrition Labels are completed using the data inventory from E25.
+          - Google Play Data Safety form is completed using the same data inventory and local-only storage assumptions.
+          - Any mismatch between store disclosure, privacy policy and in-app consent blocks launch readiness.
+        acceptanceCriteria:
+          - id: AC1
+            given: privacy forms are reviewed
+            when: store disclosures, privacy policy and in-app consent are compared
+            then: all three describe the same data categories and local-only handling
+          - id: AC2
+            given: a Data Safety answer says data is shared with third parties
+            when: the launch readiness check runs
+            then: the mismatch is flagged unless E25 evidence documents that sharing
+        implementation:
+          notes: >-
+            Coordinate with E25 and do not re-implement privacy flows here. This
+            story translates the approved data inventory into store forms and
+            preserves evidence that the local-only privacy claim is consistent.
+          touches:
+            - docs/launch/privacy-store-disclosures.md
+          apis:
+            - App Store Connect app privacy
+            - Google Play Data Safety
+        testing:
+          - Privacy reviewer signs off matching disclosures before submission.
+        grounding:
+          - title: Apple app privacy overview
+            url: https://developer.apple.com/help/app-store-connect/reference/app-privacy-overview
+            note: Privacy Nutrition Labels guidance.
+          - title: Google Play Data safety
+            url: https://support.google.com/googleplay/android-developer/answer/10787469?hl=en
+            note: Play Data Safety form guidance.
+
+  - key: F31.02
+    title: Create store listing and visual assets
+    wave: 5
+    summary: >-
+      Produce the copy, screenshots, video and icon assets needed for a credible
+      Android and iOS launch.
+    outcome: >-
+      Store listings are complete, consistent with the Forge brand and generated
+      with enough automation to avoid screenshot drudgery.
+    concerns: [design, release]
+    stories:
+      - key: S31.02.01
+        title: Write store listing copy, keywords and ASO metadata
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: prospective user discovering Forge
+          iWant: clear store copy that explains local-first fitness tracking
+          soThat: I understand why Forge is worth installing
+        requirements:
+          - Store subtitle or short description includes the tagline Forge your strongest self where platform length limits allow.
+          - Long descriptions explain training, nutrition, progress and local-only privacy in less than 4,000 characters.
+          - Keyword set includes at least 20 researched terms and avoids medical claims.
+        acceptanceCriteria:
+          - id: AC1
+            given: store copy is reviewed
+            when: length checks run for Apple subtitle, Google short description and long descriptions
+            then: every field is within platform limits and includes no medical guarantee
+          - id: AC2
+            given: keyword metadata is inspected
+            when: ASO checklist runs
+            then: at least 20 researched terms are recorded with rationale
+        implementation:
+          notes: >-
+            Write copy in docs/launch first, then paste or automate it into
+            store consoles. Keep claims aligned with actual v1 capabilities:
+            local-only workout and nutrition tracking, progress insight and
+            approved health integrations.
+          touches:
+            - docs/launch/store-copy.yml
+        testing:
+          - Run copy length and banned-claim checks before submission.
+        grounding:
+          - title: App information reference
+            url: https://developer.apple.com/help/app-store-connect/reference/app-information
+            note: App Store listing fields.
+          - title: Create a Play Store listing
+            url: https://support.google.com/googleplay/android-developer/answer/9859152?hl=en
+            note: Play listing assets and descriptions.
+
+      - key: S31.02.02
+        title: Automate required store screenshots for device sizes
+        wave: 5
+        size: l
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner preparing store assets
+          iWant: repeatable screenshots for every required device size
+          soThat: visual assets do not consume days of manual work each release
+        requirements:
+          - Screenshot automation captures required App Store and Play Console device sizes for Android and iOS.
+          - Screenshots cover onboarding, Today, workout logging, nutrition search and progress insights.
+          - Generated screenshots use seeded non-personal data and contain no real health or body metrics.
+        acceptanceCriteria:
+          - id: AC1
+            given: screenshot generation runs for a release candidate
+            when: the output folder is inspected
+            then: all required Android and iOS device-size folders exist with the expected five screens
+          - id: AC2
+            given: seed data is used for screenshots
+            when: images are reviewed
+            then: no real personal, health or body metric data appears
+        implementation:
+          notes: >-
+            Build on the UI automation harness from E29 with deterministic seed
+            data and fixed themes. Automating screenshots is worth the investment
+            because store sizes change and manual capture is error-prone.
+          touches:
+            - tools/launch/generate-screenshots.ps1
+            - tests/Forge.UiTests/Screenshots/
+            - docs/launch/screenshots/
+          apis:
+            - Appium 2
+        testing:
+          - Compare generated output against a manifest listing every required size and screen.
+
+      - key: S31.02.03
+        title: Produce app preview video and launch creative
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: prospective user browsing the store
+          iWant: a short preview showing the core workout flow
+          soThat: I can judge the app before installing
+        requirements:
+          - App preview or promo video is 15 to 30 seconds long.
+          - Video shows only implemented v1 flows and seeded non-personal data.
+          - Exported video meets platform format and resolution requirements before upload.
+        acceptanceCriteria:
+          - id: AC1
+            given: the preview video is exported
+            when: metadata validation runs
+            then: duration is between 15 and 30 seconds and resolution matches the target requirement
+          - id: AC2
+            given: the script mentions a future feature
+            when: content review runs
+            then: the video is blocked because it shows out-of-scope v1 capability
+        implementation:
+          notes: >-
+            Storyboard the video around the fastest value loop: open Today, start
+            workout, log a set and see progress. Keep it honest and avoid
+            showing features that are not in the release build.
+          touches:
+            - docs/launch/app-preview-storyboard.md
+            - assets/launch/video/
+        testing:
+          - Run format validation and content checklist before upload.
+
+      - key: S31.02.04
+        title: Finalise app icon and Android adaptive icon
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: prospective user seeing Forge on a device
+          iWant: a polished icon that works across store and launcher contexts
+          soThat: the brand feels credible before I open the app
+        requirements:
+          - App icon assets meet Apple and Google size, transparency and safe-area requirements.
+          - Android adaptive icon provides foreground and background layers and previews correctly in circle, squircle and rounded-square masks.
+          - All generated icon assets are produced from a single source file and checked into the repository.
+        acceptanceCriteria:
+          - id: AC1
+            given: icon generation runs
+            when: output assets are inspected
+            then: all required Android and iOS icon sizes are present and derived from the source file
+          - id: AC2
+            given: adaptive icon preview masks are generated
+            when: circle, squircle and rounded-square previews are inspected
+            then: the Forge mark is not clipped in any preview
+        implementation:
+          notes: >-
+            Keep the source vector or high-resolution design asset under
+            assets/brand and generate platform outputs through a script. Android
+            adaptive icon layers need explicit safe-area review because OEM masks vary.
+          touches:
+            - assets/brand/
+            - src/Forge.App/Resources/AppIcon/
+            - tools/launch/generate-icons.ps1
+        testing:
+          - Validate icon asset dimensions and adaptive preview masks in CI.
+        grounding:
+          - title: Android adaptive icons
+            url: https://developer.android.com/develop/ui/views/launch/icon_design_adaptive
+            note: Official adaptive icon guidance.
+
+  - key: F31.03
+    title: Run beta programmes and submission readiness
+    wave: 5
+    summary: >-
+      Use TestFlight, Play testing tracks and a rejection-focused checklist to
+      find submission issues before public launch.
+    outcome: >-
+      Beta feedback, known issues and store review risks are triaged before
+      production submission.
+    concerns: [release, quality]
+    stories:
+      - key: S31.03.01
+        title: Operate TestFlight and Play internal or closed testing
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner validating a candidate with testers
+          iWant: structured beta programmes for Android and iOS
+          soThat: feedback arrives before public users are affected
+        requirements:
+          - At least 10 testers are invited across Android and iOS before production submission.
+          - Each beta build includes release notes, known issues and feedback instructions.
+          - A build stays in beta for at least 72 hours or until 20 completed workout sessions are reported, whichever comes later.
+        acceptanceCriteria:
+          - id: AC1
+            given: a beta build is uploaded
+            when: tester configuration is inspected
+            then: at least 10 testers across Android and iOS have access and release notes are visible
+          - id: AC2
+            given: a critical defect is reported during beta
+            when: launch readiness runs
+            then: production rollout is blocked until a fix or approved deferral is linked
+        implementation:
+          notes: >-
+            Use TestFlight and Play internal or closed testing as the final
+            reality check, not as a replacement for E29 quality gates. Track
+            testers, build numbers and known issues in docs/launch so both
+            stores have the same context.
+          touches:
+            - docs/launch/beta-plan.yml
+            - docs/launch/beta-feedback.md
+          apis:
+            - TestFlight
+            - Play testing tracks
+        testing:
+          - Verify beta access from one Android tester account and one iOS tester account.
+        grounding:
+          - title: TestFlight overview
+            url: https://developer.apple.com/help/app-store-connect/test-a-beta-version/overview-of-testing-with-testflight
+            note: Apple beta testing workflow.
+          - title: Set up an open, closed, or internal test
+            url: https://support.google.com/googleplay/android-developer/answer/9845334?hl=en
+            note: Play testing track guidance.
+
+      - key: S31.03.02
+        title: Build beta feedback loop without server telemetry
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: beta tester finding an issue
+          iWant: a low-friction way to send feedback and diagnostics voluntarily
+          soThat: problems can be fixed while my private data remains under my control
+        requirements:
+          - Beta feedback instructions provide email or issue form links and state exactly what information to include.
+          - Diagnostic export is user-initiated and previews the payload before sharing.
+          - No automatic analytics or backend telemetry is added for launch.
+        acceptanceCriteria:
+          - id: AC1
+            given: a beta tester opens feedback instructions
+            when: they follow the diagnostic export path
+            then: the app previews the payload before any share sheet action
+          - id: AC2
+            given: five feedback items are submitted
+            when: triage board is reviewed after 2 business days
+            then: each item has severity, owner and status
+        implementation:
+          notes: >-
+            Coordinate with E01 diagnostics and privacy work rather than adding
+            telemetry infrastructure. A local-only product can still learn from
+            beta users by making opt-in diagnostic sharing clear.
+          touches:
+            - docs/launch/beta-feedback.md
+            - src/Forge.App/Features/Diagnostics/
+          apis:
+            - MAUI Share
+        testing:
+          - Run one end-to-end beta feedback dry run with seeded diagnostics.
+
+      - key: S31.03.03
+        title: Create pre-submission rejection checklist for fitness apps
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner submitting to app review
+          iWant: a checklist based on common health and fitness rejection reasons
+          soThat: avoidable review failures are fixed before submission
+        requirements:
+          - Checklist covers privacy policy links, health disclaimers, permission purpose strings, data deletion, subscriptions if present and metadata accuracy.
+          - Every item has pass, fail or not-applicable status with evidence link.
+          - Submission is blocked while any required item is fail or blank.
+        acceptanceCriteria:
+          - id: AC1
+            given: the release owner attempts submission
+            when: the checklist has a blank privacy policy item
+            then: submission is blocked and the blank item is named
+          - id: AC2
+            given: all checklist items are pass or not-applicable with evidence
+            when: launch readiness runs
+            then: the submission gate allows store submission to proceed
+        implementation:
+          notes: >-
+            Build the checklist from Apple and Google policy surfaces that affect
+            health and fitness apps: privacy, permissions, health claims, data
+            deletion and metadata accuracy. Keep it evidence-based with links.
+          touches:
+            - docs/launch/pre-submission-checklist.yml
+            - tools/launch/validate-readiness.ps1
+        testing:
+          - Readiness script fails for blank or failed required checklist items.
+        grounding:
+          - title: App Review Guidelines
+            url: https://developer.apple.com/app-store/review/guidelines/
+            note: Apple review rules for privacy, health and metadata.
+          - title: Google Play Developer Policy Center
+            url: https://play.google.com/about/developer-content-policy/
+            note: Google policy source for Play review.
+
+  - key: F31.04
+    title: Launch, monitor and respond after release
+    wave: 5
+    summary: >-
+      Coordinate the final rollout and the first days after launch without
+      relying on backend telemetry.
+    outcome: >-
+      Forge launches gradually, monitors store and user feedback, and responds
+      to reviews with a repeatable process.
+    concerns: [release, support]
+    stories:
+      - key: S31.04.01
+        title: Run phased and staged rollout with rollback criteria
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: project owner launching Forge
+          iWant: a gradual rollout plan with clear stop conditions
+          soThat: early issues affect fewer users and can be fixed quickly
+        requirements:
+          - iOS phased release or manual equivalent and Google staged rollout start at no more than 10 percent of eligible users.
+          - Rollout advances only after 24 hours with no critical crash, data loss or store-review issue reported.
+          - Rollback or halt criteria include any confirmed data loss defect or critical policy issue.
+        acceptanceCriteria:
+          - id: AC1
+            given: production launch begins
+            when: rollout settings are inspected
+            then: initial rollout is 10 percent or lower on both stores where available
+          - id: AC2
+            given: a confirmed data loss issue is reported during rollout
+            when: the rollout checklist is applied
+            then: rollout is halted and the owner records the decision
+        implementation:
+          notes: >-
+            Use store-native phased or staged rollout controls rather than remote
+            feature flags, because Forge has no backend in v1. Define halt
+            criteria before launch and record each percentage increase with evidence.
+          touches:
+            - docs/launch/rollout-plan.yml
+          apis:
+            - App Store phased release
+            - Google Play staged rollout
+        testing:
+          - Dry-run the rollout checklist during beta exit.
+        grounding:
+          - title: Release a version update in phases
+            url: https://developer.apple.com/help/app-store-connect/update-your-app/release-a-version-update-in-phases
+            note: Apple phased release guidance.
+          - title: Release app updates with staged rollouts
+            url: https://support.google.com/googleplay/android-developer/answer/6346149?hl=en
+            note: Google staged rollout guidance.
+
+      - key: S31.04.02
+        title: Create launch-day monitoring plan without backend telemetry
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner watching launch health
+          iWant: a monitoring plan based on stores, feedback and local diagnostics
+          soThat: launch issues are discovered even without a backend
+        requirements:
+          - Monitoring plan lists store crash dashboards, TestFlight feedback, Play vitals, support email, GitHub issues and review feeds as inputs.
+          - Launch-day checks run at least every 2 hours for the first 24 hours and daily for the next 7 days.
+          - Every critical signal has an owner, escalation path and response target of 4 business hours.
+        acceptanceCriteria:
+          - id: AC1
+            given: launch day begins
+            when: the monitoring rota is inspected
+            then: checks are scheduled every 2 hours for the first 24 hours with named owners
+          - id: AC2
+            given: a critical crash signal appears in Play vitals
+            when: the monitoring process runs
+            then: an issue is created or updated within 4 business hours with build number and affected platform
+        implementation:
+          notes: >-
+            Forge local-only architecture means launch monitoring relies on
+            store consoles, tester feedback and user-initiated diagnostics rather
+            than a custom backend. Capture where to look and who looks there.
+          touches:
+            - docs/launch/monitoring-plan.md
+            - docs/launch/monitoring-rota.yml
+          apis:
+            - App Store Connect crash reports
+            - Google Play vitals
+        testing:
+          - Run a launch-day rehearsal using beta dashboards and a mock critical issue.
+
+      - key: S31.04.03
+        title: Publish release notes and respond to reviews
+        wave: 5
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: user receiving an update or leaving feedback
+          iWant: clear release notes and thoughtful review responses
+          soThat: I know what changed and feel heard when I report a problem
+        requirements:
+          - Release notes are published to App Store Connect, Play Console and GitHub release for the same build number.
+          - Reviews at 3 stars or lower are triaged within 2 business days for the first 30 days after launch.
+          - Public replies never request personal health data in store review responses.
+        acceptanceCriteria:
+          - id: AC1
+            given: a production release is prepared
+            when: release notes are compared across channels
+            then: the same build number and user-visible changes appear in Apple, Google and GitHub notes
+          - id: AC2
+            given: a 2-star review reports a crash
+            when: review triage runs
+            then: a GitHub issue is created within 2 business days with platform, app version and anonymised summary
+        implementation:
+          notes: >-
+            Reuse the E30 changelog pipeline but apply launch-ready editing.
+            Public store replies should ask users to use the support channel or
+            diagnostic export rather than posting health details publicly.
+          touches:
+            - docs/launch/release-notes.md
+            - docs/launch/review-response-guide.md
+            - tools/release/changelog.ps1
+        testing:
+          - Validate release note length and run a mock review triage session.

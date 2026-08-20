@@ -1,0 +1,750 @@
+key: E22
+title: Settings and Preferences
+domain: compliance
+wave: 2
+summary: >-
+  Settings is the control centre for a local-first fitness app: units, theme,
+  notifications, haptics, workout defaults, storage, search and legal links
+  must be visible, predictable and consistent across Forge. Because v1 has no
+  backend, settings must never imply server-side account management.
+problem: >-
+  Users enter sensitive body and health data, then expect the app to respect how
+  they measure, train, receive reminders and protect privacy. If settings are
+  fragmented, users make unit mistakes, disable every notification or fail to
+  find legal and deletion paths required for launch compliance.
+outcome: >-
+  A user can search and change preferences from one settings area, see changes
+  applied consistently, tune reminders without global opt-out, manage local
+  storage, and reach privacy, legal and delete-my-data surfaces in two taps.
+successMetrics:
+  - Unit preference changes propagate to visible preview values within 100 ms.
+  - Settings search returns matching results within 100 ms for 100 descriptors.
+  - Users can opt out of one notification category in no more than 2 taps from Settings.
+  - Privacy policy, terms and delete-my-data entries are reachable in 2 taps or fewer.
+nonGoals:
+  - No implementation of privacy policy, terms content or delete-my-data flows; those belong to E25.
+  - No cloud account settings in v1.
+  - No wearable-specific preferences in wave 2.
+risks:
+  - risk: Settings becomes a dumping ground of inconsistent controls.
+    mitigation: Back every setting with a typed descriptor, category and search keywords.
+    severity: medium
+  - risk: Unit changes corrupt stored values or make history ambiguous.
+    mitigation: Store canonical values and treat preferences as formatting only, with conversion boundary tests.
+    severity: high
+  - risk: Legal links depend on E25 and may not exist when Settings is built.
+    mitigation: Define stable route contracts and show disabled development placeholders until E25 provides destinations.
+    severity: medium
+dependsOn: [E01, E25]
+grounding:
+  - title: .NET MAUI preferences
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/preferences
+    note: Used for small non-sensitive local preference values.
+  - title: .NET MAUI system theme changes
+    url: https://learn.microsoft.com/dotnet/maui/user-interface/system-theme-changes
+    note: Used for respecting system, light and dark theme choices.
+  - title: Color Themes for DevExpress .NET MAUI Controls
+    url: https://docs.devexpress.com/MAUI/404636
+    note: Documents ThemeManager and Material Design 3 colour themes.
+  - title: DevExpress Collection View for .NET MAUI
+    url: https://docs.devexpress.com/MAUI/403324
+    note: Documents DXCollectionView for searchable settings lists.
+features:
+  - key: F22.01
+    title: Apply appearance, locale and unit preferences
+    wave: 2
+    summary: >-
+      Give users global control over measurement units, theme and formatting
+      while preserving canonical stored values.
+    outcome: >-
+      Visible units, dates and theme choices update consistently across settings
+      previews and feature surfaces.
+    concerns: [a11y, i18n]
+    stories:
+      - key: S22.01.01
+        title: Set metric or imperial units globally
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [i18n]
+        userStory:
+          asA: Alex configuring Forge
+          iWant: to choose the measurement system I use
+          soThat: all values are shown consistently
+        requirements:
+          - Metric and imperial apply to body metrics, exercise loads, distance and serving weights.
+          - Visible values update within 100 ms after the setting changes.
+          - Stored canonical values are not changed by display-unit switches.
+        acceptanceCriteria:
+          - id: AC1
+            given: a workout load is stored as 100 kg
+            when: the user switches to imperial
+            then: the visible load displays as 220.5 lb plus or minus 0.1 lb within 100 ms
+          - id: AC2
+            given: the setting is toggled five times
+            when: stored data is inspected
+            then: the canonical kilogram value remains exactly unchanged
+        implementation:
+          notes: >-
+            Create UnitPreference in Forge.Application/Preferences and expose it
+            through an IUnitFormatter used by all ViewModels. Settings uses
+            dx:ComboBoxEdit, and features must bind formatted values rather than
+            storing presentation strings.
+          touches:
+            - src/Forge.Application/Preferences
+            - src/Forge.App/Features/Settings
+          devexpress: [dx:ComboBoxEdit, dx:DXBorder]
+        testing:
+          - Unit tests cover kg/lb, cm/ft-in and km/mi conversion precision.
+      - key: S22.01.02
+        title: Choose light, dark, system and high-contrast themes
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: Tom improving readability
+          iWant: to pick a theme that suits my vision and device
+          soThat: Forge remains comfortable in different environments
+        requirements:
+          - Theme choices are System, Light, Dark and High contrast.
+          - Theme changes apply to DevExpress and standard MAUI controls without restart.
+          - "High contrast meets WCAG AA contrast: 4.5:1 for normal text and 3:1 for large text."
+        acceptanceCriteria:
+          - id: AC1
+            given: the user selects Dark
+            when: they return to Today
+            then: DevExpress and standard controls use dark colours without app restart
+          - id: AC2
+            given: the user selects High contrast
+            when: a contrast audit runs
+            then: normal text contrast is at least 4.5:1 and large text contrast is at least 3:1
+        implementation:
+          notes: >-
+            Drive appearance through ThemePreferenceService that sets DevExpress
+            ThemeManager and MAUI AppTheme resources together. Use semantic
+            resources only so dynamic changes and accessibility audits work.
+          touches:
+            - src/Forge.App/Features/Settings/Appearance
+            - src/Forge.App/Resources/Styles
+          devexpress: [dx:ComboBoxEdit, dx:DXBorder, ThemeManager]
+          apis: [Microsoft.Maui.Controls.AppThemeBinding]
+        testing:
+          - UI tests switch each theme and assert key semantic resources change.
+      - key: S22.01.03
+        title: Configure first day of week and locale formatting
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: returner
+        concerns: [i18n]
+        userStory:
+          asA: Sam planning training weeks
+          iWant: calendars and dates to match my region
+          soThat: weekly plans are easier to read
+        requirements:
+          - First day of week supports System default, Monday, Saturday and Sunday.
+          - Dates and numbers follow current culture unless first day is overridden.
+          - Calendar previews update within 100 ms after change.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user selects Monday
+            when: a weekly preview opens
+            then: the week starts on Monday regardless of device culture
+          - id: AC2
+            given: the user returns to System default
+            when: the preview renders
+            then: week start matches CultureInfo.CurrentCulture
+        implementation:
+          notes: >-
+            Store only the first-day override in preferences and use CultureInfo
+            for other formatting. Consumers request WeekFormatOptions from
+            Forge.Application rather than reading preferences directly.
+          touches:
+            - src/Forge.Application/Preferences
+            - src/Forge.App/Features/Settings/Appearance
+          devexpress: [dx:ComboBoxEdit, dx:DXBorder]
+          apis: [System.Globalization]
+        testing:
+          - Unit tests for culture default, Monday, Saturday and Sunday overrides.
+      - key: S22.01.04
+        title: Control sound and haptic feedback separately
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: Maya using Forge in public
+          iWant: to disable sounds without losing useful haptics
+          soThat: the app fits my environment
+        requirements:
+          - Sound and haptic preferences are separate toggles.
+          - Both settings default to platform conventions where available.
+          - The next eligible feedback event uses the changed value immediately.
+        acceptanceCriteria:
+          - id: AC1
+            given: sound is disabled and haptics are enabled
+            when: a timer completes
+            then: no app sound plays and one haptic event is requested
+          - id: AC2
+            given: haptics are disabled
+            when: the user logs a set
+            then: no haptic API call is made
+        implementation:
+          notes: >-
+            Create FeedbackPreferenceService with separate sound and haptic
+            policies. Keep all platform feedback calls behind an interface so
+            unit tests can assert no feedback fires when disabled.
+          touches:
+            - src/Forge.Application/Preferences
+            - src/Forge.App/Feedback
+            - src/Forge.App/Features/Settings
+          devexpress: [dx:ComboBoxEdit, dx:DXButton]
+          apis: [Microsoft.Maui.Devices.HapticFeedback]
+        testing:
+          - Unit tests for sound and haptic suppression independently.
+  - key: F22.02
+    title: Configure workout defaults from Settings
+    wave: 2
+    summary: >-
+      Centralise frequently reused workout defaults so training screens start
+      from the user's equipment and habits.
+    outcome: >-
+      Rest timers, barbell defaults and plate inventory apply consistently to
+      relevant training flows.
+    stories:
+      - key: S22.02.01
+        title: Set default rest timers by workout context
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [perf]
+        userStory:
+          asA: Alex logging sets quickly
+          iWant: timers to start with my preferred durations
+          soThat: I do not adjust the same value after every set
+        requirements:
+          - Defaults support warm-up, hypertrophy, strength and custom contexts.
+          - Timer values accept 15 to 600 seconds.
+          - Changing a default affects newly started timers only.
+        acceptanceCriteria:
+          - id: AC1
+            given: strength rest default changes from 180 to 240 seconds
+            when: the user logs a new strength set
+            then: the timer starts at 240 seconds
+          - id: AC2
+            given: a 180-second timer is already running
+            when: the default changes to 240 seconds
+            then: the running timer keeps its current remaining duration
+        implementation:
+          notes: >-
+            Define WorkoutDefaults in Forge.Application/Preferences and edit it
+            with dx:DataFormView and dx:NumericEdit. Workout execution snapshots
+            defaults when a timer starts to avoid surprising mid-set changes.
+          touches:
+            - src/Forge.Application/Preferences/WorkoutDefaults.cs
+            - src/Forge.App/Features/Settings/Workout
+          devexpress: [dx:DataFormView, dx:NumericEdit]
+        testing:
+          - Unit tests verify running timers are unaffected by preference changes.
+      - key: S22.02.02
+        title: Configure barbell weight and collars
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [i18n]
+        userStory:
+          asA: Alex training at different gyms
+          iWant: to set the bar weight Forge assumes
+          soThat: plate math matches the equipment in front of me
+        requirements:
+          - Barbell defaults support 20 kg, 15 kg, 45 lb, 35 lb and custom values.
+          - Custom bar values must be 1 to 50 kg equivalent.
+          - Collar weight can be 0 to 5 kg equivalent per pair.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user selects 45 lb bar and 5 lb collars
+            when: they preview a 225 lb load
+            then: the computed remaining load accounts for bar and collars
+          - id: AC2
+            given: the user enters a 0 kg custom bar
+            when: they save
+            then: validation blocks saving and names the 1 kg minimum
+        implementation:
+          notes: >-
+            Store defaults as canonical kilograms and format through F22.01.
+            Use dx:ComboBoxEdit for common bars and dx:NumericEdit for custom
+            values. Plate calculation remains in training services.
+          touches:
+            - src/Forge.Application/Preferences/WorkoutDefaults.cs
+            - src/Forge.App/Features/Settings/Workout
+          devexpress: [dx:ComboBoxEdit, dx:NumericEdit, dx:DXBorder]
+        testing:
+          - Unit tests for common bar presets and custom validation.
+      - key: S22.02.03
+        title: Manage available plate inventory
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [i18n]
+        userStory:
+          asA: Alex loading a bar
+          iWant: to tell Forge which plates I have
+          soThat: suggested loads are achievable in my gym
+        requirements:
+          - Inventory supports metric and imperial denominations with quantity per side.
+          - Quantity accepts 0 to 20 per denomination.
+          - Preview flags target loads that cannot be built from available plates.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user has no 1.25 kg plates
+            when: a target load requires them
+            then: the preview shows Unavailable and suggests the nearest lower buildable load
+          - id: AC2
+            given: the user sets quantity to 21
+            when: they save
+            then: validation blocks saving and names the maximum quantity of 20
+        implementation:
+          notes: >-
+            Represent PlateInventory in Forge.Domain/Training using canonical
+            denominations and counts. Settings renders rows with
+            dx:DXCollectionView and dx:NumericEdit quantities.
+          touches:
+            - src/Forge.Domain/Training/PlateInventory.cs
+            - src/Forge.App/Features/Settings/Workout
+          devexpress: [dx:DXCollectionView, dx:NumericEdit, dx:DXBorder]
+        testing:
+          - Unit tests for buildable and nearest-lower plate calculations.
+      - key: S22.02.04
+        title: Reset workout defaults safely
+        wave: 2
+        size: xs
+        platforms: [android, ios]
+        persona: returner
+        concerns: [a11y]
+        userStory:
+          asA: Sam fixing confusing settings
+          iWant: to restore sensible workout defaults
+          soThat: I can recover from over-customising
+        requirements:
+          - Reset affects rest timers, barbell, collars and plate inventory only.
+          - Confirmation lists exactly which categories will change.
+          - Non-workout settings remain unchanged after reset.
+        acceptanceCriteria:
+          - id: AC1
+            given: custom workout defaults exist
+            when: the user taps Reset and cancels
+            then: no preference value changes
+          - id: AC2
+            given: custom defaults exist
+            when: the user confirms Reset
+            then: workout defaults equal seeded values and theme settings are unchanged
+        implementation:
+          notes: >-
+            Implement reset as a scoped command on WorkoutDefaultsService, not a
+            preference-store clear. Use dx:BottomSheet so affected categories
+            are visible before the destructive action.
+          touches:
+            - src/Forge.Application/Preferences
+            - src/Forge.App/Features/Settings/Workout
+          devexpress: [dx:BottomSheet, dx:DXButton]
+        testing:
+          - Unit test category reset does not mutate unrelated settings.
+  - key: F22.03
+    title: Tune notifications without a global opt-out
+    wave: 2
+    summary: >-
+      Give users category-level control over reminders and quiet hours while
+      respecting platform permission state and the local notification provider.
+    outcome: >-
+      Users can opt in to useful reminders, silence categories and understand
+      why notifications may not appear.
+    concerns: [privacy, a11y]
+    stories:
+      - key: S22.03.01
+        title: Configure notification categories independently
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy]
+        userStory:
+          asA: Sam using reminders selectively
+          iWant: workout reminders without nutrition prompts
+          soThat: Forge reminds me only about what I chose
+        requirements:
+          - Categories include workout, nutrition, hydration, progress check-in and streak risk.
+          - Each category has enabled state, time window and maximum daily count.
+          - Disabling a category cancels pending local notifications for that category within 500 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: hydration notifications are disabled
+            when: the scheduler refreshes
+            then: zero pending hydration notifications remain within 500 ms
+          - id: AC2
+            given: workout reminders remain enabled
+            when: hydration is disabled
+            then: workout pending notifications are unchanged
+        implementation:
+          notes: >-
+            Create NotificationPreference records keyed by category and wire them
+            to the E18 local scheduler. Use dx:DXCollectionView for categories
+            and dx:BottomSheet for per-category editing.
+          touches:
+            - src/Forge.Application/Preferences/Notifications
+            - src/Forge.App/Features/Settings/Notifications
+          devexpress: [dx:DXCollectionView, dx:BottomSheet, dx:TimeEdit]
+          apis: [Plugin.LocalNotification]
+        dependsOn: [E18]
+        testing:
+          - Scheduler tests verify category cancellation leaves other categories intact.
+      - key: S22.03.02
+        title: Respect quiet hours and notification permission state
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: Tom avoiding late alerts
+          iWant: reminders suppressed during quiet hours
+          soThat: Forge does not disturb me at night
+        requirements:
+          - Quiet hours support start and end times in 15-minute increments.
+          - Notifications inside quiet hours move to next allowed time or are skipped by policy.
+          - If platform permission is denied, scheduling controls are disabled and Open settings is visible.
+        acceptanceCriteria:
+          - id: AC1
+            given: quiet hours are 22:00 to 07:00
+            when: a reminder would be scheduled for 22:30
+            then: the scheduler moves or skips it according to category policy
+          - id: AC2
+            given: notification permission is denied
+            when: settings opens
+            then: category toggles are disabled and Open settings is visible
+        implementation:
+          notes: >-
+            Keep quiet-hour evaluation in Forge.Application with an injected
+            clock. The app layer only reads permission state and opens settings,
+            matching the progressive permission approach from E05.
+          touches:
+            - src/Forge.Application/Notifications
+            - src/Forge.App/Features/Settings/Notifications
+          devexpress: [dx:TimeEdit, dx:DXBorder, dx:DXButton]
+          apis: [Plugin.LocalNotification, Microsoft.Maui.ApplicationModel.AppInfo]
+        dependsOn: [E05, E18]
+        testing:
+          - Unit tests for quiet-hour ranges that cross midnight.
+      - key: S22.03.03
+        title: Preview the next scheduled notifications
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy]
+        userStory:
+          asA: Maya configuring reminders
+          iWant: to see what Forge will send next
+          soThat: I can trust the settings before opting in
+        requirements:
+          - Preview lists the next 7 scheduled notifications across enabled categories.
+          - Each row shows category, local time and reason.
+          - Preview updates within 500 ms after any notification preference change.
+        acceptanceCriteria:
+          - id: AC1
+            given: three categories are enabled
+            when: the preview opens
+            then: up to 7 notifications are listed in chronological order
+          - id: AC2
+            given: the user disables workouts
+            when: the preview refreshes
+            then: workout reminder rows disappear within 500 ms
+        implementation:
+          notes: >-
+            Expose NotificationSchedulePreviewQuery in Forge.Application and
+            render it with dx:DXCollectionView. The query mirrors the scheduler
+            but must not schedule notifications itself.
+          touches:
+            - src/Forge.Application/Notifications
+            - src/Forge.App/Features/Settings/Notifications
+          devexpress: [dx:DXCollectionView, dx:DXBorder]
+        testing:
+          - Unit test preview sorting and maximum result count.
+  - key: F22.04
+    title: Manage local data and compliance links
+    wave: 2
+    summary: >-
+      Make local data state visible and provide routes to legal and deletion
+      experiences owned by E25 without duplicating those flows.
+    outcome: >-
+      Users can understand storage use and reach required privacy surfaces from
+      Settings quickly.
+    concerns: [privacy, store-blocker]
+    stories:
+      - key: S22.04.01
+        title: Show local storage usage by category
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [privacy, perf]
+        userStory:
+          asA: Priya storing photos and logs
+          iWant: to see what consumes device storage
+          soThat: I can manage local data before it becomes a problem
+        requirements:
+          - Categories include database, progress photos, cached catalogue assets and logs.
+          - Each category and total app-managed storage are rounded to 0.1 MB.
+          - Calculation completes within 1.0 s for 2 GB of progress photos without blocking the UI thread.
+        acceptanceCriteria:
+          - id: AC1
+            given: database, photo and log files exist
+            when: the storage screen opens
+            then: each category and total size are shown rounded to 0.1 MB
+          - id: AC2
+            given: 2 GB of local photos exist
+            when: size calculation runs
+            then: the UI remains responsive and a progress state is shown until completion
+        implementation:
+          notes: >-
+            Implement storage scanning in Forge.Infrastructure with async
+            directory enumeration and cancellation. Render categories with
+            dx:DXCollectionView and keep scanning off the UI thread.
+          touches:
+            - src/Forge.Infrastructure/Storage
+            - src/Forge.App/Features/Settings/Data
+          devexpress: [dx:DXCollectionView, dx:DXBorder]
+          apis: [System.IO.Enumeration]
+        testing:
+          - Performance test scans a seeded 2 GB directory tree without UI-thread blocking.
+      - key: S22.04.02
+        title: Clear non-essential caches without deleting user data
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: Alex freeing phone storage
+          iWant: to remove cached data safely
+          soThat: my workouts, profile and photos are preserved
+        requirements:
+          - Clear cache removes logs and regenerated catalogue cache only.
+          - Profile data, workouts, nutrition logs and progress photos are never removed.
+          - The storage screen refreshes within 1.0 s and reports freed bytes.
+        acceptanceCriteria:
+          - id: AC1
+            given: cache and user data both exist
+            when: the user confirms Clear cache
+            then: cache bytes decrease and user-owned row counts are unchanged
+          - id: AC2
+            given: no cache files exist
+            when: the user taps Clear cache
+            then: the action completes with 0 bytes freed and no error
+        implementation:
+          notes: >-
+            Define Essential and NonEssential data categories so deletion cannot
+            rely on fragile path strings in the ViewModel. Confirmation uses
+            dx:BottomSheet and reports exact categories before execution.
+          touches:
+            - src/Forge.Infrastructure/Storage
+            - src/Forge.App/Features/Settings/Data
+          devexpress: [dx:BottomSheet, dx:DXButton, dx:DXBorder]
+        testing:
+          - Integration test clear cache preserves seeded profile-owned rows.
+      - key: S22.04.03
+        title: Link to privacy policy, terms and delete-my-data
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy, store-blocker]
+        userStory:
+          asA: Maya checking trust signals
+          iWant: to find legal and deletion controls quickly
+          soThat: I know how to understand and remove my data
+        requirements:
+          - Settings contains entries for Privacy policy, Terms and Delete my data.
+          - Each entry routes to an E25-owned destination in no more than 2 taps.
+          - Missing development routes render disabled placeholders with target route names.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user opens Settings
+            when: they tap Privacy policy
+            then: navigation reaches the E25 privacy route in no more than 2 taps
+          - id: AC2
+            given: the delete route is unavailable in a development build
+            when: Settings renders
+            then: Delete my data is visible but disabled with the missing route named
+        implementation:
+          notes: >-
+            Consume LegalRoutes constants from E25 and own discoverability only.
+            Delete execution, privacy policy content and legal copy remain in the
+            E25 compliance epic.
+          touches:
+            - src/Forge.App/Features/Settings/LegalLinks
+            - src/Forge.App/Navigation
+          devexpress: [dx:DXCollectionView, dx:DXButton]
+        dependsOn: [E25]
+        testing:
+          - Route test verifies legal and deletion entries resolve or show placeholders.
+      - key: S22.04.04
+        title: Display local-only account status honestly
+        wave: 2
+        size: xs
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy]
+        userStory:
+          asA: Maya looking for account settings
+          iWant: to understand what account state exists
+          soThat: I do not assume my data is backed up online
+        requirements:
+          - The account section states Local profile only in wave 2.
+          - The section shows no password, email verification or cloud sync controls.
+          - A backup reminder links to E26 export and backup surfaces when available.
+        acceptanceCriteria:
+          - id: AC1
+            given: a wave 2 build is running
+            when: account settings opens
+            then: Local profile only is visible and there are no password fields
+          - id: AC2
+            given: the backup route is unavailable
+            when: Settings renders
+            then: the backup link is disabled with explanatory copy
+        implementation:
+          notes: >-
+            Implement AccountStatusSettingsCard bound to IdentityCapabilities.
+            The service returns local-only in v1 and optional E26 route
+            availability without making Settings responsible for backup.
+          touches:
+            - src/Forge.Application/Identity
+            - src/Forge.App/Features/Settings/Account
+          devexpress: [dx:DXBorder, dx:DXButton]
+        dependsOn: [E26]
+        testing:
+          - UI test verifies no password fields are present in wave 2 builds.
+  - key: F22.05
+    title: Make settings searchable and resilient
+    wave: 2
+    summary: >-
+      Provide search, defaults and import-safe preference storage so users can
+      find controls and the app can recover from corrupt or missing values.
+    outcome: >-
+      Settings remain discoverable and safe even when preference data is missing,
+      invalid or newly introduced by an app update.
+    concerns: [a11y, perf]
+    stories:
+      - key: S22.05.01
+        title: Search settings by label, synonym and concern
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y, perf]
+        userStory:
+          asA: Maya trying to find a setting
+          iWant: to search in plain language
+          soThat: I can change preferences without knowing the menu structure
+        requirements:
+          - Search indexes label, summary, category and at least two synonyms where applicable.
+          - Typing two or more characters filters 100 settings descriptors within 100 ms.
+          - Results show category path and navigate to the target setting in one tap.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user types lb
+            when: search runs
+            then: unit settings appear in results within 100 ms
+          - id: AC2
+            given: 100 descriptors are seeded
+            when: the user types privacy
+            then: results appear with category paths and no dropped frame over 16.6 ms
+        implementation:
+          notes: >-
+            Back Settings with a descriptor catalogue in Forge.Application rather
+            than hard-coded page searches. Render search with dx:TextEdit and
+            dx:DXCollectionView so future settings opt in through descriptors.
+          touches:
+            - src/Forge.Application/Settings
+            - src/Forge.App/Features/Settings/Search
+          devexpress: [dx:TextEdit, dx:DXCollectionView]
+        testing:
+          - Performance test filters 100 descriptors on each platform target.
+      - key: S22.05.02
+        title: Repair invalid preference values at startup
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [perf, privacy]
+        userStory:
+          asA: developer maintaining settings
+          iWant: corrupt preferences to recover automatically
+          soThat: users are not trapped by a bad local value
+        requirements:
+          - Every setting has a typed default, validator and migration version.
+          - Invalid values are replaced with defaults and logged without personal data.
+          - Startup validation adds no more than 100 ms for 100 settings.
+        acceptanceCriteria:
+          - id: AC1
+            given: a stored theme preference is invalid
+            when: the app launches
+            then: the theme falls back to System and a redacted repair log entry is written
+          - id: AC2
+            given: 100 valid settings exist
+            when: startup validation is timed
+            then: validation completes within 100 ms
+        implementation:
+          notes: >-
+            Create PreferenceDescriptor with parse, validate and default
+            functions. Run validation during startup after DI creation and before
+            the shell reads settings, using the redacted logger from E01.
+          touches:
+            - src/Forge.Application/Settings
+            - src/Forge.App/App.xaml.cs
+          apis: [Microsoft.Maui.Storage.Preferences]
+        dependsOn: [E01]
+        testing:
+          - Unit tests for invalid, missing and future-version preference values.
+      - key: S22.05.03
+        title: Restore individual settings groups to defaults
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: returner
+        concerns: [a11y]
+        userStory:
+          asA: Sam undoing customisation
+          iWant: to reset one group without wiping everything
+          soThat: I can recover safely from confusing changes
+        requirements:
+          - Each category exposes Restore defaults when at least one value differs from default.
+          - Confirmation lists the exact number of settings that will change.
+          - Restoring one category leaves every other category unchanged.
+        acceptanceCriteria:
+          - id: AC1
+            given: appearance and notification settings are customised
+            when: the user restores appearance defaults
+            then: only appearance preferences change
+          - id: AC2
+            given: a category already matches defaults
+            when: the category opens
+            then: Restore defaults is hidden or disabled
+        implementation:
+          notes: >-
+            Reuse the PreferenceDescriptor catalogue from search and startup
+            repair. Category reset operates on descriptor groups, not by clearing
+            all Preferences keys, so unrelated settings and profile data survive.
+          touches:
+            - src/Forge.Application/Settings
+            - src/Forge.App/Features/Settings
+          devexpress: [dx:BottomSheet, dx:DXButton, dx:DXCollectionView]
+          apis: [Microsoft.Maui.Storage.Preferences]
+        testing:
+          - Unit test category reset leaves unrelated settings untouched.

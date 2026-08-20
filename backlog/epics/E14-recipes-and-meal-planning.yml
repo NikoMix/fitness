@@ -1,0 +1,629 @@
+key: E14
+title: Recipes and Meal Planning
+domain: nutrition
+wave: 4
+summary: >-
+  Forge builds on food logging with recipes, a curated starter collection, weekly planning, shopping lists, leftovers, conservative dietary filtering and local file import and export.
+problem: >-
+  Users cook and plan meals rather than eating isolated foods. Without recipes, meal planning and shopping lists, nutrition tracking becomes repetitive and the no-backend model risks trapping valuable user-created content on one device.
+outcome: >-
+  Users can create or choose recipes, scale servings, log meals, plan a week, generate shopping lists and move recipe files deliberately without a server account.
+successMetrics:
+  - A 10 ingredient recipe can be created and logged in under 90 seconds during usability testing.
+  - A 7 day plan with 21 meals renders within 300 ms.
+  - A 50 ingredient shopping list aggregates within 200 ms.
+nonGoals:
+  - No Forge backend, cloud sync, social database or server-side lookup in v1.
+  - No medical diagnosis, treatment plan or guaranteed health outcome.
+  - No desktop implementation in waves 1 to 5.
+risks:
+  - risk: Recipe content could violate copyright.
+    mitigation: Ship only original or properly licensed starter recipes and block builds on missing licence metadata.
+    severity: high
+  - risk: Allergen filtering could imply certification.
+    mitigation: Use conservative conflict and needs review labels, never safe or guaranteed labels.
+    severity: critical
+  - risk: Unit aggregation could mislead shoppers.
+    mitigation: Combine compatible units only and keep incompatible quantities separate for review.
+    severity: medium
+dependsOn: [E13]
+grounding:
+  - title: Forge architecture overview
+    url: https://github.com/NikoMix/fitness/blob/main/docs/architecture/overview.md
+    note: Local-only architecture, SQLite, mobile platforms and 40 MB APK budget.
+  - title: DevExpress MAUI DXCollectionView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+    note: Virtualized lists for large local datasets.
+  - title: DevExpress MAUI AutoCompleteEdit
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.AutoCompleteEdit
+    note: Asynchronous local search suggestions.
+  - title: DevExpress MAUI NumericEdit
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.NumericEdit
+    note: Bounded numeric entry.
+  - title: DevExpress MAUI BottomSheet
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.BottomSheet
+    note: Fast focused entry sheets.
+  - title: Creative Commons Attribution 4.0 International
+    url: https://creativecommons.org/licenses/by/4.0/
+    note: A suitable licence model when attribution metadata is present.
+  - title: MAUI file system helpers
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/file-system-helpers
+    note: Local import and export file handling.
+
+features:
+  - key: F14.01
+    title: Create recipes and calculate nutrition
+    wave: 4
+    summary: >-
+      Model recipes with ingredients, steps, servings and nutrition snapshots that reuse E13 portion math.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S14.01.01
+        title: Model recipes with ingredients and steps
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: "Forge developer"
+          iWant: "model recipes with ingredients and steps"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Store name, servings, ingredients, steps, prep time and cook time.
+          - Link ingredients to foods or free-text rows.
+          - Calculate whole-recipe and per-serving nutrients.
+        acceptanceCriteria:
+          - id: AC1
+            given: 2 servings total 800 calories
+            when: nutrition is calculated
+            then: per-serving calories equal 400 within 0.5 calories
+          - id: AC2
+            given: a logged recipe is edited
+            when: old log opens
+            then: the original snapshot is unchanged
+        implementation:
+          notes: >-
+            Add Recipe, RecipeIngredient and RecipeStep aggregates in Domain and reuse E13 portion conversion. Persist log snapshots so recipe edits never rewrite history.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+        testing:
+          - Add unit and UI coverage for S14.01.01 acceptance criteria including offline and error paths.
+      - key: S14.01.02
+        title: Build a recipe editor with draft autosave
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "build a recipe editor with draft autosave"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Use dx:AutoCompleteEdit for ingredient search.
+          - Use dx:NumericEdit for quantities and servings.
+          - Autosave drafts every 10 seconds and before suspend.
+        acceptanceCriteria:
+          - id: AC1
+            given: three letters are typed
+            when: ingredient search runs
+            then: local suggestions appear within 200 ms
+          - id: AC2
+            given: the app is killed during editing
+            when: Recipes reopens
+            then: the draft is recoverable with data no older than 10 seconds
+        implementation:
+          notes: >-
+            Create RecipeEditorPage with DXCollectionView ingredient and step lists, accessible move commands and an Application draft service that survives page destruction.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:AutoCompleteEdit
+            - dx:NumericEdit
+            - dx:DXCollectionView
+        testing:
+          - Add unit and UI coverage for S14.01.02 acceptance criteria including offline and error paths.
+      - key: S14.01.03
+        title: Scale recipes and log servings
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        userStory:
+          asA: "Forge user"
+          iWant: "scale recipes and log servings"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Scale from 0.5 to 99 servings.
+          - Recalculate quantities within 100 ms.
+          - Log 0.1 to 20 servings to a chosen meal group.
+        acceptanceCriteria:
+          - id: AC1
+            given: 400 g rice in 4 servings
+            when: scaled to 6 servings
+            then: rice shows 600 g and per-serving nutrition is unchanged
+          - id: AC2
+            given: 1.5 servings of 300 calories are logged
+            when: save completes
+            then: a 450 calorie meal entry is created
+        implementation:
+          notes: >-
+            Treat scaling as a projection over an immutable recipe unless the user saves changes. Use a BottomSheet for log-as-meal and a transaction for recipe snapshots.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:NumericEdit
+            - dx:BottomSheet
+        testing:
+          - Add unit and UI coverage for S14.01.03 acceptance criteria including offline and error paths.
+  - key: F14.02
+    title: Ship curated and licensed starter recipes
+    wave: 4
+    summary: >-
+      Provide useful starter content while keeping licensing and health claims reviewable.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S14.02.01
+        title: Bundle an attributed starter collection
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [compliance]
+        userStory:
+          asA: "Forge user"
+          iWant: "bundle an attributed starter collection"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Bundle at least 40 recipes across high-protein, budget, quick, vegetarian and vegan tags.
+          - Each recipe includes author, source, licence and modification notes.
+          - Compressed starter recipe assets stay under 2 MB.
+        acceptanceCriteria:
+          - id: AC1
+            given: seed content builds
+            when: licence check runs
+            then: every recipe has non-empty licence and attribution
+          - id: AC2
+            given: fresh install is offline
+            when: Recipes opens
+            then: starter recipes render and search within 300 ms
+        implementation:
+          notes: >-
+            Store original or properly licensed recipes as versioned compressed JSON. Exclude photos in v1 to avoid size and licensing complexity.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - MAUI file system helpers
+        testing:
+          - Add unit and UI coverage for S14.02.01 acceptance criteria including offline and error paths.
+      - key: S14.02.02
+        title: Filter recipes by goal and preference tags
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: "Forge user"
+          iWant: "filter recipes by goal and preference tags"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Support high-protein, budget, quick, vegetarian, vegan and meal prep filters.
+          - Tags are curated metadata, not title matching.
+          - Filter 1000 recipes within 150 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: vegetarian and quick are selected
+            when: results load
+            then: every recipe has both tags and the count is shown
+          - id: AC2
+            given: filters match zero recipes
+            when: list renders
+            then: Clear filters is visible
+        implementation:
+          notes: >-
+            Expose GetRecipesQuery over indexed recipe tag rows and bind filter chips plus DXCollectionView results. Keep tag logic out of localized titles.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Add unit and UI coverage for S14.02.02 acceptance criteria including offline and error paths.
+      - key: S14.02.03
+        title: Lint recipe copy for unsafe claims
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [safety, compliance]
+        userStory:
+          asA: "Forge developer"
+          iWant: "lint recipe copy for unsafe claims"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Forbid promises of weight loss, detox, disease treatment and body composition guarantees.
+          - Show estimated nutrition caveat on every recipe detail.
+          - Run content lint in CI.
+        acceptanceCriteria:
+          - id: AC1
+            given: a description contains detox
+            when: content lint runs
+            then: the build fails with the recipe key
+          - id: AC2
+            given: recipe detail opens
+            when: nutrition is visible
+            then: the estimate caveat appears near the numbers
+        implementation:
+          notes: >-
+            Add deterministic content lint over seed JSON and localized recipe strings. Use neutral labels such as supports protein target rather than fat-burning claims.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Add unit and UI coverage for S14.02.03 acceptance criteria including offline and error paths.
+  - key: F14.03
+    title: Plan meals and generate shopping lists
+    wave: 4
+    summary: >-
+      Turn recipes into weekly plans, aggregated shopping lists and batch-cooking leftovers.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S14.03.01
+        title: Assign meals to a weekly planner
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "assign meals to a weekly planner"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Support 7 days with breakfast, lunch, dinner and snack slots.
+          - Allow recipes, saved meals and free-text meals.
+          - Render 28 slots within 300 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: 21 meals are planned
+            when: planner opens
+            then: all slots render within 300 ms
+          - id: AC2
+            given: a filled slot receives another recipe
+            when: drop occurs
+            then: Forge asks whether to replace or keep both
+        implementation:
+          notes: >-
+            Model MealPlan in Domain and render with a DXCollectionView grouped by day and slot. Mutations go through Application commands.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+            - dx:BottomSheet
+        testing:
+          - Add unit and UI coverage for S14.03.01 acceptance criteria including offline and error paths.
+      - key: S14.03.02
+        title: Aggregate a shopping list from planned recipes
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "aggregate a shopping list from planned recipes"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Aggregate across selected days and planned servings.
+          - Combine compatible units only.
+          - Generate 50 ingredient rows within 200 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: 100 g rice and 250 g rice are planned
+            when: list generates
+            then: one rice row shows 350 g
+          - id: AC2
+            given: 2 cups spinach and 100 g spinach lack density
+            when: list generates
+            then: two needs review rows are shown
+        implementation:
+          notes: >-
+            Put aggregation in Domain so E13 unit compatibility is reused. Preserve source recipe references on rows and use DXCollectionView grouped categories with NumericEdit quantity edits.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+            - dx:NumericEdit
+        testing:
+          - Add unit and UI coverage for S14.03.02 acceptance criteria including offline and error paths.
+      - key: S14.03.03
+        title: Track leftovers and batch cooking
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        userStory:
+          asA: "Forge user"
+          iWant: "track leftovers and batch cooking"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Mark planned recipes as batch cooked with total servings.
+          - Assign leftover servings to future slots.
+          - Count ingredients once for the cook event, not each leftover.
+        acceptanceCriteria:
+          - id: AC1
+            given: 6 servings are cooked and 2 planned as leftovers
+            when: planner opens
+            then: 4 servings remain available
+          - id: AC2
+            given: 1 serving remains
+            when: 2 are planned
+            then: save is blocked with exact remaining count
+        implementation:
+          notes: >-
+            Represent BatchCookEvent separately from MealPlanItem. Leftover slots reference serving inventory and shopping list aggregation includes only the original cook event.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+            - dx:NumericEdit
+        testing:
+          - Add unit and UI coverage for S14.03.03 acceptance criteria including offline and error paths.
+  - key: F14.04
+    title: Handle dietary preferences and allergens conservatively
+    wave: 4
+    summary: >-
+      Record preferences, flag evidence and support substitutions without implying certified safety.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S14.04.01
+        title: Capture preferences and allergen exclusions
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [safety]
+        userStory:
+          asA: "Forge user"
+          iWant: "capture preferences and allergen exclusions"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Support vegetarian, vegan, dairy-free, gluten-free and avoid tags.
+          - Support major allergens milk, eggs, fish, shellfish, tree nuts, peanuts, wheat, soy and sesame.
+          - Explain Forge cannot guarantee allergen-free meals.
+        acceptanceCriteria:
+          - id: AC1
+            given: peanut allergy is saved
+            when: recipe filters run
+            then: peanut-tagged recipes are marked conflict
+          - id: AC2
+            given: allergen settings are visible
+            when: copy is read
+            then: a label verification caveat is present
+        implementation:
+          notes: >-
+            Use explicit allergen taxonomy values stored locally. Do not infer safety from free text, and make deletion of preferences one action.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Add unit and UI coverage for S14.04.01 acceptance criteria including offline and error paths.
+      - key: S14.04.02
+        title: Flag allergen conflicts with evidence
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [safety]
+        userStory:
+          asA: "Forge user"
+          iWant: "flag allergen conflicts with evidence"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Show conflict badges on recipe rows.
+          - List ingredient-level evidence before steps.
+          - Treat unknown allergen metadata as needs review.
+        acceptanceCriteria:
+          - id: AC1
+            given: wheat is excluded and flour is tagged wheat
+            when: recipe detail opens
+            then: flour and wheat appear in the conflict section
+          - id: AC2
+            given: metadata is unknown
+            when: strict filtering runs
+            then: the recipe is needs review and not labelled safe
+        implementation:
+          notes: >-
+            Application returns Conflict, NeedsReview or NoKnownConflict with evidence rows. The UI must never display certified safe wording.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+            - dx:BottomSheet
+        testing:
+          - Add unit and UI coverage for S14.04.02 acceptance criteria including offline and error paths.
+      - key: S14.04.03
+        title: Support conservative substitutions
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: enthusiast
+        userStory:
+          asA: "Forge user"
+          iWant: "support conservative substitutions"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Replace an ingredient with a local food or custom row.
+          - Recalculate nutrition and shopping list within 100 ms.
+          - Require review if allergen status becomes unknown.
+        acceptanceCriteria:
+          - id: AC1
+            given: milk is replaced with oat drink
+            when: save completes
+            then: nutrition and shopping list use oat drink while original remains visible
+          - id: AC2
+            given: substitute metadata is unknown
+            when: save is tapped
+            then: needs review confirmation is required
+        implementation:
+          notes: >-
+            Store substitutions as user overlays so curated recipes and licence attribution remain intact. Reuse ingredient search and allergen evaluation.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:AutoCompleteEdit
+            - dx:BottomSheet
+        testing:
+          - Add unit and UI coverage for S14.04.03 acceptance criteria including offline and error paths.
+  - key: F14.05
+    title: Import and export recipe files locally
+    wave: 4
+    summary: >-
+      Give users portable files for recipes and plans that preserve privacy and validate before import.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S14.05.01
+        title: Export recipes and meal plans to a file
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "export recipes and meal plans to a file"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Export selected recipes and plans as versioned .forge-recipes JSON.
+          - Include licence metadata and substitutions.
+          - Exclude food log history by default.
+        acceptanceCriteria:
+          - id: AC1
+            given: 5 recipes and 1 plan are selected
+            when: export completes
+            then: the file contains exactly those items and schemaVersion
+          - id: AC2
+            given: the file is inspected
+            when: history is searched
+            then: no unrelated food log entries are present
+        implementation:
+          notes: >-
+            Serialize Application DTOs, not EF entities. Use MAUI FileSystem and Share only after explicit user action.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+            - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.FileSystem
+            - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+        testing:
+          - Add unit and UI coverage for S14.05.01 acceptance criteria including offline and error paths.
+      - key: S14.05.02
+        title: Import recipe files with conflict resolution
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "import recipe files with conflict resolution"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Validate extension, schema version and required fields before preview.
+          - Detect name and id conflicts.
+          - Import in one transaction with keep both as default.
+        acceptanceCriteria:
+          - id: AC1
+            given: schemaVersion is missing
+            when: validation runs
+            then: no data is written and the missing field is named
+          - id: AC2
+            given: a recipe name already exists
+            when: preview opens
+            then: keep both, replace and skip options are shown
+        implementation:
+          notes: >-
+            Separate validation from mutation so previews are safe for untrusted files. Use grouped DXCollectionView rows for conflicts and one EF transaction for import.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+            - dx:BottomSheet
+          apis:
+            - Microsoft.Maui.Storage.FilePicker
+        testing:
+          - Add unit and UI coverage for S14.05.02 acceptance criteria including offline and error paths.
+      - key: S14.05.03
+        title: Preview privacy before sharing recipe files
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy]
+        userStory:
+          asA: "Forge user"
+          iWant: "preview privacy before sharing recipe files"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Show included recipes, meal plans and private note count before share.
+          - Exclude private notes and plan dates by default.
+          - Require confirmation before including meal plan dates.
+        acceptanceCriteria:
+          - id: AC1
+            given: 3 private notes exist
+            when: preview opens
+            then: the preview says 3 notes are excluded by default
+          - id: AC2
+            given: plan dates are enabled
+            when: Share is tapped
+            then: a confirmation explains dates can reveal routines
+        implementation:
+          notes: >-
+            Build the preview from the same DTO that will be serialized so user approval matches actual contents. Use a final BottomSheet before platform share.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+            - dx:DXCollectionView
+        testing:
+          - Add unit and UI coverage for S14.05.03 acceptance criteria including offline and error paths.

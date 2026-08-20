@@ -1,0 +1,835 @@
+key: E16
+title: Progress Analytics, Charts and Personal Records
+domain: insights
+wave: 4
+summary: >-
+  Progress analytics turns locally stored training, body, nutrition and photo history into
+  trustworthy evidence that Forge is working. It prioritises clear charts, honest uncertainty,
+  low-data guidance and exportable moments over vanity dashboards, so a new user sees what to
+  do next and an experienced lifter can replace their spreadsheet.
+problem: >-
+  Users often train for weeks without knowing whether they are stronger, more consistent or
+  simply collecting noisy measurements. Raw bodyweight lines, unexplained one-rep max estimates
+  and missing empty states can create anxiety or false confidence, which undermines retention
+  and trust.
+outcome: >-
+  The Progress tab shows fast, explainable, on-device analytics for strength, personal records,
+  volume balance, consistency, body metrics, photos and nutrition trends, with every chart usable
+  across empty, sparse and dense data sets and exportable as an image.
+successMetrics:
+  - 80 percent of users with at least four logged workouts open a progress chart at least once per week.
+  - 95 percent of charts render 500 points within 300 ms and pan at 60 fps on a Pixel 6a class Android device.
+  - Fewer than 2 percent of analytics support tickets mention confusing or missing low-data states during beta.
+nonGoals:
+  - No cloud analytics, cohort benchmarking, leaderboards or social comparison in v1.
+  - No medical diagnosis, body composition prediction or injury-risk scoring.
+  - No opaque machine-learning model; every calculation is deterministic and runs on-device.
+risks:
+  - risk: Users treat estimated one-rep max and load ratios as precise physiological truth.
+    mitigation: Show the formula, input set, confidence caveat and minimum-data warning beside every estimate.
+    severity: high
+  - risk: Bodyweight charts increase anxiety by emphasising daily noise.
+    mitigation: Default to a 7-day moving average with the raw series hidden behind an explicit toggle and explanatory copy.
+    severity: high
+  - risk: Large local histories make the Progress tab feel slow.
+    mitigation: Pre-aggregate weekly analytics in SQLite and page raw chart points by selected date range.
+    severity: medium
+dependsOn: [E09, E10, E11, E12, E13]
+grounding:
+  - title: DevExpress MAUI ChartView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+    note: Primary line, area and bar chart surface for progress trends.
+  - title: DevExpress MAUI PieChartView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.PieChartView
+    note: Donut and pie visualisation for muscle-group distribution where appropriate.
+  - title: ExRx one-rep max calculator
+    url: https://exrx.net/Calculators/OneRepMax
+    note: Public reference for Epley and Brzycki style one-rep max equations and their limitations.
+  - title: British Journal of Sports Medicine acute chronic workload ratio
+    url: https://bjsm.bmj.com/content/50/5/273
+    note: Grounding for ACWR-style training-load discussion, with caveats captured in stories.
+  - title: .NET MAUI MediaPicker
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/device-media/picker
+    note: Official photo capture and selection API for progress photos.
+
+features:
+  - key: F16.01
+    title: Show strength progression and estimated max trends
+    wave: 4
+    summary: >-
+      Chart exercise performance over time using logged sets, estimated one-rep max, volume and
+      rep performance so users can see progress without leaving the device or trusting a black box.
+    outcome: >-
+      A user can select an exercise, date range and formula and understand exactly how each strength
+      point was calculated.
+    concerns: [perf, devexpress]
+    grounding:
+      - title: DevExpress MAUI ChartView
+        url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+        note: Used for line, area and bar series in the strength detail screen.
+    stories:
+      - key: S16.01.01
+        title: Plot exercise strength history with selectable date ranges
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [perf, devexpress]
+        userStory:
+          asA: Alex, comparing squat progress
+          iWant: to plot my working weights, volume and best set over any date range
+          soThat: I can see whether my programme is actually making me stronger
+        requirements:
+          - >-
+            Exercise detail shows line series for best weight, best estimated max and total volume,
+            with range presets for 4 weeks, 12 weeks, 6 months, 1 year and custom dates.
+          - >-
+            Custom start and end dates are chosen with dx:DateEdit and cannot create an end date
+            before the start date.
+          - >-
+            A no-data state appears when the exercise has fewer than two logged sessions and gives
+            one concrete next action.
+        acceptanceCriteria:
+          - id: AC1
+            given: an exercise with 500 historical set groups
+            when: the 1 year range is opened
+            then: the chart renders within 300 ms and horizontal panning sustains 60 fps with no frame above 16.6 ms
+          - id: AC2
+            given: an exercise with one logged workout
+            when: the strength chart opens
+            then: no line chart is shown and the empty state text states that at least 2 sessions are required
+          - id: AC3
+            given: the user selects a custom date range where the end date is earlier than the start date
+            when: the date editor loses focus
+            then: validation appears within 100 ms and the Apply button remains disabled
+        implementation:
+          notes: >-
+            Build the analytics query in Forge.Application/Insights/StrengthTrendService so the
+            ViewModel receives plain DTOs and never exposes DevExpress types. Use SQLite grouping by
+            exercise id and workout date, then bind the DTOs to dx:ChartView in
+            src/Forge.App/Features/Insights/Strength/StrengthTrendPage.xaml. Use dx:DateEdit for
+            range boundaries and keep the chart item count bounded by the selected range.
+          touches:
+            - src/Forge.Application/Insights/StrengthTrendService.cs
+            - src/Forge.App/Features/Insights/Strength/StrengthTrendPage.xaml
+            - src/Forge.App/Features/Insights/Strength/StrengthTrendViewModel.cs
+          devexpress:
+            - dx:ChartView
+            - dx:DateEdit
+          apis:
+            - Microsoft.EntityFrameworkCore
+        testing:
+          - Unit test range filtering at exact start and end date boundaries.
+          - UI performance test loading a 500 point chart on Android and iOS.
+
+      - key: S16.01.02
+        title: Explain estimated one-rep max with named formulas
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [devexpress]
+        userStory:
+          asA: Sam, returning after a long break
+          iWant: the app to explain my estimated max rather than just show a number
+          soThat: I know when the estimate is useful and when it is noise
+        requirements:
+          - >-
+            The default formula is Epley, shown as e1RM = weight x (1 + reps / 30), with Brzycki
+            available as e1RM = weight x 36 / (37 - reps).
+          - >-
+            Estimates are not calculated for sets above 12 reps unless the user explicitly enables
+            high-rep estimates for that exercise.
+          - >-
+            The UI states that prediction error increases with high reps, unfamiliar movements and
+            sets not taken near failure.
+        acceptanceCriteria:
+          - id: AC1
+            given: a set of 80 kg for 8 reps
+            when: Epley is selected
+            then: the displayed estimate rounds to 101.3 kg and the formula text is visible on the same screen
+          - id: AC2
+            given: a set of 50 kg for 15 reps and high-rep estimates disabled
+            when: the estimated max series is calculated
+            then: that set is excluded and a caveat names the 12 rep cutoff
+          - id: AC3
+            given: the user switches from Epley to Brzycki
+            when: the chart refreshes
+            then: all visible estimate points recalculate within 200 ms without changing the selected date range
+        implementation:
+          notes: >-
+            Place formula implementations in Forge.Domain/Analytics/OneRepMaxFormula.cs as pure
+            functions with unit tests for known examples. Store the selected formula as a local
+            user preference, not in the workout log, because historical values should re-render when
+            the user changes the formula. The ChartView tooltip must include source weight, reps,
+            formula name and caveat text so exported screenshots remain understandable.
+          touches:
+            - src/Forge.Domain/Analytics/OneRepMaxFormula.cs
+            - src/Forge.Application/Insights/EstimatedMaxService.cs
+            - src/Forge.App/Features/Insights/Strength/EstimatedMaxExplainerView.xaml
+          devexpress:
+            - dx:ChartView
+            - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.Storage.Preferences
+        testing:
+          - Unit tests for Epley and Brzycki calculations including rounding and rep cutoffs.
+          - Snapshot test confirming tooltip text includes weight, reps and formula name.
+        grounding:
+          - title: ExRx one-rep max calculator
+            url: https://exrx.net/Calculators/OneRepMax
+            note: Reference for the named formulas and their intended use.
+
+      - key: S16.01.03
+        title: Compare current progress against previous periods
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [perf, devexpress]
+        userStory:
+          asA: Alex, reviewing a block
+          iWant: to compare this training block with the previous one
+          soThat: I can judge whether a change in programming helped
+        requirements:
+          - >-
+            Any selected date range can be compared with the immediately preceding range of equal
+            length.
+          - >-
+            Comparison cards show absolute change and percentage change for best estimated max,
+            weekly volume and session count.
+          - >-
+            Percentage change is hidden when the baseline is zero and replaced with an explicit
+            "no prior data" message.
+        acceptanceCriteria:
+          - id: AC1
+            given: a 28 day selected range with a preceding 28 day range
+            when: comparison is enabled
+            then: the chart overlays both periods and the legend labels each period by date
+          - id: AC2
+            given: no workouts in the previous comparison range
+            when: the comparison card renders
+            then: no percentage value is shown and the card states that prior data is unavailable
+        implementation:
+          notes: >-
+            Keep comparison calculations in Forge.Application so the feature can be unit-tested
+            without a device. Expose two aligned series from PeriodComparisonService and bind them
+            to separate ChartView line series with distinct stroke patterns, not colour alone. This
+            avoids an accessibility failure and makes image exports readable in greyscale.
+          touches:
+            - src/Forge.Application/Insights/PeriodComparisonService.cs
+            - src/Forge.App/Features/Insights/Shared/ComparisonRangeSelector.xaml
+          devexpress:
+            - dx:ChartView
+            - dx:DateEdit
+        testing:
+          - Unit tests for equal-length period boundaries around daylight-saving changes.
+          - UI test confirming zero baselines do not render infinity or NaN.
+
+  - key: F16.02
+    title: Detect personal records and surface notable insights
+    wave: 4
+    summary: >-
+      Recognise meaningful bests across multiple performance types and collect them into an
+      insights feed that celebrates progress while avoiding false positives from bad data.
+    outcome: >-
+      Users can browse, filter, share and understand a complete local history of personal records.
+    concerns: [devexpress, perf]
+    stories:
+      - key: S16.02.01
+        title: Detect personal records across multiple PR types
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [perf]
+        userStory:
+          asA: Alex, logging a workout
+          iWant: Forge to recognise different kinds of PRs automatically
+          soThat: my strongest moments are captured without manual bookkeeping
+        requirements:
+          - >-
+            The detector supports estimated 1RM, heaviest weight, total exercise volume, reps at
+            weight and timed duration records.
+          - >-
+            PR detection runs locally after a workout is saved and completes within 500 ms for a
+            workout with 40 sets.
+          - >-
+            Deleted or corrected sets remove affected PR badges on the next recalculation.
+        acceptanceCriteria:
+          - id: AC1
+            given: a user completes 100 kg for 5 reps after previously completing 100 kg for 4 reps
+            when: the workout is saved
+            then: a reps-at-weight PR is created for 100 kg within 500 ms
+          - id: AC2
+            given: the set that created a PR is edited to a lower value
+            when: PR recalculation completes
+            then: the PR is removed or replaced by the next valid historical record
+          - id: AC3
+            given: an exercise has no previous history
+            when: the first valid performance is logged
+            then: the UI labels it as a first record rather than a broken comparison
+        implementation:
+          notes: >-
+            Implement PersonalRecordService in Forge.Application/Insights and persist derived PR
+            events in Forge.Infrastructure so the feed does not scan the entire set table on every
+            launch. Treat PRs as rebuildable projections from immutable workout data. The tricky
+            part is invalidation when sets are edited or deleted, so expose a RebuildExerciseAsync
+            path and use it from workout correction flows.
+          touches:
+            - src/Forge.Application/Insights/PersonalRecordService.cs
+            - src/Forge.Infrastructure/Persistence/PersonalRecordProjection.cs
+          apis:
+            - Microsoft.EntityFrameworkCore
+        testing:
+          - Unit tests for each PR type and for edit-driven invalidation.
+          - Integration test rebuilding PR projections from a seeded workout history.
+
+      - key: S16.02.02
+        title: Show personal record history and drill-down details
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [devexpress]
+        userStory:
+          asA: Alex, looking back through records
+          iWant: to filter and inspect every PR by exercise and type
+          soThat: I can understand the history behind a badge
+        requirements:
+          - >-
+            PR history filters by exercise, PR type and date range, with default ordering by newest
+            first.
+          - >-
+            Each PR detail shows source workout, source set, previous best, absolute improvement
+            and percentage improvement where a non-zero baseline exists.
+          - >-
+            A list with 1,000 PR events scrolls at 60 fps with no frame above 16.6 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: 1,000 PR events in the local database
+            when: the PR history screen is scrolled from top to bottom
+            then: dx:DXCollectionView virtualisation keeps memory growth below 20 MB and maintains 60 fps
+          - id: AC2
+            given: a PR with a previous best of 0
+            when: the detail view opens
+            then: percentage improvement is omitted and absolute improvement remains visible
+        implementation:
+          notes: >-
+            Build the history screen with dx:DXCollectionView and incremental paging from
+            PersonalRecordRepository. Do not materialise every record into the ViewModel at once.
+            The detail route should carry only the PR id, then load the full source workout from
+            SQLite so process restoration and deep links can rehydrate reliably.
+          touches:
+            - src/Forge.App/Features/Insights/Records/PersonalRecordHistoryPage.xaml
+            - src/Forge.App/Features/Insights/Records/PersonalRecordDetailViewModel.cs
+          devexpress:
+            - dx:DXCollectionView
+            - dx:DateEdit
+        testing:
+          - UI test scrolling 1,000 records on Android and iOS.
+          - Unit test for zero baseline formatting.
+
+      - key: S16.02.03
+        title: Build an insights feed for notable progress changes
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [devexpress, privacy]
+        userStory:
+          asA: Maya, not sure what the numbers mean
+          iWant: a short feed of notable changes
+          soThat: I can feel progress without learning every chart
+        requirements:
+          - >-
+            The feed surfaces PRs, consistency streaks, volume changes above 15 percent and body
+            metric trend changes only when minimum data thresholds are met.
+          - >-
+            Each insight includes the source metric, comparison period and a dismiss action that
+            persists locally.
+          - >-
+            Empty feed state shows three examples of insights the user can unlock and never shows
+            a spinner after loading completes.
+        acceptanceCriteria:
+          - id: AC1
+            given: weekly chest volume increases from 5,000 kg to 5,900 kg
+            when: insights are generated
+            then: a volume increase insight appears because the change is at least 15 percent
+          - id: AC2
+            given: the user has fewer than 3 completed workouts
+            when: the insights feed opens
+            then: no trend insight is generated and the empty state lists the 3 workout requirement
+          - id: AC3
+            given: the user dismisses an insight
+            when: the app restarts
+            then: the dismissed insight remains hidden until its source metric changes again
+        implementation:
+          notes: >-
+            Implement InsightGenerator as a deterministic rules engine in Forge.Application with a
+            versioned rule id per insight type. Store dismissed rule id plus source fingerprint in
+            SQLite. This avoids cloud processing and lets tests assert exactly why an insight
+            appears. Render the feed with dx:DXCollectionView cards and use no network dependency.
+          touches:
+            - src/Forge.Application/Insights/InsightGenerator.cs
+            - src/Forge.App/Features/Insights/Feed/InsightsFeedPage.xaml
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for every insight threshold and dismissal fingerprint.
+          - UI test confirming empty feed copy appears after loading completes.
+
+  - key: F16.03
+    title: Analyse volume, consistency and training load
+    wave: 4
+    summary: >-
+      Aggregate training history into weekly muscle-group balance, adherence and load trends that
+      are useful without pretending to predict injury or recovery perfectly.
+    outcome: >-
+      Users can see whether they are training consistently, distributing work sensibly and changing
+      load too aggressively.
+    concerns: [devexpress, perf]
+    stories:
+      - key: S16.03.01
+        title: Visualise weekly training volume by muscle group
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [devexpress, perf]
+        userStory:
+          asA: Alex, balancing a programme
+          iWant: weekly volume by muscle group
+          soThat: I can spot neglected or overloaded areas before the next block
+        requirements:
+          - >-
+            Weekly volume is calculated as sets x reps x load where load exists, and as hard-set
+            count for bodyweight or unweighted work.
+          - >-
+            The balance view displays at least chest, back, shoulders, quads, hamstrings, glutes,
+            calves, biceps, triceps and core.
+          - >-
+            DevExpress PieChartView is used for proportional distribution and ChartView bar series
+            is used for week-to-week comparison.
+        acceptanceCriteria:
+          - id: AC1
+            given: a week with 10 chest sets and 5 back sets
+            when: muscle balance is calculated
+            then: the distribution reports chest as 66.7 percent and back as 33.3 percent of counted sets
+          - id: AC2
+            given: an exercise mapped to two primary muscles
+            when: weekly volume is aggregated
+            then: volume is split according to stored exercise mapping weights and totals reconcile within 0.1 percent
+        implementation:
+          notes: >-
+            Use exercise catalogue muscle mappings from the training domain and aggregate in
+            Forge.Application/Insights/MuscleVolumeService. A radar chart would be tempting for
+            balance, but DevExpress has no radar or spider chart in MAUI, so v1 uses dx:PieChartView
+            and dx:ChartView. If a future design requires a radar chart, the sanctioned fallback is
+            SkiaSharp with a separate accessibility table.
+          touches:
+            - src/Forge.Application/Insights/MuscleVolumeService.cs
+            - src/Forge.App/Features/Insights/Volume/MuscleBalancePage.xaml
+          devexpress:
+            - dx:PieChartView
+            - dx:ChartView
+        testing:
+          - Unit tests for split muscle mappings and bodyweight set fallback.
+          - Accessibility test confirming the chart data is also available as text rows.
+
+      - key: S16.03.02
+        title: Track consistency and programme adherence
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [devexpress]
+        userStory:
+          asA: Maya, trying to build a habit
+          iWant: to see whether I kept to my planned training week
+          soThat: I can celebrate showing up even before strength changes are visible
+        requirements:
+          - >-
+            Consistency calculates completed training days per calendar week and adherence
+            calculates completed planned sessions divided by planned sessions.
+          - >-
+            Weeks with zero planned sessions are labelled as unplanned rather than 0 percent
+            adherence.
+          - >-
+            The screen shows a 12 week rolling chart and a short plain-language summary.
+        acceptanceCriteria:
+          - id: AC1
+            given: 3 planned sessions and 2 completed sessions in a week
+            when: adherence is calculated
+            then: the value is exactly 66.7 percent and the raw counts are shown beside it
+          - id: AC2
+            given: a week with no planned sessions and 2 ad hoc workouts
+            when: the consistency chart renders
+            then: adherence is labelled unplanned and consistency counts 2 training days
+        implementation:
+          notes: >-
+            Implement AdherenceService in Forge.Application using plan data from E09 and workout
+            completion data from E10. Render rolling bars with dx:ChartView and summary cards in a
+            dx:DXCollectionView. Keep the distinction between consistency and adherence in the DTO
+            names so the UI cannot accidentally show punitive 0 percent adherence for unplanned
+            weeks.
+          touches:
+            - src/Forge.Application/Insights/AdherenceService.cs
+            - src/Forge.App/Features/Insights/Consistency/ConsistencyPage.xaml
+          devexpress:
+            - dx:ChartView
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for planned, partially completed and unplanned weeks.
+
+      - key: S16.03.03
+        title: Show training load with honest limitations
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [devexpress]
+        userStory:
+          asA: Tom, managing fatigue
+          iWant: a simple training-load trend with clear caveats
+          soThat: I can notice sudden jumps without treating the app as a medical device
+        requirements:
+          - >-
+            The load screen shows weekly tonnage and an optional acute to chronic workload ratio
+            using 7 day acute load divided by 28 day chronic load.
+          - >-
+            ACWR is hidden until at least 28 days of training data exist.
+          - >-
+            The UI states that load ratios are crude decision-support signals and do not predict
+            injury for an individual.
+        acceptanceCriteria:
+          - id: AC1
+            given: 7 day load of 10,000 kg and 28 day average weekly load of 8,000 kg
+            when: ACWR is calculated
+            then: the displayed ratio is 1.25 and the formula text is visible
+          - id: AC2
+            given: only 21 days of workout history
+            when: the load screen opens
+            then: ACWR is not shown and the empty state states that 28 days are required
+        implementation:
+          notes: >-
+            Keep TrainingLoadService deterministic and formula-based. Tonnage is useful for loaded
+            resistance work but incomplete for bodyweight, mobility and conditioning, so the DTO
+            must carry coverage metadata such as percent of sets with load. Render the caveat
+            directly beside dx:ChartView rather than hiding it in a help page.
+          touches:
+            - src/Forge.Application/Insights/TrainingLoadService.cs
+            - src/Forge.App/Features/Insights/Load/TrainingLoadPage.xaml
+          devexpress:
+            - dx:ChartView
+            - dx:RadialGauge
+        testing:
+          - Unit tests for the 28 day threshold, zero chronic load and coverage metadata.
+        grounding:
+          - title: British Journal of Sports Medicine acute chronic workload ratio
+            url: https://bjsm.bmj.com/content/50/5/273
+            note: Introduces ACWR as a workload concept.
+        openQuestions:
+          - Evidence for ACWR as an individual injury predictor is contested, so copy must remain cautious and avoid risk labels such as safe or unsafe.
+
+  - key: F16.04
+    title: Present body metrics, photos and nutrition adherence trends
+    wave: 4
+    summary: >-
+      Combine body measurements, progress photos and nutrition adherence into calmer long-term
+      views that reduce noise, protect privacy and make small changes visible.
+    outcome: >-
+      Users can review body and nutrition changes without raw daily volatility becoming the main message.
+    concerns: [privacy, devexpress]
+    stories:
+      - key: S16.04.01
+        title: Plot body metrics with moving averages
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [privacy, devexpress]
+        userStory:
+          asA: Priya, weighing daily
+          iWant: to see a moving average instead of a noisy raw line by default
+          soThat: normal fluctuations do not feel like failure
+        requirements:
+          - >-
+            Bodyweight defaults to a 7 day moving average and body measurements default to weekly
+            points.
+          - >-
+            Raw bodyweight values are hidden by default and can be enabled with an explicit Show
+            daily values toggle.
+          - >-
+            The chart supports weight, circumference measurements and body fat percentage where
+            recorded.
+        acceptanceCriteria:
+          - id: AC1
+            given: daily weights for 7 consecutive days from 80.0 kg to 81.2 kg
+            when: the seventh point is calculated
+            then: the moving average equals the arithmetic mean of those 7 values rounded to 0.1 kg
+          - id: AC2
+            given: the user has one bodyweight entry
+            when: the body metrics screen opens
+            then: the screen states that 7 entries are needed for a moving average and shows the single value as a text card
+        implementation:
+          notes: >-
+            Put moving-average calculation in Forge.Domain/Analytics/MovingAverage.cs and keep
+            unit handling in Forge.Application. The UI in BodyMetricTrendPage binds to a series DTO
+            and uses dx:ChartView for the smoothed line. Do not log metric values or write them to
+            diagnostics, because they are sensitive health data under the privacy posture.
+          touches:
+            - src/Forge.Domain/Analytics/MovingAverage.cs
+            - src/Forge.Application/Insights/BodyMetricTrendService.cs
+            - src/Forge.App/Features/Insights/Body/BodyMetricTrendPage.xaml
+          devexpress:
+            - dx:ChartView
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for moving average ranges with missing days and unit conversion.
+          - Privacy test confirming body metric values are absent from diagnostic logs.
+
+      - key: S16.04.02
+        title: Compare progress photos privately on device
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [privacy]
+        userStory:
+          asA: Priya, taking monthly progress photos
+          iWant: side-by-side comparison with dates and measurements
+          soThat: I can see changes that the scale misses
+        requirements:
+          - >-
+            The user can add photos from camera or gallery using platform media APIs and all photo
+            metadata stays local.
+          - >-
+            Comparison mode shows two selected photos with capture date, bodyweight if available
+            and measurement notes if available.
+          - >-
+            The app refuses to export photos until the user confirms the exact image that will be
+            shared.
+        acceptanceCriteria:
+          - id: AC1
+            given: two progress photos with dates
+            when: comparison mode opens
+            then: both images are visible with their dates and no network request is made
+          - id: AC2
+            given: the user taps Share on a comparison
+            when: the confirmation dialog appears
+            then: the preview image is shown and no share sheet opens until the user confirms
+        implementation:
+          notes: >-
+            Store progress photo files in the encrypted app data area and keep only local file
+            paths plus metadata in SQLite. Use MediaPicker for capture and selection, then render a
+            comparison page with stock Image controls inside a DevExpress layout. Photo sharing
+            must use the explicit MAUI Share flow and never upload automatically.
+          touches:
+            - src/Forge.App/Features/Insights/Photos/ProgressPhotoPage.xaml
+            - src/Forge.Infrastructure/Persistence/ProgressPhotoRepository.cs
+          devexpress:
+            - dx:DXCollectionView
+            - dx:TabView
+          apis:
+            - Microsoft.Maui.Media.MediaPicker
+            - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+        testing:
+          - Manual permission denial test for camera and photo library on Android and iOS.
+          - Integration test confirming deleted photo metadata removes the local file.
+
+      - key: S16.04.03
+        title: Trend nutrition adherence beside body changes
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [devexpress]
+        userStory:
+          asA: Priya, adjusting nutrition
+          iWant: macro and calorie adherence trends beside body metrics
+          soThat: I can connect behaviour with outcomes without guessing
+        requirements:
+          - >-
+            Nutrition adherence shows percentage of days within configured calorie and protein
+            target bands over 7, 28 and 90 day ranges.
+          - >-
+            Body metric overlays are shown only when at least 14 days of both nutrition and body
+            data exist.
+          - >-
+            The screen states that trends are associations and must not claim that one metric
+            caused another.
+        acceptanceCriteria:
+          - id: AC1
+            given: 20 logged nutrition days and 16 days within the calorie band
+            when: 28 day adherence is calculated
+            then: calorie adherence displays 80.0 percent with the raw 16 of 20 count
+          - id: AC2
+            given: 10 days of bodyweight data and 30 days of nutrition data
+            when: overlays are requested
+            then: the overlay is disabled and the UI states that 14 days of both data types are required
+        implementation:
+          notes: >-
+            Depend on nutrition aggregates from E13 rather than reading food log rows directly in
+            the UI. NutritionAdherenceTrendService should return day-level adherence DTOs and an
+            eligibility reason for overlays. Render adherence as a dx:ChartView area series and use
+            text counts beside every percentage to avoid misleading sparse data.
+          touches:
+            - src/Forge.Application/Insights/NutritionAdherenceTrendService.cs
+            - src/Forge.App/Features/Insights/Nutrition/NutritionTrendPage.xaml
+          devexpress:
+            - dx:ChartView
+            - dx:DateEdit
+        testing:
+          - Unit tests for target-band adherence and overlay eligibility.
+
+  - key: F16.05
+    title: Export progress visuals and handle low-data states
+    wave: 4
+    summary: >-
+      Make every analytics surface shareable and purposeful even when the user has little or no
+      data, so first-run Progress feels like a roadmap rather than an empty warehouse.
+    outcome: >-
+      Users can export any chart as an image and every screen has a tested empty, sparse and dense state.
+    concerns: [devexpress, privacy, perf]
+    stories:
+      - key: S16.05.01
+        title: Export any chart as a shareable image
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy, devexpress]
+        userStory:
+          asA: Alex, proud of a milestone
+          iWant: to export a chart image
+          soThat: I can share progress without exposing unrelated private data
+        requirements:
+          - >-
+            Every Progress chart exposes an Export image action that captures only the selected
+            chart, legend, date range and caveat text.
+          - >-
+            The export preview appears before the platform share sheet and includes no hidden user
+            identifiers.
+          - >-
+            Image generation completes within 1 second for a chart with 500 visible points.
+        acceptanceCriteria:
+          - id: AC1
+            given: a strength chart with 500 visible points
+            when: the user taps Export image
+            then: a PNG preview is generated within 1 second and contains the visible chart title, legend and date range
+          - id: AC2
+            given: the export preview is visible
+            when: the user cancels
+            then: no platform share sheet opens and the temporary PNG is deleted within 5 seconds
+        implementation:
+          notes: >-
+            Implement a shared ChartExportService in Forge.App because capture is a UI concern.
+            It should render the chart container to a temporary PNG in the app cache directory and
+            delete it after sharing or cancellation. Keep ViewModels unaware of DevExpress and pass
+            a chart export request through an interface implemented in the app head.
+          touches:
+            - src/Forge.App/Features/Insights/Shared/ChartExportService.cs
+            - src/Forge.Application/Insights/IChartExportRequest.cs
+          devexpress:
+            - dx:ChartView
+            - dx:PieChartView
+            - dx:RadialGauge
+          apis:
+            - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+        testing:
+          - UI test confirming preview appears before the share sheet.
+          - File-system test confirming cancelled exports are removed from cache.
+
+      - key: S16.05.02
+        title: Design purposeful empty and sparse analytics states
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: Maya, opening Progress on day one
+          iWant: the screen to tell me what will unlock
+          soThat: I feel guided instead of judged for having no data yet
+        requirements:
+          - >-
+            Each analytics screen defines empty, sparse and ready states with explicit minimum data
+            thresholds in the ViewModel.
+          - >-
+            Empty states include one primary action and at most two secondary educational bullets.
+          - >-
+            Screen reader order announces the empty-state title, requirement and action in that
+            sequence.
+        acceptanceCriteria:
+          - id: AC1
+            given: a brand-new local database
+            when: the Progress tab opens
+            then: no chart area is blank and each card states the exact data needed to unlock it
+          - id: AC2
+            given: TalkBack or VoiceOver is enabled
+            when: focus enters an empty-state card
+            then: the title, threshold and action are announced in order with no decorative text announced
+        implementation:
+          notes: >-
+            Create a shared AnalyticsState DTO with Empty, Sparse and Ready variants in
+            Forge.Application/Insights. Each feature ViewModel should expose state and threshold
+            copy rather than making XAML infer it from collection counts. Use DXCollectionView cards
+            for the Progress overview so empty states occupy intentional space and remain
+            virtualized as more modules are added.
+          touches:
+            - src/Forge.Application/Insights/AnalyticsState.cs
+            - src/Forge.App/Features/Insights/ProgressOverviewPage.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:TabView
+        testing:
+          - UI tests for empty, sparse and ready states across all Progress cards.
+          - Manual screen reader pass on Android and iOS.
+
+      - key: S16.05.03
+        title: Cache analytics aggregates for responsive dashboards
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [perf, offline]
+        userStory:
+          asA: developer maintaining Progress
+          iWant: expensive aggregates cached locally
+          soThat: charts stay fast as user history grows
+        requirements:
+          - >-
+            Weekly aggregates for strength, volume, adherence and nutrition are stored as
+            rebuildable local projections in SQLite.
+          - >-
+            Projection rebuild runs after relevant write operations and never blocks set logging
+            for more than 100 ms.
+          - >-
+            A full projection rebuild of 5 years of sample data completes within 10 seconds on a
+            Pixel 6a class Android device.
+        acceptanceCriteria:
+          - id: AC1
+            given: 5 years of seeded workout and nutrition history
+            when: projections are rebuilt from scratch
+            then: the rebuild completes within 10 seconds and produces deterministic row counts
+          - id: AC2
+            given: a workout is saved during normal logging
+            when: analytics projection updates are queued
+            then: the save interaction remains under 100 ms perceived latency
+        implementation:
+          notes: >-
+            Add projection tables under Forge.Infrastructure/Persistence and keep them explicitly
+            rebuildable from source data. Use a bounded background queue so user-facing writes can
+            enqueue work instead of calculating every aggregate synchronously. Because the app is
+            local-only, failed projections can be repaired by rebuilding from SQLite rather than
+            fetching remote state.
+          touches:
+            - src/Forge.Infrastructure/Persistence/AnalyticsProjectionDbSet.cs
+            - src/Forge.Application/Insights/AnalyticsProjectionRebuilder.cs
+          apis:
+            - Microsoft.EntityFrameworkCore
+            - System.Threading.Channels
+        testing:
+          - Integration test rebuilding projections from seeded data.
+          - Performance test for save latency with projection updates enabled.

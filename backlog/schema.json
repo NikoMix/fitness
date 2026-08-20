@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/NikoMix/fitness/backlog/schema.json",
+  "title": "Forge backlog epic file",
+  "description": "Schema for backlog/epics/E##-*.yml. Validated by tools/backlog-sync before any GitHub mutation.",
+  "type": "object",
+  "required": ["key", "title", "domain", "wave", "summary", "problem", "outcome", "features"],
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^E[0-9]{2}$",
+      "description": "Permanent epic key, e.g. E07. Never reuse or renumber."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 90,
+      "description": "Noun phrase naming the capability area, without the 'Epic:' prefix."
+    },
+    "domain": {
+      "type": "string",
+      "enum": ["foundation", "design", "data", "identity", "training", "nutrition", "health", "insights", "engagement", "commerce", "compliance", "quality"]
+    },
+    "wave": { "type": "integer", "minimum": 1, "maximum": 6 },
+    "status": {
+      "type": "string",
+      "enum": ["active", "dropped"],
+      "default": "active",
+      "description": "'dropped' closes the GitHub issue on next sync instead of deleting it."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 40,
+      "description": "One paragraph an executive could read. What this area is and why it exists."
+    },
+    "problem": {
+      "type": "string",
+      "minLength": 40,
+      "description": "The user or business problem. Written from the user's perspective, not the solution's."
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 40,
+      "description": "The observable end state when this epic is complete."
+    },
+    "successMetrics": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Measurable signals that the epic delivered value. Include the target number."
+    },
+    "nonGoals": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Explicitly out of scope. Prevents scope creep during implementation."
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["risk", "mitigation"],
+        "additionalProperties": false,
+        "properties": {
+          "risk": { "type": "string" },
+          "mitigation": { "type": "string" },
+          "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] }
+        }
+      }
+    },
+    "dependsOn": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[EFS][0-9.]+$" },
+      "description": "Keys of items that must land first."
+    },
+    "grounding": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/groundingRef" }
+    },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/feature" }
+    }
+  },
+  "$defs": {
+    "groundingRef": {
+      "type": "object",
+      "required": ["title", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "note": { "type": "string", "description": "Why this reference matters for this item." }
+      }
+    },
+    "acceptanceCriterion": {
+      "type": "object",
+      "required": ["given", "when", "then"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "description": "Stable short id such as AC1, used by tests." },
+        "given": { "type": "string" },
+        "when": { "type": "string" },
+        "then": { "type": "string" }
+      }
+    },
+    "feature": {
+      "type": "object",
+      "required": ["key", "title", "wave", "summary", "outcome", "stories"],
+      "additionalProperties": false,
+      "properties": {
+        "key": { "type": "string", "pattern": "^F[0-9]{2}\\.[0-9]{2}$" },
+        "title": { "type": "string", "minLength": 8, "maxLength": 90 },
+        "wave": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "domain": {
+          "type": "string",
+          "description": "Overrides the epic domain when a feature is owned elsewhere.",
+          "enum": ["foundation", "design", "data", "identity", "training", "nutrition", "health", "insights", "engagement", "commerce", "compliance", "quality"]
+        },
+        "status": { "type": "string", "enum": ["active", "dropped"], "default": "active" },
+        "summary": { "type": "string", "minLength": 40 },
+        "outcome": { "type": "string", "minLength": 30 },
+        "concerns": { "type": "array", "items": { "type": "string" } },
+        "dependsOn": { "type": "array", "items": { "type": "string", "pattern": "^[EFS][0-9.]+$" } },
+        "grounding": { "type": "array", "items": { "$ref": "#/$defs/groundingRef" } },
+        "stories": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/story" } }
+      }
+    },
+    "story": {
+      "type": "object",
+      "required": ["key", "title", "wave", "size", "platforms", "persona", "userStory", "requirements", "acceptanceCriteria", "implementation"],
+      "additionalProperties": false,
+      "properties": {
+        "key": { "type": "string", "pattern": "^S[0-9]{2}\\.[0-9]{2}\\.[0-9]{2}$" },
+        "title": { "type": "string", "minLength": 8, "maxLength": 90 },
+        "wave": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "size": { "type": "string", "enum": ["xs", "s", "m", "l", "xl"] },
+        "status": { "type": "string", "enum": ["active", "dropped"], "default": "active" },
+        "domain": {
+          "type": "string",
+          "enum": ["foundation", "design", "data", "identity", "training", "nutrition", "health", "insights", "engagement", "commerce", "compliance", "quality"]
+        },
+        "platforms": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "enum": ["all", "android", "ios", "maccatalyst", "windows"] }
+        },
+        "persona": {
+          "type": "string",
+          "enum": ["newcomer", "returner", "enthusiast", "cutter", "masters", "team"],
+          "description": "'team' is used for technical enablers with no direct end user."
+        },
+        "concerns": { "type": "array", "items": { "type": "string" } },
+        "userStory": {
+          "type": "object",
+          "required": ["asA", "iWant", "soThat"],
+          "additionalProperties": false,
+          "properties": {
+            "asA": { "type": "string" },
+            "iWant": { "type": "string" },
+            "soThat": { "type": "string" }
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "string" },
+          "description": "Numbered functional and non-functional requirements. Specific and testable."
+        },
+        "acceptanceCriteria": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/acceptanceCriterion" }
+        },
+        "implementation": {
+          "type": "object",
+          "required": ["notes"],
+          "additionalProperties": false,
+          "properties": {
+            "notes": { "type": "string", "minLength": 60, "description": "Concrete technical direction: projects, classes, controls, APIs." },
+            "touches": { "type": "array", "items": { "type": "string" }, "description": "Expected file or folder paths. Used to detect merge-conflict risk between parallel stories." },
+            "devexpress": { "type": "array", "items": { "type": "string" }, "description": "DevExpress control type names used, e.g. DXCollectionView." },
+            "apis": { "type": "array", "items": { "type": "string" }, "description": "Platform APIs or NuGet packages required." }
+          }
+        },
+        "testing": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Specific tests to add. Unit, integration, UI, manual matrix."
+        },
+        "dependsOn": { "type": "array", "items": { "type": "string", "pattern": "^[EFS][0-9.]+$" } },
+        "grounding": { "type": "array", "items": { "$ref": "#/$defs/groundingRef" } },
+        "openQuestions": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

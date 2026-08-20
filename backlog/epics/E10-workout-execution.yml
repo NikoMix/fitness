@@ -1,0 +1,964 @@
+key: E10
+title: Workout Execution and Exercise Mode
+domain: training
+wave: 3
+summary: 'Workout execution is Forge''s moment of truth: a user must follow targets, log sets, recover from interruptions and finish with useful
+  feedback while tired, sweaty and offline. The active workout flow turns plans into durable training history.'
+problem: A fitness app can be beautiful everywhere else and still fail if logging a set takes too many taps between heavy efforts. Losing an in-progress
+  workout after a crash, phone call or background kill destroys trust.
+outcome: A user can start a planned or ad hoc workout, log every set with minimal interaction, run rest and timed formats reliably, recover after
+  process death, and complete the session with a satisfying summary.
+successMetrics:
+- Logging a completed planned set requires no more than 2 taps and commits within 100 ms.
+- An in-progress workout with 40 logged sets survives background, process death and relaunch with zero lost sets.
+- A screen reader user can log, edit and complete a set with all controls named and reachable.
+nonGoals:
+- No live camera pose estimation or automatic rep counting in v1.
+- No Wear OS or watchOS companion workout mode in v1.
+- No cloud sync or multi-device workout continuity in v1.
+risks:
+- risk: Background rest timers are assumed to run indefinitely on iOS and fail under suspension.
+  mitigation: Use local notifications and state reconciliation on resume; treat iOS background time as limited.
+  severity: critical
+- risk: Set writes are batched and a crash loses recent work.
+  mitigation: Persist each committed set immediately to SQLite within the 100 ms budget.
+  severity: critical
+dependsOn:
+- E01
+- E09
+grounding:
+- &id002
+  title: DevExpress MAUI DXCollectionView
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+  note: Virtualized list control for exercises, templates, sets and swipe actions.
+- &id003
+  title: DevExpress MAUI NumericEdit
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.NumericEdit
+  note: Numeric entry control for sets, reps, load, RPE and rest durations.
+- &id004
+  title: DevExpress MAUI BottomSheet
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.BottomSheet
+  note: Bottom sheet control for quick actions without leaving the main flow.
+- &id007
+  title: DevExpress MAUI RadialGauge
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Gauges.RadialGauge
+  note: Radial countdown control for rest and interval timers.
+- title: DevExpress MAUI TabView
+  url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.TabView
+  note: Tab control used for builder sections and workout subviews.
+- &id005
+  title: Android foreground services
+  url: https://developer.android.com/develop/background-work/services/fgs
+  note: Android requires a user-visible foreground service for ongoing noticeable work.
+- &id006
+  title: Extending your app's background execution time
+  url: https://developer.apple.com/documentation/uikit/extending-your-app-s-background-execution-time
+  note: iOS background execution is limited and must be reconciled on resume.
+- &id001
+  title: Build accessible apps with semantic properties in .NET MAUI
+  url: https://learn.microsoft.com/dotnet/maui/fundamentals/accessibility
+  note: Documents SemanticProperties used by TalkBack and VoiceOver.
+features:
+- key: F10.01
+  title: Run the active workout screen for fast logging
+  wave: 3
+  summary: The core screen prioritizes the current exercise, target versus actual, and one-handed logging for sweaty hands, tired attention and
+    no network.
+  outcome: A planned set can be logged, adjusted or corrected with large reachable controls and a durable write under budget.
+  stories:
+  - key: S10.01.01
+    title: Show current exercise with target versus actual
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: clear instructions for the current exercise
+      soThat: I know what to do next without interpreting a spreadsheet
+    requirements:
+    - Show current exercise name, set number, target reps, load or bodyweight cue, target RPE and rest target above the fold.
+    - Previous actuals are visible within one vertical scroll.
+    - The next exercise preview does not hide the current set action.
+    acceptanceCriteria:
+    - id: AC1
+      given: a workout starts with squat 3x5 at 60 kg
+      when: the active screen renders
+      then: Squat, Set 1 of 3, 5 reps, 60 kg and rest target appear before scrolling
+    - id: AC2
+      given: set 1 is logged
+      when: the card updates
+      then: set 1 actuals appear and Set 2 becomes primary within 100 ms
+    implementation:
+      notes: Build ActiveWorkoutPage in Forge.App over WorkoutSessionDto from Forge.Application. Use dx:DXCollectionView for set rows so long
+        sessions remain virtualized. Keep target versus actual DTOs plain and free of DevExpress types.
+      touches:
+      - src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml
+      - src/Forge.Application/Training/Workout/WorkoutSessionQueries.cs
+      devexpress:
+      - dx:DXCollectionView
+      - dx:TabView
+    concerns:
+    - a11y
+    - perf
+  - key: S10.01.02
+    title: Log a completed set with no more than two taps
+    wave: 3
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to commit the planned set almost instantly
+      soThat: tracking does not interrupt training
+    requirements:
+    - A planned set completes with one primary tap when actuals equal targets.
+    - Common plus or minus changes require no more than one adjustment tap plus one commit tap.
+    - Every committed set is durable in SQLite within 100 ms and survives immediate process kill.
+    acceptanceCriteria:
+    - id: AC1
+      given: a target set is 8 reps at 80 kg
+      when: Complete set is tapped
+      then: the set commits within 100 ms
+    - id: AC2
+      given: a target set is 8 reps
+      when: the user taps +1 rep then Complete set
+      then: the set commits as 9 reps in no more than two taps
+    - id: AC3
+      given: a set commit returns
+      when: the process is killed immediately
+      then: the set is present after relaunch
+    implementation:
+      notes: The Complete set button must be thumb-reachable and at least 56 by 56 dp. CommitSetUseCase writes one immediate SQLite transaction.
+        Memory can cache active state for rendering but SQLite is authoritative after commit.
+      touches:
+      - src/Forge.Application/Training/Workout/CommitSetUseCase.cs
+      - src/Forge.Infrastructure/Persistence/WorkoutSessionRepository.cs
+      devexpress:
+      - dx:NumericEdit
+      - dx:DXCollectionView
+    concerns:
+    - perf
+    - offline
+    - a11y
+  - key: S10.01.03
+    title: Keep primary actions thumb-reachable and accessible
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: masters
+    userStory:
+      asA: masters Forge user
+      iWant: the screen to work with large text and screen readers
+      soThat: I can train without shrinking text or guessing controls
+    requirements:
+    - Primary actions have minimum 56 dp touch targets in the lower half of the screen.
+    - The screen supports 200 percent text scaling without clipping key targets.
+    - All actionable controls expose SemanticProperties.Name and Hint.
+    acceptanceCriteria:
+    - id: AC1
+      given: text scaling is 200 percent
+      when: the active screen displays
+      then: exercise name, target row and Complete set are visible with no clipped text
+    - id: AC2
+      given: TalkBack or VoiceOver is active
+      when: the user navigates controls
+      then: each control announces name, value and action hint
+    implementation:
+      notes: Define a WorkoutActionBar with explicit minimum sizes and safe-area padding. Swipe can be an accelerator on dx:DXCollectionView rows,
+        but every primary action needs a visible button. Use .NET MAUI SemanticProperties for custom templates.
+      touches:
+      - src/Forge.App/Features/Workout/Controls/WorkoutActionBar.xaml
+      - src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml
+      devexpress:
+      - dx:DXCollectionView
+      apis:
+      - Microsoft.Maui.Controls.SemanticProperties
+    concerns:
+    - a11y
+    grounding:
+    - *id001
+  concerns:
+  - perf
+  - a11y
+  - offline
+  grounding:
+  - *id002
+  - *id003
+  - *id004
+  - *id001
+- key: F10.02
+  title: Run rest timers and device wake behaviour
+  wave: 3
+  summary: Rest timing must continue when attention is elsewhere. Android and iOS constrain background work differently, so Forge combines visible
+    timers, notifications and resume reconciliation.
+  outcome: Rest countdowns start automatically, alert reliably, keep the screen awake when appropriate and reconcile after lock, background or
+    pocket use.
+  stories:
+  - key: S10.02.01
+    title: Auto-start rest timer after set completion
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: the rest timer to start without extra input
+      soThat: I can focus on breathing and setup
+    requirements:
+    - Completing a set starts prescribed rest within 100 ms unless rest is 0 seconds.
+    - A radial countdown shows remaining seconds with at least 4.5:1 contrast.
+    - The user can add or subtract 15, 30 or 60 seconds with one tap.
+    acceptanceCriteria:
+    - id: AC1
+      given: a set has 120 s rest
+      when: the set is completed
+      then: a 120 s timer starts within 100 ms
+    - id: AC2
+      given: a rest timer is running
+      when: +30 is tapped
+      then: remaining rest increases by exactly 30 s
+    implementation:
+      notes: RestTimerService lives in Forge.Application as a TimeProvider-driven state machine. Render with dx:RadialGauge. Store start time
+        and target end time rather than decrementing counters so resume can reconcile accurately.
+      touches:
+      - src/Forge.Application/Training/Workout/RestTimerService.cs
+      - src/Forge.App/Features/Workout/RestTimerView.xaml
+      devexpress:
+      - dx:RadialGauge
+      - dx:BottomSheet
+  - key: S10.02.02
+    title: Alert when rest expires in foreground and background
+    wave: 3
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: a reliable cue when rest ends
+      soThat: I do not miss the next set
+    requirements:
+    - Foreground expiry triggers visible, haptic and optional audio cues within 500 ms.
+    - Background or locked expiry schedules a local notification for target end time.
+    - Android uses a foreground service only while an active workout timer must remain user-visible; iOS uses notifications and resume reconciliation.
+    acceptanceCriteria:
+    - id: AC1
+      given: a 5 s foreground timer runs
+      when: it expires
+      then: visual, haptic and audio-enabled cues fire within 500 ms
+    - id: AC2
+      given: the screen is locked during 60 s rest
+      when: 60 s elapse
+      then: a local notification is delivered and reopening shows the timer expired
+    - id: AC3
+      given: Android timer service is active
+      when: the app backgrounds
+      then: a user-visible foreground service notification is present
+    implementation:
+      notes: This is the hardest platform constraint. Android foreground services require a persistent notification and prompt stopping. iOS does
+        not allow arbitrary long-running timers, so schedule a local notification, store targetEndUtc and reconcile on resume. Put platform details
+        behind IWorkoutTimerPlatformService.
+      touches:
+      - src/Forge.Application/Training/Workout/IWorkoutTimerPlatformService.cs
+      - src/Forge.App/Platforms/Android/WorkoutTimerForegroundService.cs
+      - src/Forge.App/Platforms/iOS/WorkoutTimerNotificationScheduler.cs
+      devexpress:
+      - dx:RadialGauge
+      apis:
+      - Android foreground service
+      - UserNotifications
+      - Haptics
+      - Plugin.LocalNotification
+    concerns:
+    - store-blocker
+    - long-lead
+    grounding:
+    - *id005
+    - *id006
+  - key: S10.02.03
+    title: Keep the screen awake only during active workouts
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: the screen to stay awake during sets
+      soThat: I do not unlock the phone after every rest
+    requirements:
+    - Starting a workout enables keep-awake and completing, cancelling or pausing beyond 15 minutes disables it.
+    - Android uses FLAG_KEEP_SCREEN_ON only on the active workout window.
+    - iOS sets UIApplication.isIdleTimerDisabled only while workout is active and restores the previous value.
+    acceptanceCriteria:
+    - id: AC1
+      given: an active workout is running
+      when: device idle timeout would elapse
+      then: the screen remains on
+    - id: AC2
+      given: the workout completes
+      when: summary opens
+      then: keep-awake disables within 1 s
+    implementation:
+      notes: Implement IKeepScreenAwakeService in the app layer. Android's FLAG_KEEP_SCREEN_ON can only be set on an Activity window, not from
+        a service. On iOS, capture and restore the previous idle timer value.
+      touches:
+      - src/Forge.App/Features/Workout/KeepAwake
+      - src/Forge.App/Platforms/Android/KeepScreenAwakeService.cs
+      - src/Forge.App/Platforms/iOS/KeepScreenAwakeService.cs
+      apis:
+      - WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+      - UIApplication.isIdleTimerDisabled
+    concerns:
+    - store-blocker
+    grounding:
+    - &id008
+      title: Keep the screen on on Android
+      url: https://developer.android.com/develop/background-work/background-tasks/awake/screen-on
+      note: Documents FLAG_KEEP_SCREEN_ON and its activity-only constraint.
+    - &id009
+      title: UIApplication isIdleTimerDisabled
+      url: https://developer.apple.com/documentation/uikit/uiapplication/isidletimerdisabled
+      note: Documents the iOS idle timer setting for active workouts.
+  - key: S10.02.04
+    title: Handle pocket mode and accidental input
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: to avoid accidental logs in my pocket
+      soThat: my workout history stays correct
+    requirements:
+    - Pocket lock toggles with one visible button.
+    - While enabled, set logging requires a 700 ms hold or unlock before commit.
+    - Rest-expired alerts remain visible and audible while pocket lock is enabled.
+    acceptanceCriteria:
+    - id: AC1
+      given: pocket lock is enabled
+      when: Complete set receives a single tap
+      then: no set is committed
+    - id: AC2
+      given: pocket lock is enabled
+      when: rest expires
+      then: the expiry cue still fires
+    implementation:
+      notes: Pocket mode is an input guard in the ViewModel for v1, not a proximity sensor dependency. Provide an accessible alternative to press-and-hold
+        because assistive technology users may struggle with that gesture.
+      touches:
+      - src/Forge.App/Features/Workout/PocketLockOverlay.xaml
+      - src/Forge.Application/Training/Workout/WorkoutInputGuard.cs
+      devexpress:
+      - dx:BottomSheet
+    concerns:
+    - a11y
+  concerns:
+  - store-blocker
+  - a11y
+  grounding:
+  - *id007
+  - *id005
+  - *id006
+  - *id008
+  - *id009
+- key: F10.03
+  title: Support quick-log variants and lifting utilities
+  wave: 3
+  summary: Real workouts include warm-ups, failed reps, RPE, drop sets and plate maths. These details must be fast enough to record without turning
+    the core flow into a form.
+  outcome: Common set variants and utilities are available from quick actions and write structured data that analytics can trust.
+  stories:
+  - key: S10.03.01
+    title: Repeat the last set and adjust by increments
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to repeat common actuals quickly
+      soThat: I avoid typing the same numbers repeatedly
+    requirements:
+    - Repeat last copies reps, load, RPE and set type from the previous set for the exercise.
+    - Plus and minus adjust reps by 1, load by plate increment and RPE by 0.5.
+    - Repeat last is disabled with an explanation when no previous set exists.
+    acceptanceCriteria:
+    - id: AC1
+      given: the previous set is 10 reps at 22.5 kg RPE 8
+      when: Repeat last is tapped
+      then: the draft becomes 10 reps at 22.5 kg RPE 8
+    - id: AC2
+      given: load increment is 2.5 kg
+      when: load plus is tapped twice
+      then: draft load increases by exactly 5 kg
+    implementation:
+      notes: Keep quick-log state in a SetDraft separate from committed WorkoutSetLog. Derive repeat candidates from active session cache but
+        commit through CommitSetUseCase. Plate increments come from equipment preferences with sensible defaults.
+      touches:
+      - src/Forge.Application/Training/Workout/SetDraft.cs
+      - src/Forge.App/Features/Workout/QuickLogBar.xaml
+      devexpress:
+      - dx:NumericEdit
+    concerns:
+    - perf
+  - key: S10.03.02
+    title: Generate warm-up sets and calculate plates
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: help preparing warm-up jumps and plates
+      soThat: I reach working weight without overthinking
+    requirements:
+    - Warm-up generator creates 2 to 6 sets based on working weight, bar weight and plates.
+    - Plate calculator supports metric and imperial plates and shows per-side plates within one tap.
+    - Generated warm-ups are marked warm-up and excluded from hard-set volume by default.
+    acceptanceCriteria:
+    - id: AC1
+      given: working weight is 100 kg with a 20 kg bar
+      when: warm-ups are generated
+      then: 2 to 6 sets are created and none exceed 100 kg
+    - id: AC2
+      given: target is 100 kg and bar is 20 kg
+      when: calculator opens with 20 and 10 kg plates
+      then: it displays 20 kg and 10 kg per side
+    implementation:
+      notes: Warm-up generation uses percentages such as 40, 55, 70 and 85 percent rounded to available plates. Plate calculation is greedy over
+        per-side remaining load after subtracting the bar. Generated warm-ups are editable real set rows.
+      touches:
+      - src/Forge.Application/Training/Workout/WarmupSetGenerator.cs
+      - src/Forge.Application/Training/Equipment/PlateCalculator.cs
+      devexpress:
+      - dx:BottomSheet
+      - dx:NumericEdit
+  - key: S10.03.03
+    title: Capture RPE, RIR, partials, failures and AMRAP
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to record hard-set context
+      soThat: future progression uses reality, not just reps
+    requirements:
+    - Each set supports optional RPE, RIR, partial reps, failed-set flag and AMRAP flag.
+    - RIR and RPE are mutually consistent but one does not overwrite the other.
+    - Failed and AMRAP sets appear in summary and progression input.
+    acceptanceCriteria:
+    - id: AC1
+      given: a target is 4 reps and actual is 3 failed reps
+      when: summary is generated
+      then: the set appears under missed targets and progression does not increase
+    - id: AC2
+      given: a set is marked AMRAP with 12 reps
+      when: the set saves
+      then: AMRAP is true and actual reps remain 12
+    implementation:
+      notes: Store effort metadata as structured fields, not notes, because progression and later coaching need to query it. Use quick-action
+        bottom sheets. Do not infer medical advice from failure flags.
+      touches:
+      - src/Forge.Domain/Training/Workout/SetEffort.cs
+      - src/Forge.App/Features/Workout/EffortCaptureSheet.xaml
+      devexpress:
+      - dx:BottomSheet
+      - dx:NumericEdit
+  - key: S10.03.04
+    title: Record drop sets and mechanical variations
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to log drop sets without fake exercises
+      soThat: my volume and history remain accurate
+    requirements:
+    - A drop set can contain 1 to 5 drops under one parent working set.
+    - Each drop records load, reps and optional RPE.
+    - Drop-set volume contributes to total volume but is labelled separately.
+    acceptanceCriteria:
+    - id: AC1
+      given: a working set is 30 kg
+      when: two drops at 25 kg and 20 kg are added
+      then: one parent set stores two ordered drop children
+    - id: AC2
+      given: a drop set has five drops
+      when: another is added
+      then: the add action is disabled
+    implementation:
+      notes: Model DropSetEntry as children of WorkoutSetLog rather than separate exercises. Open a dx:BottomSheet from the set row with dx:NumericEdit
+        rows for each drop and an explicit Add drop action.
+      touches:
+      - src/Forge.Domain/Training/Workout/DropSetEntry.cs
+      - src/Forge.App/Features/Workout/DropSetSheet.xaml
+      devexpress:
+      - dx:BottomSheet
+      - dx:NumericEdit
+      - dx:DXCollectionView
+  concerns:
+  - offline
+  grounding:
+  - *id003
+  - *id004
+  - *id002
+- key: F10.04
+  title: Execute supersets, circuits and timed formats
+  wave: 3
+  summary: Exercise mode must handle more than straight sets. Supersets, circuits and interval formats need clear sequencing, timers and logging
+    without separate apps.
+  outcome: Grouped and timed workouts can be followed on one screen with correct round, station and timer state persisted locally.
+  stories:
+  - key: S10.04.01
+    title: Execute supersets with shared rest
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to move through paired exercises smoothly
+      soThat: I do not start the rest timer too early
+    requirements:
+    - A superset shows all exercises in the current round.
+    - Rest starts only after each required exercise has a logged set.
+    - The user can switch child order within the current round.
+    acceptanceCriteria:
+    - id: AC1
+      given: a superset has curls and pressdowns
+      when: only curls are logged
+      then: no shared rest starts
+    - id: AC2
+      given: both exercises are logged for round 1
+      when: the second commit completes
+      then: shared rest starts within 100 ms
+    implementation:
+      notes: Consume the SupersetBlock model from E09. Store round number and child completion flags. Allow current-round order changes in the
+        ViewModel without mutating the plan. Persist after every child set commit.
+      touches:
+      - src/Forge.Application/Training/Workout/SupersetExecutionState.cs
+      - src/Forge.App/Features/Workout/GroupedExecutionView.xaml
+      devexpress:
+      - dx:DXCollectionView
+      - dx:RadialGauge
+  - key: S10.04.02
+    title: Execute circuits with rounds and station progress
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: to know which station and round I am on
+      soThat: I can finish without memorising the sequence
+    requirements:
+    - Circuit view shows current station, round number, total rounds and next station.
+    - The user can mark a station complete, skipped or modified with no more than two taps.
+    - Circuit progress persists after every station completion.
+    acceptanceCriteria:
+    - id: AC1
+      given: a circuit has 5 stations and 3 rounds
+      when: station 4 of round 2 is active
+      then: the screen displays station 4 of 5 and round 2 of 3
+    - id: AC2
+      given: station 4 is completed
+      when: the process is killed
+      then: relaunch restores station 5 of round 2
+    implementation:
+      notes: Store circuit state as currentRound, currentStationIndex and per-station logs. Use dx:DXCollectionView for stations and generate
+        station occurrences on demand rather than pre-creating every row.
+      touches:
+      - src/Forge.Application/Training/Workout/CircuitExecutionState.cs
+      - src/Forge.App/Features/Workout/CircuitView.xaml
+      devexpress:
+      - dx:DXCollectionView
+    concerns:
+    - offline
+  - key: S10.04.03
+    title: Run EMOM, AMRAP and Tabata timers
+    wave: 3
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: timed formats built into workout mode
+      soThat: I do not need another timer app
+    requirements:
+    - EMOM supports 1 to 60 minutes with cues at each minute.
+    - AMRAP supports 1 to 60 minute countdowns and records total rounds plus reps.
+    - Tabata supports configurable work and rest intervals, rounds 1 to 20, and cues within 500 ms.
+    acceptanceCriteria:
+    - id: AC1
+      given: a 12-minute EMOM runs
+      when: minute 5 begins
+      then: the screen shows minute 5 of 12 and cue fires within 500 ms
+    - id: AC2
+      given: a 20 s work, 10 s rest Tabata has 8 rounds
+      when: the timer completes
+      then: exactly 16 intervals are recorded
+    implementation:
+      notes: Create TimedFormatEngine with target timestamps rather than decrementing timers. Render with dx:RadialGauge and persist interval
+        index, startedAtUtc and targetEndUtc after every transition.
+      touches:
+      - src/Forge.Application/Training/Workout/TimedFormatEngine.cs
+      - src/Forge.App/Features/Workout/TimedFormatView.xaml
+      devexpress:
+      - dx:RadialGauge
+      - dx:NumericEdit
+      apis:
+      - Haptics
+      - Plugin.LocalNotification
+    concerns:
+    - perf
+  concerns:
+  - offline
+  - perf
+  grounding:
+  - *id007
+  - *id002
+- key: F10.05
+  title: Handle mid-workout changes and interruption recovery
+  wave: 3
+  summary: 'Real gyms are messy: machines are occupied, phone calls arrive, batteries run low and apps are killed. Forge treats the active session
+    as precious state.'
+  outcome: A user can swap, skip, reorder, add, pause, resume and recover with all committed sets intact.
+  stories:
+  - key: S10.05.01
+    title: Swap, skip, reorder and add exercises mid-workout
+    wave: 3
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: to change the workout without abandoning it
+      soThat: I keep momentum in a busy gym
+    requirements:
+    - Swap unstarted exercises for same-pattern substitutes while preserving target context.
+    - Skip, reorder or add an unplanned exercise in no more than three taps.
+    - All changes are session overrides and do not mutate the plan version.
+    acceptanceCriteria:
+    - id: AC1
+      given: leg press is unstarted
+      when: it is swapped for goblet squat
+      then: the session shows goblet squat and the plan still contains leg press
+    - id: AC2
+      given: an unplanned exercise is added
+      when: summary is generated
+      then: it appears under unplanned work and sets count toward volume
+    implementation:
+      notes: Represent SwappedExerciseOverride, SkippedExerciseOverride, AddedExerciseOverride and ReorderOverride separately from plan prescriptions.
+        Project the active sequence through overrides. Use dx:BottomSheet and dx:DXCollectionView for local substitute selection.
+      touches:
+      - src/Forge.Domain/Training/Workout/WorkoutSessionOverride.cs
+      - src/Forge.Application/Training/Workout/ModifyWorkoutUseCase.cs
+      devexpress:
+      - dx:BottomSheet
+      - dx:DXCollectionView
+    concerns:
+    - offline
+  - key: S10.05.02
+    title: Pause, resume, extend and cut sessions short
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: to pause or end honestly
+      soThat: the app reflects what happened instead of forcing completion
+    requirements:
+    - Pause records pausedAt and excludes paused time from active duration.
+    - Resume returns to exact exercise, draft and timer state if pause is under 12 hours.
+    - Cut short completes with remaining exercises recorded as not performed.
+    acceptanceCriteria:
+    - id: AC1
+      given: a workout is paused for 10 minutes
+      when: it resumes
+      then: active duration excludes 10 minutes
+    - id: AC2
+      given: two exercises remain
+      when: the user cuts short
+      then: both remaining exercises are marked not performed and no fake sets are created
+    implementation:
+      notes: Pause is part of the WorkoutSession aggregate. Active duration is completedAt minus startedAt minus totalPausedDuration. Cut short
+        is a completion mode that finalizes planned-but-not-performed items for adherence analytics.
+      touches:
+      - src/Forge.Domain/Training/Workout/WorkoutSession.cs
+      - src/Forge.Application/Training/Workout/PauseResumeWorkoutUseCase.cs
+      devexpress:
+      - dx:BottomSheet
+  - key: S10.05.03
+    title: Recover active workouts after crash or process death
+    wave: 3
+    size: l
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to resume without losing logged sets
+      soThat: I continue trusting Forge
+    requirements:
+    - Every set, timer target and override is persisted before UI reports success.
+    - On launch, an active workout under 12 hours old is offered for resume within 500 ms after shell interactive.
+    - Corrupt snapshot falls back to the last valid SQLite session and never duplicates sets.
+    acceptanceCriteria:
+    - id: AC1
+      given: a workout has 40 sets and a running rest timer
+      when: the process is killed and relaunched
+      then: all 40 sets restore and timer reconciles from target end time
+    - id: AC2
+      given: the E01 snapshot is corrupt
+      when: the app launches
+      then: Forge queries SQLite and offers recovery without duplicate set ids
+    implementation:
+      notes: Coordinate with E01 by storing only activeWorkoutSessionId in the app snapshot and using SQLite as authoritative. Use stable client-generated
+        set ids so replay cannot duplicate commits. Query InProgress sessions updated within 12 hours.
+      touches:
+      - src/Forge.Application/Training/Workout/RecoverWorkoutUseCase.cs
+      - src/Forge.Infrastructure/Persistence/WorkoutSessionRepository.cs
+      - src/Forge.App/App.xaml.cs
+      apis:
+      - SQLite EF Core transactions
+      - Microsoft.Maui.Storage.Preferences
+    concerns:
+    - offline
+    - perf
+    dependsOn:
+    - S01.03.03
+  - key: S10.05.04
+    title: Handle phone calls, low battery and audio route changes
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: the workout to survive ordinary phone interruptions
+      soThat: I do not lose context when the device changes state
+    requirements:
+    - Phone-call interruption pauses audible cues and preserves timer target times.
+    - Low battery below 15 percent shows a non-blocking warning and can disable keep-awake.
+    - Headphone disconnect switches timer cues to vibration-only unless speaker audio is explicitly enabled.
+    acceptanceCriteria:
+    - id: AC1
+      given: a rest timer is running and a call arrives
+      when: the user returns
+      then: the timer reconciles from targetEndUtc and no set data is lost
+    - id: AC2
+      given: headphones disconnect
+      when: the next timer expires
+      then: no speaker audio plays unless the user opted in
+    implementation:
+      notes: Use lifecycle events for interruption reconciliation and platform audio route hooks where available. Do not request sensitive phone-state
+        permissions. Low battery handling may disable keep-awake but must never block set logging.
+      touches:
+      - src/Forge.App/Features/Workout/Interruptions
+      - src/Forge.Application/Training/Workout/WorkoutInterruptionService.cs
+      apis:
+      - .NET MAUI app lifecycle
+      - Battery
+      - Haptics
+    concerns:
+    - privacy
+    - store-blocker
+  concerns:
+  - offline
+  - privacy
+  grounding:
+  - *id006
+  - *id005
+- key: F10.06
+  title: Complete workouts with summary and feedback
+  wave: 3
+  summary: Completion should feel rewarding and useful. The summary records objective work, highlights progress, asks for subjective feedback
+    and hands clean data to coaching.
+  outcome: Finishing produces durable history, PR detection, comparison to last time, a completion moment and structured session rating data.
+  stories:
+  - key: S10.06.01
+    title: Summarize volume, duration and adherence on completion
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: to understand what I just did
+      soThat: the effort feels concrete and worth repeating
+    requirements:
+    - Summary displays total duration, active duration, sets, reps, volume load and planned versus completed exercises.
+    - A 60-set summary opens within 500 ms.
+    - Metrics are stored or reproducible from durable workout logs.
+    acceptanceCriteria:
+    - id: AC1
+      given: a workout has 10 sets of 10 reps at 20 kg
+      when: summary is generated
+      then: volume load displays exactly 2000 kg
+    - id: AC2
+      given: a 60-set workout completes
+      when: Finish is tapped
+      then: summary becomes interactive within 500 ms
+    implementation:
+      notes: WorkoutSummaryBuilder in Forge.Application computes from durable WorkoutSession data. Volume load is sum(reps * load) for loaded
+        sets, excluding bodyweight unless the user enabled inclusion. Cache snapshots only as rebuildable optimizations.
+      touches:
+      - src/Forge.Application/Training/Workout/WorkoutSummaryBuilder.cs
+      - src/Forge.App/Features/Workout/Summary
+      devexpress:
+      - dx:DXCollectionView
+    concerns:
+    - perf
+  - key: S10.06.02
+    title: Highlight PRs and compare against last time
+    wave: 3
+    size: m
+    platforms:
+    - android
+    - ios
+    persona: enthusiast
+    userStory:
+      asA: enthusiast Forge user
+      iWant: to see what improved today
+      soThat: the app rewards accurate logging
+    requirements:
+    - Summary identifies rep PR, load PR, estimated 1RM PR and volume PR per exercise.
+    - Comparison to last time shows deltas for top working set, total volume and completed sets.
+    - PR detection over 10000 historical sets completes within 500 ms.
+    acceptanceCriteria:
+    - id: AC1
+      given: last bench top set was 80 kg for 5
+      when: today is 82.5 kg for 5
+      then: a load PR is marked
+    - id: AC2
+      given: 10000 historical sets exist
+      when: PR detection runs
+      then: results return within 500 ms
+    implementation:
+      notes: 'PersonalRecordService should query indexed local history. Estimated 1RM can use Epley: weight * (1 + reps / 30), only for reps 1
+        to 12. Keep all computation local and deterministic.'
+      touches:
+      - src/Forge.Application/Training/Workout/PersonalRecordService.cs
+      - src/Forge.Infrastructure/Persistence/WorkoutIndexes.cs
+      devexpress:
+      - dx:DXCollectionView
+    concerns:
+    - perf
+    - offline
+  - key: S10.06.03
+    title: Collect session RPE and subjective feedback
+    wave: 3
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: returner
+    userStory:
+      asA: returner Forge user
+      iWant: to rate how the session felt
+      soThat: future coaching can adapt without guessing
+    requirements:
+    - Completion asks for session RPE 1 to 10 and optional feeling tags.
+    - The user can skip feedback with one tap and still complete.
+    - Feedback stores locally and links to workout session id.
+    acceptanceCriteria:
+    - id: AC1
+      given: summary asks for session RPE
+      when: the user selects 8 and felt strong
+      then: feedback saves with RPE 8 and tag felt strong
+    - id: AC2
+      given: the user taps Skip
+      when: workout completes
+      then: no feedback row is required
+    implementation:
+      notes: SessionFeedback is optional on WorkoutSession. Use dx:BottomSheet or an inline panel with large 1 to 10 buttons. This feeds later
+        coaching but should not generate recommendations in this epic.
+      touches:
+      - src/Forge.Domain/Training/Workout/SessionFeedback.cs
+      - src/Forge.App/Features/Workout/Summary/SessionFeedbackView.xaml
+      devexpress:
+      - dx:BottomSheet
+    concerns:
+    - privacy
+  - key: S10.06.04
+    title: Show a satisfying completion moment
+    wave: 3
+    size: s
+    platforms:
+    - android
+    - ios
+    persona: newcomer
+    userStory:
+      asA: newcomer Forge user
+      iWant: a small celebration that confirms completion
+      soThat: I feel rewarded and know the workout was saved
+    requirements:
+    - Success appears only after the workout is durably completed.
+    - Celebration lasts no more than 3 seconds and can be skipped immediately.
+    - Reduced-motion settings replace animation with a static success surface.
+    acceptanceCriteria:
+    - id: AC1
+      given: Finish is tapped
+      when: completion transaction succeeds
+      then: success appears and status is Completed in SQLite
+    - id: AC2
+      given: reduced motion is enabled
+      when: success displays
+      then: no animation plays and a static success state appears
+    implementation:
+      notes: Use SkiaSharp.Extended.UI.Maui for optional celebration because the architecture permits it for Lottie-style motion. Gate it behind
+        reduced-motion settings and never show success before the completion transaction commits.
+      touches:
+      - src/Forge.App/Features/Workout/Summary/CompletionMoment.xaml
+      - src/Forge.Application/Training/Workout/CompleteWorkoutUseCase.cs
+      apis:
+      - SkiaSharp.Extended.UI.Maui
+    concerns:
+    - a11y
+  concerns:
+  - perf
+  - a11y
+  - privacy
+  grounding:
+  - *id002
+  - *id004

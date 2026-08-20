@@ -1,0 +1,802 @@
+key: E20
+title: Gamification, Streaks and Achievements
+domain: engagement
+wave: 4
+summary: >-
+  Forge uses gamification to make progress visible and satisfying without turning training into
+  compulsion. Streaks are forgiving, achievements reward strength, consistency, volume and
+  exploration, levels show long-term progression, personal challenges support self-directed goals,
+  and shareable on-device cards create lightweight acquisition without any social backend.
+problem: >-
+  Fitness motivation drops when progress feels invisible, but punitive streaks and manipulative
+  badges can create guilt, overtraining and churn. Forge needs celebration, reflection and progress
+  cues that reinforce intrinsic motivation and allow users to disable the layer entirely.
+outcome: >-
+  Users can see durable, local-only progress through streak rings, badges, levels, challenges and
+  trophy history, while rest days and missed days are handled compassionately and all gamification
+  can be turned off without breaking the core training loop.
+successMetrics:
+  - At least 40% of weekly active users view the trophy cabinet or streak surface once per week.
+  - Fewer than 1% of notification or gamification copy checks fail the dark-pattern lint suite in CI.
+  - Users who enable gamification complete 10% more planned sessions over 28 days than users who never enable it, without increasing skipped rest-day overrides.
+  - Shareable cards are generated locally in under 2 seconds on a mid-tier Android device.
+nonGoals:
+  - No social feed, friends, leaderboards or competitive rankings in v1.
+  - No backend achievement validation or server-generated share images.
+  - No paid loot boxes, random rewards or artificial scarcity.
+risks:
+  - risk: Streaks create guilt and drive users to train when rest is appropriate.
+    mitigation: Count planned rest days as streak-preserving, provide freezes and recovery, and ban guilt-inducing copy.
+    severity: high
+  - risk: Gamification distracts from the core fitness value and feels childish to serious users.
+    mitigation: Make the layer fully disableable and keep progress language grounded in training outcomes.
+    severity: medium
+  - risk: Share cards accidentally expose private health or body data.
+    mitigation: Generate cards from an explicit safe data model and preview the exact image before invoking the OS share sheet.
+    severity: high
+dependsOn: [E03, E10, E11, E18, E19]
+grounding:
+  - title: .NET MAUI share files
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/data/share
+    note: OS share sheet used for achievement cards without a Forge backend.
+  - title: DevExpress MAUI Gauges
+    url: https://docs.devexpress.com/MAUI/404579/gauges/index
+    note: RadialGauge provides streak and level ring visuals.
+  - title: DevExpress MAUI CollectionView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+    note: Virtualized trophy and challenge lists.
+
+features:
+  - key: F20.01
+    title: Design forgiving streaks that support recovery
+    wave: 4
+    summary: >-
+      Track habit continuity without punishing sensible rest, injury recovery or a single missed day.
+    outcome: >-
+      Streaks preserve motivation through rest days, freezes and recovery windows, and never
+      pressure users into unsafe activity.
+    concerns: [a11y]
+    stories:
+      - key: S20.01.01
+        title: Count planned rest days as streak-preserving days
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        userStory:
+          asA: Tom, following a longevity-focused plan
+          iWant: rest days to protect my streak
+          soThat: I am not pushed to train when recovery is the plan
+        requirements:
+          - A streak day is satisfied by a completed planned workout, a completed planned recovery habit or a scheduled rest day.
+          - Unplanned inactivity does not count as a completed training day but can enter the recovery window in S20.01.03.
+          - Streak summaries display the reason a day was preserved.
+          - The streak calculation uses local dates and survives timezone changes without moving historical days.
+        acceptanceCriteria:
+          - id: AC1
+            given: Wednesday is a planned rest day in the training schedule
+            when: the streak calculation runs at the end of Wednesday
+            then: the streak remains active and the day reason is Rest day
+          - id: AC2
+            given: a completed workout on Monday and a planned rest day on Tuesday
+            when: the streak ring is displayed on Wednesday
+            then: the ring shows a two-day streak with Tuesday marked as rest-preserved
+          - id: AC3
+            given: historical streak entries exist before a timezone change
+            when: the device timezone changes
+            then: the stored local dates and reasons remain unchanged
+        implementation:
+          notes: >-
+            Implement StreakCalculator in Forge.Application over domain-level TrainingDaySummary
+            and RecoveryDaySummary inputs. Store StreakDay records by DateOnly and reason in
+            Forge.Domain so the UI can explain why a day counted. Render the Today streak ring with
+            dx:RadialGauge but expose only primitive progress values from the ViewModel.
+          touches:
+            - src/Forge.Domain/Engagement/StreakDay.cs
+            - src/Forge.Application/Engagement/StreakCalculator.cs
+            - src/Forge.App/Features/Engagement/Streaks/StreakRingView.xaml
+          devexpress:
+            - dx:RadialGauge
+          apis:
+            - DateOnly
+        testing:
+          - Unit tests for workout, recovery and rest-day streak reasons.
+          - Unit tests for timezone changes preserving stored local dates.
+
+      - key: S20.01.02
+        title: Add streak freezes with transparent limits
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: Sam, returning after an unpredictable week
+          iWant: a limited streak freeze
+          soThat: one missed day does not make me quit entirely
+        requirements:
+          - Users earn at most two streak freezes per calendar month through normal consistency milestones.
+          - A freeze can protect one missed day and is applied automatically only if it improves the streak outcome.
+          - The app shows remaining freezes and the next earn condition.
+          - Freezes cannot be bought in v1 and are not tied to paid entitlements.
+          - Applying a freeze records the protected local date and reason.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user has one available freeze and misses a required day
+            when: the streak calculation runs
+            then: the freeze is consumed and the streak remains active
+          - id: AC2
+            given: the user has already earned two freezes this calendar month
+            when: another consistency milestone is reached
+            then: no third freeze is added
+          - id: AC3
+            given: the shop entitlement state changes
+            when: streak freeze availability is recalculated
+            then: available freezes do not change
+        implementation:
+          notes: >-
+            Model StreakFreezeWallet as a local domain entity updated by achievement events, not by
+            commerce state. The implementation should be deterministic and replayable from local
+            activity history. Show freeze details in a dx:DXPopup from the streak ring, including
+            remaining count and the non-monetised rule, to avoid any pay-to-protect pressure.
+          touches:
+            - src/Forge.Domain/Engagement/StreakFreezeWallet.cs
+            - src/Forge.Application/Engagement/StreakFreezeService.cs
+            - src/Forge.App/Features/Engagement/Streaks/StreakFreezePopup.xaml
+          devexpress:
+            - dx:DXPopup
+          apis:
+            - Microsoft.EntityFrameworkCore
+        testing:
+          - Unit tests for monthly freeze cap and auto-apply behaviour.
+          - Unit test proving entitlement changes do not affect freeze balance.
+
+      - key: S20.01.03
+        title: Offer a compassionate missed-day recovery path
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: Maya, who missed a session
+          iWant: Forge to help me recover without shame
+          soThat: I can continue my plan instead of feeling like I failed
+        requirements:
+          - After one missed required day, Forge offers a 48-hour recovery window instead of immediately labelling the streak broken.
+          - Recovery actions include reschedule workout, complete a light recovery habit or accept the break.
+          - Copy must avoid guilt terms including failed, lazy, ruined and lost it all.
+          - Recovery actions do not increase planned weekly volume above the plan's safe limit.
+        acceptanceCriteria:
+          - id: AC1
+            given: a user misses one required workout day
+            when: they open Today within 48 hours
+            then: Forge shows recovery options and does not display a broken-streak message
+          - id: AC2
+            given: the user chooses a recovery workout action
+            when: the plan already has the maximum weekly workout count
+            then: Forge offers rescheduling rather than adding an extra workout
+          - id: AC3
+            given: gamification copy resources are scanned
+            when: banned guilt terms are present
+            then: the copy test fails and names each offending resource key
+        implementation:
+          notes: >-
+            Add MissedDayRecoveryUseCase in Forge.Application and route it into Today through an
+            engagement card rather than a modal that blocks logging. Coordinate any celebration or
+            recovery transition with E03 motion components. Use dx:BottomSheet for action selection
+            because it can show consequences before the user applies a recovery action.
+          touches:
+            - src/Forge.Application/Engagement/MissedDayRecoveryUseCase.cs
+            - src/Forge.App/Features/Engagement/Streaks/MissedDayRecoveryBottomSheet.xaml
+            - src/Forge.App/Resources/Strings/Gamification.resx
+          devexpress:
+            - dx:BottomSheet
+          apis:
+            - Microsoft.Extensions.Localization
+        testing:
+          - Unit tests for the 48-hour recovery boundary.
+          - Copy lint test for banned guilt terms.
+
+  - key: F20.02
+    title: Award achievements and progression fairly
+    wave: 4
+    summary: >-
+      Recognize meaningful training, nutrition and exploration milestones with transparent rules
+      and local-only event processing.
+    outcome: >-
+      Badges and levels are awarded deterministically from local history and explain exactly what
+      the user did to earn them.
+    stories:
+      - key: S20.02.01
+        title: Award badges across strength, consistency, volume and exploration
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        userStory:
+          asA: Alex, who tracks every milestone
+          iWant: achievements that reflect different kinds of progress
+          soThat: the app recognizes more than just showing up every day
+        requirements:
+          - Badge categories include Strength, Consistency, Volume and Exploration.
+          - Every badge has a deterministic local rule, a visible progress state and an earned timestamp.
+          - Strength badges must be based on personal records or rep milestones, not absolute loads that disadvantage beginners.
+          - Exploration badges reward trying new movement patterns without encouraging unsafe exercise selection.
+          - Badge evaluation of 500 local activity events completes in under 500 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: a user sets a new personal record for a lift
+            when: achievement evaluation runs
+            then: the relevant strength badge is awarded with an earned timestamp
+          - id: AC2
+            given: a newcomer tries three movement patterns marked beginner-safe
+            when: badge progress is evaluated
+            then: the exploration badge progresses without requiring an advanced movement
+          - id: AC3
+            given: 500 activity events exist
+            when: achievement evaluation runs on a mid-tier Android device
+            then: evaluation completes in under 500 ms
+        implementation:
+          notes: >-
+            Define AchievementDefinition as data under Forge.Domain and evaluate definitions through
+            an AchievementEngine in Forge.Application. Do not hard-code UI badge logic in XAML.
+            Persist earned badges in SQLite and make evaluation idempotent by definition key plus
+            earned source event. Use dx:DXCollectionView for badge grids.
+          touches:
+            - src/Forge.Domain/Engagement/AchievementDefinition.cs
+            - src/Forge.Application/Engagement/AchievementEngine.cs
+            - src/Forge.Infrastructure/Persistence/EarnedAchievementEntity.cs
+            - src/Forge.App/Features/Engagement/Achievements/AchievementGrid.xaml
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Microsoft.EntityFrameworkCore
+        testing:
+          - Unit tests for one rule in each badge category.
+          - Performance test for 500 events under 500 ms.
+
+      - key: S20.02.02
+        title: Add levels and long-term progression rings
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: Sam, rebuilding consistency over months
+          iWant: a long-term progression level
+          soThat: small efforts feel like they accumulate even when progress is slow
+        requirements:
+          - Level points come from completed plan actions, recovery habits and personal milestones.
+          - Points are capped per local day to prevent grinding unhealthy volume.
+          - Level progress shows current level, points to next level and a plain-language explanation of sources.
+          - Level state recalculates deterministically from local events after backup restore.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user completes more than the daily point cap worth of activities
+            when: level points are calculated
+            then: no more than the configured daily cap contributes to that day
+          - id: AC2
+            given: local event history is exported and restored
+            when: level state is recalculated
+            then: the level and point total match the pre-export values
+          - id: AC3
+            given: the Progress tab displays level information
+            when: the user opens the explanation popup
+            then: each point source and daily cap is shown in text
+        implementation:
+          notes: >-
+            Implement LevelProgressionService as a projection over local domain events rather than
+            mutable counters that can drift. The UI should display the ring with dx:RadialGauge and
+            use dx:DXPopup for the explanation. Keep the daily cap in a versioned definition file
+            so balancing changes can be migrated and explained.
+          touches:
+            - src/Forge.Application/Engagement/LevelProgressionService.cs
+            - src/Forge.Domain/Engagement/LevelDefinition.cs
+            - src/Forge.App/Features/Engagement/Progression/LevelProgressView.xaml
+          devexpress:
+            - dx:RadialGauge
+            - dx:DXPopup
+          apis:
+            - Microsoft.EntityFrameworkCore
+        testing:
+          - Unit tests for daily cap and deterministic recalculation.
+          - UI snapshot for level ring and explanation popup.
+
+      - key: S20.02.03
+        title: Celebrate milestones with coordinated motion
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: Maya, earning an early win
+          iWant: a satisfying but brief celebration
+          soThat: I notice progress without being interrupted for too long
+        requirements:
+          - Milestone celebrations use E03 motion tokens and respect reduced-motion settings.
+          - Celebration duration is no longer than 3 seconds before controls are available again.
+          - Celebrations can be dismissed immediately.
+          - No celebration blocks saving workout, nutrition or recovery data.
+          - Haptics are used only when enabled in app and platform settings.
+        acceptanceCriteria:
+          - id: AC1
+            given: reduced motion is enabled
+            when: a badge is earned
+            then: Forge shows a static acknowledgement with no animated confetti
+          - id: AC2
+            given: a milestone celebration is displayed
+            when: 3 seconds have elapsed
+            then: all underlying screen controls are usable again
+          - id: AC3
+            given: a data save is in progress
+            when: a milestone is earned
+            then: the data save completes even if the celebration view is dismissed
+        implementation:
+          notes: >-
+            Build a MilestoneCelebrationService in Forge.App that listens to application-level
+            AchievementEarned messages and asks E03 motion components for the correct animation
+            variant. Use dx:DXPopup for the celebration shell and avoid placing persistence work in
+            popup callbacks. Reduced-motion state should be read from design system settings.
+          touches:
+            - src/Forge.App/Features/Engagement/Celebrations/MilestoneCelebrationService.cs
+            - src/Forge.App/Features/Engagement/Celebrations/MilestonePopup.xaml
+            - src/Forge.App/Motion
+          devexpress:
+            - dx:DXPopup
+          apis:
+            - Microsoft.Maui.Devices.HapticFeedback
+        testing:
+          - UI tests for reduced motion and dismiss behaviour.
+          - Integration test proving persistence completes independently of celebration dismissal.
+
+      - key: S20.02.04
+        title: Explain badge rules and next safe actions
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: Maya, seeing a locked badge
+          iWant: to understand the next safe step toward it
+          soThat: achievements guide me without pushing unsafe jumps
+        requirements:
+          - Every badge detail shows the rule in plain language and the user's current progress.
+          - Locked badge details suggest at most one next action and it must respect training safety constraints.
+          - Secret badges are not used in v1 because hidden requirements can encourage compulsive exploration.
+          - Badge detail text is available to TalkBack and VoiceOver in the same order as the visual layout.
+        acceptanceCriteria:
+          - id: AC1
+            given: a locked consistency badge is opened
+            when: the detail popup renders
+            then: it shows the exact rule, current progress and one safe next action
+          - id: AC2
+            given: a badge would require an advanced movement
+            when: the user is marked as a newcomer
+            then: the next action suggests a beginner-safe prerequisite instead
+          - id: AC3
+            given: a screen reader is active
+            when: badge detail is focused
+            then: rule, progress and next action are announced in that order
+        implementation:
+          notes: >-
+            Extend AchievementSummaryQuery with a safe next action supplied by application-level
+            training guardrails. Render badge details in dx:DXPopup from the trophy cabinet and keep
+            hidden or secret achievements out of the v1 definition schema. Accessibility labels
+            should be built from the same DTO fields as the visual text.
+          touches:
+            - src/Forge.Application/Engagement/AchievementSummaryQuery.cs
+            - src/Forge.App/Features/Engagement/Achievements/AchievementDetailPopup.xaml
+            - src/Forge.Domain/Engagement/AchievementDefinition.cs
+          devexpress:
+            - dx:DXPopup
+          apis:
+            - Microsoft.Maui.Accessibility.SemanticProperties
+        testing:
+          - Unit test for beginner-safe next action selection.
+          - Manual TalkBack and VoiceOver pass for badge detail order.
+
+  - key: F20.03
+    title: Support personal challenges without social pressure
+    wave: 4
+    summary: >-
+      Let users set private, achievable challenges that reinforce their chosen goals rather than
+      comparing them to other people.
+    outcome: >-
+      Challenges are local, self-directed, safety-bounded and easy to pause or abandon without penalty.
+    stories:
+      - key: S20.03.01
+        title: Create personal challenges from safe templates
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        userStory:
+          asA: Priya, aiming for consistency
+          iWant: a private challenge template
+          soThat: I can focus on one habit for a defined period
+        requirements:
+          - Challenge templates include workout consistency, hydration consistency, protein logging and mobility recovery.
+          - Template durations are 7, 14 or 28 days.
+          - Challenge targets cannot exceed the user's current plan constraints or safety guardrails.
+          - A user can have at most three active challenges at once.
+          - Challenges are private and contain no invite, leaderboard or social comparison surface.
+        acceptanceCriteria:
+          - id: AC1
+            given: a user already has three active challenges
+            when: they try to start another challenge
+            then: Forge blocks creation and explains the three-challenge limit
+          - id: AC2
+            given: a workout consistency template would exceed the user's plan frequency
+            when: the template is configured
+            then: Forge lowers the target or prompts the user to choose a safer template
+          - id: AC3
+            given: a challenge detail screen is inspected
+            when: all actions are listed
+            then: no invite, share-to-leaderboard or compare-with-friends action exists
+        implementation:
+          notes: >-
+            Store ChallengeTemplate definitions in Forge.Domain and instantiate Challenge entities
+            through a ChallengeCreationUseCase that can query training and nutrition guardrails.
+            Use dx:BottomSheet for template selection and dx:DXCollectionView for active challenge
+            cards. Keep progress local and deterministic so it can be exported with E26.
+          touches:
+            - src/Forge.Domain/Engagement/ChallengeTemplate.cs
+            - src/Forge.Application/Engagement/ChallengeCreationUseCase.cs
+            - src/Forge.App/Features/Engagement/Challenges/ChallengeTemplateBottomSheet.xaml
+          devexpress:
+            - dx:BottomSheet
+            - dx:DXCollectionView
+          apis:
+            - Microsoft.EntityFrameworkCore
+        testing:
+          - Unit tests for active challenge cap and safety-bounded target selection.
+          - UI test confirming no social actions are present.
+
+      - key: S20.03.02
+        title: Track challenge progress and completion locally
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        userStory:
+          asA: Alex, trying a focused block
+          iWant: challenge progress to update automatically
+          soThat: I can see whether my current behaviour matches the target
+        requirements:
+          - Progress updates from local workout, nutrition, hydration and recovery events within 1 second of event persistence.
+          - Challenge detail shows completed days, remaining days, current status and next helpful action.
+          - Users can pause or abandon a challenge without losing historical completion records.
+          - Completion awards can trigger achievements but do not create streak obligations.
+        acceptanceCriteria:
+          - id: AC1
+            given: an active hydration challenge
+            when: the user logs enough water for the day
+            then: challenge progress updates within 1 second
+          - id: AC2
+            given: a challenge is abandoned
+            when: the challenge history is viewed
+            then: the abandoned challenge remains visible with its final progress and no penalty copy
+          - id: AC3
+            given: a challenge completes
+            when: achievement evaluation runs
+            then: eligible challenge-completion achievements are awarded once
+        implementation:
+          notes: >-
+            Implement challenge progress as projections updated after local persistence commits,
+            not before, so progress never reflects data that failed to save. The detail screen can
+            reuse dx:RadialGauge for percent complete and dx:DXCollectionView for the day-by-day
+            breakdown. Keep abandon and pause actions explicit and neutral.
+          touches:
+            - src/Forge.Application/Engagement/ChallengeProgressProjector.cs
+            - src/Forge.App/Features/Engagement/Challenges/ChallengeDetailPage.xaml
+            - src/Forge.Infrastructure/Persistence/ChallengeProgressEntity.cs
+          devexpress:
+            - dx:RadialGauge
+            - dx:DXCollectionView
+          apis:
+            - Microsoft.EntityFrameworkCore
+        testing:
+          - Integration test that progress updates after hydration persistence.
+          - Unit test that completion emits at most one achievement event.
+
+      - key: S20.03.03
+        title: Pause and resume challenges without penalty
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: Sam, dealing with travel or illness
+          iWant: to pause a challenge
+          soThat: a temporary interruption does not turn into a reason to quit
+        requirements:
+          - Users can pause an active challenge for 1 to 14 local days.
+          - Paused days do not count as failed days and do not advance completion.
+          - Resuming a challenge recalculates remaining days from stored local dates.
+          - Pause copy uses neutral language and never suggests the user is falling behind.
+        acceptanceCriteria:
+          - id: AC1
+            given: an active 14-day mobility challenge
+            when: the user pauses it for 3 days
+            then: the challenge status is Paused and no failed days are recorded during the pause
+          - id: AC2
+            given: a paused challenge reaches its resume date
+            when: Forge opens on that date
+            then: the challenge returns to Active with remaining days recalculated
+          - id: AC3
+            given: pause copy resources are scanned
+            when: guilt-inducing terms are present
+            then: the copy validation test fails
+        implementation:
+          notes: >-
+            Add ChallengePausePolicy in Forge.Application and store pause windows as DateOnly
+            ranges on the challenge aggregate. Use dx:BottomSheet for pause duration selection so
+            the consequences are visible before confirmation. Progress projection must ignore
+            paused days rather than creating negative events that later need cleanup.
+          touches:
+            - src/Forge.Application/Engagement/ChallengePausePolicy.cs
+            - src/Forge.Domain/Engagement/Challenge.cs
+            - src/Forge.App/Features/Engagement/Challenges/PauseChallengeBottomSheet.xaml
+          devexpress:
+            - dx:BottomSheet
+          apis:
+            - DateOnly
+        testing:
+          - Unit tests for pause duration limits and resume date recalculation.
+          - Copy lint test for pause language.
+
+  - key: F20.04
+    title: Present trophies and shareable achievements
+    wave: 4
+    summary: >-
+      Give users a browsable trophy cabinet and privacy-safe share cards generated on device
+      through the OS share sheet.
+    outcome: >-
+      Earned progress is easy to revisit and optionally share without uploading any data to Forge servers.
+    stories:
+      - key: S20.04.01
+        title: Build a trophy cabinet with filters and empty states
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: Sam, looking back at my comeback
+          iWant: a trophy cabinet
+          soThat: I can see what I have earned and what I am working toward
+        requirements:
+          - Trophy cabinet shows earned, in-progress and locked badges with separate filters.
+          - Badge detail explains the rule, earned date if present and safe next step if not earned.
+          - Empty states are shown for a brand-new user and for filters with no results.
+          - The list supports at least 200 badge definitions while sustaining 60 fps scroll performance.
+        acceptanceCriteria:
+          - id: AC1
+            given: a brand-new user with no earned badges
+            when: the trophy cabinet opens
+            then: Forge shows starter guidance and no blank list
+          - id: AC2
+            given: the Locked filter has no matching badges
+            when: the filter is selected
+            then: a filter-specific empty state is displayed
+          - id: AC3
+            given: 200 badge definitions exist
+            when: the user scrolls the cabinet
+            then: frame timing shows no frame above 16.6 ms attributable to badge row rendering
+        implementation:
+          notes: >-
+            Build TrophyCabinetPage under Engagement with dx:TabView for filters and
+            dx:DXCollectionView for the badge list. Badge detail should use dx:DXPopup so users can
+            inspect rules without losing scroll position. Data comes from AchievementSummaryQuery in
+            Forge.Application and should expose sanitized display values.
+          touches:
+            - src/Forge.App/Features/Engagement/Achievements/TrophyCabinetPage.xaml
+            - src/Forge.Application/Engagement/AchievementSummaryQuery.cs
+          devexpress:
+            - dx:TabView
+            - dx:DXCollectionView
+            - dx:DXPopup
+          apis:
+            - Microsoft.EntityFrameworkCore
+        testing:
+          - UI tests for each filter empty state.
+          - Performance scroll test with 200 badge definitions.
+
+      - key: S20.04.02
+        title: Generate shareable achievement cards on device
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: Alex, proud of a milestone
+          iWant: to share a polished achievement card
+          soThat: I can celebrate progress without Forge uploading my data
+        requirements:
+          - Share cards are rendered entirely on device with no network request.
+          - The card includes achievement title, date, Forge branding and optional user-selected metric if that metric is not sensitive.
+          - The user previews the exact image before the OS share sheet opens.
+          - Generated images are stored in the cache directory and deleted after seven days or on cache cleanup.
+          - Card generation completes in under 2 seconds on a Pixel 6a class device.
+        acceptanceCriteria:
+          - id: AC1
+            given: an earned achievement
+            when: the user taps Share
+            then: Forge renders a preview image before opening the operating system share sheet
+          - id: AC2
+            given: airplane mode is enabled
+            when: the user generates and shares a card
+            then: image generation succeeds and the OS share sheet opens
+          - id: AC3
+            given: a card is generated on a mid-tier Android device
+            when: generation time is measured
+            then: the image file is ready in under 2 seconds
+        implementation:
+          notes: >-
+            Use an on-device renderer in Forge.App, likely SkiaSharp if already present through E03
+            motion assets, to create a PNG in FileSystem.CacheDirectory. Feed the file to MAUI
+            Share.RequestAsync so Forge never needs a social or image backend. The card model must
+            be explicit and privacy reviewed before rendering.
+          touches:
+            - src/Forge.App/Features/Engagement/Sharing/AchievementCardRenderer.cs
+            - src/Forge.App/Features/Engagement/Sharing/AchievementSharePreviewPage.xaml
+          devexpress:
+            - dx:DXPopup
+          apis:
+            - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+            - Microsoft.Maui.Storage.FileSystem
+            - SkiaSharp
+        testing:
+          - Unit test for safe card model field allowlist.
+          - Manual share-sheet test on Android and iOS in airplane mode.
+
+      - key: S20.04.03
+        title: Let users choose privacy-safe share card themes
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: Alex, sharing a milestone publicly
+          iWant: card theme choices that do not expose private data
+          soThat: I can match the moment without revealing more than I intend
+        requirements:
+          - Share card themes are bundled locally and work offline.
+          - Theme choices affect colours, layout and badge art but cannot add hidden personal data fields.
+          - Premium cosmetic themes may be gated by Forge Pro, but the default share card remains free.
+          - The preview updates within 500 ms after a theme change.
+        acceptanceCriteria:
+          - id: AC1
+            given: airplane mode is enabled
+            when: the user changes share card theme
+            then: the preview updates without any network request
+          - id: AC2
+            given: a premium theme is selected by a free user
+            when: the gate appears
+            then: the default free theme remains available and shareable
+          - id: AC3
+            given: a theme definition is inspected
+            when: it includes a bodyweight, calories or note field
+            then: validation fails before the theme can be used
+        implementation:
+          notes: >-
+            Store share card theme definitions as bundled resources under Forge.App and validate
+            them against an allowlist of visual properties. Use dx:DXCollectionView for theme
+            selection and update the preview renderer from the sanitized theme DTO. Commerce gating
+            must affect only optional cosmetics, never the ability to share a default card.
+          touches:
+            - src/Forge.App/Features/Engagement/Sharing/ShareCardThemeSelector.xaml
+            - src/Forge.App/Features/Engagement/Sharing/ShareCardThemeDefinition.cs
+            - src/Forge.App/Resources/ShareCards
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+        testing:
+          - Unit test for theme allowlist validation.
+          - UI test for free user selecting and sharing the default theme.
+
+  - key: F20.05
+    title: Enforce ethical gamification controls
+    wave: 4
+    summary: >-
+      Ensure the entire gamification layer can be reduced or disabled and that Forge avoids dark
+      patterns by design and by automated checks.
+    outcome: >-
+      Users who find gamification counterproductive can turn it off, and the product cannot
+      accidentally ship manipulative copy or scarcity mechanics.
+    concerns: [privacy]
+    stories:
+      - key: S20.05.01
+        title: Make gamification fully disableable without breaking training
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        userStory:
+          asA: Tom, who dislikes badges and streaks
+          iWant: to disable gamification completely
+          soThat: Forge remains a calm training tool for me
+        requirements:
+          - A single setting disables streak surfaces, badge prompts, levels, challenge prompts and gamification notifications.
+          - Disabling gamification does not delete historical achievement data unless the user separately deletes all local data.
+          - Training, nutrition, hydration and recovery features remain usable when gamification is disabled.
+          - Re-enabling gamification restores previous progress projections within 2 seconds.
+        acceptanceCriteria:
+          - id: AC1
+            given: gamification is disabled
+            when: the Today and Progress tabs are opened
+            then: streak rings, badge prompts and level cards are absent
+          - id: AC2
+            given: gamification is disabled
+            when: the user starts and completes a workout
+            then: workout logging functions exactly as it does with gamification enabled
+          - id: AC3
+            given: gamification was disabled and then re-enabled
+            when: progress projections are refreshed
+            then: prior earned badges and streak history appear within 2 seconds
+        implementation:
+          notes: >-
+            Add GamificationPreference under Forge.Domain and an application service that feature
+            ViewModels query before exposing cards or prompts. Do not scatter preference checks in
+            XAML triggers alone, because notification scheduling and achievement evaluation also
+            need the same decision. Use dx:DXCollectionView in Settings for the toggle row.
+          touches:
+            - src/Forge.Domain/Engagement/GamificationPreference.cs
+            - src/Forge.Application/Engagement/GamificationAvailabilityService.cs
+            - src/Forge.App/Features/Settings/GamificationSettingsPage.xaml
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Microsoft.EntityFrameworkCore
+        testing:
+          - Integration test completing a workout with gamification disabled.
+          - Unit test that notification scheduling sees gamification disabled.
+
+      - key: S20.05.02
+        title: Block dark patterns in gamification rules and copy
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [a11y, privacy]
+        userStory:
+          asA: product team member
+          iWant: automated guardrails against manipulative gamification
+          soThat: Forge supports intrinsic motivation rather than compulsion
+        requirements:
+          - Gamification copy must not use guilt-inducing, shaming or manufactured urgency terms.
+          - Rules must not include artificial scarcity, random paid rewards, purchasable streak protection or expiring badges.
+          - Every gamification surface includes a path to reduce or disable the layer within two taps.
+          - New achievement definitions must declare the intrinsic value they reinforce.
+          - CI fails if banned rule types or banned copy terms are introduced.
+        acceptanceCriteria:
+          - id: AC1
+            given: an achievement definition includes an expiry date for a badge
+            when: gamification rule validation runs
+            then: validation fails and reports artificial scarcity
+          - id: AC2
+            given: a resource string contains the phrase do not lose your streak forever
+            when: copy validation runs
+            then: CI fails and reports manufactured loss aversion
+          - id: AC3
+            given: any gamification screen is open
+            when: the user opens its overflow or settings action
+            then: a Reduce or Disable gamification option is reachable within two taps
+        implementation:
+          notes: >-
+            Add a small validator in tests that scans Gamification.resx and AchievementDefinition
+            seed files for banned patterns. This is not a substitute for product review, but it
+            catches regressions. The rule schema should explicitly omit expiry, scarcity and paid
+            protection fields so engineers cannot accidentally implement them.
+          touches:
+            - src/Forge.Domain/Engagement/AchievementDefinition.cs
+            - src/Forge.App/Resources/Strings/Gamification.resx
+            - tests/Forge.Application.Tests/Engagement/GamificationEthicsTests.cs
+          devexpress:
+            - dx:DXPopup
+          apis:
+            - Microsoft.Extensions.Localization
+        testing:
+          - Unit tests for banned copy and banned rule patterns.
+          - UI navigation tests proving reduce or disable is reachable within two taps.

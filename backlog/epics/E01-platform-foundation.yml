@@ -1,0 +1,509 @@
+key: E01
+title: Platform Foundation and Application Shell
+domain: foundation
+wave: 1
+summary: >-
+  The structural core every other epic builds on: the solution layout, dependency injection,
+  navigation shell, configuration, logging and the app lifecycle. It carries no user-facing
+  feature of its own, and that is deliberate - its whole purpose is to make the following
+  twenty-nine epics buildable in parallel by different people without them colliding.
+problem: >-
+  Without an agreed skeleton, every feature team invents its own navigation, its own service
+  registration and its own error handling. The result is a codebase where two features cannot
+  be worked on simultaneously without merge conflicts, and where cross-cutting changes require
+  touching every file. Fixing that later costs far more than establishing it first.
+outcome: >-
+  A running Android and iOS application that boots into a themed tab shell, resolves services
+  through dependency injection, navigates between placeholder pages by route, logs
+  structurally, survives suspend and resume with state intact, and fails gracefully with a
+  recoverable error surface rather than a crash.
+successMetrics:
+  - Cold start to first interactive frame is under 2.0 s on a mid-tier Android device (Pixel 6a class).
+  - A new feature can be added by creating one folder under Features/ and registering one route - no edits to shared files beyond a single DI registration line.
+  - Zero unhandled exceptions reach the platform crash handler in a 30-minute exploratory session.
+nonGoals:
+  - No product features. Pages created here are placeholders replaced by their owning epic.
+  - No Windows or Mac Catalyst heads - deferred to v1.1 under E30.
+  - No remote configuration or feature-flag service; flags are compile-time or local only.
+risks:
+  - risk: Shell navigation is chosen early and proves unable to express modal workout flows, forcing a rewrite mid-project.
+    mitigation: Prototype the workout-execution navigation case (full-screen modal over tabs, with hardware back interception) during E01 rather than discovering it in E10.
+    severity: high
+  - risk: Dependency injection registration becomes a single 500-line file that every feature branch edits, making it a permanent merge-conflict hotspot.
+    mitigation: Each feature module exposes its own IServiceCollection extension method in its own folder; the shell calls them in a fixed list.
+    severity: medium
+  - risk: Startup work accumulates on the UI thread as features are added, silently eroding the cold-start budget.
+    mitigation: Enforce a startup budget test in CI from Wave 1 and forbid blocking I/O in constructors by convention and review.
+    severity: medium
+grounding:
+  - title: .NET MAUI app lifecycle
+    url: https://learn.microsoft.com/dotnet/maui/fundamentals/app-lifecycle
+    note: Defines the OnStart/OnSleep/OnResume hooks used for state persistence.
+  - title: .NET MAUI dependency injection
+    url: https://learn.microsoft.com/dotnet/maui/fundamentals/dependency-injection
+    note: Constructor injection into pages and ViewModels via MauiAppBuilder.Services.
+  - title: DevExpress MAUI TabView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.TabView
+    note: Primary navigation container for the shell.
+  - title: DevExpress MAUI Get Started
+    url: https://docs.devexpress.com/MAUI/403245/maui
+    note: Confirms supported platforms are Android and iOS only - the basis of ADR-0002.
+
+features:
+  - key: F01.01
+    title: Establish solution structure and build configuration
+    wave: 1
+    summary: >-
+      Create the multi-project solution with enforced dependency direction, central package
+      management and a reproducible build, so that architectural boundaries are compiler-checked
+      rather than documented and hoped for.
+    outcome: >-
+      A solution that restores and builds for Android and iOS from a clean clone with a single
+      command, where an illegal dependency fails the build.
+    concerns: [perf]
+    grounding:
+      - title: Central Package Management
+        url: https://learn.microsoft.com/nuget/consume-packages/central-package-management
+        note: Directory.Packages.props is the single source of package versions.
+    stories:
+      - key: S01.01.01
+        title: Create the Forge solution with layered project structure
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer joining the Forge project
+          iWant: a solution whose folder structure states the architecture unambiguously
+          soThat: I know where new code belongs without asking anyone
+        requirements:
+          - Solution contains Forge.Domain, Forge.Application, Forge.Infrastructure, Forge.Health and Forge.App under src/, and matching unit test projects under tests/.
+          - Forge.Domain and Forge.Application target net10.0 and reference neither Microsoft.Maui.* nor DevExpress.Maui.*.
+          - Forge.App multi-targets net10.0-android and net10.0-ios only. Windows and Mac Catalyst target frameworks must be absent.
+          - Android minimum SDK is API 26; iOS minimum deployment target is 15.0.
+          - All package versions resolve from Directory.Packages.props; no PackageReference carries an inline Version attribute.
+        acceptanceCriteria:
+          - id: AC1
+            given: a clean clone of the repository with no NuGet cache
+            when: a developer runs dotnet restore followed by dotnet build
+            then: the solution restores and compiles for both android and ios with zero warnings
+          - id: AC2
+            given: the Forge.Domain project
+            when: a developer adds a PackageReference to Microsoft.Maui.Controls
+            then: the build fails with an explicit architecture-violation error rather than succeeding silently
+          - id: AC3
+            given: the Forge.App project file
+            when: its TargetFrameworks property is inspected
+            then: it contains exactly net10.0-android and net10.0-ios
+        implementation:
+          notes: >-
+            Create projects with dotnet new (classlib for the inner layers, maui for the head)
+            then strip the generated Windows and Mac Catalyst target frameworks from Forge.App.
+            Enforce the dependency rule with a NuGet-free guard: add a Directory.Build.targets
+            under src/Forge.Domain and src/Forge.Application containing a custom target that
+            runs before Build, inspects @(PackageReference) and @(ProjectReference), and raises
+            an MSBuild Error for any identity matching Microsoft.Maui* or DevExpress*. This
+            keeps the check in the compiler rather than relying on review discipline. Enable
+            ManagePackageVersionsCentrally and set the shared properties in Directory.Build.props
+            at the repository root so every project inherits them.
+          touches:
+            - Forge.sln
+            - src/Forge.Domain/Forge.Domain.csproj
+            - src/Forge.Application/Forge.Application.csproj
+            - src/Forge.Infrastructure/Forge.Infrastructure.csproj
+            - src/Forge.App/Forge.App.csproj
+            - src/Directory.Build.targets
+          apis:
+            - Microsoft.NET.Sdk
+            - Microsoft.NET.Sdk.Maui
+        testing:
+          - Build both target frameworks in CI on every pull request.
+          - Add an architecture test in Forge.Domain.Tests asserting that the Forge.Domain assembly references no assembly whose name starts with Microsoft.Maui or DevExpress.
+        grounding:
+          - title: .NET MAUI target frameworks
+            url: https://learn.microsoft.com/dotnet/maui/supported-platforms
+            note: Confirms TFM naming and minimum platform versions.
+
+      - key: S01.01.02
+        title: Wire DevExpress registration and brand theme in MauiProgram
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [devexpress]
+        userStory:
+          asA: developer building any Forge screen
+          iWant: DevExpress controls registered and themed centrally
+          soThat: every screen inherits the brand automatically and no screen re-declares colours
+        requirements:
+          - MauiProgram registers DevExpress Core, Controls, CollectionView, Editors, Charts and Gauges.
+          - Registration calls appear after UseMauiApp<App>() as required by analyzer DXM001.
+          - ThemeManager.Theme is assigned from the Forge brand seed colour before MauiApp.CreateBuilder() is called.
+          - ThemeManager.UseAndroidSystemColor is false so branding stays consistent across devices.
+          - A DXButton and a DXCollectionView render correctly on both an Android and an iOS device.
+        acceptanceCriteria:
+          - id: AC1
+            given: the application is launched on Android
+            when: a page containing dx:DXButton and dx:DXCollectionView is displayed
+            then: both controls render with Forge brand colours and no runtime handler exception occurs
+          - id: AC2
+            given: the device theme is switched from light to dark while the app is running
+            when: the user returns to the app
+            then: DevExpress surfaces re-render in the dark scheme without requiring a restart
+          - id: AC3
+            given: a developer moves a UseDevExpress call before UseMauiApp<App>()
+            when: the project is built
+            then: the build fails with analyzer error DXM001
+        implementation:
+          notes: >-
+            Order is load-bearing and is the single most common mistake with this suite. Assign
+            ThemeManager.Theme = new Theme(Color.FromArgb(ForgeBrand.SeedHex)) as the first
+            statement in CreateMauiApp, before MauiApp.CreateBuilder(), because the theme engine
+            reads it during builder construction. Then chain
+            .UseMauiApp<App>().UseDevExpress().UseDevExpressControls()... - registration before
+            UseMauiApp<T>() raises DXM001. Pass useLocalization:false to UseDevExpress until
+            E24 introduces localized resources, since loading DevExpress localization assemblies
+            costs startup time we do not yet need.
+          touches:
+            - src/Forge.App/MauiProgram.cs
+            - src/Forge.App/Theme/ForgeBrand.cs
+          devexpress:
+            - ThemeManager
+            - Theme
+            - DXButton
+            - DXCollectionView
+          apis:
+            - DevExpress.Maui.Core
+            - DevExpress.Maui.Controls
+        testing:
+          - Manual smoke test on one Android device and one iOS device, light and dark.
+          - Assert in a startup test that ThemeManager.Theme is non-null after MauiProgram runs.
+        grounding:
+          - title: DevExpress MAUI themes
+            url: https://docs.devexpress.com/MAUI/404636/common-concepts/themes
+            note: ThemeManager, seed colours and Material Design 3 semantic roles.
+
+      - key: S01.01.03
+        title: Add feature-module service registration convention
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer adding a new feature
+          iWant: to register my services from inside my own feature folder
+          soThat: my branch does not conflict with every other feature branch
+        requirements:
+          - Each feature folder exposes a static class with an AddXxxFeature(this IServiceCollection) extension method.
+          - MauiProgram calls each feature registration in one clearly delimited block.
+          - ViewModels are registered transient; services holding user state are registered singleton; DbContext is registered scoped or pooled per its own story.
+          - A feature can be removed by deleting its folder and one registration line.
+        acceptanceCriteria:
+          - id: AC1
+            given: two developers each add a new feature module on separate branches
+            when: both branches are merged
+            then: the only conflicting line is within the delimited registration block and resolves trivially
+          - id: AC2
+            given: a page is resolved from the service provider
+            when: its ViewModel declares constructor dependencies
+            then: all dependencies resolve without a runtime resolution exception
+        implementation:
+          notes: >-
+            Create src/Forge.App/Features/FeatureRegistration.cs holding only the ordered list of
+            AddXxxFeature() calls, so the merge surface is one small file rather than the whole
+            MauiProgram. Each feature owns Features/<Name>/<Name>FeatureRegistration.cs. Add a
+            unit test that builds the service provider with ValidateOnBuild and
+            ValidateScopes enabled, which turns a missing or mis-scoped registration into a
+            failing test rather than a crash on the device.
+          touches:
+            - src/Forge.App/MauiProgram.cs
+            - src/Forge.App/Features/FeatureRegistration.cs
+          apis:
+            - Microsoft.Extensions.DependencyInjection
+        testing:
+          - Unit test that builds the container with ValidateOnBuild and ValidateScopes and asserts every registered page and ViewModel resolves.
+
+  - key: F01.02
+    title: Build the navigation shell and routing
+    wave: 1
+    summary: >-
+      Provide the tab-based application shell, a typed route table, and a navigation service
+      that ViewModels can call without referencing MAUI page types, including the full-screen
+      modal case required later by workout execution.
+    outcome: >-
+      Any screen can navigate to any other by route with typed parameters, from a ViewModel,
+      with correct hardware back behaviour on Android.
+    dependsOn: [S01.01.01]
+    stories:
+      - key: S01.02.01
+        title: Implement the bottom tab shell with five primary destinations
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: Maya, opening Forge for the first time
+          iWant: an obvious bottom navigation bar
+          soThat: I can find training, nutrition and progress without hunting through menus
+        requirements:
+          - Five destinations - Today, Train, Nutrition, Progress, Profile - rendered with dx:TabView.
+          - Selected tab is visually distinct by more than colour alone, satisfying WCAG 1.4.1.
+          - Tab state survives suspend and resume and process death.
+          - Each tab item exposes an accessibility label announced correctly by TalkBack and VoiceOver.
+          - Tab bar respects the device safe area on notched and gesture-navigation devices.
+        acceptanceCriteria:
+          - id: AC1
+            given: the app is launched for the first time
+            when: the shell renders
+            then: five tabs are visible, Today is selected, and the selection is conveyed by both an icon change and a colour change
+          - id: AC2
+            given: the user is on the Progress tab
+            when: the app is backgrounded, the process is killed by the OS, and the app is relaunched
+            then: the app restores to the Progress tab
+          - id: AC3
+            given: a screen reader is active
+            when: the user swipes across the tab bar
+            then: each tab announces its name and its selected state
+          - id: AC4
+            given: an Android device using gesture navigation
+            when: the shell is displayed
+            then: no tab content is obscured by the system gesture inset
+        implementation:
+          notes: >-
+            Use dx:TabView with TabContentCacheMode=All so switching tabs does not rebuild page
+            content, which is the single biggest perceived-performance win in a tab shell. Host
+            it in AppShellPage. Persist the selected tab index through IPreferences on
+            OnSleep and restore it in OnStart. Do not use colour alone for the selected state -
+            pair a filled/outlined icon swap with the colour change so the selection survives
+            greyscale and colour-blind conditions. Wrap the tab bar in dx:SafeKeyboardAreaView
+            or apply safe-area padding so it clears the gesture bar.
+          touches:
+            - src/Forge.App/Shell/AppShellPage.xaml
+            - src/Forge.App/Shell/AppShellPage.xaml.cs
+            - src/Forge.App/Shell/AppShellViewModel.cs
+          devexpress:
+            - TabView
+            - TabViewItem
+        testing:
+          - Manual accessibility pass with TalkBack on Android and VoiceOver on iOS.
+          - Manual process-death test using the Android developer option "Don't keep activities".
+        grounding:
+          - title: DevExpress TabView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.TabView
+            note: TabContentCacheMode and data-bound tab items.
+          - title: WCAG 1.4.1 Use of Color
+            url: https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html
+            note: Justifies the icon-plus-colour requirement for selection state.
+
+      - key: S01.02.02
+        title: Provide a typed navigation service usable from ViewModels
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer writing a ViewModel
+          iWant: to navigate by route with typed parameters
+          soThat: my ViewModel stays unit-testable and free of MAUI page types
+        requirements:
+          - INavigationService is declared in Forge.Application and exposes GoToAsync, GoBackAsync and ShowModalAsync.
+          - Routes are declared as constants in one place; no magic strings at call sites.
+          - Parameters are passed as a typed object, not a loosely typed dictionary, at the call site.
+          - Navigating to an unregistered route throws a descriptive exception naming the route.
+          - The service is substitutable in unit tests without any MAUI dependency.
+        acceptanceCriteria:
+          - id: AC1
+            given: a ViewModel unit test with a substituted INavigationService
+            when: the ViewModel executes a command that navigates
+            then: the test asserts the target route and parameters without instantiating any MAUI type
+          - id: AC2
+            given: a route that has not been registered
+            when: navigation to it is attempted
+            then: an exception is thrown whose message contains the offending route name
+          - id: AC3
+            given: a modal page opened over the tab shell
+            when: the Android hardware back button is pressed
+            then: the modal is dismissed and the underlying tab retains its scroll position
+        implementation:
+          notes: >-
+            Declare INavigationService in Forge.Application/Abstractions so inner layers depend
+            only on the interface. Implement it in Forge.App/Navigation/ShellNavigationService
+            over Shell.Current.GoToAsync. Register routes in a static ForgeRoutes class holding
+            const strings, and register them with Routing.RegisterRoute at startup. Pass typed
+            parameters by placing the object into the IDictionary<string,object> overload under a
+            single well-known key and having a base ViewModel deserialize it, which keeps
+            call sites typed while still using the platform mechanism. Intercept Android back for
+            modals by overriding OnBackButtonPressed on the modal page and delegating to the
+            navigation service so the behaviour is defined in one place.
+          touches:
+            - src/Forge.Application/Abstractions/INavigationService.cs
+            - src/Forge.App/Navigation/ShellNavigationService.cs
+            - src/Forge.App/Navigation/ForgeRoutes.cs
+          apis:
+            - Microsoft.Maui.Controls.Shell
+        testing:
+          - Unit tests for parameter round-tripping and for the unknown-route exception message.
+          - Manual test of hardware back from a modal on Android.
+
+  - key: F01.03
+    title: Establish app lifecycle, logging and failure handling
+    wave: 1
+    summary: >-
+      Make the application observable and resilient - structured local logging, a global
+      exception boundary that offers recovery instead of disappearing, and correct state
+      persistence across suspend, resume and process death.
+    outcome: >-
+      A crash-free-feeling app where unexpected failures produce a recoverable screen and a
+      local diagnostic record the user can choose to share.
+    concerns: [privacy]
+    dependsOn: [S01.01.01]
+    stories:
+      - key: S01.03.01
+        title: Add structured local logging with redaction and rotation
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [privacy, perf]
+        userStory:
+          asA: developer diagnosing a user-reported problem
+          iWant: a local structured log that never contains personal or health data
+          soThat: I can debug effectively without creating a privacy liability
+        requirements:
+          - Logging uses Microsoft.Extensions.Logging with a file sink writing to the app cache directory.
+          - Log files rotate at 5 MB with at most three retained files.
+          - Health values, food entries, body metrics and any free-text note are never written at any level.
+          - Logging calls are non-blocking with respect to the UI thread.
+          - Debug builds additionally log to the platform debug console.
+        acceptanceCriteria:
+          - id: AC1
+            given: the app has been used for a full workout session
+            when: the log files are inspected
+            then: no bodyweight, heart rate, food name or user note appears in any log entry
+          - id: AC2
+            given: a log file has reached 5 MB
+            when: another entry is written
+            then: the file rotates and no more than three log files exist on disk
+          - id: AC3
+            given: logging is invoked from the UI thread during a scroll
+            when: frame timings are measured
+            then: no frame exceeds 16.6 ms attributable to logging
+        implementation:
+          notes: >-
+            Implement a small ILoggerProvider writing newline-delimited JSON to
+            FileSystem.CacheDirectory so the OS may reclaim it under storage pressure - logs must
+            never occupy the backed-up data directory. Push writes onto a bounded
+            System.Threading.Channels channel drained by a single background task, so a logging
+            burst can never block the UI thread and cannot grow memory without bound. Enforce
+            redaction structurally rather than by reviewer vigilance: accept only a typed event
+            enum plus non-sensitive scalar properties, so there is no API through which a caller
+            could log a food name or a bodyweight in the first place.
+          touches:
+            - src/Forge.Infrastructure/Diagnostics/FileLoggerProvider.cs
+            - src/Forge.Infrastructure/Diagnostics/ForgeLogEvents.cs
+          apis:
+            - Microsoft.Extensions.Logging
+            - System.Threading.Channels
+        testing:
+          - Unit test asserting rotation at the size threshold and retention of exactly three files.
+          - Unit test asserting the redaction API surface rejects free-text payloads.
+
+      - key: S01.03.02
+        title: Add a global exception boundary with a recovery screen
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: Maya, mid-workout when something goes wrong
+          iWant: the app to offer me a way back instead of vanishing
+          soThat: I do not lose the session I am part-way through
+        requirements:
+          - Unhandled exceptions on the UI thread and unobserved task exceptions are captured.
+          - The user is shown a recovery screen offering Continue, Restart and Share diagnostics.
+          - In-progress workout state is flushed to storage before the recovery screen is shown.
+          - Sharing diagnostics is explicit opt-in per incident and shows what will be shared first.
+          - No automatic transmission of any diagnostic data occurs.
+        acceptanceCriteria:
+          - id: AC1
+            given: an unhandled exception is raised while a workout is in progress
+            when: the exception boundary catches it
+            then: the in-progress workout is persisted and the recovery screen appears rather than the process terminating
+          - id: AC2
+            given: the recovery screen is displayed
+            when: the user chooses Continue
+            then: the app returns to the tab shell with the workout still resumable
+          - id: AC3
+            given: the user chooses Share diagnostics
+            when: the confirmation is displayed
+            then: the exact payload is shown for review and nothing is transmitted until the user confirms
+        implementation:
+          notes: >-
+            Subscribe to AppDomain.CurrentDomain.UnhandledException and
+            TaskScheduler.UnobservedTaskException, and additionally to the platform hooks -
+            Android.Runtime.AndroidEnvironment.UnhandledExceptionRaiser and
+            ObjCRuntime.Runtime.MarshalManagedException - because the managed-only hooks miss
+            exceptions crossing the native boundary. Persisting the workout first is the critical
+            ordering: do it before any UI work, because the process may still die. Reuse the
+            share sheet via MAUI Essentials Share rather than any network call, which keeps the
+            local-only guarantee intact.
+          touches:
+            - src/Forge.App/Diagnostics/GlobalExceptionHandler.cs
+            - src/Forge.App/Features/Diagnostics/RecoveryPage.xaml
+          apis:
+            - AppDomain.UnhandledException
+            - TaskScheduler.UnobservedTaskException
+            - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+        testing:
+          - Integration test that raises an exception during an active workout and asserts the session is recoverable afterwards.
+        grounding:
+          - title: .NET MAUI app lifecycle
+            url: https://learn.microsoft.com/dotnet/maui/fundamentals/app-lifecycle
+            note: Where to hook suspend and resume for the state flush.
+
+      - key: S01.03.03
+        title: Persist and restore navigation and in-progress state across process death
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        userStory:
+          asA: Alex, whose phone killed the app between sets
+          iWant: to come back exactly where I was
+          soThat: I do not lose the sets I already logged
+        requirements:
+          - Selected tab, active route and in-progress workout identifier persist on OnSleep.
+          - State restores on next launch if it is less than 12 hours old.
+          - Stale state beyond 12 hours is discarded silently without an error.
+          - Restoration adds no more than 100 ms to cold start.
+        acceptanceCriteria:
+          - id: AC1
+            given: a workout is in progress with three sets logged
+            when: the OS kills the process and the user relaunches the app
+            then: the app returns to the workout with all three sets present
+          - id: AC2
+            given: persisted state that is 13 hours old
+            when: the app launches
+            then: the state is discarded and the app opens on the Today tab with no error shown
+          - id: AC3
+            given: state restoration is enabled
+            when: cold start is measured against a baseline with restoration disabled
+            then: the difference is no greater than 100 ms
+        implementation:
+          notes: >-
+            Persist a small JSON snapshot through IPreferences on OnSleep - not the database,
+            because OnSleep offers no guaranteed time budget for a transaction. Keep the snapshot
+            to identifiers only and rehydrate the full aggregate from SQLite on restore, which
+            keeps the write cheap enough to complete reliably. The 12-hour window prevents the
+            confusing case of resuming a workout abandoned days earlier. Guard restoration in a
+            try/catch that falls back to a clean start, since a corrupt snapshot must never
+            produce a boot loop.
+          touches:
+            - src/Forge.App/Shell/AppStateSnapshot.cs
+            - src/Forge.App/App.xaml.cs
+          apis:
+            - Microsoft.Maui.Storage.Preferences
+        testing:
+          - Unit tests for the staleness boundary at 11h59m and 12h01m.
+          - Unit test asserting a corrupt snapshot results in a clean start rather than an exception.

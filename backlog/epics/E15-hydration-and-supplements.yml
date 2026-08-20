@@ -1,0 +1,643 @@
+key: E15
+title: Hydration and Supplement Tracking
+domain: nutrition
+wave: 3
+summary: >-
+  Forge supports water, beverages, caffeine and supplement routines with one-tap logging, adaptive local goals, respectful local reminders, health-store water coordination and clear tracking-only medical boundaries.
+problem: >-
+  Hydration and supplement habits are useful only when they are quick and calm. Users need reminders that do not wake them, caffeine awareness tied to sleep, and optional health-store water sync without Forge becoming a medical device.
+outcome: >-
+  Users can log water in one tap, adjust goals, receive respectful reminders, track caffeine and adherence, and sync water through E12 abstractions when permitted.
+successMetrics:
+  - One-tap water logging persists within 100 ms.
+  - No reminder fires inside quiet hours in clock-based tests.
+  - Caffeine warnings appear for entries within 6 hours of bedtime.
+nonGoals:
+  - No Forge backend, cloud sync, social database or server-side lookup in v1.
+  - No medical diagnosis, treatment plan or guaranteed health outcome.
+  - No desktop implementation in waves 1 to 5.
+risks:
+  - risk: Supplement tracking could be mistaken for medical advice.
+    mitigation: Use tracking-only wording and never recommend dosage, interactions or treatment changes.
+    severity: critical
+  - risk: Reminders could become intrusive.
+    mitigation: Respect quiet hours, sleep windows, snooze limits and one-tap disable actions.
+    severity: medium
+  - risk: Water sync could duplicate E12 platform integration.
+    mitigation: Use only IHealthDataService and keep HealthKit and Health Connect references in Forge.Health.
+    severity: medium
+dependsOn: [E01, E12]
+grounding:
+  - title: Forge architecture overview
+    url: https://github.com/NikoMix/fitness/blob/main/docs/architecture/overview.md
+    note: Local-only architecture, SQLite, mobile platforms and 40 MB APK budget.
+  - title: DevExpress MAUI DXCollectionView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+    note: Virtualized lists for large local datasets.
+  - title: DevExpress MAUI AutoCompleteEdit
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.AutoCompleteEdit
+    note: Asynchronous local search suggestions.
+  - title: DevExpress MAUI NumericEdit
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.NumericEdit
+    note: Bounded numeric entry.
+  - title: DevExpress MAUI BottomSheet
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.BottomSheet
+    note: Fast focused entry sheets.
+  - title: MAUI local notifications
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/local-notifications
+    note: Local notification scheduling patterns.
+  - title: Health Connect get started
+    url: https://developer.android.com/health-and-fitness/guides/health-connect/develop/get-started
+    note: Android health data access through E12.
+  - title: HealthKit dietaryWater quantity type
+    url: https://developer.apple.com/documentation/healthkit/hkquantitytypeidentifierdietarywater
+    note: iOS water quantity mapping through E12.
+  - title: DevExpress MAUI RadialGauge
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Gauges.RadialGauge
+    note: Hydration progress ring.
+  - title: DevExpress MAUI ChartView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Charts.ChartView
+    note: Hydration and caffeine trends.
+
+features:
+  - key: F15.01
+    title: Log hydration quickly with adaptive goals
+    wave: 3
+    summary: >-
+      Support one-tap water presets, transparent bodyweight and activity goals, and safe progress visuals.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S15.01.01
+        title: Log water with one-tap container presets
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: "Forge user"
+          iWant: "log water with one-tap container presets"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Default presets are 250 ml, 330 ml, 500 ml and 750 ml.
+          - Users can add 6 custom containers from 50 ml to 2500 ml.
+          - Save and update totals within 100 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: 500 ml preset is tapped
+            when: save completes
+            then: today's total increases by exactly 500 ml within 100 ms
+          - id: AC2
+            given: Undo is tapped within 10 seconds
+            when: undo completes
+            then: the last water entry is removed
+        implementation:
+          notes: >-
+            Add HydrationEntry and HydrationContainerPreset in Domain. Use Application commands so dashboard, reminders and health sync share one local path.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+            - dx:NumericEdit
+        testing:
+          - Add unit and UI coverage for S15.01.01 acceptance criteria including offline and error paths.
+      - key: S15.01.02
+        title: Calculate an adaptive hydration goal
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [safety]
+        userStory:
+          asA: "Forge user"
+          iWant: "calculate an adaptive hydration goal"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Base default goal on bodyweight with visible ml per kg factor.
+          - Adjust for workout minutes and optional temperature.
+          - Cap automatic increases to 1000 ml per day unless confirmed.
+        acceptanceCriteria:
+          - id: AC1
+            given: 80 kg uses 35 ml per kg
+            when: goal calculates
+            then: base goal is exactly 2800 ml
+          - id: AC2
+            given: adjustments add 1500 ml
+            when: goal refreshes
+            then: only 1000 ml applies automatically and 500 ml requires confirmation
+        implementation:
+          notes: >-
+            Implement HydrationGoalCalculator with injected activity and optional temperature inputs. Show the arithmetic and wellness caveat in a BottomSheet.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+            - dx:NumericEdit
+        testing:
+          - Add unit and UI coverage for S15.01.02 acceptance criteria including offline and error paths.
+      - key: S15.01.03
+        title: Animate hydration progress and history
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "animate hydration progress and history"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Use dx:RadialGauge for daily progress.
+          - Use dx:ChartView for 7 day history.
+          - Suppress celebration when intake exceeds 150 percent of goal.
+        acceptanceCriteria:
+          - id: AC1
+            given: 500 ml is logged toward 2500 ml
+            when: dashboard updates
+            then: RadialGauge reaches 20 percent within 300 ms with no frame above 16.6 ms
+          - id: AC2
+            given: intake reaches 160 percent
+            when: progress updates
+            then: no celebration animation plays
+        implementation:
+          notes: >-
+            Bind RadialGauge and ChartView to immutable summary DTOs. The 150 percent rule avoids gamifying excessive fluid intake.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:RadialGauge
+            - dx:ChartView
+        testing:
+          - Add unit and UI coverage for S15.01.03 acceptance criteria including offline and error paths.
+  - key: F15.02
+    title: Schedule respectful reminders
+    wave: 3
+    summary: >-
+      Use local notifications that respect quiet hours, sleep and snooze boundaries.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S15.02.01
+        title: Schedule hydration reminders with quiet hours
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "schedule hydration reminders with quiet hours"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Use local notifications only.
+          - Let users set reminder window, quiet hours and 0 to 12 reminders daily.
+          - Cancel remaining reminders once the daily goal is reached.
+        acceptanceCriteria:
+          - id: AC1
+            given: quiet hours are 22:00 to 07:00
+            when: 24 hours are scheduled
+            then: zero reminders fall inside quiet hours
+          - id: AC2
+            given: goal is reached at 15:00
+            when: scheduler refreshes
+            then: all later hydration reminders for today are cancelled
+        implementation:
+          notes: >-
+            Implement a local reminder scheduler adapter using Plugin.LocalNotification and store rules locally. Permission denial must leave local logging active.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:NumericEdit
+            - dx:DXCollectionView
+          apis:
+            - Plugin.LocalNotification
+        testing:
+          - Add unit and UI coverage for S15.02.01 acceptance criteria including offline and error paths.
+      - key: S15.02.02
+        title: Avoid reminders while the user is asleep
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [privacy]
+        userStory:
+          asA: "Forge user"
+          iWant: "avoid reminders while the user is asleep"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Use sleep window from E12 or Profile when available.
+          - Do not request sleep permission solely for hydration.
+          - Suppress reminders from 30 minutes before bedtime to wake time.
+        acceptanceCriteria:
+          - id: AC1
+            given: bedtime is 23:00 and wake is 06:30
+            when: reminders generate
+            then: none are scheduled from 22:30 through 06:30
+          - id: AC2
+            given: sleep permission is denied
+            when: reminders generate
+            then: quiet hours are used and no new permission prompt appears
+        implementation:
+          notes: >-
+            Coordinate with E12 by consuming an existing sleep summary or profile schedule through Application. This story owns reminder policy, not platform health reads.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Add unit and UI coverage for S15.02.02 acceptance criteria including offline and error paths.
+      - key: S15.02.03
+        title: Batch missed reminders and support snooze
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "batch missed reminders and support snooze"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Show at most 1 catch-up reminder after 2 or more missed reminders.
+          - Support Snooze 30 minutes and Done for today where platform actions allow.
+          - Limit snooze to 4 times per day.
+        acceptanceCriteria:
+          - id: AC1
+            given: 4 reminders are missed
+            when: notifications resume
+            then: at most 1 catch-up reminder is scheduled
+          - id: AC2
+            given: 4 snoozes happened today
+            when: snooze is attempted
+            then: no additional snooze notification is scheduled
+        implementation:
+          notes: >-
+            Record intended and responded reminder occurrences locally because platform missed-notification reporting differs. Reuse nutrition copy lint to prevent guilt wording.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          apis:
+            - Plugin.LocalNotification
+        testing:
+          - Add unit and UI coverage for S15.02.03 acceptance criteria including offline and error paths.
+  - key: F15.03
+    title: Track beverages and caffeine
+    wave: 3
+    summary: >-
+      Count non-water beverages and provide sleep-aware caffeine warnings without causal medical claims.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S15.03.01
+        title: Log beverages with water contribution
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: "Forge user"
+          iWant: "log beverages with water contribution"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Provide water, coffee, tea, milk, juice, sports drink and alcohol defaults.
+          - Store volume, contribution percent, caffeine mg and optional calories.
+          - Validate contribution from 0 to 100 percent.
+        acceptanceCriteria:
+          - id: AC1
+            given: 250 ml coffee has 80 percent contribution
+            when: it is logged
+            then: hydration increases by 200 ml and caffeine updates
+          - id: AC2
+            given: 120 percent contribution is entered
+            when: validation runs
+            then: save is blocked with range 0 to 100 percent
+        implementation:
+          notes: >-
+            Model BeverageEntry as hydration input plus metadata so totals remain atomic. Keep default contributions in seed data, not hard-coded UI.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+            - dx:NumericEdit
+        testing:
+          - Add unit and UI coverage for S15.03.01 acceptance criteria including offline and error paths.
+      - key: S15.03.02
+        title: Warn about late caffeine near bedtime
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [safety]
+        userStory:
+          asA: "Forge user"
+          iWant: "warn about late caffeine near bedtime"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Track caffeine in milligrams.
+          - Warn within 6 hours of configured bedtime.
+          - Show sleep pattern language only after 14 days of overlapping caffeine and sleep data.
+        acceptanceCriteria:
+          - id: AC1
+            given: bedtime is 22:30
+            when: caffeine is logged at 17:00
+            then: a warning appears because it is inside 6 hours
+          - id: AC2
+            given: 10 overlap days exist
+            when: insight renders
+            then: Forge says more data is needed and shows no correlation claim
+        implementation:
+          notes: >-
+            Pass sleep summary data from E12 into CaffeineWarningPolicy. The warning is a nudge and must never say caffeine caused poor sleep.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:BottomSheet
+            - dx:ChartView
+        testing:
+          - Add unit and UI coverage for S15.03.02 acceptance criteria including offline and error paths.
+      - key: S15.03.03
+        title: Chart beverage and caffeine trends
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: "Forge user"
+          iWant: "chart beverage and caffeine trends"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Use dx:ChartView for 7 and 28 day water equivalent, total fluid and caffeine.
+          - Mark disabled tracking days separately from zero-intake days.
+          - Render 28 days within 250 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: caffeine tracking is disabled
+            when: trends open
+            then: no caffeine labels, series or accessibility text are present
+          - id: AC2
+            given: 28 days exist
+            when: trends render
+            then: at most 28 points per series load within 250 ms
+        implementation:
+          notes: >-
+            Aggregate one row per day in Application and redact caffeine values before DTOs are bound when disabled, avoiding accessibility leaks.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:ChartView
+        testing:
+          - Add unit and UI coverage for S15.03.03 acceptance criteria including offline and error paths.
+  - key: F15.04
+    title: Track supplements and medications as logs only
+    wave: 3
+    summary: >-
+      Record schedules, reminders and adherence with explicit non-medical boundaries.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S15.04.01
+        title: Create supplement and medication schedules
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [safety]
+        userStory:
+          asA: "Forge user"
+          iWant: "create supplement and medication schedules"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Support name, optional dosage text, schedule times, start date and optional end date.
+          - Show tracking-only disclaimer before save.
+          - Allow 1 to 6 times per day and no dosage recommendations.
+        acceptanceCriteria:
+          - id: AC1
+            given: schedule editor opens
+            when: form renders
+            then: tracking-only disclaimer is visible before Save
+          - id: AC2
+            given: 7 times are added
+            when: validation runs
+            then: save is blocked with the 6 times per day limit
+        implementation:
+          notes: >-
+            Model SupplementSchedule with neutral supplement or medication type. Do not include product databases, suggested doses or interaction checks.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+            - dx:NumericEdit
+        testing:
+          - Add unit and UI coverage for S15.04.01 acceptance criteria including offline and error paths.
+      - key: S15.04.02
+        title: Remind and record supplement adherence
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy]
+        userStory:
+          asA: "Forge user"
+          iWant: "remind and record supplement adherence"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Schedule local reminders within allowed windows.
+          - Record taken, skipped and snoozed with timestamps.
+          - Stop reminders after schedule end date.
+        acceptanceCriteria:
+          - id: AC1
+            given: schedule ended yesterday
+            when: notifications refresh
+            then: zero future reminders are scheduled
+          - id: AC2
+            given: Taken action is received
+            when: Forge processes it
+            then: adherence history records taken within 100 ms
+        implementation:
+          notes: >-
+            Reuse the local reminder scheduler and store occurrence ids to prevent duplicate adherence rows. V1 must not promise critical medical alarms.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Plugin.LocalNotification
+        testing:
+          - Add unit and UI coverage for S15.04.02 acceptance criteria including offline and error paths.
+      - key: S15.04.03
+        title: Show adherence history without interpretation
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: masters
+        concerns: [safety, privacy]
+        userStory:
+          asA: "Forge user"
+          iWant: "show adherence history without interpretation"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Show 7 and 28 day taken, skipped and missed counts.
+          - Export a local summary only after explicit action.
+          - Avoid compliant, non-compliant and treatment success labels.
+        acceptanceCriteria:
+          - id: AC1
+            given: 28 days exist
+            when: history opens
+            then: ChartView renders counts within 250 ms
+          - id: AC2
+            given: export preview opens
+            when: text is inspected
+            then: no diagnosis or recommendation text appears
+        implementation:
+          notes: >-
+            Present adherence as plain counts using ChartView and DXCollectionView. Use neutral wording because this data is medically sensitive.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:ChartView
+            - dx:DXCollectionView
+        testing:
+          - Add unit and UI coverage for S15.04.03 acceptance criteria including offline and error paths.
+  - key: F15.05
+    title: Coordinate water with health stores
+    wave: 3
+    summary: >-
+      Use E12 abstractions for optional water read and write while keeping Forge SQLite local-first.
+    outcome: >-
+      The feature can be used offline on Android and iOS with deterministic local data and measurable performance.
+    concerns: [privacy, perf, safety]
+    stories:
+      - key: S15.05.01
+        title: Read and write water through IHealthDataService
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: "Forge user"
+          iWant: "read and write water through IHealthDataService"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Use E12 IHealthDataService only.
+          - Map Android water through Health Connect in Forge.Health.
+          - Map iOS water through HealthKit dietary water in Forge.Health.
+        acceptanceCriteria:
+          - id: AC1
+            given: write permission is granted
+            when: 500 ml water is logged
+            then: local entry saves and IHealthDataService writes exactly 500 ml once
+          - id: AC2
+            given: health integration is unavailable
+            when: water is logged
+            then: local save succeeds and sync unavailable is shown
+        implementation:
+          notes: >-
+            Implement HydrationSyncService with an outbox so local logging never depends on platform sync. Nutrition code must not reference HealthKit or Health Connect directly.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          apis:
+            - IHealthDataService
+            - Health Connect via Forge.Health
+            - HealthKit via Forge.Health
+        testing:
+          - Add unit and UI coverage for S15.05.01 acceptance criteria including offline and error paths.
+      - key: S15.05.02
+        title: Deduplicate imported water entries
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [data]
+        userStory:
+          asA: "Forge user"
+          iWant: "deduplicate imported water entries"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Store external id and source app where available.
+          - Deduplicate by external id, then by timestamp within 2 minutes and volume within 5 ml.
+          - Never delete other apps' health-store entries in v1.
+        acceptanceCriteria:
+          - id: AC1
+            given: same external id is read twice
+            when: sync runs twice
+            then: Forge stores exactly one imported entry
+          - id: AC2
+            given: 250 ml local and 252 ml imported are 90 seconds apart
+            when: dedupe runs
+            then: they are flagged possible duplicate and counted once by default
+        implementation:
+          notes: >-
+            Maintain WaterExternalReference rows and keep deletion local-only for imported copies. Approximate matching accounts for platform rounding.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Add unit and UI coverage for S15.05.02 acceptance criteria including offline and error paths.
+      - key: S15.05.03
+        title: Recover from health permission changes
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy]
+        userStory:
+          asA: "Forge user"
+          iWant: "recover from health permission changes"
+          soThat: "the feature works locally, clearly and safely"
+        requirements:
+          - Show separate water read and write permission states.
+          - Stop sync within 1 foreground event after revocation.
+          - Throttle permission prompts to once per 7 days after denial.
+        acceptanceCriteria:
+          - id: AC1
+            given: write permission is revoked
+            when: Forge foregrounds
+            then: status changes to write denied within 1 second and local logging still works
+          - id: AC2
+            given: permission was denied today
+            when: dashboard opens
+            then: no prompt appears for at least 7 days
+        implementation:
+          notes: >-
+            Build HydrationSyncSettingsPage over IHealthDataService status. Keep prompt throttle in Application and process pending outbox items only after explicit Retry sync.
+          touches:
+            - src/Forge.Domain/Nutrition
+            - src/Forge.Application/Nutrition
+            - src/Forge.App/Features/Nutrition
+          devexpress:
+            - dx:DXCollectionView
+            - dx:BottomSheet
+          apis:
+            - IHealthDataService
+        testing:
+          - Add unit and UI coverage for S15.05.03 acceptance criteria including offline and error paths.

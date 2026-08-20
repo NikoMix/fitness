@@ -1,0 +1,66 @@
+<Project>
+
+  <!--
+    Forge - repository-wide build configuration.
+    Applies to every project unless explicitly overridden.
+  -->
+
+  <PropertyGroup Label="Product">
+    <Product>Forge</Product>
+    <Company>NikoMix</Company>
+    <Authors>NikoMix</Authors>
+    <Copyright>Copyright (c) NikoMix</Copyright>
+    <NeutralLanguage>en</NeutralLanguage>
+    <RepositoryUrl>https://github.com/NikoMix/fitness</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Versioning">
+    <!-- Overridden by CI. VersionPrefix drives assembly/file/display version. -->
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <!-- Monotonic integer used for store submissions (Android versionCode / iOS CFBundleVersion). -->
+    <ApplicationDisplayVersion>$(VersionPrefix)</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Language">
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Quality">
+    <!--
+      Warnings are errors in CI only. Locally they stay warnings so that in-progress
+      work is not blocked, which keeps the inner development loop fast.
+    -->
+    <TreatWarningsAsErrors Condition="'$(ContinuousIntegrationBuild)' == 'true'">true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!--
+      CS1591 - missing XML comment. Documentation is enforced by review on public API in
+      Forge.Domain / Forge.Application rather than by the compiler across every type.
+    -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Output">
+    <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+  </PropertyGroup>
+
+  <PropertyGroup Label="SourceLink">
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+</Project>

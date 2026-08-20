@@ -1,0 +1,221 @@
+# Forge backlog taxonomy
+# Canonical vocabulary shared by every epic file. The sync tool creates GitHub labels and
+# milestones from this file, so it is the single place to change them.
+
+version: 1
+
+# ---------------------------------------------------------------------------------------
+# Domains - ownership boundaries. Chosen so that two domains rarely edit the same files,
+# which is what allows waves to be executed in parallel with few merge conflicts.
+# ---------------------------------------------------------------------------------------
+domains:
+  - key: foundation
+    name: Foundation
+    color: "1D3557"
+    description: App shell, navigation, DI, configuration, cross-cutting architecture
+    owns: [src/Forge.App/Shell, src/Forge.App/Navigation, src/Forge.Application/Abstractions]
+  - key: design
+    name: Design System
+    color: "6D597A"
+    description: Design tokens, theming, typography, motion, adaptive layout
+    owns: [src/Forge.App/Resources/Styles, src/Forge.App/Controls, src/Forge.App/Motion]
+  - key: data
+    name: Data Platform
+    color: "264653"
+    description: Persistence, migrations, repositories, import/export, backup
+    owns: [src/Forge.Infrastructure/Persistence, src/Forge.Domain]
+  - key: identity
+    name: Identity & Profile
+    color: "2A9D8F"
+    description: Onboarding, local accounts, biometrics, profile, goals
+    owns: [src/Forge.App/Features/Identity, src/Forge.App/Features/Profile]
+  - key: training
+    name: Training
+    color: "E63946"
+    description: Exercise library, plans, programs, workout execution
+    owns: [src/Forge.App/Features/Exercises, src/Forge.App/Features/Plans, src/Forge.App/Features/Workout]
+  - key: nutrition
+    name: Nutrition
+    color: "F4A261"
+    description: Food logging, macros, recipes, meal planning, hydration
+    owns: [src/Forge.App/Features/Nutrition, src/Forge.App/Features/Hydration]
+  - key: health
+    name: Health & Sensors
+    color: "E76F51"
+    description: Health Connect, HealthKit, device sensors, rep detection
+    owns: [src/Forge.Health, src/Forge.App/Features/Health]
+  - key: insights
+    name: Insights & Coaching
+    color: "457B9D"
+    description: Analytics, charts, personal records, adaptive coaching, readiness
+    owns: [src/Forge.App/Features/Insights, src/Forge.Application/Coaching]
+  - key: engagement
+    name: Engagement
+    color: "9C6644"
+    description: Notifications, reminders, streaks, achievements, habit loops
+    owns: [src/Forge.App/Features/Engagement, src/Forge.Infrastructure/Notifications]
+  - key: commerce
+    name: Commerce
+    color: "B5838D"
+    description: Shop, in-app purchases, entitlements, restore purchases
+    owns: [src/Forge.App/Features/Shop, src/Forge.Infrastructure/Billing]
+  - key: compliance
+    name: Compliance & Inclusion
+    color: "3D405B"
+    description: Privacy, legal, data deletion, accessibility, localization, settings
+    owns: [src/Forge.App/Features/Settings, src/Forge.App/Features/Legal, src/Forge.App/Resources/Strings]
+  - key: quality
+    name: Quality & Delivery
+    color: "606C38"
+    description: Testing, performance, CI/CD, release engineering, diagnostics
+    owns: [tests, .github/workflows, tools]
+
+# ---------------------------------------------------------------------------------------
+# Waves - scheduling. A wave is a horizon, not a sprint. Items inside a wave are worked in
+# parallel across domains.
+# ---------------------------------------------------------------------------------------
+waves:
+  - key: 1
+    name: "Wave 1 - Skeleton"
+    milestone: "W1 - Skeleton"
+    goal: >-
+      A signed, installable app on all four platforms that boots into a themed shell with
+      navigation, local database and CI. No product features yet - this wave exists to make
+      every later wave parallelisable.
+  - key: 2
+    name: "Wave 2 - Core Loop"
+    milestone: "W2 - Core Loop"
+    goal: >-
+      A user can onboard, set goals, browse the exercise library and see a profile. The
+      design system and adaptive layout are proven on phone, tablet and desktop.
+  - key: 3
+    name: "Wave 3 - Train & Eat"
+    milestone: "W3 - Train & Eat"
+    goal: >-
+      The two retention-critical loops work end to end: build a plan and execute a workout;
+      log food, macros and hydration. Notifications drive return visits.
+  - key: 4
+    name: "Wave 4 - Intelligence & Commerce"
+    milestone: "W4 - Intelligence & Commerce"
+    goal: >-
+      Health platform data flows in, progress analytics prove value, gamification retains,
+      and the shop monetises. This is the first release-candidate scope.
+  - key: 5
+    name: "Wave 5 - Launch"
+    milestone: "W5 - Launch"
+    goal: >-
+      Adaptive coaching, recovery insights, store assets, review hardening, and submission
+      to the App Store, Google Play and the Microsoft Store.
+  - key: 6
+    name: "Wave 6 - Post-v1"
+    milestone: "W6 - Post-v1"
+    goal: >-
+      Explicitly out of scope for v1. Parked here so the intent is captured without
+      widening the launch critical path.
+
+# ---------------------------------------------------------------------------------------
+# Issue types
+# ---------------------------------------------------------------------------------------
+types:
+  - key: epic
+    label: "type:epic"
+    color: "5319E7"
+  - key: feature
+    label: "type:feature"
+    color: "0E8A16"
+  - key: story
+    label: "type:story"
+    color: "1D76DB"
+
+# ---------------------------------------------------------------------------------------
+# Platforms - every story declares which heads it affects.
+# ---------------------------------------------------------------------------------------
+platforms:
+  - key: android
+    label: "platform:android"
+    color: "3DDC84"
+  - key: ios
+    label: "platform:ios"
+    color: "A2AAAD"
+  - key: maccatalyst
+    label: "platform:macos"
+    color: "555555"
+  - key: windows
+    label: "platform:windows"
+    color: "0078D4"
+  - key: all
+    label: "platform:all"
+    color: "BFD4F2"
+
+# ---------------------------------------------------------------------------------------
+# Cross-cutting concern labels
+# ---------------------------------------------------------------------------------------
+concerns:
+  - key: a11y
+    label: "concern:accessibility"
+    color: "FBCA04"
+  - key: perf
+    label: "concern:performance"
+    color: "D93F0B"
+  - key: privacy
+    label: "concern:privacy"
+    color: "C2E0C6"
+  - key: security
+    label: "concern:security"
+    color: "B60205"
+  - key: devexpress
+    label: "concern:devexpress"
+    color: "FF7A00"
+  - key: store-blocker
+    label: "concern:store-blocker"
+    color: "E11D21"
+  - key: long-lead
+    label: "concern:long-lead"
+    color: "F9D0C4"
+  - key: i18n
+    label: "concern:localization"
+    color: "C5DEF5"
+  - key: offline
+    label: "concern:offline-first"
+    color: "BFDADC"
+
+# ---------------------------------------------------------------------------------------
+# Estimation - t-shirt sizes mapped to ideal engineering days, used for wave capacity.
+# ---------------------------------------------------------------------------------------
+sizes:
+  xs: 0.5
+  s: 1
+  m: 2
+  l: 4
+  xl: 8
+
+# ---------------------------------------------------------------------------------------
+# Personas - referenced by user stories so the audience stays concrete.
+# ---------------------------------------------------------------------------------------
+personas:
+  - key: newcomer
+    name: Maya, the newcomer
+    summary: >-
+      32, has never followed a structured programme. Intimidated by gyms and by jargon.
+      Needs guidance, unambiguous form cues and small early wins. Churns if the first
+      session feels complicated.
+  - key: returner
+    name: Sam, the returner
+    summary: >-
+      41, trained seriously years ago, coming back after a long gap and an injury. Knows the
+      movements but must not reload old volumes. Values autoregulation and warm-ups.
+  - key: enthusiast
+    name: Alex, the enthusiast
+    summary: >-
+      27, trains 5x per week, already tracks everything in a spreadsheet. Will judge the app
+      on data fidelity, export, PR tracking and how fast logging a set is mid-workout.
+  - key: cutter
+    name: Priya, the body-composition focused user
+    summary: >-
+      35, primary goal is fat loss while retaining muscle. Lives in the nutrition and
+      hydration surfaces. Needs macro accuracy and fast repeat-meal logging.
+  - key: masters
+    name: Tom, the masters athlete
+    summary: >-
+      58, trains for longevity and mobility. Cares about joint-friendly variations, recovery,
+      sleep and readiness. Needs large type and high-contrast surfaces.

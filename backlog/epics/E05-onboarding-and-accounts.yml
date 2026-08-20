@@ -1,0 +1,755 @@
+key: E05
+title: Onboarding, Local Accounts and Authentication
+domain: identity
+wave: 2
+summary: >-
+  Forge v1 is local-only, so onboarding must not pretend that an email and
+  password creates recoverable account security. This epic gets a user to value
+  quickly with a local profile, optional biometric or PIN app lock, household
+  profile switching, and a future identity seam for cloud sync without forcing a
+  migration.
+problem: >-
+  Users ask for login because it is familiar, but a local-only app has no server
+  account to authenticate against and no password recovery. The real v1 threat is
+  a shared or stolen phone exposing sensitive local fitness data, while the
+  biggest product risk is adding friction before the user reaches value.
+outcome: >-
+  A user can start Forge in under a minute, skip setup when impatient, create and
+  switch local profiles, protect local data with app lock, delete a profile, and
+  later attach a cloud identity without data loss when that post-v1 capability is
+  built.
+successMetrics:
+  - 80 percent of new installs reach the Today tab or first planned action within 60 seconds.
+  - 65 percent of new profiles complete a first workout or first food log within 24 hours.
+  - Permission prompts appear during first-run onboarding in 0 percent of happy-path sessions.
+  - App-lock unlock completes in under 1.0 s after successful biometric or PIN entry.
+nonGoals:
+  - No backend account creation, password reset, email verification or cloud sync in v1.
+  - No mandatory sign-up gate before a user can inspect Forge or log an activity.
+  - No social sign-in in wave 2; third-party login is parked in wave 6.
+risks:
+  - risk: Stakeholders expect a conventional sign-up screen and see local profiles as incomplete.
+    mitigation: Make the local-only reasoning explicit in onboarding copy and keep a wave 6 account-attachment placeholder.
+    severity: medium
+  - risk: Users forget a PIN and expect server recovery.
+    mitigation: Explain during setup that forgotten PIN recovery requires deleting protected local data or restoring from backup when E26 exists.
+    severity: high
+  - risk: Household profiles are mistaken for strong isolation without app lock.
+    mitigation: Label profile switching as convenience separation and recommend app lock for private data.
+    severity: medium
+dependsOn: [E01]
+grounding:
+  - title: .NET MAUI secure storage
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/secure-storage
+    note: Used for storing app-lock metadata and encrypted verifier material.
+  - title: .NET MAUI preferences
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/preferences
+    note: Used for small non-sensitive onboarding and preference flags.
+  - title: Android biometric authentication
+    url: https://developer.android.com/identity/sign-in/biometric-auth
+    note: Defines Android biometric prompt behaviour.
+  - title: Apple LocalAuthentication framework
+    url: https://developer.apple.com/documentation/localauthentication
+    note: Defines Face ID, Touch ID and passcode evaluation on iOS.
+features:
+  - key: F05.01
+    title: Create value-first first-run onboarding
+    wave: 2
+    summary: >-
+      Introduce Forge with a short local-first path that asks only for data
+      needed to personalise the first useful screen and lets impatient users
+      skip directly to the product.
+    outcome: >-
+      First-run users understand the local-only model and can reach the Today tab
+      in 60 seconds or less without credentials or permission prompts.
+    concerns: [privacy, a11y]
+    stories:
+      - key: S05.01.01
+        title: Explain local-first onboarding without credential fields
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy, a11y]
+        userStory:
+          asA: Maya opening Forge for the first time
+          iWant: to understand why there is no required account sign-up
+          soThat: I can trust the app before entering sensitive data
+        requirements:
+          - The welcome screen states that v1 stores data only on this device and has no server account.
+          - The primary action creates a local profile and the secondary action skips setup.
+          - The flow contains no email, password, phone number or remote-authentication field.
+        acceptanceCriteria:
+          - id: AC1
+            given: the app launches with an empty database
+            when: the welcome screen is displayed
+            then: the user can reach the Today tab in no more than 3 taps without entering credentials
+          - id: AC2
+            given: a screen reader is active
+            when: focus enters the welcome content
+            then: the local-only privacy statement is announced before any profile fields
+        implementation:
+          notes: >-
+            Build OnboardingWelcomePage under src/Forge.App/Features/Identity.
+            Persist completion through IPreferences and create the profile through
+            an application use case. Copy must not imply cloud recovery or server
+            authentication.
+          touches:
+            - src/Forge.App/Features/Identity/Onboarding
+            - src/Forge.Application/Identity
+          devexpress: [dx:DXButton, dx:DXBorder]
+          apis: [Microsoft.Maui.Storage.Preferences]
+        testing:
+          - UI test first launch to Today without credential entry.
+          - Accessibility smoke test with TalkBack and VoiceOver.
+      - key: S05.01.02
+        title: Add a skip-everything path that creates a usable guest profile
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [offline]
+        userStory:
+          asA: Maya in a hurry
+          iWant: to skip onboarding without losing the ability to train
+          soThat: I can try Forge before committing effort
+        requirements:
+          - Skip creates a local profile named Guest with a stable localProfileId within 200 ms.
+          - Skipped values are stored as Unknown or Not Set rather than fabricated defaults.
+          - A complete-setup nudge appears no more than once per day.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user taps Skip on first run
+            when: the Today tab loads
+            then: a Guest profile exists in SQLite and the first action card is visible within 2.0 s
+          - id: AC2
+            given: the user skipped onboarding yesterday
+            when: they open Forge today
+            then: the complete-setup nudge appears once and does not reappear after dismissal that day
+        implementation:
+          notes: >-
+            Create LocalProfileDraft defaults in Forge.Domain and save through the
+            same application use case as full setup. Use dx:DXCollectionView for
+            Today nudges and throttle display with IPreferences.
+          touches:
+            - src/Forge.Domain/Identity
+            - src/Forge.Application/Identity
+            - src/Forge.App/Features/Today
+          devexpress: [dx:DXButton, dx:DXCollectionView]
+          apis: [Microsoft.EntityFrameworkCore, Microsoft.Maui.Storage.Preferences]
+        testing:
+          - Unit test skip creates explicit unknown values.
+          - Process-death test after skip verifies onboarding does not restart.
+      - key: S05.01.03
+        title: Record local activation without personal data
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [privacy]
+        userStory:
+          asA: product team member
+          iWant: to know whether onboarding creates early value
+          soThat: we can improve the funnel without collecting health details
+        requirements:
+          - Activation is completing one workout or one food log within 24 hours of profile creation.
+          - Events store profile id, event type and UTC timestamp only.
+          - No body metric, food name, exercise name or free-text note is captured.
+        acceptanceCriteria:
+          - id: AC1
+            given: a new profile completes a first workout
+            when: activation telemetry is inspected
+            then: exactly one workout activation record exists with no exercise names
+          - id: AC2
+            given: a custom food named Secret Recipe is logged
+            when: local telemetry rows are exported
+            then: the text Secret Recipe appears in zero telemetry rows
+        implementation:
+          notes: >-
+            Implement IActivationTelemetry in Forge.Application and a SQLite local
+            implementation in Forge.Infrastructure. This is a local measurement
+            seam only, not analytics upload, and should be surfaced later by E25.
+          touches:
+            - src/Forge.Application/Telemetry
+            - src/Forge.Infrastructure/Telemetry
+          apis: [Microsoft.EntityFrameworkCore]
+        testing:
+          - Unit test the 24-hour activation window.
+          - Privacy test that telemetry rejects free-text payloads.
+  - key: F05.02
+    title: Personalise onboarding with goals and availability
+    wave: 2
+    summary: >-
+      Collect a small set of answers that can shape the first recommendation
+      while deferring deeper profile editing to E06.
+    outcome: >-
+      The first Today screen reflects goal, experience and availability without
+      turning onboarding into a long questionnaire.
+    stories:
+      - key: S05.02.01
+        title: Guide the user through a three-step goal wizard
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: Maya setting up Forge
+          iWant: to answer only the questions needed for an initial recommendation
+          soThat: I get useful guidance before setup fatigue starts
+        requirements:
+          - "The wizard has no more than three required steps: goal, experience and availability."
+          - Each step offers an I am not sure option that still produces a valid recommendation.
+          - Updating an answer refreshes the recommendation preview within 250 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user starts the wizard
+            when: they complete required steps
+            then: the summary appears in no more than 9 taps
+          - id: AC2
+            given: the user selects I am not sure for every step
+            when: the summary is generated
+            then: a safe beginner general-health recommendation is shown
+        implementation:
+          notes: >-
+            Build OnboardingGoalWizardPage with dx:DataFormView and
+            dx:ComboBoxEdit. Keep the recommendation algorithm in
+            Forge.Application/Personalisation so it can be unit-tested without
+            MAUI or DevExpress references.
+          touches:
+            - src/Forge.App/Features/Identity/Onboarding
+            - src/Forge.Application/Personalisation
+          devexpress: [dx:DataFormView, dx:ComboBoxEdit, dx:DXButton]
+        testing:
+          - Unit tests for recommendation output for every wizard answer combination.
+      - key: S05.02.02
+        title: Apply onboarding answers to the first Today card
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy]
+        userStory:
+          asA: Sam returning after a long break
+          iWant: to see a next action that fits my current situation
+          soThat: I do not feel pushed into an unsafe programme
+        requirements:
+          - The first Today card uses goal, experience and availability from onboarding.
+          - Newcomer and returner recommendations start at no more than three training days per week.
+          - Session recommendations respect availability under 20 minutes and state that reason.
+        acceptanceCriteria:
+          - id: AC1
+            given: a newcomer selects strength and two days per week
+            when: onboarding completes
+            then: Today recommends no more than two weekly beginner strength sessions
+          - id: AC2
+            given: a returner selects 15-minute sessions
+            when: the Today card renders
+            then: the card states that short sessions were chosen because availability is 15 minutes
+        implementation:
+          notes: >-
+            Persist an OnboardingPersonalisationSnapshot beside the local
+            profile. Today queries the snapshot through Forge.Application rather
+            than deriving volume in the ViewModel, because E06 owns the detailed
+            goal model and safety rules.
+          touches:
+            - src/Forge.Application/Personalisation
+            - src/Forge.App/Features/Today
+          devexpress: [dx:DXBorder, dx:DXButton]
+        testing:
+          - Unit test first Today recommendations for newcomer and returner profiles.
+      - key: S05.02.03
+        title: Offer re-onboarding after a long absence
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: returner
+        concerns: [offline]
+        userStory:
+          asA: Sam reopening Forge after time away
+          iWant: to refresh my goals without hunting through settings
+          soThat: my plan restarts from my current reality
+        requirements:
+          - A profile inactive for 30 or more days sees a re-onboarding card on Today.
+          - The card can be dismissed for 14 days.
+          - Completing re-onboarding preserves all historical workouts and food logs.
+        acceptanceCriteria:
+          - id: AC1
+            given: a profile has no activity for 30 days
+            when: Today opens
+            then: a re-onboarding card appears above lower-priority cards
+          - id: AC2
+            given: the user completes re-onboarding
+            when: profile-owned history is inspected
+            then: all previous workouts and food logs remain linked to the same localProfileId
+        implementation:
+          notes: >-
+            Detect absence through an application query over activity timestamps.
+            Reuse the onboarding wizard in update mode and write a new immutable
+            personalisation snapshot instead of editing historical answers.
+          touches:
+            - src/Forge.Application/Identity
+            - src/Forge.App/Features/Identity/Onboarding
+          devexpress: [dx:DXBorder, dx:BottomSheet]
+        testing:
+          - Unit tests for the 29-day, 30-day and dismissed-for-14-days boundaries.
+  - key: F05.03
+    title: Request permissions progressively at point of need
+    wave: 2
+    summary: >-
+      Replace first-run permission prompts with contextual education and
+      just-in-time requests for camera, health data and notifications.
+    outcome: >-
+      Denying a permission leaves Forge usable, and granting one clearly unlocks
+      a specific capability.
+    concerns: [privacy]
+    stories:
+      - key: S05.03.01
+        title: Show reusable permission rationale sheets
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy, a11y]
+        userStory:
+          asA: Maya considering a permission request
+          iWant: to know why Forge wants access before the platform prompt
+          soThat: I can make an informed choice
+        requirements:
+          - Every permission request first shows a Forge rationale with Allow and Not now actions.
+          - The rationale names the feature unlocked and the exact data type requested.
+          - No camera, notification or health prompt appears during default first-run onboarding.
+        acceptanceCriteria:
+          - id: AC1
+            given: camera permission has not been requested
+            when: the user opens progress photo capture
+            then: a rationale sheet appears before the platform permission dialog
+          - id: AC2
+            given: the user completes first-run onboarding only
+            when: platform permission history is inspected
+            then: zero camera, notification or health permission prompts have appeared
+        implementation:
+          notes: >-
+            Centralise orchestration in PermissionRationaleService under
+            Forge.App/Platform/Permissions. Use dx:BottomSheet for explanations
+            and expose plain permission states to ViewModels.
+          touches:
+            - src/Forge.App/Platform/Permissions
+            - src/Forge.Application/Permissions
+          devexpress: [dx:BottomSheet, dx:DXButton]
+          apis: [Microsoft.Maui.ApplicationModel.Permissions]
+        testing:
+          - UI tests that first-run onboarding requests no platform permissions.
+      - key: S05.03.02
+        title: Handle denied permissions with working alternatives
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy]
+        userStory:
+          asA: Maya denying a permission
+          iWant: to keep using the app without being punished
+          soThat: I stay in control of my device and data
+        requirements:
+          - Every denied permission produces a feature-specific fallback within 1 tap.
+          - A permanently denied permission shows Open settings only after a second attempt.
+          - A denial is remembered for the current session and is not re-prompted.
+        acceptanceCriteria:
+          - id: AC1
+            given: camera permission is denied
+            when: the photo flow resumes
+            then: manual progress-note entry is offered without crashing
+          - id: AC2
+            given: notification permission is denied twice
+            when: reminder setup displays
+            then: Open settings is visible and no third platform prompt is attempted
+        implementation:
+          notes: >-
+            Model states as Unknown, Granted, DeniedThisSession and
+            RequiresSettings in Forge.Application. The MAUI implementation maps
+            platform states to those values and binds fallback commands in the UI.
+          touches:
+            - src/Forge.Application/Permissions
+            - src/Forge.App/Platform/Permissions
+          devexpress: [dx:BottomSheet, dx:DXButton]
+          apis: [Microsoft.Maui.ApplicationModel.Permissions]
+        testing:
+          - Unit tests for permission-state transitions and fallback selection.
+      - key: S05.03.03
+        title: Defer health and notification permission education
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy]
+        userStory:
+          asA: Sam exploring integrations
+          iWant: to decide on reminders or health sync when I use them
+          soThat: I am not overwhelmed during onboarding
+        requirements:
+          - Health education appears only from the health sync entry point.
+          - Notification education appears only from reminder creation.
+          - Dismissing either explanation leaves manual logging fully enabled.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user never opens reminder setup
+            when: onboarding and a first workout complete
+            then: no notification permission prompt appears
+          - id: AC2
+            given: the user dismisses health sync education
+            when: they return to Today
+            then: manual workout and nutrition logging remain enabled
+        implementation:
+          notes: >-
+            Provide small rationale ViewModels fed by shared copy resources.
+            Link to E12 health sync and E18 reminders through route constants
+            rather than implementing those epics in onboarding.
+          touches:
+            - src/Forge.App/Features/Identity/Permissions
+            - src/Forge.Application/Permissions
+          devexpress: [dx:BottomSheet, dx:DXButton]
+          apis: [Microsoft.Maui.ApplicationModel.Permissions]
+        dependsOn: [E12, E18]
+        testing:
+          - Integration tests assert dismissed permissions do not block manual logging.
+  - key: F05.04
+    title: Support multiple local profiles on one device
+    wave: 2
+    summary: >-
+      Treat profiles as local people using one installation, not remote accounts,
+      so household sharing is useful while its privacy limits are clear.
+    outcome: >-
+      A household can create, switch, rename and delete profiles without mixing
+      logs or corrupting ownership.
+    concerns: [privacy, offline]
+    stories:
+      - key: S05.04.01
+        title: Create additional local profiles from the switcher
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [privacy, perf]
+        userStory:
+          asA: Tom sharing a device with family
+          iWant: to add another person without online sign-up
+          soThat: each person keeps separate local history
+        requirements:
+          - A new local profile requires display name and optional avatar only.
+          - Each profile receives a generated immutable localProfileId never reused after deletion.
+          - Creating the eleventh profile completes within 300 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: one profile already exists
+            when: the user creates a profile named Alex
+            then: two profiles exist with different localProfileId values
+          - id: AC2
+            given: ten profiles exist
+            when: the user creates another profile
+            then: the switcher updates within 300 ms and remains scrollable at 60 fps
+        implementation:
+          notes: >-
+            Implement LocalProfile as an aggregate in Forge.Domain/Identity and
+            require all user-owned entities to reference localProfileId. Render
+            the switcher with dx:BottomSheet and dx:DXCollectionView.
+          touches:
+            - src/Forge.Domain/Identity
+            - src/Forge.Application/Identity
+            - src/Forge.App/Features/Identity/ProfileSwitcher
+          devexpress: [dx:BottomSheet, dx:DXCollectionView, dx:TextEdit]
+          apis: [Microsoft.EntityFrameworkCore]
+        testing:
+          - Repository tests verify unique ids and per-profile query filtering.
+      - key: S05.04.02
+        title: Switch profiles quickly and visibly
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: Alex sharing a device
+          iWant: to know which profile is active before logging
+          soThat: I do not put a workout under the wrong person
+        requirements:
+          - Active profile name or avatar is visible from every primary tab.
+          - Switching profile changes active context within 200 ms.
+          - Unsaved workout or food edits prompt before switching.
+        acceptanceCriteria:
+          - id: AC1
+            given: a workout has unsaved set edits
+            when: the user selects another profile
+            then: a confirmation appears and the profile is not switched automatically
+          - id: AC2
+            given: the user switches from Maya to Alex
+            when: Today refreshes
+            then: only Alex's plans and logs are visible within 200 ms
+        implementation:
+          notes: >-
+            Maintain IActiveProfileContext in Forge.Application and require
+            repositories to receive an explicit profile id. The shell observes
+            profile changes and invalidates feature caches after each switch.
+          touches:
+            - src/Forge.Application/Identity
+            - src/Forge.App/Shell
+            - src/Forge.App/Features/Identity/ProfileSwitcher
+          devexpress: [dx:BottomSheet, dx:DXBorder]
+        testing:
+          - UI test switching profiles with and without unsaved edits.
+      - key: S05.04.03
+        title: Delete a local profile with irreversible confirmation
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [privacy, security]
+        userStory:
+          asA: Tom cleaning up a shared device
+          iWant: to remove one person's local data completely
+          soThat: old data is not exposed to the next user
+        requirements:
+          - Deletion requires typing the profile display name exactly.
+          - Deletion removes that profile's workouts, nutrition logs, photos, settings overrides and activation records.
+          - Deleting the last profile returns the app to first-run onboarding.
+        acceptanceCriteria:
+          - id: AC1
+            given: the typed confirmation does not match the profile name
+            when: the user taps Delete
+            then: the delete command remains disabled and no rows are removed
+          - id: AC2
+            given: the last profile is deleted
+            when: the app restarts identity state
+            then: no profile-owned rows remain and next launch shows the welcome flow
+        implementation:
+          notes: >-
+            Build deletion as a single application use case and SQLite
+            transaction that enumerates profile-owned tables. Use dx:BottomSheet
+            and dx:TextEdit for the confirmation so deletion cannot happen by
+            accidental tap.
+          touches:
+            - src/Forge.Application/Identity/DeleteLocalProfile.cs
+            - src/Forge.Infrastructure/Persistence
+            - src/Forge.App/Features/Identity/ProfileSwitcher
+          devexpress: [dx:BottomSheet, dx:TextEdit, dx:DXButton]
+          apis: [Microsoft.EntityFrameworkCore]
+        testing:
+          - Integration test deletes a seeded profile and checks every profile-owned table.
+  - key: F05.05
+    title: Protect local data with optional app lock
+    wave: 2
+    summary: >-
+      Provide a real privacy control for the local threat model: someone else
+      holding the device. Biometrics and PIN protect app access without creating
+      a fake recoverable online account.
+    outcome: >-
+      Users can enable, unlock, lock out and recover from app lock states with
+      honest copy and no hidden server dependency.
+    concerns: [security, privacy]
+    grounding:
+      - title: Android biometric authentication
+        url: https://developer.android.com/identity/sign-in/biometric-auth
+        note: Defines Android biometric prompt behaviour.
+      - title: Apple LocalAuthentication framework
+        url: https://developer.apple.com/documentation/localauthentication
+        note: Defines iOS biometric and passcode evaluation.
+    stories:
+      - key: S05.05.01
+        title: Enable biometric app lock when supported
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [security, privacy]
+        userStory:
+          asA: Priya storing body data locally
+          iWant: to lock Forge behind device biometrics
+          soThat: my private logs are protected if someone opens my phone
+        requirements:
+          - Biometric setup is offered only when enrolled supported biometrics are available.
+          - Copy states that biometrics protect local app access and do not create a Forge online account.
+          - The app stores no biometric material.
+        acceptanceCriteria:
+          - id: AC1
+            given: enrolled biometrics are available
+            when: the user enables biometric lock
+            then: setup completes after one successful platform prompt
+          - id: AC2
+            given: no enrolled biometrics are available
+            when: the user opens app-lock settings
+            then: biometric lock is disabled with an explanation and PIN setup remains available
+        implementation:
+          notes: >-
+            Implement IAppLockService in Forge.Application and platform adapters
+            in Forge.App. Android should use AndroidX Biometric and iOS should
+            use LocalAuthentication. Store only policy state in SecureStorage.
+          touches:
+            - src/Forge.Application/Security
+            - src/Forge.App/Platforms/Android
+            - src/Forge.App/Platforms/iOS
+            - src/Forge.App/Features/Identity/AppLock
+          devexpress: [dx:DXButton, dx:DXBorder]
+          apis: [AndroidX.Biometric, LocalAuthentication, Microsoft.Maui.Storage.SecureStorage]
+        testing:
+          - Manual biometric setup test on one Android and one iOS device.
+      - key: S05.05.02
+        title: Provide PIN fallback with lockout and local recovery copy
+        wave: 2
+        size: l
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [security, privacy]
+        userStory:
+          asA: Priya whose biometric prompt fails
+          iWant: to unlock with a PIN and understand recovery limits
+          soThat: I am not surprised by losing access
+        requirements:
+          - PIN setup requires a 6-digit PIN and exact confirmation.
+          - Five failed attempts trigger a 60-second lockout.
+          - Recovery copy states that Forge cannot reset a forgotten PIN because there is no server.
+        acceptanceCriteria:
+          - id: AC1
+            given: PIN confirmation does not match
+            when: the user taps Save
+            then: the PIN is not stored and an inline error is shown
+          - id: AC2
+            given: five wrong PIN attempts occur
+            when: the user attempts another entry
+            then: PIN input is disabled for 60 seconds and the remaining time is visible
+        implementation:
+          notes: >-
+            Hash PIN verifiers with a slow salted KDF and store verifier metadata
+            in SecureStorage. Persist lockout counters across process death. Do
+            not add security questions or support-code bypasses.
+          touches:
+            - src/Forge.Application/Security
+            - src/Forge.Infrastructure/Security
+            - src/Forge.App/Features/Identity/AppLock
+          devexpress: [dx:TextEdit, dx:DXButton, dx:DXBorder]
+          apis: [Microsoft.Maui.Storage.SecureStorage, System.Security.Cryptography]
+        testing:
+          - Unit tests for PIN mismatch, lockout boundary and persisted counters.
+      - key: S05.05.03
+        title: Obscure protected content on launch and resume
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [security, privacy]
+        userStory:
+          asA: Alex with private logs
+          iWant: Forge to lock before showing sensitive screens
+          soThat: my data is hidden when the app returns from background
+        requirements:
+          - Protected content is obscured within 500 ms of app resume when lock is enabled.
+          - The lock screen reveals no profile name, body metric, workout, food or notification content.
+          - Profile switching from a locked profile requires successful unlock.
+        acceptanceCriteria:
+          - id: AC1
+            given: app lock is enabled and the app resumes on Profile
+            when: the resume event fires
+            then: a neutral lock screen appears within 500 ms with no profile data visible
+          - id: AC2
+            given: the user cancels biometric unlock
+            when: the lock screen remains
+            then: no route navigation or profile-switch command executes
+        implementation:
+          notes: >-
+            Hook app lifecycle events in App.xaml.cs and show LockOverlayPage
+            above the shell before restoring sensitive pages. Domain use cases
+            only receive an unlocked-session token, not MAUI state.
+          touches:
+            - src/Forge.App/App.xaml.cs
+            - src/Forge.App/Features/Identity/AppLock
+            - src/Forge.Application/Security
+          devexpress: [dx:DXButton, dx:DXBorder]
+          apis: [Microsoft.Maui.Controls.Shell]
+        testing:
+          - Manual app-switcher preview test with protected screens on both platforms.
+  - key: F05.06
+    title: Preserve a post-v1 remote identity path
+    wave: 6
+    summary: >-
+      Capture future account attachment explicitly so v1 does not add fake
+      sign-up while still avoiding a migration trap when cloud sync arrives.
+    outcome: >-
+      A later cloud identity can attach to an existing local profile without
+      replacing its data ownership model.
+    concerns: [privacy, store-blocker]
+    grounding:
+      - title: App Store Review Guideline 4.8
+        url: https://developer.apple.com/app-store/review/guidelines/#sign-in-with-apple
+        note: Relevant when third-party sign-in is added later.
+    stories:
+      - key: S05.06.01
+        title: Add disabled account-attachment route metadata
+        wave: 6
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [privacy]
+        userStory:
+          asA: developer planning future sync
+          iWant: an account attachment seam
+          soThat: local profiles can upgrade without data loss
+        requirements:
+          - Every profile has stable localProfileId and nullable externalIdentityId fields.
+          - The route table includes a disabled AccountAttach route behind a feature flag.
+          - No wave 2 UI displays sign-in or social-login actions.
+        acceptanceCriteria:
+          - id: AC1
+            given: the profile schema is inspected
+            when: a wave 2 profile exists
+            then: localProfileId is populated and externalIdentityId is null
+          - id: AC2
+            given: a wave 2 build is running
+            when: onboarding and settings are searched
+            then: no active sign-in or social-login action is visible
+        implementation:
+          notes: >-
+            Add only schema fields, route constants and disabled feature-flag
+            metadata. Do not add OAuth packages, token storage or credential
+            forms until a backend contract exists.
+          touches:
+            - src/Forge.Domain/Identity
+            - src/Forge.App/Navigation/ForgeRoutes.cs
+          devexpress: [dx:DXButton]
+          apis: [Microsoft.EntityFrameworkCore]
+        testing:
+          - Migration test verifies externalIdentityId is nullable for existing profiles.
+      - key: S05.06.02
+        title: Document future social sign-in compliance constraints
+        wave: 6
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [privacy, store-blocker]
+        userStory:
+          asA: developer implementing future identity
+          iWant: to know the app-store constraint before adding providers
+          soThat: the design includes a privacy-preserving sign-in option
+        requirements:
+          - If third-party login is offered, the plan includes Sign in with Apple or an equivalent privacy-preserving option where required.
+          - The plan states that social sign-in authenticates to a future backend and does not protect local data by itself.
+          - The migration plan attaches identity to localProfileId without changing profile-owned row counts.
+        acceptanceCriteria:
+          - id: AC1
+            given: a future identity plan includes third-party login
+            when: the plan is reviewed
+            then: an equivalent privacy-preserving sign-in option is listed in the same feature
+          - id: AC2
+            given: a seeded local profile is attached to a fake external identity
+            when: the migration test completes
+            then: all profile-owned row counts are unchanged
+        implementation:
+          notes: >-
+            Keep this as planning and schema readiness only. Actual provider
+            implementation belongs to the cloud-sync wave and must use
+            Microsoft.Maui.Authentication.WebAuthenticator or platform SDKs after
+            a backend contract exists.
+          touches:
+            - docs/adr
+            - src/Forge.Domain/Identity
+          apis: [Microsoft.Maui.Authentication.WebAuthenticator]
+        testing:
+          - Architecture test verifies wave 2 builds have no active OAuth provider registration.

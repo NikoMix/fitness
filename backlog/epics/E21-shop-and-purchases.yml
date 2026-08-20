@@ -1,0 +1,870 @@
+key: E21
+title: Shop, In-App Purchases and Entitlements
+domain: commerce
+wave: 4
+summary: >-
+  Forge monetises with an honest local-only commerce model: a one-off Forge Pro unlock for durable
+  premium features, with subscription infrastructure documented but not used unless Forge later
+  adds ongoing server-backed value. The epic covers catalogue, paywall, purchases, restore,
+  entitlements, offers, family sharing, cancellation links, localized prices, refunds, pending
+  purchases and store-compliance disclosure.
+problem: >-
+  Users will pay only if value is clear and the purchase is trustworthy. Because Forge has no
+  backend, it cannot perform server-side receipt validation or justify a subscription through cloud
+  services in v1. The app must be transparent, keep the core training loop useful for free, and
+  satisfy Apple and Google commerce rules that commonly block review.
+outcome: >-
+  Android and iOS users can buy or restore Forge Pro through platform billing, see localized prices
+  and honest disclosures, retain access after reinstall through store restore, and understand the
+  local-only entitlement trade-off without losing access to the core fitness loop.
+successMetrics:
+  - 100% of purchase, restore and entitlement stories pass store-compliance review before release candidate submission.
+  - Purchase flow returns a final user-visible state for success, cancellation, pending, declined and refund cases.
+  - Restore purchases completes in under 10 seconds on a normal store sandbox connection.
+  - Free users can complete onboarding, create a plan, log workouts and log core nutrition without a blocking paywall.
+nonGoals:
+  - No server-side receipt validation, account system or cross-device Forge account entitlement sync in v1.
+  - No consumable coins, loot boxes, paid streak freezes or random rewards.
+  - No external payment links or web checkout for digital features.
+risks:
+  - risk: A subscription is added without enough recurring value, causing poor trust and avoidable App Review scrutiny.
+    mitigation: Recommend a one-off Forge Pro unlock for v1 and gate any subscription SKU behind explicit future recurring value and disclosure checks.
+    severity: high
+  - risk: Local entitlement storage can be tampered with on compromised devices.
+    mitigation: Store entitlements in secure storage plus signed local records, explain the limitation, and avoid promising server-grade enforcement.
+    severity: medium
+  - risk: Missing restore purchases, cancellation links or subscription disclosures causes App Store rejection.
+    mitigation: Mark these stories as store-blockers and include automated and manual review checks before submission.
+    severity: critical
+dependsOn: [E01, E10, E14, E18]
+grounding:
+  - title: Plugin.InAppBilling repository
+    url: https://github.com/jamesmontemagno/InAppBillingPlugin
+    note: Billing plugin selected by the architecture for Google Play Billing and StoreKit.
+  - title: Apple App Review Guideline 3.1.1 In-App Purchase
+    url: https://developer.apple.com/app-store/review/guidelines/#in-app-purchase
+    note: Requires digital features to use in-app purchase and includes restore expectations.
+  - title: Google Play Billing integration
+    url: https://developer.android.com/google/play/billing/integrate
+    note: Defines product query, purchase, acknowledgement and pending purchase handling.
+  - title: Apple auto-renewable subscription guidance
+    url: https://developer.apple.com/app-store/subscriptions/
+    note: Subscription disclosure and management expectations if subscription products are ever enabled.
+  - title: Google Play subscriptions policy
+    url: https://support.google.com/googleplay/android-developer/answer/140504
+    note: Disclosure, cancellation and subscription management policy for Play.
+
+features:
+  - key: F21.01
+    title: Define an honest Forge Pro monetisation model
+    wave: 4
+    summary: >-
+      Establish a product catalogue and value presentation that fits a local-only app and avoids
+      overclaiming recurring subscription value.
+    outcome: >-
+      Forge ships with a one-off Pro unlock recommendation, clear free-versus-paid boundaries and no hard-coded prices.
+    stories:
+      - key: S21.01.01
+        title: Adopt a one-off Forge Pro unlock for v1 monetisation
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [store-blocker]
+        userStory:
+          asA: product owner
+          iWant: a monetisation model that matches Forge's local-only value
+          soThat: users are charged fairly and store review has a coherent explanation
+        requirements:
+          - The v1 catalogue contains one non-consumable Forge Pro unlock product per platform.
+          - The product decision record states that subscriptions are not enabled in v1 because there is no backend, cloud sync or ongoing service cost.
+          - The product decision record lists future conditions required before a subscription SKU may be enabled.
+          - No consumable currency, random reward or paid streak-protection product exists.
+        acceptanceCriteria:
+          - id: AC1
+            given: the commerce catalogue is inspected
+            when: v1 products are listed
+            then: exactly one non-consumable Forge Pro unlock is enabled per platform and no subscription SKU is enabled
+          - id: AC2
+            given: the monetisation decision record is opened
+            when: the rationale is read
+            then: it explicitly states that local-only v1 has weak recurring-value justification for a subscription
+          - id: AC3
+            given: the catalogue is searched
+            when: product types are examined
+            then: no consumable, loot box, paid freeze or artificial scarcity product exists
+        implementation:
+          notes: >-
+            Add a versioned CommerceCatalogue definition in Forge.Domain and a short ADR under
+            docs/adr capturing the one-off Forge Pro decision. The app should keep interfaces
+            general enough for future subscription products, but v1 configuration must not expose
+            or sell them. This aligns local-only architecture with user trust.
+          touches:
+            - src/Forge.Domain/Commerce/CommerceCatalogue.cs
+            - docs/adr/ADR-0021-forge-pro-monetisation.md
+            - src/Forge.App/Features/Shop/CommerceFeatureRegistration.cs
+          apis:
+            - Plugin.InAppBilling 10.0.0
+        testing:
+          - Unit test asserting v1 catalogue exposes only the non-consumable Forge Pro product.
+          - Review checklist item verifying no subscription SKU is enabled in store configuration for v1.
+
+      - key: S21.01.02
+        title: Present a paywall that explains value honestly
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [store-blocker]
+        userStory:
+          asA: Maya, considering Forge Pro
+          iWant: to understand exactly what I get and what stays free
+          soThat: I can decide without pressure or hidden terms
+        requirements:
+          - The paywall presents Forge Pro benefits, free features and one-off purchase nature in the first visible screen.
+          - Price is displayed only from platform product metadata and never hard-coded.
+          - The paywall includes Restore purchases and Terms and Privacy links.
+          - The dismiss action is visible without scrolling.
+          - The paywall avoids countdowns, fake scarcity and guilt-inducing copy.
+        acceptanceCriteria:
+          - id: AC1
+            given: store product metadata returns a localized price of 4,99 €
+            when: the paywall renders
+            then: the displayed price is 4,99 € and no hard-coded fallback price is visible
+          - id: AC2
+            given: the paywall is displayed on a 6-inch phone
+            when: the first viewport is inspected
+            then: the one-off nature, Restore purchases and dismiss action are visible
+          - id: AC3
+            given: paywall copy resources are scanned
+            when: countdown, last chance or fake scarcity terms are present
+            then: the copy test fails
+        implementation:
+          notes: >-
+            Implement PaywallBottomSheet in Forge.App/Features/Shop using dx:BottomSheet over a
+            ViewModel supplied by CommerceProductQuery. Product metadata must come from
+            Plugin.InAppBilling localized price fields, with loading and unavailable states if the
+            store cannot return products. Do not embed a price in production XAML or resources.
+          touches:
+            - src/Forge.App/Features/Shop/PaywallBottomSheet.xaml
+            - src/Forge.App/Features/Shop/PaywallViewModel.cs
+            - src/Forge.Application/Commerce/CommerceProductQuery.cs
+            - src/Forge.App/Resources/Strings/Commerce.resx
+          devexpress:
+            - dx:BottomSheet
+            - dx:DXCollectionView
+          apis:
+            - Plugin.InAppBilling 10.0.0
+        testing:
+          - Unit test that price display uses mocked store metadata.
+          - UI test that restore, dismiss and one-off disclosure are visible in the first viewport.
+
+      - key: S21.01.03
+        title: Gate paid features while preserving the free core loop
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: Sam, using Forge for free
+          iWant: the core training loop to remain usable
+          soThat: I can trust the product before upgrading
+        requirements:
+          - Free users can complete onboarding, create at least one training plan, log workouts, log hydration and log core nutrition.
+          - Paid gates may apply to advanced analytics, expanded historical insights, premium templates and cosmetic achievement card themes.
+          - A paid gate never appears after the user starts an active workout set logging flow.
+          - Every gate explains the free alternative and opens the paywall only after a user action.
+        acceptanceCriteria:
+          - id: AC1
+            given: a free user with no entitlement
+            when: they complete onboarding, create a plan and log a workout
+            then: no blocking paywall prevents the flow
+          - id: AC2
+            given: a free user opens a premium template
+            when: the gate appears
+            then: the gate explains the free template alternative and includes Not now
+          - id: AC3
+            given: an active workout logging screen is open
+            when: entitlement checks refresh
+            then: no paywall overlays the set logging controls
+        implementation:
+          notes: >-
+            Add EntitlementGateService in Forge.Application that returns capability decisions with
+            reason codes. Feature ViewModels should ask for capabilities before rendering premium
+            actions, but active workout execution must treat gates as non-blocking. Use dx:DXPopup
+            for small explanatory gates and dx:BottomSheet only when the user chooses the paywall.
+          touches:
+            - src/Forge.Application/Commerce/EntitlementGateService.cs
+            - src/Forge.Domain/Commerce/ForgeCapability.cs
+            - src/Forge.App/Features/Shop/EntitlementGatePopup.xaml
+          devexpress:
+            - dx:DXPopup
+            - dx:BottomSheet
+          apis:
+            - Plugin.InAppBilling 10.0.0
+        testing:
+          - End-to-end UI test for free onboarding through workout logging.
+          - Unit tests for each gated capability decision.
+
+  - key: F21.02
+    title: Implement platform purchase and restore flows
+    wave: 4
+    summary: >-
+      Use Plugin.InAppBilling to query products, buy Forge Pro, acknowledge purchases and restore
+      entitlements across reinstall.
+    outcome: >-
+      Purchase and restore flows are reliable, user-visible and compliant on Android and iOS.
+    concerns: [store-blocker]
+    stories:
+      - key: S21.02.01
+        title: Query store products and display localized pricing
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [store-blocker, i18n]
+        userStory:
+          asA: Maya, viewing the shop
+          iWant: prices in my store currency and language
+          soThat: I know the real cost before buying
+        requirements:
+          - Product metadata is queried from Google Play Billing or StoreKit through Plugin.InAppBilling before showing a purchasable paywall.
+          - Price, currency and trial or offer text use platform-localized product metadata.
+          - If products cannot be loaded within 10 seconds, the paywall shows a retry state and disables purchase buttons.
+          - No production YAML, XAML, C# resource or test fixture contains a hard-coded real price.
+        acceptanceCriteria:
+          - id: AC1
+            given: the store returns product metadata with localized price £6.99
+            when: the shop renders
+            then: the displayed price is £6.99 from metadata
+          - id: AC2
+            given: product metadata fails to load for 10 seconds
+            when: the paywall timeout elapses
+            then: the purchase button is disabled and a retry action is visible
+          - id: AC3
+            given: production source files are scanned
+            when: real currency price patterns are found outside mocks
+            then: the validation test fails
+        implementation:
+          notes: >-
+            Implement BillingProductService in Forge.Infrastructure over Plugin.InAppBilling and
+            return a ProductDisplayInfo DTO to Forge.Application. The paywall ViewModel should have
+            Loading, Available and Unavailable states. Keep mocked localized prices only in tests so
+            production cannot ship stale pricing that differs from the user's store.
+          touches:
+            - src/Forge.Infrastructure/Billing/BillingProductService.cs
+            - src/Forge.Application/Commerce/ProductDisplayInfo.cs
+            - tests/Forge.Application.Tests/Commerce/PriceDisplayTests.cs
+          apis:
+            - Plugin.InAppBilling 10.0.0
+        testing:
+          - Unit tests for loading, available and unavailable paywall states.
+          - Static test rejecting hard-coded production prices.
+
+      - key: S21.02.02
+        title: Complete Forge Pro purchase with acknowledgement and receipt capture
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [store-blocker]
+        userStory:
+          asA: Alex, buying Forge Pro
+          iWant: the purchase to unlock features reliably
+          soThat: I can use premium capabilities immediately after payment succeeds
+        requirements:
+          - Purchase flow uses Plugin.InAppBilling 10.0.0 for Google Play Billing and StoreKit.
+          - Successful Google Play purchases are acknowledged according to Play Billing requirements.
+          - Successful purchases store product id, transaction id where available, purchase time and platform in local entitlement records.
+          - The UI shows success, user-cancelled and store-unavailable states distinctly.
+          - Entitlement refresh completes within 2 seconds after a successful purchase callback.
+        acceptanceCriteria:
+          - id: AC1
+            given: the store returns a successful Forge Pro purchase
+            when: the purchase callback is processed
+            then: the local entitlement is active within 2 seconds
+          - id: AC2
+            given: Google Play returns an unacknowledged successful purchase
+            when: purchase processing completes
+            then: the purchase is acknowledged and the acknowledgement result is logged locally
+          - id: AC3
+            given: the user cancels the purchase sheet
+            when: control returns to Forge
+            then: no entitlement is granted and the UI shows Purchase cancelled rather than an error
+        implementation:
+          notes: >-
+            Create PurchaseForgeProUseCase in Forge.Application and BillingPurchaseService in
+            Forge.Infrastructure. The infrastructure service owns Plugin.InAppBilling calls and maps
+            plugin responses to application result types. Grant entitlements only after the platform
+            reports a purchased state and acknowledgement succeeds where required.
+          touches:
+            - src/Forge.Application/Commerce/PurchaseForgeProUseCase.cs
+            - src/Forge.Infrastructure/Billing/BillingPurchaseService.cs
+            - src/Forge.App/Features/Shop/PurchaseStatusPopup.xaml
+          devexpress:
+            - dx:DXPopup
+          apis:
+            - Plugin.InAppBilling 10.0.0
+            - Google Play Billing acknowledgePurchase
+            - StoreKit
+        testing:
+          - Unit tests for success, cancellation and unavailable purchase results.
+          - Sandbox purchase test on Google Play internal testing and Apple StoreKit testing.
+
+      - key: S21.02.03
+        title: Restore purchases from the platform store
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: returner
+        concerns: [store-blocker]
+        userStory:
+          asA: Sam, reinstalling Forge
+          iWant: to restore my Forge Pro purchase
+          soThat: I do not pay twice for the same non-consumable unlock
+        requirements:
+          - Restore purchases is visible from the paywall and shop settings without requiring a successful product load.
+          - Restore queries owned non-consumable purchases from the platform store through Plugin.InAppBilling.
+          - A restored Forge Pro purchase recreates local entitlement records after reinstall.
+          - Restore success, no purchases found, store unavailable and user authentication required states are displayed distinctly.
+          - Restore completes or times out with a retryable result within 10 seconds.
+        acceptanceCriteria:
+          - id: AC1
+            given: Forge is reinstalled and the store account owns Forge Pro
+            when: the user taps Restore purchases
+            then: Forge Pro entitlement is active locally within 10 seconds
+          - id: AC2
+            given: the store account owns no Forge products
+            when: restore completes
+            then: the UI shows No purchases found and no entitlement is granted
+          - id: AC3
+            given: product metadata fails to load
+            when: the paywall is shown
+            then: Restore purchases remains visible and tappable
+        implementation:
+          notes: >-
+            Implement RestorePurchasesUseCase separately from purchase so App Review can find and
+            test it without buying. The restore path should call the billing service owned-purchases
+            query, filter for Forge Pro and write the same entitlement projection as purchase success.
+            Keep restore buttons in both PaywallBottomSheet and ShopSettingsPage.
+          touches:
+            - src/Forge.Application/Commerce/RestorePurchasesUseCase.cs
+            - src/Forge.Infrastructure/Billing/BillingRestoreService.cs
+            - src/Forge.App/Features/Shop/ShopSettingsPage.xaml
+            - src/Forge.App/Features/Shop/PaywallBottomSheet.xaml
+          devexpress:
+            - dx:BottomSheet
+            - dx:DXCollectionView
+          apis:
+            - Plugin.InAppBilling 10.0.0
+        testing:
+          - Store sandbox restore test after uninstall and reinstall on Android and iOS.
+          - Unit tests for owned, none, unavailable and timeout restore results.
+
+      - key: S21.02.04
+        title: Handle pending purchases, declines, refunds and revocations
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [store-blocker]
+        userStory:
+          asA: Maya, whose payment may not complete immediately
+          iWant: Forge to explain purchase edge cases clearly
+          soThat: I know whether I have access and what to do next
+        requirements:
+          - Pending purchases are shown as Pending and do not grant Forge Pro until the store reports purchased.
+          - Payment declined and store error results show retry guidance without granting entitlement.
+          - Refund or revocation detected during entitlement refresh removes local Forge Pro access and explains why.
+          - Purchase state refresh runs on app start and when the shop opens.
+          - Edge-case messages avoid blaming the user.
+        acceptanceCriteria:
+          - id: AC1
+            given: Google Play returns a pending purchase
+            when: purchase processing completes
+            then: entitlement remains inactive and the shop shows Pending payment
+          - id: AC2
+            given: a previously owned product is no longer returned by the store during refresh
+            when: entitlement refresh completes
+            then: Forge Pro access is removed and a local message explains that the store no longer reports the purchase
+          - id: AC3
+            given: payment is declined
+            when: control returns to Forge
+            then: no entitlement is granted and the UI offers Retry without hostile copy
+        implementation:
+          notes: >-
+            Add EntitlementRefreshService that queries current store ownership and reconciles it
+            with local entitlements. Pending purchases should be stored as PurchaseAttempt records,
+            not active entitlements. Because the app is local-only, refund detection depends on the
+            next store refresh rather than server notifications, and the UI must be honest.
+          touches:
+            - src/Forge.Application/Commerce/EntitlementRefreshService.cs
+            - src/Forge.Domain/Commerce/PurchaseAttempt.cs
+            - src/Forge.Infrastructure/Billing/BillingOwnershipService.cs
+          apis:
+            - Plugin.InAppBilling 10.0.0
+            - Google Play Billing pending transactions
+            - StoreKit transaction updates
+        testing:
+          - Unit tests for pending, declined, refunded and revoked transitions.
+          - Sandbox matrix for interrupted purchase and declined test payment methods where available.
+
+  - key: F21.03
+    title: Store local entitlements with explicit tamper limits
+    wave: 4
+    summary: >-
+      Persist Forge Pro access locally using secure storage and signed records while clearly
+      documenting that server-grade validation is impossible in v1.
+    outcome: >-
+      Entitlements survive normal app restarts and restores, resist casual tampering and never
+      overstate their security guarantees.
+    concerns: [security, privacy]
+    stories:
+      - key: S21.03.01
+        title: Persist Forge Pro entitlement locally with tamper resistance
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [security]
+        userStory:
+          asA: developer maintaining commerce
+          iWant: local entitlement storage with basic tamper resistance
+          soThat: casual file edits do not trivially unlock paid features
+        requirements:
+          - Active entitlement records are stored in SQLCipher-backed SQLite and mirrored with a secure-storage key marker.
+          - Entitlement records include product id, platform, purchase or restore source, granted time and last verified time.
+          - A keyed local signature or MAC detects modified entitlement rows when the secure key is intact.
+          - If tampering is detected, paid capabilities are disabled and restore is offered.
+          - The implementation does not claim to prevent tampering on rooted or jailbroken devices.
+        acceptanceCriteria:
+          - id: AC1
+            given: an entitlement row is modified outside Forge
+            when: entitlement validation runs with the original secure key
+            then: validation fails and paid capabilities are disabled
+          - id: AC2
+            given: the app is restarted normally after purchase
+            when: entitlement validation runs
+            then: Forge Pro remains active
+          - id: AC3
+            given: tampering is detected
+            when: the shop opens
+            then: Restore purchases is offered and no accusatory copy is shown
+        implementation:
+          notes: >-
+            Store EntitlementEntity in the encrypted SQLite database and keep the signing key in
+            platform secure storage using the same secure-storage posture as the SQLCipher key. Use
+            HMAC over stable entitlement fields to catch casual DB edits. This is deliberately not
+            DRM and cannot stop a compromised device.
+          touches:
+            - src/Forge.Domain/Commerce/Entitlement.cs
+            - src/Forge.Infrastructure/Billing/LocalEntitlementStore.cs
+            - src/Forge.Infrastructure/Persistence/EntitlementEntity.cs
+          apis:
+            - Microsoft.Maui.Storage.SecureStorage
+            - System.Security.Cryptography.HMACSHA256
+            - SQLCipher
+        testing:
+          - Unit test detecting modified entitlement data.
+          - Integration test for entitlement surviving app restart.
+
+      - key: S21.03.02
+        title: Document local-only receipt validation trade-offs
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [security, store-blocker]
+        userStory:
+          asA: reviewer of the commerce implementation
+          iWant: the receipt-validation limitation documented in product and code
+          soThat: Forge does not imply server-side protection it does not have
+        requirements:
+          - Commerce documentation states there is no server-side receipt validation in v1 because Forge has no backend.
+          - The risk is described as weaker tamper resistance on compromised devices, not as a user-data privacy risk.
+          - Support copy and paywall copy do not claim purchases are synced through a Forge account.
+          - Future server validation is recorded as wave 6 unless a backend epic is approved.
+        acceptanceCriteria:
+          - id: AC1
+            given: commerce documentation is inspected
+            when: receipt validation is discussed
+            then: it explicitly states no server-side validation exists in v1
+          - id: AC2
+            given: paywall and support copy are scanned
+            when: phrases such as Forge account sync or server verified are present
+            then: validation fails
+          - id: AC3
+            given: roadmap metadata is inspected
+            when: server receipt validation appears
+            then: it is assigned wave 6 or a future backend-approved epic
+        implementation:
+          notes: >-
+            Add docs/commerce/entitlements.md and link it from the commerce feature README. Include
+            a concise trade-off note in developer documentation rather than scary security language
+            to normal users. Validation tests should scan resource strings for server-sync claims
+            because this app has no account or backend in the architecture.
+          touches:
+            - docs/commerce/entitlements.md
+            - src/Forge.App/Resources/Strings/Commerce.resx
+            - tests/Forge.Application.Tests/Commerce/CommerceCopyTests.cs
+          apis:
+            - Plugin.InAppBilling 10.0.0
+        testing:
+          - Documentation review checklist for local-only entitlement limitations.
+          - Copy scan test rejecting server-sync claims.
+
+      - key: S21.03.03
+        title: Restore entitlement after reinstall through store ownership
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [store-blocker]
+        userStory:
+          asA: Sam, reinstalling after changing phones
+          iWant: store restore to recreate my local entitlement
+          soThat: deleting the local database does not permanently lose my purchase
+        requirements:
+          - A missing local entitlement after reinstall can be recreated only from platform-owned purchase data.
+          - Restore does not require a Forge account, email address or support contact.
+          - If the store account differs from the purchasing account, Forge shows a neutral no-purchase-found state.
+          - Recreated entitlement records are indistinguishable from purchased records for feature gating except for source Restore.
+        acceptanceCriteria:
+          - id: AC1
+            given: local data is deleted and the same store account owns Forge Pro
+            when: Restore purchases succeeds
+            then: a local entitlement with source Restore is created
+          - id: AC2
+            given: local data is deleted and a different store account is signed in
+            when: Restore purchases completes
+            then: no entitlement is created and the UI shows No purchases found
+          - id: AC3
+            given: an entitlement restored from store ownership
+            when: a premium feature checks access
+            then: access is granted the same as for a directly purchased entitlement
+        implementation:
+          notes: >-
+            Reuse RestorePurchasesUseCase but add explicit tests around an empty local database.
+            The local-only architecture means store ownership is the only recovery source after
+            reinstall, so the UI should guide users to the correct Apple ID or Google account
+            without collecting those identifiers in Forge.
+          touches:
+            - src/Forge.Application/Commerce/RestorePurchasesUseCase.cs
+            - src/Forge.Infrastructure/Billing/LocalEntitlementStore.cs
+            - src/Forge.App/Features/Shop/RestoreResultPopup.xaml
+          devexpress:
+            - dx:DXPopup
+          apis:
+            - Plugin.InAppBilling 10.0.0
+        testing:
+          - Reinstall restore sandbox test for same-account and different-account cases.
+          - Unit test for restored entitlement capability parity.
+
+  - key: F21.04
+    title: Support offers, family sharing and subscription compliance gates
+    wave: 4
+    summary: >-
+      Handle platform offer metadata and sharing semantics honestly, and keep subscription
+      compliance surfaces ready before any future recurring SKU is enabled.
+    outcome: >-
+      Promotional pricing and sharing are shown only when the platform reports them, and subscription
+      disclosures cannot be bypassed if a subscription is introduced later.
+    concerns: [store-blocker]
+    stories:
+      - key: S21.04.01
+        title: Display introductory and promotional offers from store metadata
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [store-blocker]
+        userStory:
+          asA: Maya, seeing a launch offer
+          iWant: offer terms shown exactly as the store provides them
+          soThat: I understand whether the price is temporary and what happens next
+        requirements:
+          - Offer text is displayed only when platform product metadata includes an eligible introductory or promotional offer.
+          - Offer eligibility is not inferred locally from install date or arbitrary timers.
+          - Offer copy includes duration, price and post-offer price where platform metadata provides those fields.
+          - If no offer metadata is returned, the paywall shows no offer badge.
+          - Offers must not use fake countdowns or claim scarcity not provided by the store.
+        acceptanceCriteria:
+          - id: AC1
+            given: store metadata includes an introductory offer
+            when: the paywall renders
+            then: the offer duration and localized offer price are displayed from metadata
+          - id: AC2
+            given: store metadata contains no offer
+            when: the paywall renders
+            then: no introductory offer or promotional badge is visible
+          - id: AC3
+            given: paywall resources include a fake countdown phrase
+            when: commerce copy validation runs
+            then: the test fails
+        implementation:
+          notes: >-
+            Extend ProductDisplayInfo with optional OfferDisplayInfo populated only by the billing
+            infrastructure adapter. The paywall uses dx:BottomSheet sections to show offer terms
+            near the purchase button, but must hide the whole section when metadata is absent. This
+            keeps Forge from manufacturing urgency and keeps price truth with the store.
+          touches:
+            - src/Forge.Application/Commerce/OfferDisplayInfo.cs
+            - src/Forge.Infrastructure/Billing/BillingProductService.cs
+            - src/Forge.App/Features/Shop/PaywallBottomSheet.xaml
+          devexpress:
+            - dx:BottomSheet
+          apis:
+            - Plugin.InAppBilling 10.0.0
+            - StoreKit promotional offers
+            - Google Play Billing ProductDetails
+        testing:
+          - Unit tests for offer present and offer absent product metadata.
+          - Copy validation for fake scarcity and countdown terms.
+
+      - key: S21.04.02
+        title: Respect platform family sharing ownership
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [store-blocker]
+        userStory:
+          asA: Sam, using a family purchase where the store supports it
+          iWant: Forge to respect store-reported ownership
+          soThat: access matches my platform account rights
+        requirements:
+          - Forge grants access for family-shared ownership only when the platform reports the Forge Pro product as owned.
+          - The app does not ask users to identify family members or collect family account data.
+          - Product and restore copy states that sharing availability is controlled by the App Store or Google Play account.
+          - If the store does not report ownership, Forge does not grant access based on local claims.
+        acceptanceCriteria:
+          - id: AC1
+            given: the platform store reports Forge Pro as owned through family sharing
+            when: entitlement refresh runs
+            then: Forge Pro access is granted locally with source StoreOwnership
+          - id: AC2
+            given: a user says a family member purchased Forge Pro but the store reports no ownership
+            when: restore completes
+            then: no entitlement is granted and the UI directs the user to platform account settings
+          - id: AC3
+            given: restore copy is inspected
+            when: family sharing is mentioned
+            then: the copy says availability is controlled by the platform store
+        implementation:
+          notes: >-
+            Treat family sharing as a store ownership source, not a separate Forge concept. The
+            billing adapter should not distinguish family members unless the platform exposes a safe
+            ownership state, and Forge should never collect Apple ID, Google account or family data.
+            Render explanatory copy in ShopSettingsPage with dx:DXCollectionView settings rows.
+          touches:
+            - src/Forge.Application/Commerce/EntitlementRefreshService.cs
+            - src/Forge.Domain/Commerce/EntitlementSource.cs
+            - src/Forge.App/Features/Shop/ShopSettingsPage.xaml
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Plugin.InAppBilling 10.0.0
+        testing:
+          - Unit tests mapping store-owned family purchase to entitlement source.
+          - Copy review test for platform-controlled sharing wording.
+
+      - key: S21.04.03
+        title: Add subscription disclosure and cancellation links before enabling subscriptions
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [store-blocker]
+        userStory:
+          asA: release owner
+          iWant: subscription compliance gates even though v1 recommends one-off purchase
+          soThat: a future subscription cannot be enabled without required disclosures and management links
+        requirements:
+          - If any subscription product is enabled, the paywall must show billing period, renewal behaviour, price, free trial terms if present and cancellation instructions before purchase.
+          - If any subscription product is enabled, the shop must show Manage subscription links for iOS and Android.
+          - v1 configuration keeps subscription products disabled unless a separate approved decision changes the model.
+          - Automated validation fails when a subscription SKU is enabled without disclosure and management-link configuration.
+        acceptanceCriteria:
+          - id: AC1
+            given: a subscription product is enabled in catalogue configuration without a manage link
+            when: commerce configuration validation runs
+            then: validation fails with a store-blocker error
+          - id: AC2
+            given: v1 catalogue configuration is inspected
+            when: enabled products are listed
+            then: no subscription product is enabled
+          - id: AC3
+            given: a future subscription product is enabled with all required disclosure metadata
+            when: the paywall renders
+            then: renewal, period, price, trial terms and cancellation instructions are visible before purchase
+        implementation:
+          notes: >-
+            Add SubscriptionComplianceValidator even though the v1 catalogue uses only a
+            non-consumable. This prevents a future feature flag from enabling a subscription without
+            Apple and Google required copy and links. The UI can keep dormant Manage subscription
+            route support in ShopSettingsPage, but the v1 visible state should not advertise a subscription.
+          touches:
+            - src/Forge.Application/Commerce/SubscriptionComplianceValidator.cs
+            - src/Forge.App/Features/Shop/ShopSettingsPage.xaml
+            - tests/Forge.Application.Tests/Commerce/SubscriptionComplianceTests.cs
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Plugin.InAppBilling 10.0.0
+            - StoreKit subscription management
+            - Google Play subscription center
+        testing:
+          - Unit tests for subscription SKU enabled without disclosures.
+          - Manual review checklist for Apple and Google subscription disclosure if ever enabled.
+
+  - key: F21.05
+    title: Build the shop and entitlement management surface
+    wave: 4
+    summary: >-
+      Provide a local shop area where users can view status, restore access, retry failed operations
+      and understand purchase history without contacting support.
+    outcome: >-
+      Commerce state is transparent, recoverable and testable from one in-app location.
+    stories:
+      - key: S21.05.01
+        title: Show shop status, purchase history and restore actions
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [store-blocker]
+        userStory:
+          asA: Sam, checking my access
+          iWant: a shop status screen
+          soThat: I can see whether Forge Pro is active and restore if needed
+        requirements:
+          - Shop status shows Free or Forge Pro active, entitlement source and last store refresh time.
+          - The screen includes Restore purchases, Refresh store status, Terms, Privacy and support export actions.
+          - Purchase history shows local purchase attempts and restored entitlements without exposing payment instrument data.
+          - If the store is unavailable, the screen shows the last known entitlement state and a retry action.
+          - Restore purchases is reachable within two taps from the Profile or Settings area.
+        acceptanceCriteria:
+          - id: AC1
+            given: Forge Pro entitlement is active from restore
+            when: shop status opens
+            then: it shows Forge Pro active, source Restore and the last verified time
+          - id: AC2
+            given: the store is unavailable
+            when: the user taps Refresh store status
+            then: the last known entitlement state remains visible and a retryable error is shown
+          - id: AC3
+            given: the Profile tab is open
+            when: the user navigates to commerce settings
+            then: Restore purchases is reachable within two taps
+        implementation:
+          notes: >-
+            Build ShopSettingsPage using dx:DXCollectionView for status, actions and history rows.
+            Use dx:TabView only if purchase history and entitlement status need separate tabs after
+            real content exists. Keep payment instrument details out entirely because Plugin.InAppBilling
+            and the stores should own payment data.
+          touches:
+            - src/Forge.App/Features/Shop/ShopSettingsPage.xaml
+            - src/Forge.App/Features/Shop/ShopSettingsViewModel.cs
+            - src/Forge.Application/Commerce/CommerceStatusQuery.cs
+          devexpress:
+            - dx:DXCollectionView
+            - dx:TabView
+          apis:
+            - Plugin.InAppBilling 10.0.0
+        testing:
+          - UI test verifying restore is reachable within two taps.
+          - Unit tests for status rows in active, free and store-unavailable states.
+
+      - key: S21.05.02
+        title: Provide purchase support diagnostics without leaking payment data
+        wave: 4
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [privacy, security]
+        userStory:
+          asA: support-minded developer
+          iWant: users to export purchase diagnostics safely
+          soThat: billing problems can be investigated without collecting sensitive payment data
+        requirements:
+          - Diagnostics include product id, platform, local purchase attempt ids, result states and timestamps.
+          - Diagnostics exclude receipts, raw transaction payloads, payment instrument details, store account identifiers and personal health data.
+          - The user previews the exact diagnostic payload before sharing.
+          - No diagnostic data is transmitted automatically.
+        acceptanceCriteria:
+          - id: AC1
+            given: purchase diagnostics are generated
+            when: the payload is inspected
+            then: it contains product id, platform, attempt state and timestamps but no raw receipt field
+          - id: AC2
+            given: the user taps Export diagnostics
+            when: the preview appears
+            then: no share sheet opens until the user confirms
+          - id: AC3
+            given: health data exists in the local database
+            when: purchase diagnostics are generated
+            then: no workout, nutrition, body metric or health value appears in the payload
+        implementation:
+          notes: >-
+            Reuse the E01 diagnostics sharing pattern but provide a commerce-specific payload
+            builder in Forge.Application. The preview should be a dx:DXPopup with copy and share
+            actions. Never include platform receipts because they are sensitive and not needed for
+            local-only support triage.
+          touches:
+            - src/Forge.Application/Commerce/CommerceDiagnosticsBuilder.cs
+            - src/Forge.App/Features/Shop/CommerceDiagnosticsPopup.xaml
+          devexpress:
+            - dx:DXPopup
+          apis:
+            - Microsoft.Maui.ApplicationModel.DataTransfer.Share
+        testing:
+          - Unit test asserting sensitive fields are absent from diagnostics.
+          - UI test confirming preview before share.
+
+      - key: S21.05.03
+        title: Localize commerce copy, legal links and store review metadata
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [store-blocker, i18n]
+        userStory:
+          asA: release owner
+          iWant: commerce copy and legal links ready for store review
+          soThat: purchase screens are understandable and compliant in supported locales
+        requirements:
+          - Commerce strings are stored in resource files and include paywall, restore, error, offer and entitlement status text.
+          - Terms of use and privacy policy links are visible from paywall and shop settings.
+          - Store review notes document test products, restore path and the local-only entitlement model.
+          - English source copy avoids hard-coded prices and unsupported subscription claims.
+          - Missing commerce localization keys fail CI once E24 localization checks are enabled.
+        acceptanceCriteria:
+          - id: AC1
+            given: the paywall is displayed
+            when: legal actions are inspected
+            then: Terms of use and Privacy policy links are visible
+          - id: AC2
+            given: store review notes are opened
+            when: commerce testing instructions are read
+            then: they include test product ids, restore path and local-only entitlement explanation
+          - id: AC3
+            given: commerce resource files are scanned
+            when: hard-coded price strings or subscription claims are found
+            then: validation fails
+        implementation:
+          notes: >-
+            Put all commerce copy under Commerce.resx and route legal links through the compliance
+            feature so the public privacy policy URL remains the same one required by the architecture.
+            Add a docs/release/store-commerce-review.md checklist for reviewers, including sandbox
+            products and restore steps. Use dx:DXCollectionView for legal and support rows.
+          touches:
+            - src/Forge.App/Resources/Strings/Commerce.resx
+            - docs/release/store-commerce-review.md
+            - src/Forge.App/Features/Shop/ShopSettingsPage.xaml
+          devexpress:
+            - dx:DXCollectionView
+          apis:
+            - Microsoft.Extensions.Localization
+        testing:
+          - Resource scan for hard-coded prices and unsupported subscription claims.
+          - Manual store review checklist dry run before release candidate.

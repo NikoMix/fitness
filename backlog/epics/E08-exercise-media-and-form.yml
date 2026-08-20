@@ -1,0 +1,879 @@
+key: E08
+title: Exercise Media, Video and Form Guidance
+domain: training
+wave: 3
+summary: >-
+  Forge's exercise library becomes far more useful when text guidance is paired with careful media:
+  short demonstrations, annotated stills, timed cues, tempo helpers and private side-by-side form
+  review. This epic delivers media without breaking the 40 MB Android APK budget or the local-only
+  privacy promise.
+problem: >-
+  Users can read exercise steps and still misunderstand range, setup, tempo or body position. If
+  the app bundles hundreds of videos it becomes too large to install, but if it depends on network
+  media it fails users in gyms, basements and data-saver mode.
+outcome: >-
+  Exercise details can show lightweight bundled essentials, on-demand demonstration media, accessible
+  text fallbacks, annotated form guidance and strictly on-device user recordings with clear storage
+  controls and no v1 pose-estimation claims.
+successMetrics:
+  - The release Android per-ABI APK remains under 40 MB with all bundled exercise media included.
+  - Bundled media essentials add no more than 12 MB compressed to the base package.
+  - Downloaded demo playback starts within 1.0 s after the file is cached and within 3.0 s on a 10 Mbps connection.
+  - A user-recorded form check never creates a network request and stores video only in the app data directory.
+nonGoals:
+  - No live coaching, remote coach review, social sharing or upload of user form videos in v1.
+  - No AI pose estimation, rep scoring or skeleton overlay in v1; that exploration is parked in wave 6.
+  - No desktop-specific media implementation in waves 1 to 5.
+  - No custom video transcoding service or Forge-hosted backend in v1.
+risks:
+  - risk: Full video coverage for hundreds of exercises makes the app too large to install.
+    mitigation: Bundle only a tiny essential set, prefer animated loops and stills, and download full video on demand with cache limits.
+    severity: critical
+  - risk: User-recorded videos are perceived as being uploaded or analysed remotely.
+    mitigation: Make recording strictly local, show an on-device privacy notice, block network upload code paths and include tests that assert no HTTP request occurs.
+    severity: high
+  - risk: Media playback controls are implemented with unsupported custom renderers.
+    mitigation: Use CommunityToolkit.Maui.MediaElement as the documented fallback for the DevExpress media-control gap.
+    severity: medium
+dependsOn: [E07]
+grounding:
+  - title: Forge architecture overview
+    url: https://github.com/NikoMix/fitness/blob/main/docs/architecture/overview.md
+    note: Documents CommunityToolkit.Maui.MediaElement as the sanctioned video fallback and the 40 MB Android APK budget.
+  - title: CommunityToolkit MAUI MediaElement
+    url: https://learn.microsoft.com/dotnet/communitytoolkit/maui/views/mediaelement
+    note: Official playback control used because DevExpress has no MAUI media control.
+  - title: Android Play Asset Delivery
+    url: https://developer.android.com/guide/playcore/asset-delivery
+    note: Candidate option for external asset packs if policy and app-type fit are confirmed.
+  - title: Apple On-Demand Resources
+    url: https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/On_Demand_Resources_Guide/
+    note: Candidate option for App Store-hosted media assets outside the base bundle.
+features:
+  - key: F08.01
+    title: Choose media asset strategy and manifest
+    wave: 3
+    summary: >-
+      Decide how Forge references, packages, downloads and versions exercise media while staying inside
+      the mobile package budget and local-only architecture.
+    outcome: >-
+      Media is addressed by a manifest, base package size is controlled, and unknown platform delivery questions are explicit.
+    concerns: [perf, offline, store-blocker]
+    stories:
+      - key: S08.01.01
+        title: Define the v1 media size budget and delivery mix
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [perf, store-blocker]
+        userStory:
+          asA: release manager
+          iWant: a concrete media budget
+          soThat: video quality cannot silently break the app-size budget
+        requirements:
+          - Strategy documents the arithmetic that 800 exercises times 6 MB full videos equals 4800 MB, which is 120 times the 40 MB Android APK budget.
+          - Base package bundles no more than 12 MB compressed media, reserved for essential safety loops and posters.
+          - Full video demos are on-demand downloads or store-hosted resources and never required for text-only exercise detail.
+          - Animated WebP or AVIF loops are preferred for common movement snippets where they are at least 70 percent smaller than equivalent MP4.
+        acceptanceCriteria:
+          - id: AC1
+            given: the release build pipeline measures packaged assets
+            when: bundled exercise media exceeds 12 MB compressed
+            then: the build fails before signing and reports the media asset total
+          - id: AC2
+            given: the media strategy document is reviewed
+            when: the size arithmetic is inspected
+            then: it includes 800 times 6 MB equals 4800 MB and compares it to the 40 MB APK budget
+        implementation:
+          notes: >-
+            Add docs/media/exercise-media-strategy.md and a build-time asset budget check. The recommended
+            v1 strategy is 12 bundled essential loops at 0.8 MB average for about 9.6 MB, static annotated
+            stills for every seeded exercise, and optional on-demand MP4 downloads capped by user storage
+            preferences.
+          touches:
+            - docs/media/exercise-media-strategy.md
+            - tools/media-budget/Program.cs
+            - src/Forge.App/Resources/Raw/media-manifest.json
+        testing:
+          - CI test that fails when bundled media exceeds 12 MB.
+
+      - key: S08.01.02
+        title: Create versioned media manifest linked to exercises
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [offline]
+        userStory:
+          asA: developer adding exercise media
+          iWant: a manifest keyed by exercise IDs
+          soThat: text, stills, loops and videos stay linked through catalogue updates
+        requirements:
+          - MediaManifest entries include exerciseId, media type, angle, duration, byte size, checksum, caption track and accessibility fallback status.
+          - Manifest validation fails if an entry references a missing E07 exercise key.
+          - The app can render an exercise detail with no media entry using text-only guidance.
+          - Manifest version changes are applied without overwriting downloaded cache metadata incorrectly.
+        acceptanceCriteria:
+          - id: AC1
+            given: media-manifest.json references a missing exercise ID
+            when: manifest validation runs
+            then: validation exits non-zero and names the missing exercise ID
+          - id: AC2
+            given: an exercise has no media entry
+            when: its detail page opens
+            then: text-only guidance renders within 300 ms and no error banner appears
+        implementation:
+          notes: >-
+            Store the manifest as packaged JSON and import it through Forge.Infrastructure/Media. Keep
+            media metadata separate from ExerciseEntity so catalogue updates do not require cache eviction
+            unless checksum or URL actually changes.
+          touches:
+            - src/Forge.Domain/Training/Media/ExerciseMediaItem.cs
+            - src/Forge.Infrastructure/Media/MediaManifestImporter.cs
+            - src/Forge.App/Resources/Raw/media-manifest.json
+        testing:
+          - Unit tests for manifest validation and checksum-change handling.
+
+      - key: S08.01.03
+        title: Evaluate platform on-demand resource options
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [store-blocker]
+        userStory:
+          asA: technical lead
+          iWant: store-hosted asset options evaluated
+          soThat: Forge avoids committing to a CDN or unsupported package pattern
+        requirements:
+          - iOS On-Demand Resources feasibility is documented for exercise media files and asset tags.
+          - Android Play Asset Delivery feasibility is documented, including whether its game-focused documentation is acceptable for this app.
+          - If either store-hosted option is unsuitable, the fallback is HTTPS on-demand download from a static content host with checksums.
+          - Open questions are recorded before implementation begins.
+        acceptanceCriteria:
+          - id: AC1
+            given: the evaluation is complete
+            when: docs/media/exercise-media-strategy.md is inspected
+            then: it records a decision or open question for both Android asset delivery and iOS on-demand resources
+          - id: AC2
+            given: no store-hosted delivery decision is approved
+            when: implementation starts
+            then: the manifest supports HTTPS URLs with SHA-256 checksums and cache-only playback
+        implementation:
+          notes: >-
+            Keep this as an explicit decision record because the Android documentation positions Play Asset
+            Delivery for games. Do not block E08 on the final answer: design the manifest so URL, asset-pack
+            tag or iOS on-demand tag can all resolve to a local file path.
+          touches:
+            - docs/adr
+            - docs/media/exercise-media-strategy.md
+            - src/Forge.Application/Training/Media/IMediaAssetResolver.cs
+        testing:
+          - Architecture review confirms media resolution is abstracted behind IMediaAssetResolver.
+        openQuestions:
+          - Confirm whether Android Play Asset Delivery is acceptable for a non-game .NET MAUI fitness app.
+
+      - key: S08.01.04
+        title: Validate media licence and attribution metadata
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [store-blocker]
+        userStory:
+          asA: product owner
+          iWant: every media asset to record licence provenance
+          soThat: demos and stills are as legally safe as exercise text
+        requirements:
+          - Each media item stores creator, licence, source, release status and attribution requirement.
+          - Packaging fails if any media item has missing licence metadata or an unapproved source.
+          - Attribution-required media is listed in an in-app legal screen and in a generated report.
+        acceptanceCriteria:
+          - id: AC1
+            given: a media item without licence metadata
+            when: media validation runs
+            then: packaging exits non-zero and names the media asset key
+          - id: AC2
+            given: 3 attribution-required assets
+            when: the legal report is generated
+            then: all 3 appear with creator, licence and source URL
+        implementation:
+          notes: >-
+            Extend catalogue-lint or create media-lint so exercise copy and media provenance are checked
+            by the same CI gate. Avoid manual attribution lists because they will diverge as media changes.
+          touches:
+            - tools/media-lint/Program.cs
+            - src/Forge.App/Resources/Raw/media-manifest.json
+            - src/Forge.App/Features/Legal/MediaAttributionPage.xaml
+          devexpress:
+            - DXCollectionView
+        testing:
+          - Unit tests for missing licence, disallowed source and attribution report generation.
+
+  - key: F08.02
+    title: Play demonstration media on exercise details
+    wave: 3
+    summary: >-
+      Add reliable video and loop playback to exercise details using the sanctioned MediaElement
+      fallback and DevExpress layout controls.
+    outcome: >-
+      Users can watch short demonstrations with speed, scrub, zoom and angle controls without blocking text guidance.
+    concerns: [devexpress, perf, a11y]
+    stories:
+      - key: S08.02.01
+        title: Embed MediaElement demonstration playback
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [devexpress]
+        userStory:
+          asA: Maya, learning a movement
+          iWant: a playable demonstration on the exercise detail page
+          soThat: I can see setup and rhythm before trying it
+        requirements:
+          - Video playback uses CommunityToolkit.Maui.MediaElement because DevExpress has no media control in the architecture gap list.
+          - The player supports local cached file sources and packaged bundled sources.
+          - Text instructions remain visible or reachable when media fails to load.
+          - Playback errors surface within 1.0 s and include Retry and Text Guidance actions.
+        acceptanceCriteria:
+          - id: AC1
+            given: a cached demo file exists for Goblet Squat
+            when: the detail page opens and the user taps Play
+            then: playback starts within 1.0 s and no network request is made
+          - id: AC2
+            given: the media file is missing or corrupt
+            when: the user taps Play
+            then: an error state appears within 1.0 s with Retry and Text Guidance actions
+        implementation:
+          notes: >-
+            Create ExerciseMediaPlayerView in Forge.App and wrap CommunityToolkit.Maui.MediaElement.
+            Keep MediaElement out of ViewModels by exposing playback commands and state as plain values.
+            Use DevExpress DXBorder and DXButton around the player so visual styling stays consistent.
+          touches:
+            - src/Forge.App/Features/Exercises/Media/ExerciseMediaPlayerView.xaml
+            - src/Forge.App/Features/Exercises/Media/ExerciseMediaPlayerViewModel.cs
+          devexpress:
+            - DXBorder
+            - DXButton
+          apis:
+            - CommunityToolkit.Maui.MediaElement
+        testing:
+          - UI test for cached playback success and corrupt-file fallback.
+        grounding:
+          - title: CommunityToolkit MAUI MediaElement
+            url: https://learn.microsoft.com/dotnet/communitytoolkit/maui/views/mediaelement
+            note: Official documentation for MAUI video playback.
+
+      - key: S08.02.02
+        title: Add loop, speed, scrub and frame-step controls
+        wave: 3
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [a11y]
+        userStory:
+          asA: Alex, checking details of a lift
+          iWant: slow motion, scrubbing and frame stepping
+          soThat: I can inspect positions without fighting the player
+        requirements:
+          - Controls include loop, 0.25x, 0.5x, 1.0x and 1.5x playback speed, scrubber and single-frame step where platform support allows.
+          - If exact frame-step is unavailable, the app steps by no more than 100 ms and labels the control Step 0.1s.
+          - Control changes take effect within 100 ms while the player is loaded.
+          - All controls expose screen-reader labels and 44 by 44 point minimum hit targets.
+        acceptanceCriteria:
+          - id: AC1
+            given: a demo is playing at 1.0x
+            when: the user selects 0.5x
+            then: playback rate changes within 100 ms and the selected state is announced by the screen reader
+          - id: AC2
+            given: frame-step is unsupported on the current platform
+            when: the user opens advanced controls
+            then: the control is labelled Step 0.1s and advances by 100 ms or less per tap
+        implementation:
+          notes: >-
+            Implement a small playback controller service over MediaElement properties and platform
+            capability flags. Use DXButton controls and a stock Slider only if DevExpress has no better
+            media scrubber, but keep every command accessible and testable through the ViewModel.
+          touches:
+            - src/Forge.App/Features/Exercises/Media/MediaPlaybackControls.xaml
+            - src/Forge.Application/Training/Media/IMediaPlaybackCapabilities.cs
+          devexpress:
+            - DXButton
+            - DXPopup
+        testing:
+          - Manual playback matrix on Android and iOS for each speed and step mode.
+
+      - key: S08.02.03
+        title: Support pinch zoom, angle switching and landscape lock
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [a11y]
+        userStory:
+          asA: Sam, checking body position
+          iWant: zoom, side view and landscape playback
+          soThat: I can see the form detail that matters
+        requirements:
+          - Player supports pinch zoom from 1.0x to 3.0x with reset in one tap.
+          - Exercises with front and side angles expose an angle switcher and remember the last chosen angle per exercise.
+          - Full-screen playback can lock to landscape and restores portrait preference when dismissed.
+          - Angle switch preserves playback position within 250 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: a demo has front and side angles
+            when: the user switches from front to side at second 6.5
+            then: side angle playback resumes between second 6.25 and 6.75
+          - id: AC2
+            given: full-screen landscape playback is open
+            when: the user dismisses it
+            then: the previous page orientation and scroll position are restored within 300 ms
+        implementation:
+          notes: >-
+            Store angle preferences by exercise ID in local preferences and expose angle options from the
+            media manifest. Platform orientation locking belongs in Forge.App platform code behind an
+            IOrientationService so Application remains MAUI-free.
+          touches:
+            - src/Forge.App/Features/Exercises/Media/MediaAngleSelector.xaml
+            - src/Forge.App/Platform/IOrientationService.cs
+          devexpress:
+            - TabView
+            - DXButton
+          apis:
+            - Microsoft.Maui.Storage.Preferences
+        testing:
+          - UI test for angle switch position preservation.
+
+      - key: S08.02.04
+        title: Respect data saver, reduced motion and autoplay settings
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y, privacy]
+        userStory:
+          asA: Tom, limiting motion and data use
+          iWant: media playback to respect my settings
+          soThat: Forge does not surprise me with animation or downloads
+        requirements:
+          - Autoplay is disabled when reduced motion is enabled, data saver is enabled, battery saver is active or media is not cached.
+          - Users can set global media autoplay to Never, Wi-Fi cached only or Always cached only.
+          - The app never starts a cellular media download without an explicit user tap.
+        acceptanceCriteria:
+          - id: AC1
+            given: reduced motion is enabled
+            when: an exercise detail with bundled media opens
+            then: playback is paused and a Play button is visible
+          - id: AC2
+            given: the device is on cellular and media is not cached
+            when: the detail page opens
+            then: no media download begins before the user taps Download
+        implementation:
+          notes: >-
+            Centralize media policy in MediaAutoplayPolicy so page code cannot accidentally start downloads.
+            Use platform APIs where available and Forge settings elsewhere, then expose a single decision
+            result with a user-readable reason.
+          touches:
+            - src/Forge.Application/Training/Media/MediaAutoplayPolicy.cs
+            - src/Forge.App/Features/Settings/MediaSettingsPage.xaml
+          devexpress:
+            - TokenEdit
+            - DXButton
+        testing:
+          - Unit tests for reduced-motion, data-saver and cellular policy combinations.
+
+  - key: F08.03
+    title: Make media accessible and text complete
+    wave: 3
+    summary: >-
+      Ensure demonstrations do not exclude users who cannot or do not want to use video, audio or
+      motion.
+    outcome: >-
+      Every media-backed exercise has captions, fallback text and accessible controls.
+    concerns: [a11y, i18n]
+    stories:
+      - key: S08.03.01
+        title: Add captions and subtitle track support
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y, i18n]
+        userStory:
+          asA: Maya, watching with sound off
+          iWant: captions for exercise demos
+          soThat: I do not miss safety cues or timing
+        requirements:
+          - Every bundled or downloadable v1 demo has a caption track with cue timing to 250 ms accuracy.
+          - Captions can be toggled on or off and the setting persists locally.
+          - Missing caption tracks fail media lint before packaging.
+        acceptanceCriteria:
+          - id: AC1
+            given: media lint runs on bundled demos
+            when: one demo lacks captions
+            then: lint exits non-zero and names the media key
+          - id: AC2
+            given: captions are enabled
+            when: a demo reaches a cue timestamp
+            then: caption text appears within 250 ms of the manifest cue time
+        implementation:
+          notes: >-
+            Store captions as WebVTT-like text in the manifest or adjacent files and render them in a
+            MAUI overlay if MediaElement track support is insufficient. Persist the user setting locally
+            and plan for E24 localization by keeping caption IDs stable.
+          touches:
+            - src/Forge.Domain/Training/Media/CaptionTrack.cs
+            - src/Forge.App/Features/Exercises/Media/CaptionOverlay.xaml
+          devexpress:
+            - DXBorder
+            - DXButton
+        testing:
+          - Unit test for cue timing and lint failures.
+
+      - key: S08.03.02
+        title: Provide audio descriptions and text-only fallback
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: Tom, who cannot rely on video
+          iWant: text and optional audio descriptions
+          soThat: I can understand form without watching the screen
+        requirements:
+          - Media entries can include audio description scripts for key visual changes.
+          - Text-only fallback includes setup, steps, cues, common mistakes, breathing and tempo from E07.
+          - Text-only fallback is reachable with one tap from every playback error or media placeholder.
+        acceptanceCriteria:
+          - id: AC1
+            given: a video playback error occurs
+            when: the error state appears
+            then: Text Guidance is reachable with one tap and includes at least 5 E07 content sections
+          - id: AC2
+            given: an audio description script exists
+            when: the user enables audio descriptions
+            then: the description cue is available within 250 ms of its scheduled time
+        implementation:
+          notes: >-
+            Reuse E07 structured instruction content for the fallback rather than maintaining duplicate
+            prose. Audio description scripts should be optional per media item but validated when a media
+            item claims audioDescriptionAvailable true.
+          touches:
+            - src/Forge.App/Features/Exercises/Media/TextGuidanceFallbackView.xaml
+            - src/Forge.Domain/Training/Media/AudioDescriptionCue.cs
+          devexpress:
+            - DXExpander
+            - DXButton
+        testing:
+          - UI test that every media error state reaches text fallback in one tap.
+
+      - key: S08.03.03
+        title: Add accessible media control semantics
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: masters
+        concerns: [a11y]
+        userStory:
+          asA: Tom, using VoiceOver or TalkBack
+          iWant: media controls announced clearly
+          soThat: I can operate demos without guessing
+        requirements:
+          - Play, pause, speed, captions, angle, scrub and full-screen controls have accessible names, roles and states.
+          - Touch targets are at least 44 by 44 points.
+          - Focus order follows visual order from player to controls to text fallback.
+        acceptanceCriteria:
+          - id: AC1
+            given: TalkBack is active
+            when: the user swipes through media controls
+            then: controls announce name, role and selected state in visual order
+          - id: AC2
+            given: automated UI bounds inspection runs
+            when: media controls are measured
+            then: every interactive target is at least 44 by 44 points
+        implementation:
+          notes: >-
+            Add semantic properties directly in XAML and keep icon-only buttons paired with text labels for
+            assistive technology. Use a shared MediaControlButton style so hit-target fixes apply uniformly.
+          touches:
+            - src/Forge.App/Features/Exercises/Media/MediaPlaybackControls.xaml
+            - src/Forge.App/Resources/Styles/MediaControls.xaml
+          devexpress:
+            - DXButton
+        testing:
+          - Manual TalkBack and VoiceOver pass plus automated target-size inspection.
+
+      - key: S08.03.04
+        title: Validate media accessibility coverage before release
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: team
+        concerns: [a11y, quality]
+        userStory:
+          asA: release manager
+          iWant: media accessibility coverage measured
+          soThat: inaccessible demos do not slip into launch
+        requirements:
+          - Report measures caption coverage, text fallback coverage, audio description coverage and control semantic checks.
+          - Release candidate threshold is 100 percent captions and text fallback for bundled demos.
+          - The report exits non-zero if any bundled demo lacks captions or text fallback.
+        acceptanceCriteria:
+          - id: AC1
+            given: one bundled demo lacks text fallback
+            when: accessibility media lint runs
+            then: the tool exits non-zero and names the exercise ID
+          - id: AC2
+            given: 12 bundled demos with captions and fallback
+            when: the report runs
+            then: caption coverage and fallback coverage both report 100 percent
+        implementation:
+          notes: >-
+            Extend media-lint with accessibility rules that read the final media manifest. Do not rely on
+            manual QA checklists for coverage because missing captions are deterministic build failures.
+          touches:
+            - tools/media-lint/AccessibilityRules.cs
+            - src/Forge.App/Resources/Raw/media-manifest.json
+        testing:
+          - Unit tests for accessibility coverage percentages and exit codes.
+
+  - key: F08.04
+    title: Add form guidance beyond video
+    wave: 3
+    summary: >-
+      Provide annotated stills, comparisons, timed cues, tempo helpers and range guidance so media
+      teaches rather than merely plays.
+    outcome: >-
+      Users receive clear, testable form guidance even when video is disabled or unavailable.
+    concerns: [a11y, offline]
+    stories:
+      - key: S08.04.01
+        title: Show annotated stills and do or do-not comparisons
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: Maya, learning a setup
+          iWant: annotated stills and comparisons
+          soThat: I can identify good and bad positions before moving
+        requirements:
+          - Each bundled essential exercise includes at least 3 annotated stills covering setup, midpoint and finish.
+          - Do and do-not comparisons include at least 2 labelled differences for high-risk exercises.
+          - Annotations remain readable at 200 percent text scale.
+        acceptanceCriteria:
+          - id: AC1
+            given: a bundled essential exercise detail is open
+            when: the user opens Form Stills
+            then: at least 3 annotated stills are available offline
+          - id: AC2
+            given: text scale is 200 percent
+            when: annotations render
+            then: labels do not overlap image bounds and remain readable
+        implementation:
+          notes: >-
+            Store annotations as coordinates and text in the media manifest rather than baking all labels
+            into images. This supports localization, text scaling and dark-mode label styles without
+            regenerating image assets.
+          touches:
+            - src/Forge.Domain/Training/Media/AnnotatedStill.cs
+            - src/Forge.App/Features/Exercises/Form/AnnotatedStillView.xaml
+          devexpress:
+            - DXBorder
+            - TabView
+        testing:
+          - UI tests at default and 200 percent text scale.
+
+      - key: S08.04.02
+        title: Time cue text to movement phases
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        userStory:
+          asA: Sam, rebuilding technique
+          iWant: cues timed to movement phases
+          soThat: I focus on the right cue at the right moment
+        requirements:
+          - Media cue timeline supports phase name, start time, end time and cue text.
+          - Cues display within 250 ms of their scheduled phase during playback.
+          - If media is unavailable, cues can be stepped manually in phase order.
+        acceptanceCriteria:
+          - id: AC1
+            given: a demo has a brace cue at second 1.0
+            when: playback reaches the cue
+            then: cue text appears between seconds 0.75 and 1.25
+          - id: AC2
+            given: video is disabled
+            when: the user opens cue mode
+            then: cues can be advanced manually and remain in defined phase order
+        implementation:
+          notes: >-
+            Reuse E07 coaching cues but attach optional timing metadata in the media manifest. The player
+            ViewModel listens to playback position and emits the active cue without coupling Application to
+            MediaElement.
+          touches:
+            - src/Forge.Domain/Training/Media/TimedFormCue.cs
+            - src/Forge.App/Features/Exercises/Form/TimedCueOverlay.xaml
+          devexpress:
+            - DXBorder
+            - DXButton
+        testing:
+          - Unit tests for cue activation ranges and manual phase order.
+
+      - key: S08.04.03
+        title: Add tempo metronome and breathing prompts
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [a11y]
+        userStory:
+          asA: Alex, practising tempo work
+          iWant: a metronome and breathing prompts
+          soThat: I can match the prescribed cadence
+        requirements:
+          - Tempo helper supports 4-part tempo notation and generates audio, haptic or visual ticks.
+          - Users can disable audio and haptics independently.
+          - Timing drift stays under 100 ms over a 60-second practice run.
+        acceptanceCriteria:
+          - id: AC1
+            given: tempo 3-1-1-0 is selected
+            when: the metronome runs for 60 seconds
+            then: cumulative tick drift is less than 100 ms
+          - id: AC2
+            given: audio and haptics are disabled
+            when: the tempo helper runs
+            then: only visual ticks are shown and no haptic API call is made
+        implementation:
+          notes: >-
+            Implement TempoGuideService in Application using a testable clock abstraction and platform
+            adapters for haptics in App. Keep visual ticks independent of video playback so users can use
+            tempo practice with text-only guidance.
+          touches:
+            - src/Forge.Application/Training/Form/TempoGuideService.cs
+            - src/Forge.App/Features/Exercises/Form/TempoGuideView.xaml
+          devexpress:
+            - RadialGauge
+            - DXButton
+          apis:
+            - Microsoft.Maui.Devices.HapticFeedback
+        testing:
+          - Unit test with fake clock verifying drift under 100 ms.
+
+      - key: S08.04.04
+        title: Explain range of motion and setup checkpoints
+        wave: 3
+        size: s
+        platforms: [android, ios]
+        persona: masters
+        userStory:
+          asA: Tom, training for longevity
+          iWant: range and setup checkpoints
+          soThat: I can adjust movements without chasing unsafe depth
+        requirements:
+          - Each essential movement includes 2 to 5 setup checkpoints and a range-of-motion note.
+          - Checkpoints distinguish required, optional and limitation-sensitive guidance.
+          - Limitation-sensitive range notes appear when matching E07 contraindication tags are active.
+        acceptanceCriteria:
+          - id: AC1
+            given: a squat essential movement
+            when: checkpoints render
+            then: between 2 and 5 checkpoints appear with required or optional status
+          - id: AC2
+            given: a knee limitation is active
+            when: squat range guidance opens
+            then: limitation-sensitive range text is visible within the first screenful
+        implementation:
+          notes: >-
+            Store checkpoints as structured content associated with exercise IDs and contraindication tags.
+            Render them in an accessible list rather than relying only on image overlays, because range
+            guidance must survive text-only mode.
+          touches:
+            - src/Forge.Domain/Training/Form/FormCheckpoint.cs
+            - src/Forge.App/Features/Exercises/Form/FormCheckpointList.xaml
+          devexpress:
+            - DXCollectionView
+            - DXExpander
+        testing:
+          - Catalogue lint test for checkpoint count on essential movements.
+
+  - key: F08.05
+    title: Support private form recording and media storage
+    wave: 3
+    summary: >-
+      Let users record themselves for side-by-side comparison while keeping videos local and giving
+      them control over downloaded media storage.
+    outcome: >-
+      Form review and downloaded demonstrations are useful, private and predictable under low-storage conditions.
+    concerns: [privacy, offline, perf]
+    stories:
+      - key: S08.05.01
+        title: Record user form checks strictly on device
+        wave: 3
+        size: l
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy]
+        userStory:
+          asA: Sam, checking my squat
+          iWant: to record a private form clip
+          soThat: I can compare it without sending video anywhere
+        requirements:
+          - Recording uses MAUI MediaPicker or platform camera APIs and saves only to the app data directory.
+          - Before first recording, a privacy notice states that no video ever leaves the device.
+          - Clips default to a 30-second maximum and warn at 25 seconds.
+          - No upload, analytics or remote processing call is made during recording or playback.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user starts their first form recording
+            when: the privacy notice appears
+            then: it states no video ever leaves the device and requires explicit Continue before camera opens
+          - id: AC2
+            given: recording reaches 30 seconds
+            when: the limit is hit
+            then: recording stops automatically and the file is saved locally within 2.0 s
+        implementation:
+          notes: >-
+            Use MediaPicker where it satisfies recording needs and platform code only for gaps. Store clips
+            under FileSystem.AppDataDirectory/FormChecks and never in cache, because user recordings should
+            not be silently evicted before review.
+          touches:
+            - src/Forge.App/Features/Exercises/FormCheck/FormCheckRecorderPage.xaml
+            - src/Forge.Application/Training/Form/IFormCheckStorage.cs
+          devexpress:
+            - DXButton
+            - DXPopup
+          apis:
+            - Microsoft.Maui.Media.IMediaPicker
+            - Microsoft.Maui.Storage.FileSystem
+        testing:
+          - Manual recording permission tests on Android and iOS.
+        grounding:
+          - title: .NET MAUI media picker
+            url: https://learn.microsoft.com/dotnet/maui/platform-integration/device-media/picker
+            note: Official camera and video capture API surface.
+
+      - key: S08.05.02
+        title: Compare user recording side by side with reference
+        wave: 3
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: Alex, reviewing a lift
+          iWant: side-by-side reference and personal playback
+          soThat: I can compare timing and positions manually
+        requirements:
+          - Side-by-side review shows reference media and user clip with independent play, pause and scrub controls.
+          - Sync Play starts both clips within 100 ms of each other when both are loaded.
+          - Review works offline and reads both files from local storage.
+        acceptanceCriteria:
+          - id: AC1
+            given: both reference and user clip are loaded
+            when: the user taps Sync Play
+            then: both players start within 100 ms of each other
+          - id: AC2
+            given: the device is offline
+            when: a cached reference and local user clip are opened
+            then: side-by-side review loads without network error
+        implementation:
+          notes: >-
+            Build FormCheckComparePage with two ExerciseMediaPlayerView instances and a coordinator
+            ViewModel. Do not attempt pose scoring in this story; manual visual comparison is the v1 scope.
+          touches:
+            - src/Forge.App/Features/Exercises/FormCheck/FormCheckComparePage.xaml
+            - src/Forge.App/Features/Exercises/FormCheck/FormCheckCompareViewModel.cs
+          devexpress:
+            - DXButton
+            - DXBorder
+          apis:
+            - CommunityToolkit.Maui.MediaElement
+        testing:
+          - UI test for Sync Play start delta under 100 ms with local files.
+
+      - key: S08.05.03
+        title: Cache, evict and manage downloaded media
+        wave: 3
+        size: l
+        platforms: [android, ios]
+        persona: team
+        concerns: [perf, offline]
+        userStory:
+          asA: user with limited storage
+          iWant: downloaded demos managed predictably
+          soThat: Forge does not fill my phone unexpectedly
+        requirements:
+          - Default media cache cap is 500 MB and user can choose 100 MB, 500 MB, 1 GB or unlimited.
+          - Eviction uses least recently used ordering and never deletes user-recorded form checks.
+          - Downloads refuse to start when free storage is below 250 MB unless the user clears cache.
+          - Cache screen shows used bytes, cap, last access and Clear All within 2 taps.
+        acceptanceCriteria:
+          - id: AC1
+            given: cache cap is 100 MB and cached demos total 120 MB
+            when: eviction runs
+            then: least recently used demo files are removed until cached demos are 100 MB or less
+          - id: AC2
+            given: device free storage is 200 MB
+            when: the user taps Download on a 20 MB demo
+            then: download does not start and the low-storage message offers Manage Cache
+        implementation:
+          notes: >-
+            Store downloaded demos in FileSystem.CacheDirectory because they can be recreated, while user
+            form checks stay in AppDataDirectory. Track cache metadata in SQLite so LRU decisions do not
+            require slow directory scans at startup.
+          touches:
+            - src/Forge.Application/Training/Media/MediaCacheService.cs
+            - src/Forge.Infrastructure/Persistence/Entities/MediaCacheEntryEntity.cs
+            - src/Forge.App/Features/Settings/MediaStoragePage.xaml
+          devexpress:
+            - DXCollectionView
+            - TokenEdit
+            - DXButton
+          apis:
+            - Microsoft.Maui.Storage.FileSystem
+        testing:
+          - Unit tests for LRU eviction, cap choices and low-storage refusal.
+        grounding:
+          - title: .NET MAUI file system helpers
+            url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/file-system-helpers
+            note: Distinguishes cache and app data directories.
+
+      - key: S08.05.04
+        title: Park AI pose estimation for post-v1 exploration
+        wave: 6
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [privacy, perf]
+        userStory:
+          asA: product lead
+          iWant: pose estimation captured as a future exploration
+          soThat: v1 does not promise unsafe or expensive automated form scoring
+        requirements:
+          - v1 UI contains no AI form score, no rep quality score and no skeleton overlay claim.
+          - Wave 6 exploration requires on-device-only processing as the default privacy constraint.
+          - Any future model must meet a 30 fps camera preview target and keep workout memory under 250 MB before it can be considered.
+        acceptanceCriteria:
+          - id: AC1
+            given: v1 strings and routes are searched
+            when: terms AI form score, pose score and automatic form correction are queried
+            then: zero user-facing v1 strings promise those capabilities
+          - id: AC2
+            given: the wave 6 story is inspected
+            when: scope is reviewed
+            then: it requires on-device-only processing and records 30 fps and 250 MB thresholds
+        implementation:
+          notes: >-
+            Keep this as backlog capture only. Do not add pose-estimation packages, camera processing loops
+            or ML model files in waves 1 to 5. The privacy and performance gates are intentionally strict
+            because incorrect form scoring could harm users and undermine trust.
+          touches:
+            - backlog/epics/E08-exercise-media-and-form.yml
+        testing:
+          - Static string scan confirming v1 makes no automated form-scoring claim.

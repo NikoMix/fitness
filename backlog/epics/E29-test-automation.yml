@@ -1,0 +1,685 @@
+key: E29
+title: Quality Engineering and Test Automation
+domain: quality
+wave: 1
+summary: >-
+  Forge needs a test system that protects local-only fitness data, calculation
+  correctness and the critical workout journeys without making every change wait
+  on fragile device automation.
+problem: >-
+  Users will trust Forge with workouts, nutrition and health-derived context. A
+  regression in maths, persistence or workout flow can erase progress or give
+  misleading feedback, and manual testing alone will not scale as features land
+  in parallel.
+outcome: >-
+  Core logic is covered by fast deterministic tests, persistence is verified
+  against SQLite, critical journeys are smoke-tested on Android and iOS, and
+  release candidates carry clear quality evidence.
+successMetrics:
+  - Forge.Domain maintains at least 90 percent line coverage and 85 percent branch coverage.
+  - Inner-layer unit tests complete in less than 60 seconds on the verified developer machine.
+  - Release candidates have a completed Android and iOS device matrix with zero unowned critical defects.
+  - Quarantined tests are fixed or removed within 14 days.
+nonGoals:
+  - No attempt to automate every visual edge case in v1; brittle UI paths are covered by exploratory charters.
+  - No backend test environment, because Forge has no v1 backend.
+  - No vanity coverage target for XAML or generated platform code.
+risks:
+  - risk: >-
+      MAUI UI automation proves brittle and slows development.
+    mitigation: >-
+      Keep automated UI coverage to smoke journeys, rely on accessibility
+      identifiers, and backfill with manual exploratory charters.
+    severity: high
+  - risk: >-
+      SQLite integration tests diverge from encrypted production database behaviour.
+    mitigation: >-
+      Use the real SQLite provider for repositories and add SQLCipher-specific
+      smoke coverage when encryption lands.
+    severity: medium
+grounding:
+  - title: xUnit.net v3
+    url: https://xunit.net/docs/getting-started/v3/getting-started
+    note: Official xUnit v3 project and runner guidance.
+  - title: EF Core SQLite provider
+    url: https://learn.microsoft.com/ef/core/providers/sqlite/
+    note: Repository tests must use real SQLite semantics.
+  - title: Appium documentation
+    url: https://appium.io/docs/en/latest/
+    note: Candidate mobile UI automation framework for Android and iOS.
+features:
+  - key: F29.01
+    title: Make inner-layer tests fast and meaningful
+    wave: 1
+    summary: >-
+      Build deterministic tests around Forge.Domain and Forge.Application so core
+      rules can be changed without launching a device.
+    outcome: >-
+      Domain and application tests run on net10.0 in under 60 seconds and catch
+      calculation, validation and boundary regressions.
+    concerns: [quality, architecture]
+    stories:
+      - key: S29.01.01
+        title: Create xUnit v3 test projects for domain and application rules
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer changing Forge business rules
+          iWant: a fast test harness with clear fixtures and assertions
+          soThat: I can refactor logic without waiting for a device build
+        requirements:
+          - Forge.Domain.Tests and Forge.Application.Tests target net10.0 only and use xUnit v3, FluentAssertions and NSubstitute from Directory.Packages.props.
+          - The full inner-layer unit suite completes in less than 60 seconds on the verified developer machine.
+          - Forge.Domain calculation and validation code has at least 90 percent line coverage and 85 percent branch coverage.
+        acceptanceCriteria:
+          - id: AC1
+            given: a clean clone with packages restored
+            when: dotnet test runs for Forge.Domain.Tests and Forge.Application.Tests
+            then: both projects pass with zero skipped tests in less than 60 seconds
+          - id: AC2
+            given: a pull request reduces Forge.Domain calculation coverage below 90 percent
+            when: the coverage gate runs
+            then: the build fails and names Forge.Domain as below threshold
+        implementation:
+          notes: >-
+            Create the test projects under tests/ and keep them independent of
+            MAUI so they run on a plain net10.0 runner. Use FluentAssertions for
+            readable value-object assertions and NSubstitute only at application
+            boundaries, not inside Forge.Domain.
+          touches:
+            - tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj
+            - tests/Forge.Application.Tests/Forge.Application.Tests.csproj
+            - tests/Forge.Testing/
+          apis:
+            - xUnit v3
+            - FluentAssertions
+            - NSubstitute
+        testing:
+          - Add a CI command that runs the net10.0 unit tests before any device build starts.
+        grounding:
+          - title: Fluent Assertions introduction
+            url: https://fluentassertions.com/introduction
+            note: Assertion style for readable tests.
+
+      - key: S29.01.02
+        title: Add architecture tests that block UI references in inner layers
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer protecting the clean architecture boundary
+          iWant: tests that fail when MAUI or DevExpress leaks inward
+          soThat: the dependency rule is enforced automatically on every pull request
+        requirements:
+          - Forge.Domain and Forge.Application reference no assembly whose name starts with Microsoft.Maui, DevExpress.Maui or DevExpress.Xamarin.
+          - Public application contracts expose only primitive, domain or application DTO types, never MAUI or DevExpress types.
+          - The architecture test fails in under 5 seconds when an illegal reference is introduced.
+        acceptanceCriteria:
+          - id: AC1
+            given: Forge.Application references DevExpress.Maui.Controls
+            when: the architecture tests run
+            then: the test fails and the message contains DevExpress.Maui.Controls and Forge.Application
+          - id: AC2
+            given: an application contract returns a DevExpress type
+            when: the public API scan runs
+            then: the test fails and names the leaking member
+        implementation:
+          notes: >-
+            Add reflection-based tests that scan AssemblyName references and
+            public signatures from Forge.Domain and Forge.Application. Keep
+            failure messages explicit because this test teaches future
+            contributors the architecture rule at build time.
+          touches:
+            - tests/Forge.Domain.Tests/Architecture/DependencyRuleTests.cs
+            - tests/Forge.Application.Tests/Architecture/DependencyRuleTests.cs
+        testing:
+          - Include a negative fixture or generated sample proving MAUI and DevExpress references fail the guard.
+
+      - key: S29.01.03
+        title: Cover calculations with snapshot and approval tests
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer changing strength or nutrition formulas
+          iWant: approved examples for calculations that users will notice
+          soThat: formula changes are reviewed deliberately rather than drifting by accident
+        requirements:
+          - Snapshot files cover at least 20 representative 1RM, volume, unit conversion and nutrition calculations.
+          - Snapshots store rounded display values and raw decimal values.
+          - A changed snapshot requires explicit reviewer approval in the pull request.
+        acceptanceCriteria:
+          - id: AC1
+            given: the 1RM output changes for a 100 kg by 5 reps example
+            when: snapshot tests run
+            then: the test fails with a diff showing previous and new raw values
+          - id: AC2
+            given: calculation tests run under en-US and de-DE cultures
+            when: approved raw values are compared
+            then: both culture runs produce identical raw values
+        implementation:
+          notes: >-
+            Store approval files under tests/Forge.Domain.Tests/Approvals with
+            deterministic inputs and stable ordering. Snapshot only meaningful
+            calculation outputs, never whole objects that include clocks, random
+            identifiers or incidental formatting.
+          touches:
+            - tests/Forge.Domain.Tests/Approvals/
+            - tests/Forge.Domain.Tests/Calculations/
+          apis:
+            - Verify.Xunit
+        testing:
+          - Run approval tests in CI and block uncommitted snapshot changes.
+
+      - key: S29.01.04
+        title: Add property-based tests for conversions and 1RM maths
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer maintaining numerical fitness logic
+          iWant: generated edge cases for units and formulas
+          soThat: unexpected combinations are caught before users see impossible numbers
+        requirements:
+          - Round-tripping kg to lb to kg differs by less than 0.01 kg for 1,000 generated values between 0.1 kg and 500 kg.
+          - One-rep max estimates are monotonic for valid load and rep ranges.
+          - Zero load, negative reps and reps above 30 are rejected with domain validation errors.
+        acceptanceCriteria:
+          - id: AC1
+            given: 1,000 generated weight values between 0.1 kg and 500 kg
+            when: kg to lb to kg round-tripping completes
+            then: every result is within 0.01 kg of the original
+          - id: AC2
+            given: a generated set increases load while keeping reps constant
+            when: the 1RM property is evaluated
+            then: the estimated 1RM is greater than or equal to the previous value
+        implementation:
+          notes: >-
+            Add FsCheck properties for mathematical invariants and constrain
+            generators to plausible human input. Print the replay seed on
+            failure so rare counterexamples reproduce locally and in GitHub
+            Actions.
+          touches:
+            - tests/Forge.Domain.Tests/Properties/UnitConversionProperties.cs
+            - tests/Forge.Domain.Tests/Properties/OneRepMaxProperties.cs
+          apis:
+            - FsCheck.Xunit
+        testing:
+          - Run at least 1,000 generated cases per property in CI.
+        grounding:
+          - title: FsCheck documentation
+            url: https://fscheck.github.io/FsCheck/
+            note: Property-based testing framework for .NET.
+
+  - key: F29.02
+    title: Exercise persistence and ViewModel behaviour
+    wave: 1
+    summary: >-
+      Test the infrastructure and presentation seams where bugs usually hide:
+      EF Core SQLite persistence, repository transactions and ViewModel command state.
+    outcome: >-
+      Repository and ViewModel changes are verified without brittle UI tests and
+      with realistic SQLite behaviour.
+    concerns: [data, quality]
+    stories:
+      - key: S29.02.01
+        title: Test EF Core repositories against SQLite
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer changing persistence code
+          iWant: repository tests that use real SQLite semantics
+          soThat: queries, constraints and migrations fail in tests before corrupting local user data
+        requirements:
+          - Repository tests use SQLite in-memory or file-backed databases with EF Core migrations applied.
+          - Tests cover insert, update, delete, transaction rollback and unique constraint violations.
+          - Each test cleans up its database files and leaves no files outside the repository workspace.
+        acceptanceCriteria:
+          - id: AC1
+            given: a repository saves two entities violating a unique index
+            when: the SQLite integration test runs
+            then: the expected constraint exception is observed and no partial aggregate is persisted
+          - id: AC2
+            given: a transaction throws after saving the first set
+            when: the rollback test runs
+            then: zero sets from that transaction remain in SQLite
+        implementation:
+          notes: >-
+            Use Microsoft.Data.Sqlite and EF Core SQLite rather than the EF Core
+            in-memory provider, because relational constraints and query plans
+            matter for Forge's local database. Put file-backed databases under
+            the test output folder only when WAL or migration behaviour must be inspected.
+          touches:
+            - tests/Forge.Infrastructure.Tests/Repositories/
+            - src/Forge.Infrastructure/Persistence/
+          apis:
+            - Microsoft.Data.Sqlite
+            - Microsoft.EntityFrameworkCore.Sqlite
+        testing:
+          - Run repository tests after unit tests and before MAUI target builds.
+
+      - key: S29.02.02
+        title: Add deterministic test data builders
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer writing tests for workouts and nutrition
+          iWant: builders that create realistic but safe domain data
+          soThat: tests stay readable and do not rely on copied object graphs
+        requirements:
+          - Builders live in tests/Forge.Testing and are not referenced by production projects.
+          - Every builder has deterministic defaults and allows overriding IDs, timestamps and user-entered values.
+          - A standard workout builder creates at least one exercise, three sets and rest intervals without personal data.
+        acceptanceCriteria:
+          - id: AC1
+            given: a test creates a default workout through the builder
+            when: the object is inspected
+            then: it contains one exercise, three sets and no free-text personal note
+          - id: AC2
+            given: two tests run in parallel using builders
+            when: 10,000 IDs are generated
+            then: no generated IDs collide
+        implementation:
+          notes: >-
+            Create small fluent builders for domain aggregates, not one global
+            ObjectMother. Defaults should reflect plausible fitness data while
+            keeping personally identifying text out of fixtures. Clock and ID
+            generation must be overridable.
+          touches:
+            - tests/Forge.Testing/Builders/WorkoutBuilder.cs
+            - tests/Forge.Testing/Builders/NutritionBuilder.cs
+        testing:
+          - Add builder self-tests for determinism and uniqueness.
+
+      - key: S29.02.03
+        title: Verify ViewModel commands and validation without MAUI handlers
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer changing screen behaviour
+          iWant: ViewModel tests that exercise commands, validation and navigation
+          soThat: presentation logic is tested without loading XAML or device handlers
+        requirements:
+          - ViewModel tests instantiate ViewModels through dependency injection with substituted application services.
+          - Command tests assert busy state, validation messages and navigation calls for success, failure and cancellation paths.
+          - No ViewModel test references Microsoft.Maui.Controls or DevExpress.Maui namespaces.
+        acceptanceCriteria:
+          - id: AC1
+            given: a set logging command is executed with an invalid weight
+            when: the ViewModel test runs
+            then: the save service is not called and exactly one validation message is exposed
+          - id: AC2
+            given: a save service throws a recoverable exception
+            when: the command is executed
+            then: IsBusy returns to false and the error state is visible
+        implementation:
+          notes: >-
+            Keep ViewModels as plain C# classes and move handler-specific logic
+            into thin page code-behind. Tests should build app service
+            registration where possible, substituting navigation, dialogs and
+            clocks at application boundaries.
+          touches:
+            - tests/Forge.App.Tests/ViewModels/
+            - src/Forge.App/Features/*/*ViewModel.cs
+          apis:
+            - CommunityToolkit.Mvvm
+            - NSubstitute
+        testing:
+          - Add command tests for the workout and nutrition ViewModels as they are introduced.
+
+      - key: S29.02.04
+        title: Define coverage thresholds that reward valuable tests
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: technical lead reviewing quality signals
+          iWant: coverage gates that focus on logic instead of generated UI
+          soThat: the team improves risk coverage rather than chasing vanity percentages
+        requirements:
+          - Forge.Domain line coverage is at least 90 percent and branch coverage is at least 85 percent.
+          - Forge.Application line coverage is at least 80 percent for use cases and validators.
+          - Forge.App XAML and generated code are excluded from global coverage calculations.
+        acceptanceCriteria:
+          - id: AC1
+            given: a pull request adds untested domain validation branches
+            when: coverage is calculated
+            then: the domain branch coverage gate fails below 85 percent
+          - id: AC2
+            given: a pull request only changes XAML layout
+            when: coverage is calculated
+            then: the build does not fail solely because XAML has no line coverage
+        implementation:
+          notes: >-
+            Configure coverage at project level so the signal is stable across
+            machines. Publish Cobertura or lcov output as a pull request
+            artefact, but make thresholds explicit in CI rather than relying on
+            a third-party dashboard.
+          touches:
+            - Directory.Build.props
+            - tests/Directory.Build.props
+            - .github/workflows/pr.yml
+          apis:
+            - coverlet.collector
+        testing:
+          - Add a CI step that fails when configured domain or application thresholds are missed.
+
+  - key: F29.03
+    title: Automate critical journeys on real devices
+    wave: 1
+    summary: >-
+      Add a pragmatic UI automation lane for flows that must not regress, while
+      recognising that .NET MAUI UI testing is less mature than web testing.
+    outcome: >-
+      Critical journeys are smoke-tested on Android and iOS devices, with a clear
+      fallback to manual charters where automation is brittle.
+    concerns: [quality, device]
+    stories:
+      - key: S29.03.01
+        title: Automate smoke journeys with Appium or MAUI test utilities
+        wave: 1
+        size: l
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer validating an app build
+          iWant: a small automated device suite for the highest-value journeys
+          soThat: regressions are caught without pretending every gesture can be tested reliably
+        requirements:
+          - Automated UI smoke tests cover first launch, start workout, log set, finish workout and add food entry.
+          - The suite runs against one Android device lane and one iOS device lane in under 20 minutes.
+          - Selectors use stable accessibility identifiers rather than visible text where possible.
+        acceptanceCriteria:
+          - id: AC1
+            given: a signed debug build is installed on the Android device lane
+            when: the smoke suite runs
+            then: first launch through finishing a workout passes in under 20 minutes
+          - id: AC2
+            given: a UI test fails twice for the same selector without product code changes
+            when: the flaky-test policy is applied
+            then: the test is moved to quarantine and a tracking issue is created within 24 hours
+        implementation:
+          notes: >-
+            Prefer Appium 2 if it proves stable for both platforms, but keep the
+            suite intentionally small because MAUI automation can be fragile
+            around handlers and virtualized controls. Assign AutomationId values
+            in XAML for every element under test.
+          touches:
+            - tests/Forge.UiTests/
+            - src/Forge.App/Features/*/*.xaml
+            - .github/workflows/device-tests.yml
+          apis:
+            - Appium 2
+            - Microsoft.Maui.TestUtils
+        testing:
+          - Run smoke UI tests nightly and before release candidates, not on every documentation pull request.
+
+      - key: S29.03.02
+        title: Define Android and iOS device test matrix
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner preparing a candidate build
+          iWant: a realistic device matrix covering oldest supported versions and constrained hardware
+          soThat: mobile-only v1 quality is measured on devices like users own
+        requirements:
+          - The matrix includes Android API 26 or the oldest practical supported device, one mid-tier Android device and one low-end Android device with no more than 4 GB RAM.
+          - The matrix includes iOS 15 and the latest supported iOS on physical or hosted devices.
+          - Emulator setup uses physical devices first or WHPX-backed AVDs; it never requires disabling Hyper-V.
+        acceptanceCriteria:
+          - id: AC1
+            given: the device matrix document is reviewed
+            when: Android setup instructions are inspected
+            then: they mention physical devices or WHPX-backed AVDs and contain no instruction to disable Hyper-V
+          - id: AC2
+            given: a release candidate is tested
+            when: the matrix report is completed
+            then: each required row has build number, OS version, tester and pass or fail recorded
+        implementation:
+          notes: >-
+            Create docs/quality/device-matrix.md and wire CI labels to automated
+            lanes. The verified environment has Hyper-V in use, so Android
+            emulator guidance must use WHPX-compatible AVDs or physical devices
+            and never legacy acceleration that conflicts with virtualization.
+          touches:
+            - docs/quality/device-matrix.md
+            - .github/workflows/device-tests.yml
+        testing:
+          - Review matrix coverage before every release candidate.
+
+      - key: S29.03.03
+        title: Capture a manual exploratory charter for workout flow
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: tester exploring Forge before release
+          iWant: a time-boxed charter focused on the riskiest workout behaviours
+          soThat: human judgement catches interruptions and edge cases automation misses
+        requirements:
+          - The charter covers a 45-minute session including start, pause, rest timer, set edits, app backgrounding, low battery and process death.
+          - The charter includes at least 10 explicit probes and records notes, screenshots and build number.
+          - At least one exploratory pass is completed on Android and one on iOS for every release candidate.
+        acceptanceCriteria:
+          - id: AC1
+            given: a tester follows the charter for 45 minutes
+            when: completed notes are submitted
+            then: they include build number, device, OS version and at least 10 probe outcomes
+          - id: AC2
+            given: the app is backgrounded mid-rest timer during the charter
+            when: the tester resumes it
+            then: notes record whether timer and workout state remained correct
+        implementation:
+          notes: >-
+            Store the charter as a living checklist in docs/quality. It should
+            deliberately include interruptions that automation rarely covers:
+            app switch, low power mode, denied notification permission and force
+            kill during a workout.
+          touches:
+            - docs/quality/workout-exploratory-charter.md
+        testing:
+          - Require completed charter evidence before promoting a release candidate.
+
+      - key: S29.03.04
+        title: Track and quarantine flaky tests with ownership
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer affected by an intermittent failure
+          iWant: a written policy for retries, quarantine and ownership
+          soThat: CI failures remain trusted and do not become background noise
+        requirements:
+          - A test that fails intermittently on two separate commits within 7 days is labelled flaky and assigned an owner.
+          - Blocking test retries are limited to one retry per run.
+          - Quarantined tests are reported separately and must be fixed or deleted within 14 days.
+        acceptanceCriteria:
+          - id: AC1
+            given: a UI test fails intermittently on two commits in one week
+            when: the policy is applied
+            then: the test has an owner and a quarantine or fix issue within 24 hours
+          - id: AC2
+            given: a quarantined test remains unfixed after 14 days
+            when: the quality report runs
+            then: the report marks the test as overdue and blocks release candidate promotion
+        implementation:
+          notes: >-
+            Implement the policy in documentation and CI output. Retries should
+            expose flakiness, not hide it. Quarantined tests should not block
+            routine pull requests, but they must block release readiness if stale.
+          touches:
+            - docs/quality/flaky-test-policy.md
+            - .github/workflows/pr.yml
+            - .github/workflows/device-tests.yml
+        testing:
+          - Add a sample quarantined test entry to prove reporting works.
+
+  - key: F29.04
+    title: Make quality visible in pull requests and releases
+    wave: 1
+    summary: >-
+      Publish the right test evidence at the right time so developers, testers
+      and release owners can judge risk before merging or shipping.
+    outcome: >-
+      Every pull request and release candidate has a concise, inspectable quality
+      signal tied to tests, devices and known risks.
+    concerns: [quality, release]
+    stories:
+      - key: S29.04.01
+        title: Publish test reports and failure artefacts from CI
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer debugging a failed pull request
+          iWant: structured test reports, logs and screenshots as build artefacts
+          soThat: I can diagnose the failure without rerunning the pipeline locally
+        requirements:
+          - Unit and integration test results are published in JUnit or TRX format for every pull request.
+          - Failed UI tests upload screenshots, device logs and Appium logs with retention of at least 14 days.
+          - Artefacts contain no health values, food names, body metrics or free-text user notes.
+        acceptanceCriteria:
+          - id: AC1
+            given: a unit test fails in CI
+            when: the workflow completes
+            then: the pull request shows the failing test name and an artefact containing the full report
+          - id: AC2
+            given: a UI test fails after logging a set
+            when: artefacts are inspected
+            then: no bodyweight, food name or health value appears in screenshots or logs
+        implementation:
+          notes: >-
+            Use GitHub Actions artefact upload for reports and screenshots, with
+            retention set deliberately. Seed UI tests with synthetic non-personal
+            content because screenshots can otherwise become privacy liabilities.
+          touches:
+            - .github/workflows/pr.yml
+            - .github/workflows/device-tests.yml
+            - tests/Forge.UiTests/
+          apis:
+            - actions/upload-artifact
+        testing:
+          - Introduce one controlled failing test in a throwaway branch to verify artefact contents before enabling the gate.
+        grounding:
+          - title: Store workflow data as artefacts
+            url: https://docs.github.com/actions/using-workflows/storing-workflow-data-as-artifacts
+            note: GitHub Actions artefact upload and retention.
+
+      - key: S29.04.02
+        title: Add a pull request quality summary
+        wave: 1
+        size: s
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: reviewer deciding whether to merge
+          iWant: one summary of tests, coverage, device smoke and quarantined tests
+          soThat: I can judge release risk without opening every workflow log
+        requirements:
+          - The pull request summary lists unit, integration, architecture and UI smoke status separately.
+          - Coverage percentages for Forge.Domain and Forge.Application are shown with pass or fail thresholds.
+          - Quarantined tests are listed by name, owner and age.
+        acceptanceCriteria:
+          - id: AC1
+            given: all quality jobs finish for a pull request
+            when: the summary step runs
+            then: the pull request contains a table for unit, integration, architecture, UI smoke and coverage
+          - id: AC2
+            given: a quarantined test exists
+            when: the summary is generated
+            then: the test name, owner and days in quarantine are visible
+        implementation:
+          notes: >-
+            Generate the summary from test result files rather than hand-written
+            workflow text. Use GitHub step summaries for immediate visibility and
+            avoid external dashboards in v1 because Forge has no backend.
+          touches:
+            - .github/workflows/pr.yml
+            - tools/quality/
+        testing:
+          - Add parser tests with sample TRX and coverage inputs.
+
+      - key: S29.04.03
+        title: Gate release candidates on completed quality evidence
+        wave: 1
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: release owner promoting a build
+          iWant: a release checklist backed by test artefacts
+          soThat: I know the candidate met the agreed bar before store submission
+        requirements:
+          - A release candidate cannot be tagged unless unit, integration, architecture, coverage and device matrix checks are green for the same commit.
+          - Manual exploratory charter evidence is linked for Android and iOS before promotion.
+          - Any accepted risk includes owner, expiry date and mitigation.
+        acceptanceCriteria:
+          - id: AC1
+            given: a release tag is attempted for a commit without device matrix evidence
+            when: the release gate runs
+            then: tagging is blocked and the missing evidence is named
+          - id: AC2
+            given: a release has an accepted risk
+            when: the checklist is inspected
+            then: the risk has an owner, mitigation and expiry date no later than 14 days after release
+        implementation:
+          notes: >-
+            Implement this as a lightweight script invoked by the release
+            workflow. The script should verify artefact existence and metadata
+            for the exact commit SHA. Store accepted risks in reviewed YAML under docs/release.
+          touches:
+            - tools/release/verify-quality-gate.ps1
+            - docs/release/release-candidate-template.yml
+            - .github/workflows/release.yml
+        testing:
+          - Add script tests for missing artefact, stale commit SHA and expired accepted risk.
+
+      - key: S29.04.04
+        title: Document local test commands for contributors
+        wave: 1
+        size: xs
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer preparing a pull request
+          iWant: clear commands for the smallest useful test run
+          soThat: I can verify my change locally before waiting for CI
+        requirements:
+          - Documentation lists commands for domain, application, infrastructure SQLite and optional device smoke tests.
+          - Commands use repository-relative paths and work from the repository root on the verified setup.
+          - The document explains which UI tests are optional, nightly or release-blocking.
+        acceptanceCriteria:
+          - id: AC1
+            given: a contributor follows the document from the repository root
+            when: they run the domain test command
+            then: the command completes without requiring Android or iOS workloads
+          - id: AC2
+            given: the UI smoke command is inspected
+            when: prerequisites are read
+            then: it states that physical devices or WHPX-backed AVDs are required for Android automation
+        implementation:
+          notes: >-
+            Add docs/quality/testing.md that mirrors actual CI commands. Avoid
+            presenting one giant all-tests command as the primary path because
+            device builds are expensive and contributors need focused validation.
+          touches:
+            - docs/quality/testing.md
+        testing:
+          - Have CI run the documented non-device commands in the same order to prevent drift.

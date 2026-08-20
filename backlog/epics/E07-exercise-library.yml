@@ -1,0 +1,857 @@
+key: E07
+title: Exercise Library and Content Catalogue
+domain: training
+wave: 2
+summary: >-
+  Forge needs a trustworthy local exercise catalogue that users can browse, search and adapt to
+  the equipment and bodies they actually have. This epic covers the data model, original or
+  licensed seed content, discovery, search, filters, detail guidance, substitutions, favourites
+  and custom exercises.
+problem: >-
+  Users who do not already know exercise names, target muscles and safe variations cannot turn a
+  goal into action. A flat list would force them back to generic web search exactly when Forge
+  should be building trust.
+outcome: >-
+  A mobile-only, offline-first catalogue of several hundred exercises is searchable within one
+  keystroke cycle, browsable by muscle, equipment, pattern and goal, and able to explain each
+  movement, recommend substitutes and preserve local user additions.
+successMetrics:
+  - Search across 800 seeded and custom exercises returns ranked results within 150 ms of the last keystroke on a Pixel 6a class Android device.
+  - First-run import of 800 compressed JSON exercises completes in under 2.0 s and adds no more than 8 MB to the app package.
+  - At least 95 percent of seeded exercises include muscles, equipment, pattern, difficulty, steps, mistakes, cues, breathing, tempo and safety notes before release candidate cut.
+  - A user with declared equipment and one limitation can narrow the catalogue to compatible exercises in 3 taps or fewer.
+nonGoals:
+  - No exercise demonstration video or timed media playback, owned by E08.
+  - No workout plan generation or exercise ordering inside a programme.
+  - No cloud catalogue, crowdsourced content or remote moderation in v1.
+  - No medical diagnosis or rehabilitation prescription.
+risks:
+  - risk: Seed content copies a competitor database and creates legal or store-review risk.
+    mitigation: Store provenance per exercise, fail packaging without approved original copy or compatible licence, and review the final asset before release.
+    severity: critical
+  - risk: Injury-aware filtering is mistaken for medical advice.
+    mitigation: Make limitation filtering user-controlled, conservative and clearly labelled as not medical advice.
+    severity: high
+dependsOn: [E01]
+grounding:
+  - title: Forge architecture overview
+    url: https://github.com/NikoMix/fitness/blob/main/docs/architecture/overview.md
+    note: Establishes local-only storage, compressed JSON seed assets, SQLite import and Android/iOS-only v1 scope.
+  - title: DevExpress MAUI DXCollectionView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+    note: Virtualized list control for large exercise lists.
+  - title: DevExpress MAUI AutoCompleteEdit
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.AutoCompleteEdit
+    note: Search entry with suggestions for names, aliases and slang.
+  - title: DevExpress MAUI TokenEdit
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Editors.TokenEdit
+    note: Multi-select filter chips for equipment, muscles, patterns and goals.
+features:
+  - key: F07.01
+    title: Model exercise metadata and seed provenance
+    wave: 2
+    summary: >-
+      Define the local exercise model, controlled taxonomy, seed import and provenance rules that
+      make every later library surface consistent and legally safe.
+    outcome: >-
+      Seeded and custom exercises share one validated model with versioned import and auditable source provenance.
+    concerns: [offline, privacy, store-blocker]
+    stories:
+      - key: S07.01.01
+        title: Define exercise taxonomy and required metadata
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: team
+        userStory:
+          asA: developer building training features
+          iWant: stable exercise metadata and enums
+          soThat: search, filters, workouts and media agree on exercise meaning
+        requirements:
+          - Exercise includes primary muscles, secondary muscles, equipment, movement pattern, force type, mechanic, difficulty, laterality, plane of motion, goal tags and contraindication tags.
+          - Movement patterns include hinge, squat, push, pull, carry and rotate; planes include sagittal, frontal and transverse.
+          - Forge.Domain owns the model and references no MAUI or DevExpress assemblies.
+        acceptanceCriteria:
+          - id: AC1
+            given: a seed exercise without primary muscles
+            when: catalogue validation runs
+            then: validation fails before SQLite writes and reports the exercise key plus field primaryMuscles
+          - id: AC2
+            given: the Forge.Domain assembly after compilation
+            when: referenced assemblies are inspected
+            then: zero assembly names start with Microsoft.Maui or DevExpress
+        implementation:
+          notes: >-
+            Place Exercise, ExerciseMetadata and taxonomy enums under src/Forge.Domain/Training/Exercises.
+            Store muscle and equipment references as stable keys rather than display text so localization
+            can change labels later without breaking filters or substitutions.
+          touches:
+            - src/Forge.Domain/Training/Exercises/Exercise.cs
+            - src/Forge.Domain/Training/Exercises/ExerciseTaxonomy.cs
+          apis:
+            - System.Text.Json
+        testing:
+          - Unit tests for required metadata and enum deserialization failures.
+
+      - key: S07.01.02
+        title: Import an 800 exercise offline seed catalogue
+        wave: 2
+        size: l
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [offline, perf]
+        userStory:
+          asA: Maya, opening Forge with no network
+          iWant: hundreds of exercises available immediately
+          soThat: I can discover useful movements before downloading anything
+        requirements:
+          - The v1 target is 800 exercises, enough to cover gym, home, dumbbell, cable, machine, bodyweight and mobility variants without remote content.
+          - The seed catalogue ships as compressed JSON and contributes no more than 8 MB to the per-ABI Android APK budget.
+          - First-run import is idempotent, versioned and completes within 2.0 s on a Pixel 6a class device.
+        acceptanceCriteria:
+          - id: AC1
+            given: a fresh install in airplane mode
+            when: the user opens the Exercise Library
+            then: at least 800 exercises are available and no network request is made
+          - id: AC2
+            given: seed version 1 is imported
+            when: seed version 2 adds 25 records and updates 10 seed records
+            then: exactly 25 new rows and 10 updated seed rows are committed with zero custom rows changed
+        implementation:
+          notes: >-
+            Store exercises.v1.json.br under Resources/Raw and import it after EF Core migrations in
+            Forge.Infrastructure/Content. Commit a content version row only after the transaction succeeds
+            so a process kill cannot mark a partial import complete.
+          touches:
+            - src/Forge.App/Resources/Raw/exercises.v1.json.br
+            - src/Forge.Infrastructure/Content/ExerciseSeedImporter.cs
+          apis:
+            - Microsoft.Maui.Storage.FileSystem
+            - System.IO.Compression.BrotliStream
+        testing:
+          - Integration test importing version 1 twice and asserting row counts stay unchanged.
+        grounding:
+          - title: .NET MAUI file system helpers
+            url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/file-system-helpers
+            note: Reads packaged raw assets during first-run import.
+
+      - key: S07.01.03
+        title: Gate seed content through licensing provenance
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [store-blocker]
+        userStory:
+          asA: product owner releasing Forge
+          iWant: every exercise to record source and licence
+          soThat: the app does not ship copied competitor content
+        requirements:
+          - Every seed exercise stores provenance type, source name, source URL when applicable, licence identifier and reviewer status.
+          - Names and descriptions are original Forge copy or derived only from explicitly compatible licences.
+          - Packaging fails if provenance is missing, licence is disallowed or copiedSource is true.
+        acceptanceCriteria:
+          - id: AC1
+            given: a seed exercise with licence unknown
+            when: the catalogue lint command runs
+            then: the command exits non-zero and names exactly that exercise key
+          - id: AC2
+            given: the release candidate 800-exercise catalogue
+            when: the provenance report is generated
+            then: 800 of 800 records show approved status and copiedSource false
+        implementation:
+          notes: >-
+            Add a catalogue-lint tool that validates provenance from the same JSON asset the app packages.
+            Keep provenance machine-readable beside the content rather than in a separate spreadsheet, which
+            would drift and allow unreviewed entries to ship.
+          touches:
+            - tools/catalogue-lint/Program.cs
+            - docs/content/exercise-licensing.md
+          apis:
+            - SPDX licence identifiers
+        testing:
+          - Unit tests for allowed, disallowed and missing licence cases.
+
+      - key: S07.01.04
+        title: Preserve custom exercises beside seeded records
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [offline, privacy]
+        userStory:
+          asA: Alex, who uses niche movements
+          iWant: to create my own exercises
+          soThat: Forge can track my real training without waiting for seed updates
+        requirements:
+          - Users can create custom exercises with name, muscles, equipment, pattern, difficulty, instructions and optional notes.
+          - Custom names are unique case-insensitively within custom records and cannot overwrite seeded records.
+          - Deleting a custom exercise with workout history is blocked and Archive is offered instead.
+        acceptanceCriteria:
+          - id: AC1
+            given: a user creates Landmine Press
+            when: they search for landmine
+            then: the custom exercise appears within 150 ms and is marked Custom
+          - id: AC2
+            given: a custom exercise appears in completed workout history
+            when: the user attempts deletion
+            then: deletion is blocked and Archive is offered within 2 taps
+        implementation:
+          notes: >-
+            Persist custom exercises through the same repository with SourceKind=User and an ArchivedAt
+            field. Do not allow edits to seeded rows, otherwise seed updates and localization cannot be
+            applied safely.
+          touches:
+            - src/Forge.Application/Training/Exercises/CreateCustomExerciseCommand.cs
+            - src/Forge.App/Features/Exercises/EditCustomExercisePage.xaml
+          devexpress:
+            - TextEdit
+            - TokenEdit
+            - ComboBoxEdit
+        testing:
+          - Unit tests for uniqueness and archive versus delete behaviour.
+
+  - key: F07.02
+    title: Build browse and discovery surfaces
+    wave: 2
+    summary: >-
+      Help users explore by body area, equipment, movement pattern and goal without already knowing
+      the exact exercise name.
+    outcome: >-
+      Library discovery paths render quickly, stay accessible and work entirely offline.
+    concerns: [a11y, offline, devexpress]
+    stories:
+      - key: S07.02.01
+        title: Render library home with virtualized sections
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [perf, devexpress]
+        userStory:
+          asA: Maya, new to training jargon
+          iWant: clear library starting points
+          soThat: I can browse without knowing what to type
+        requirements:
+          - Library home shows Body, Equipment, Patterns, Goals, Favourites and Recently Used sections.
+          - Exercise cards use dx:DXCollectionView virtualization.
+          - First visible content renders within 500 ms after navigation when import is complete.
+        acceptanceCriteria:
+          - id: AC1
+            given: the 800-exercise catalogue is imported
+            when: the Library tab opens
+            then: the first section and at least 8 cards render within 500 ms
+          - id: AC2
+            given: a 1000-item catalogue
+            when: the user scrolls top to bottom
+            then: scrolling sustains 60 fps with no measured frame above 16.6 ms
+        implementation:
+          notes: >-
+            Build ExerciseLibraryPage with dx:TabView for discovery modes and dx:DXCollectionView for
+            lists. ViewModels expose plain card records, never DevExpress item types, to preserve the
+            architecture boundary.
+          touches:
+            - src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml
+            - src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs
+          devexpress:
+            - DXCollectionView
+            - TabView
+        testing:
+          - UI performance test with a 1000-item fixture.
+        grounding:
+          - title: DevExpress MAUI TabView
+            url: https://docs.devexpress.com/MAUI/DevExpress.Maui.Controls.TabView
+            note: Provides cached discovery mode tabs.
+
+      - key: S07.02.02
+        title: Add interactive body-map muscle browsing
+        wave: 2
+        size: l
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: Maya, who knows the body part she wants to train
+          iWant: to tap a body-map region
+          soThat: I can find exercises without anatomy jargon
+        requirements:
+          - Body-map supports front and back views with at least 14 selectable muscle regions.
+          - Tapping a region filters by primary or secondary muscle within 150 ms.
+          - A text fallback list exposes the same regions for screen-reader and low-vision users.
+        acceptanceCriteria:
+          - id: AC1
+            given: the front body-map is visible
+            when: the user taps chest
+            then: results update within 150 ms and include only exercises matching chest as primary or secondary muscle
+          - id: AC2
+            given: a screen reader is active
+            when: the user navigates the body-map
+            then: at least 14 regions announce name and selected state
+        implementation:
+          notes: >-
+            Render the map with Microsoft.Maui.Graphics GraphicsView plus accessible overlay controls
+            rather than a web view. Route all counts and results through ExerciseQueryService so body-map
+            output cannot drift from filters.
+          touches:
+            - src/Forge.App/Features/Exercises/BodyMap/BodyMapView.xaml
+            - src/Forge.App/Features/Exercises/BodyMap/BodyMapDrawable.cs
+          devexpress:
+            - DXCollectionView
+            - BottomSheet
+          apis:
+            - Microsoft.Maui.Graphics.GraphicsView
+        testing:
+          - Unit tests for region hit-testing boundaries.
+        grounding:
+          - title: .NET MAUI Graphics
+            url: https://learn.microsoft.com/dotnet/maui/user-interface/graphics/
+            note: Supports a lightweight body-map drawing surface.
+
+      - key: S07.02.03
+        title: Browse by equipment, movement pattern and goal
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [devexpress]
+        userStory:
+          asA: Sam, training around available kit
+          iWant: equipment, pattern and goal browse modes
+          soThat: I can find useful options for today's session
+        requirements:
+          - Equipment browse includes bodyweight, dumbbell, kettlebell, barbell, cable, machine, band and suspension trainer.
+          - Pattern browse includes hinge, squat, push, pull, carry and rotate with visible counts.
+          - Goal browse includes strength, hypertrophy, endurance, mobility, power, warm-up and joint-friendly tags.
+        acceptanceCriteria:
+          - id: AC1
+            given: Equipment browse is open
+            when: the user selects dumbbell
+            then: a Dumbbell token appears and results update within 200 ms
+          - id: AC2
+            given: Pattern browse is open
+            when: the user selects hinge
+            then: the displayed count equals the number of catalogue exercises tagged hinge
+        implementation:
+          notes: >-
+            Use one BrowseFacetViewModel for all facet types. dx:DXCollectionView renders facet cards
+            and dx:TokenEdit shows active selections above results, with counts precomputed after import.
+          touches:
+            - src/Forge.App/Features/Exercises/BrowseFacetViewModel.cs
+            - src/Forge.Application/Training/Exercises/ExerciseFacetCounts.cs
+          devexpress:
+            - DXCollectionView
+            - TokenEdit
+        testing:
+          - Unit tests for count consistency after custom exercise changes.
+
+      - key: S07.02.04
+        title: Handle first-run import and no-result states
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [offline]
+        userStory:
+          asA: Maya, using Forge offline
+          iWant: library states to explain what is happening
+          soThat: I do not think the app is broken
+        requirements:
+          - During import, the library shows progress from 0 to 100 and disables result interactions.
+          - No-result states list active filters and provide Clear Filters and Browse All actions.
+          - Failed import shows Retry and Diagnostic Details without sending data automatically.
+        acceptanceCriteria:
+          - id: AC1
+            given: filters produce zero results
+            when: the empty state appears
+            then: it lists every active filter token and Clear Filters restores at least 800 exercises within 200 ms
+          - id: AC2
+            given: the app is killed during import at 50 percent
+            when: it relaunches
+            then: import resumes or restarts cleanly and no duplicate rows are created
+        implementation:
+          notes: >-
+            Model catalogue state explicitly as NotStarted, Running, Complete and Failed. Do not infer
+            readiness from row counts because partial imports would otherwise look like a valid small
+            catalogue.
+          touches:
+            - src/Forge.Application/Training/Exercises/ExerciseCatalogueState.cs
+            - src/Forge.App/Features/Exercises/ExerciseEmptyStates.xaml
+          devexpress:
+            - DXButton
+            - DXPopup
+        testing:
+          - Integration test for interrupted import recovery.
+
+  - key: F07.03
+    title: Provide fast search and personal filters
+    wave: 2
+    summary: >-
+      Make the catalogue feel small by accepting natural shorthand and filtering to the user's
+      equipment and self-declared limitations.
+    outcome: >-
+      Users can type slang, select precise filters and hide movements they have chosen to avoid.
+    concerns: [perf, devexpress, privacy]
+    stories:
+      - key: S07.03.01
+        title: Add fuzzy search with aliases and gym slang
+        wave: 2
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [perf, devexpress]
+        userStory:
+          asA: Alex, typing shorthand between sets
+          iWant: search to understand gym slang
+          soThat: I can find movements without exact catalogue names
+        requirements:
+          - Search indexes name, aliases, synonyms, equipment, muscles and slang such as bench, RDL, lat pull and skullcrusher.
+          - Ranking orders exact name, alias, fuzzy and metadata-only matches in that order.
+          - Queries from 1 to 40 characters update within 150 ms across 800 exercises.
+        acceptanceCriteria:
+          - id: AC1
+            given: the query RDL
+            when: results are ranked
+            then: Romanian Deadlift appears in the first 3 results within 150 ms
+          - id: AC2
+            given: the query bench
+            when: results are ranked
+            then: Barbell Bench Press appears before Cable Chest Fly
+        implementation:
+          notes: >-
+            Implement an in-memory ExerciseSearchIndex in Application and keep fuzzy scoring deterministic.
+            Use dx:AutoCompleteEdit for query suggestions, but keep all ranking outside the ViewModel for
+            unit tests and package-size control.
+          touches:
+            - src/Forge.Application/Training/Exercises/ExerciseSearchIndex.cs
+            - src/Forge.App/Features/Exercises/ExerciseSearchBar.xaml
+          devexpress:
+            - AutoCompleteEdit
+            - DXCollectionView
+          apis:
+            - System.Globalization.CompareInfo
+        testing:
+          - Unit tests for exact, alias, slang and fuzzy ranking.
+
+      - key: S07.03.02
+        title: Filter by available equipment
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [devexpress]
+        userStory:
+          asA: Sam, training at home
+          iWant: filters to respect my available equipment
+          soThat: I do not open exercises I cannot perform today
+        requirements:
+          - Users can set global equipment and a temporary session override.
+          - Results can hide unavailable exercises or show them with a Missing Equipment reason.
+          - Equipment changes update visible results within 150 ms for 800 exercises.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user declares only dumbbells and bands
+            when: Hide unavailable is enabled
+            then: no visible result requires barbell, cable or machine equipment
+          - id: AC2
+            given: Hide unavailable is disabled
+            when: the same profile is active
+            then: unavailable cards show a Missing Equipment label naming at least one item
+        implementation:
+          notes: >-
+            Isolate profile dependency behind IAvailableEquipmentProvider so E07 can be tested before E06
+            is complete. Render equipment with dx:TokenEdit in a dx:BottomSheet and expose missing reasons
+            from Application.
+          touches:
+            - src/Forge.Application/Training/Exercises/IAvailableEquipmentProvider.cs
+            - src/Forge.App/Features/Exercises/ExerciseFilterSheet.xaml
+          devexpress:
+            - TokenEdit
+            - BottomSheet
+        testing:
+          - Unit tests for hide and explain-unavailable modes.
+
+      - key: S07.03.03
+        title: Respect declared injuries and movement limitations
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [privacy]
+        userStory:
+          asA: Tom, training around a shoulder limitation
+          iWant: to hide or warn about movements I declared problematic
+          soThat: I can browse with fewer unsafe choices
+        requirements:
+          - The filter service consumes structured E06 limitation tags such as overhead, deep knee flexion, spinal loading and high impact.
+          - Users choose Hide contraindicated, Show with warning or Ignore for the current library session.
+          - Safety copy states that Forge is not medical advice before the first limitation-aware filter is enabled.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user has an overhead shoulder limitation
+            when: Hide contraindicated is enabled
+            then: overhead press results are hidden and neutral-grip row results remain visible
+          - id: AC2
+            given: limitation filtering is enabled for the first time
+            when: the notice appears
+            then: it includes not medical advice language and requires Continue before applying filters
+        implementation:
+          notes: >-
+            Map profile limitations onto ExerciseContraindicationTag values through a conservative data file.
+            The ViewModel must read only structured tags, never raw health notes or free text, and warning
+            phrasing must remain user-controlled rather than diagnostic.
+          touches:
+            - src/Forge.Application/Training/Exercises/ExerciseLimitationFilter.cs
+            - src/Forge.App/Features/Exercises/LimitationNoticeSheet.xaml
+          devexpress:
+            - BottomSheet
+            - DXCollectionView
+        testing:
+          - Unit tests for shoulder, knee, back and high-impact mappings.
+        openQuestions:
+          - Confirm final E06 limitation tag names before direct integration.
+
+      - key: S07.03.04
+        title: Persist favourites and recently used exercises
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [offline]
+        userStory:
+          asA: Alex, repeating common accessories
+          iWant: favourites and recents surfaced quickly
+          soThat: I can return to frequent movements without searching
+        requirements:
+          - Users can favourite any seeded or custom exercise from cards or detail pages within 2 taps.
+          - Recently used updates when an exercise is opened or selected in a workout flow.
+          - Recently used caps at 30 items and survives process death.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user favourites Barbell Bench Press
+            when: the app is killed and relaunched offline
+            then: Barbell Bench Press appears in Favourites
+          - id: AC2
+            given: the user opens 31 distinct exercise details
+            when: Recently Used is displayed
+            then: exactly 30 exercises appear and the oldest item is absent
+        implementation:
+          notes: >-
+            Store favourites and recents as separate SQLite tables keyed by ExerciseId. Do not duplicate
+            display names because seed updates and localization would drift from user marks.
+          touches:
+            - src/Forge.Application/Training/Exercises/ExerciseLibraryMarksService.cs
+            - src/Forge.Infrastructure/Persistence/Entities/ExerciseFavouriteEntity.cs
+          devexpress:
+            - DXCollectionView
+            - DXButton
+        testing:
+          - Unit tests for favourite persistence and recent list cap.
+
+  - key: F07.04
+    title: Explain detail pages and safe execution
+    wave: 2
+    summary: >-
+      Make each catalogue entry a coaching-quality reference with muscles, steps, cues, breathing,
+      tempo, mistakes, prerequisites and safety notes.
+    outcome: >-
+      Users can judge and perform an exercise from text guidance alone when media is unavailable.
+    concerns: [a11y, offline]
+    stories:
+      - key: S07.04.01
+        title: Build detail page with muscle visualisation
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [devexpress, a11y]
+        userStory:
+          asA: Maya, comparing movements
+          iWant: a clear exercise detail page
+          soThat: I understand why I would choose one movement
+        requirements:
+          - Detail page shows name, equipment, pattern, difficulty, mechanic and primary and secondary muscles.
+          - Primary and secondary muscles differ by label or pattern, not colour alone.
+          - Detail opens within 300 ms from a result card.
+        acceptanceCriteria:
+          - id: AC1
+            given: Barbell Bench Press appears in results
+            when: the user opens its detail page
+            then: required metadata and at least one primary muscle render within 300 ms
+          - id: AC2
+            given: the device is offline
+            when: any seeded exercise detail opens
+            then: every text section and muscle visual loads without network error
+        implementation:
+          notes: >-
+            Use dx:DXCollectionView for sectioned detail content and reuse the body-map in read-only
+            highlight mode. Navigation passes only ExerciseId and the ViewModel loads content from the
+            query service.
+          touches:
+            - src/Forge.App/Features/Exercises/ExerciseDetailPage.xaml
+            - src/Forge.App/Features/Exercises/ExerciseDetailViewModel.cs
+          devexpress:
+            - DXCollectionView
+            - DXExpander
+            - DXBorder
+        testing:
+          - UI test opening 50 random seeded details and asserting required fields.
+
+      - key: S07.04.02
+        title: Add step-by-step execution and coaching cues
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        userStory:
+          asA: Maya, learning a lift
+          iWant: setup, execution and cues
+          soThat: I can perform the movement cleanly without video
+        requirements:
+          - Each seeded exercise has setup, execution, finish or reset steps with 3 to 9 total steps.
+          - Each seeded exercise has at least 2 cues and no cue exceeds 80 characters.
+          - Strength exercises include breathing timing and structured tempo or an explicit not applicable marker.
+        acceptanceCriteria:
+          - id: AC1
+            given: the release candidate seed catalogue
+            when: content lint runs
+            then: 100 percent of exercises have 3 to 9 steps and at least 2 cues
+          - id: AC2
+            given: Romanian Deadlift detail is open
+            when: the user expands Breathing and Tempo
+            then: both sections contain non-empty guidance and load within 100 ms
+        implementation:
+          notes: >-
+            Store steps and cues as ordered structured content, not one markdown blob. This lets E08 reuse
+            cue timing and lets screen readers announce step numbers reliably.
+          touches:
+            - src/Forge.Domain/Training/Exercises/ExerciseInstruction.cs
+            - src/Forge.App/Features/Exercises/ExerciseInstructionSections.xaml
+          devexpress:
+            - DXExpander
+        testing:
+          - Catalogue lint tests for step count, cue count and cue length.
+
+      - key: S07.04.03
+        title: Surface mistakes, safety notes and prerequisites
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [a11y]
+        userStory:
+          asA: Sam, returning after injury
+          iWant: mistakes, safety notes and prerequisites
+          soThat: I can avoid movements too advanced for today
+        requirements:
+          - Every seeded exercise has at least 2 common mistakes and 1 safety note.
+          - Intermediate and advanced exercises declare prerequisites or explicitly mark none.
+          - Limitation warnings appear above instructions when user tags match contraindications.
+        acceptanceCriteria:
+          - id: AC1
+            given: the release candidate seed catalogue
+            when: lint runs
+            then: 100 percent of exercises have at least 2 mistakes and 1 safety note
+          - id: AC2
+            given: an overhead exercise and an overhead limitation
+            when: detail opens
+            then: a limitation warning appears above the first instruction section
+        implementation:
+          notes: >-
+            Store mistakes, prerequisites and safety notes as arrays. Render them in DXExpander sections
+            but force matched limitation warnings expanded at the top so risk is not hidden by collapsed UI.
+          touches:
+            - src/Forge.Domain/Training/Exercises/ExerciseSafetyContent.cs
+            - src/Forge.App/Features/Exercises/ExerciseSafetySections.xaml
+          devexpress:
+            - DXExpander
+            - DXBorder
+        testing:
+          - Catalogue lint test for missing safety content.
+
+      - key: S07.04.04
+        title: Link prerequisites, regressions and progressions
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: masters
+        userStory:
+          asA: Tom, choosing joint-friendly progressions
+          iWant: linked easier and harder variations
+          soThat: I can step down or build up safely
+        requirements:
+          - Exercises can link prerequisite, regression and progression exercise IDs.
+          - Detail shows up to 6 linked exercises with reason text and availability status.
+          - Broken seed links fail validation before packaging.
+        acceptanceCriteria:
+          - id: AC1
+            given: an exercise has 2 regressions and 2 progressions
+            when: detail renders
+            then: all 4 linked exercises show reason text and equipment availability status
+          - id: AC2
+            given: seed content references a missing exercise ID
+            when: catalogue lint runs
+            then: validation fails and reports the missing target ID
+        implementation:
+          notes: >-
+            Model links as ExerciseRelationship records with type and reason. Resolve availability through
+            the same equipment and limitation services used elsewhere so linked cards explain today's fit.
+          touches:
+            - src/Forge.Domain/Training/Exercises/ExerciseRelationship.cs
+            - src/Forge.App/Features/Exercises/ExerciseRelationshipRail.xaml
+          devexpress:
+            - DXCollectionView
+        testing:
+          - Unit tests for broken relationship validation.
+
+  - key: F07.05
+    title: Recommend alternatives and substitutions
+    wave: 2
+    summary: >-
+      Answer the high-value question users ask often: what can I do instead when equipment, pain,
+      space or preference makes a movement unsuitable?
+    outcome: >-
+      Common exercises suggest ranked substitutes with transparent reasons and safety constraints.
+    concerns: [offline, perf]
+    stories:
+      - key: S07.05.01
+        title: Rank substitutions by intent and availability
+        wave: 2
+        size: l
+        platforms: [android, ios]
+        persona: returner
+        concerns: [perf]
+        userStory:
+          asA: Sam, lacking a barbell today
+          iWant: sensible alternatives
+          soThat: I can keep the training intent
+        requirements:
+          - Scoring considers muscles, pattern, mechanic, difficulty, equipment, laterality and contraindications.
+          - Available and limitation-compatible exercises rank above unavailable or warned exercises.
+          - Results compute within 100 ms for one source exercise across 800 catalogue records.
+        acceptanceCriteria:
+          - id: AC1
+            given: Barbell Back Squat and dumbbell-only equipment
+            when: substitutions are requested
+            then: a dumbbell squat or goblet squat appears in the first 5 within 100 ms
+          - id: AC2
+            given: the user has an overhead limitation
+            when: substitutions are ranked
+            then: non-overhead alternatives rank above overhead alternatives with warning labels
+        implementation:
+          notes: >-
+            Implement ExerciseSubstitutionService with transparent weighted scoring and reason codes such
+            as same muscles, same pattern and equipment available. Keep it local and deterministic so it
+            works offline and can be tested with fixed fixtures.
+          touches:
+            - src/Forge.Application/Training/Exercises/ExerciseSubstitutionService.cs
+            - src/Forge.Application/Training/Exercises/SubstitutionScore.cs
+        testing:
+          - Unit tests covering pattern, equipment and limitation-aware ranking.
+
+      - key: S07.05.02
+        title: Show alternatives from details and unavailable cards
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [devexpress]
+        userStory:
+          asA: Maya, seeing an exercise I cannot do
+          iWant: a clear Find alternative action
+          soThat: I can recover quickly instead of abandoning the idea
+        requirements:
+          - Detail page includes Find Alternative when at least one substitution exists.
+          - Unavailable result cards include Substitute when equipment or limitation filters mark them unavailable.
+          - Substitution sheet explains the top 3 reason codes.
+        acceptanceCriteria:
+          - id: AC1
+            given: Barbell Bench Press detail with dumbbell-only equipment active
+            when: the user taps Find Alternative
+            then: a BottomSheet opens within 200 ms and lists at least 5 alternatives when available
+          - id: AC2
+            given: an unavailable exercise card
+            when: the user taps Substitute
+            then: the first 3 alternatives display reason labels
+        implementation:
+          notes: >-
+            Use dx:BottomSheet so the source exercise remains in context. The sheet ViewModel supports
+            navigate-to-detail and return-selected-ID modes for reuse by workout picking later.
+          touches:
+            - src/Forge.App/Features/Exercises/SubstitutionSheet.xaml
+            - src/Forge.App/Features/Exercises/SubstitutionSheetViewModel.cs
+          devexpress:
+            - BottomSheet
+            - DXCollectionView
+        testing:
+          - UI tests for detail-origin and picker-origin substitution modes.
+
+      - key: S07.05.03
+        title: Let users exclude exercises from suggestions
+        wave: 2
+        size: s
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy]
+        userStory:
+          asA: Sam, who dislikes certain movements
+          iWant: to mark exercises as not for me
+          soThat: Forge stops recommending movements I will not do
+        requirements:
+          - Users can mark any exercise Not for me from detail or substitution cards.
+          - Excluded exercises are hidden from substitutions by default and can be shown with a toggle.
+          - Excluding never deletes history, favourites or custom exercise data.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user marks Burpee as Not for me
+            when: conditioning substitutions are requested
+            then: Burpee is absent until Show excluded is enabled
+          - id: AC2
+            given: an excluded exercise exists in workout history
+            when: history is opened
+            then: the completed workout still displays exercise name and sets
+        implementation:
+          notes: >-
+            Store exclusions locally in a preference table keyed by ExerciseId. Apply exclusions late in
+            search and substitution filtering so user preference data never mutates seed content.
+          touches:
+            - src/Forge.Infrastructure/Persistence/Entities/ExerciseExclusionEntity.cs
+            - src/Forge.Application/Training/Exercises/ExercisePreferenceService.cs
+          devexpress:
+            - DXCollectionView
+            - DXButton
+        testing:
+          - Unit tests for exclusion filtering and history preservation.
+
+      - key: S07.05.04
+        title: Report catalogue quality for release readiness
+        wave: 2
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [quality]
+        userStory:
+          asA: release manager
+          iWant: measurable catalogue completeness diagnostics
+          soThat: content gaps are fixed before launch
+        requirements:
+          - Diagnostics measure metadata coverage, instruction coverage, substitution coverage, provenance coverage and broken link count.
+          - Release thresholds are 95 percent metadata, 95 percent instructions, 90 percent substitutions and 100 percent provenance.
+          - The tool exits non-zero if any threshold is missed.
+        acceptanceCriteria:
+          - id: AC1
+            given: the packaged 800-exercise seed asset
+            when: diagnostics run in release mode
+            then: metadata coverage is at least 95 percent and provenance coverage is exactly 100 percent
+          - id: AC2
+            given: 100 of 800 exercises have no viable substitution
+            when: diagnostics run
+            then: substitution coverage reports 87.5 percent and exits non-zero
+        implementation:
+          notes: >-
+            Extend catalogue-lint with release diagnostics that read the final compressed asset. Source-only
+            validation is insufficient because packaging errors could otherwise escape review.
+          touches:
+            - tools/catalogue-lint/CatalogueDiagnostics.cs
+            - src/Forge.App/Resources/Raw/exercises.v1.json.br
+        testing:
+          - Unit tests for threshold calculation and non-zero exit behaviour.

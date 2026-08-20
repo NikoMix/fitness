@@ -1,0 +1,767 @@
+key: E17
+title: Adaptive Coaching and On-Device Intelligence
+domain: insights
+wave: 5
+summary: >-
+  Adaptive coaching gives Forge a trustworthy local coach: next-workout suggestions, plateau
+  interventions, deload cues, substitutions, weekly reviews and nudges are all deterministic,
+  explainable and overridable. The product value is not magic AI, it is transparent reasoning
+  based on the user's own logged performance, goals, injuries and equipment.
+problem: >-
+  A programme that never adapts can feel generic, but opaque automated coaching is unsafe and hard
+  to trust. Users need help choosing the next load, responding to bad days and managing plateaus
+  without being pushed into dangerous jumps or medical-sounding advice.
+outcome: >-
+  Every coaching recommendation runs on-device, names the data and rule that produced it, respects
+  injuries and user overrides, and stays inside explicit safety bounds for load, volume and effort.
+successMetrics:
+  - 70 percent of weekly active trainees view at least one explainable recommendation in Wave 5 beta.
+  - 90 percent of recommendation cards receive either accept, adjust or dismiss feedback instead of being ignored.
+  - Zero recommendation engine tests produce load jumps above the configured safety bounds.
+nonGoals:
+  - No backend coaching service, no LLM API, no cloud inference and no personalised model training in v1.
+  - No diagnosis, rehabilitation plan or medical advice for injuries, pain or illness.
+  - No automatic workout changes without an explicit user confirmation.
+risks:
+  - risk: A recommendation could increase load or volume too aggressively and increase injury risk.
+    mitigation: Hard safety caps limit load jumps, volume changes and RPE targets, and all recommendations respect declared injuries before display.
+    severity: critical
+  - risk: Users trust the coach less if explanations feel vague or post-hoc.
+    mitigation: Store a RecommendationTrace with each card containing inputs, rule id, calculation and bounds applied.
+    severity: high
+  - risk: Deterministic rules may feel repetitive.
+    mitigation: Rotate plain-language templates while keeping the underlying rule trace stable and testable.
+    severity: medium
+dependsOn: [E06, E09, E10, E16]
+grounding:
+  - title: NSCA position statement on resistance training progression
+    url: https://pubmed.ncbi.nlm.nih.gov/19204579/
+    note: Grounding for conservative resistance training progression and variation principles.
+  - title: PubMed rating of perceived exertion in resistance training
+    url: https://pubmed.ncbi.nlm.nih.gov/28459831/
+    note: Supports RPE as a practical autoregulation input while requiring careful interpretation.
+  - title: Renaissance Periodization volume landmarks overview
+    url: https://rpstrength.com/blogs/articles/training-volume-landmarks-muscle-growth
+    note: Public plain-language framing of MEV, MAV and MRV concepts used with caveats.
+  - title: DevExpress MAUI CollectionView
+    url: https://docs.devexpress.com/MAUI/DevExpress.Maui.CollectionView.DXCollectionView
+    note: Virtualized recommendation and review feed cards.
+  - title: DevExpress MAUI Gauges
+    url: https://docs.devexpress.com/MAUI/403576/gauges
+    note: Used for bounded confidence and readiness-like coaching indicators.
+
+features:
+  - key: F17.01
+    title: Recommend next workout loads and reps transparently
+    wave: 5
+    summary: >-
+      Suggest next set targets from recent performance, RPE and programme intent while showing the
+      exact calculation and limiting all changes through safety bounds.
+    outcome: >-
+      A user can accept, adjust or ignore a next-workout target knowing precisely why it was offered.
+    concerns: [devexpress, perf]
+    stories:
+      - key: S17.01.01
+        title: Suggest next-workout weight from recent sets and RPE
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [perf]
+        userStory:
+          asA: Alex, starting bench press
+          iWant: a suggested weight based on last week's performance
+          soThat: I spend less time guessing between warm-up sets
+        requirements:
+          - >-
+            The rule uses the most recent 3 comparable sessions, target rep range, completed reps
+            and recorded RPE when available.
+          - >-
+            Load increases are capped at 2.5 kg or 5 percent for upper-body barbell work and 5 kg
+            or 5 percent for lower-body barbell work, whichever is smaller.
+          - >-
+            Every recommendation includes an explanation such as recommended 82.5 kg because 80 kg
+            for 8 reps at RPE 7 was completed last week.
+        acceptanceCriteria:
+          - id: AC1
+            given: the last bench session was 80 kg for 8 reps at RPE 7 and the target is 6 to 8 reps
+            when: next load is generated
+            then: the recommendation is no more than 84 kg and the explanation includes 80 kg, 8 reps and RPE 7
+          - id: AC2
+            given: recent comparable sessions are unavailable
+            when: next load is requested
+            then: no load recommendation is shown and the card states that 2 comparable sessions are required
+        implementation:
+          notes: >-
+            Implement RecommendationEngine in Forge.Application/Coaching as a pure deterministic
+            service returning RecommendationCard DTOs plus RecommendationTrace. Exercise type and
+            increment rules belong in Forge.Domain so they can be tested without MAUI. The App
+            renders cards with dx:DXCollectionView and never mutates the workout until the user
+            confirms.
+          touches:
+            - src/Forge.Application/Coaching/RecommendationEngine.cs
+            - src/Forge.Domain/Coaching/LoadProgressionRule.cs
+            - src/Forge.App/Features/Insights/Coaching/RecommendationCardView.xaml
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for upper-body and lower-body load caps.
+          - Unit tests asserting explanations include the input set values used.
+
+      - key: S17.01.02
+        title: Recommend rep targets and back-off sets
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [perf]
+        userStory:
+          asA: Sam, rebuilding capacity
+          iWant: rep and back-off suggestions that fit the plan
+          soThat: I do not accidentally turn every session into a max effort
+        requirements:
+          - >-
+            Rep targets stay within the programmed range unless the user has explicitly enabled an
+            AMRAP or test set.
+          - >-
+            Back-off load recommendations use a 5 to 15 percent reduction from the top set and
+            never exceed the completed top-set load.
+          - >-
+            The card explains whether the suggestion is progression, repeat, back-off or regression.
+        acceptanceCriteria:
+          - id: AC1
+            given: a programmed range of 8 to 10 reps
+            when: the recommendation is generated
+            then: the target rep count is between 8 and 10 unless the set is marked AMRAP
+          - id: AC2
+            given: a top set of 100 kg and a 10 percent back-off rule
+            when: back-off is calculated
+            then: the recommended load is 90 kg and never greater than 100 kg
+        implementation:
+          notes: >-
+            Add RepTargetRule and BackoffRule beside the load progression rule in Forge.Domain.
+            The engine should return recommendation type as an enum so the UI can present stable
+            badges and tests can assert behaviour. Keep all calculations local and deterministic,
+            with no dependence on network time or remote configuration.
+          touches:
+            - src/Forge.Domain/Coaching/RepTargetRule.cs
+            - src/Forge.Domain/Coaching/BackoffRule.cs
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for AMRAP exception, normal range and back-off percent bounds.
+
+      - key: S17.01.03
+        title: Allow user overrides with stored reasoning
+        wave: 5
+        size: s
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: Alex, disagreeing with a suggestion
+          iWant: to override it quickly
+          soThat: coaching supports my judgement instead of fighting it
+        requirements:
+          - >-
+            Every recommendation card offers Accept, Adjust and Dismiss actions.
+          - >-
+            Adjusted values must pass the same safety bounds as generated recommendations before
+            they can be applied.
+          - >-
+            Override reason choices are optional, local-only and never required to continue a
+            workout.
+        acceptanceCriteria:
+          - id: AC1
+            given: a recommended 82.5 kg set
+            when: the user adjusts it to 85 kg within bounds and taps Apply
+            then: the workout receives 85 kg and an override record is stored locally
+          - id: AC2
+            given: the user adjusts a recommendation above the maximum allowed jump
+            when: Apply is tapped
+            then: validation blocks the change and names the maximum allowed load
+        implementation:
+          notes: >-
+            Store coaching feedback in a local CoachingFeedback table so future deterministic rules
+            can avoid repeating dismissed suggestions without needing cloud learning. Validate
+            adjusted values through the same SafetyBoundService used by generated cards. Render
+            choices with DevExpress editors but keep the domain model free of DevExpress types.
+          touches:
+            - src/Forge.Application/Coaching/CoachingFeedbackService.cs
+            - src/Forge.App/Features/Insights/Coaching/RecommendationOverrideSheet.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:NumericEdit
+        testing:
+          - Unit test confirming overrides cannot bypass load caps.
+          - Integration test that accepted adjustments are persisted with the source recommendation id.
+
+  - key: F17.02
+    title: Autoregulate sessions for bad days and fatigue
+    wave: 5
+    summary: >-
+      Adapt planned work when the user reports poor readiness or performance decays, using simple
+      rules that reduce risk without cancelling agency.
+    outcome: >-
+      Forge can recommend a lighter session, deload or rest day with clear reasons and user control.
+    concerns: [devexpress]
+    stories:
+      - key: S17.02.01
+        title: Adjust recommendations for bad-day check-ins
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [devexpress]
+        userStory:
+          asA: Sam, arriving tired
+          iWant: today’s targets to reflect a bad day
+          soThat: I can still train without forcing planned numbers
+        requirements:
+          - >-
+            Bad-day inputs include energy, soreness, motivation and stress on 1 to 5 scales.
+          - >-
+            When the combined score is 8 or lower out of 20, load suggestions reduce by 2.5 to 10
+            percent or volume reduces by 1 to 3 work sets depending on exercise priority.
+          - >-
+            The user can ignore the adjustment after seeing the explanation.
+        acceptanceCriteria:
+          - id: AC1
+            given: energy 2, soreness 2, motivation 2 and stress 2
+            when: a bad-day adjustment is calculated
+            then: the recommendation includes either a 2.5 to 10 percent load reduction or a 1 to 3 set volume reduction
+          - id: AC2
+            given: the user taps Ignore adjustment
+            when: the session starts
+            then: the original programme targets are restored and the ignored state is stored locally
+        implementation:
+          notes: >-
+            Reuse the morning check-in concepts from E18 through an application-level
+            IReadinessSnapshotProvider rather than duplicating storage. BadDayAdjustmentRule should
+            be a pure function over check-in score, exercise priority and recent performance. Render
+            the adjustment explanation as a dx:DXCollectionView card before workout start.
+          touches:
+            - src/Forge.Application/Coaching/BadDayAdjustmentRule.cs
+            - src/Forge.App/Features/Insights/Coaching/BadDayAdjustmentView.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:RadialGauge
+        testing:
+          - Unit tests across the 8 of 20 threshold and reduction bounds.
+
+      - key: S17.02.02
+        title: Recommend deloads from fatigue and performance decay
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [devexpress]
+        userStory:
+          asA: Tom, training consistently
+          iWant: a deload suggestion before I run myself down
+          soThat: I can keep progressing safely
+        requirements:
+          - >-
+            Deload recommendation requires at least 3 weeks of training data and at least 2 signals
+            among elevated recent load, repeated missed targets, high soreness or declining
+            estimated max.
+          - >-
+            Suggested deload reduces weekly volume by 30 to 50 percent for 1 week and keeps load at
+            or below 90 percent of recent working weight.
+          - >-
+            The card states this is training guidance, not medical advice.
+        acceptanceCriteria:
+          - id: AC1
+            given: 4 weeks of data with missed targets in 3 consecutive sessions and high soreness in 4 check-ins
+            when: deload evaluation runs
+            then: a deload card appears with the two triggering signals listed
+          - id: AC2
+            given: only 2 weeks of training data
+            when: deload evaluation runs
+            then: no deload card appears and the trace states that 3 weeks are required
+        implementation:
+          notes: >-
+            Create DeloadRecommendationRule in Forge.Application/Coaching and feed it projections
+            from E16 plus readiness inputs from E18. Keep the rule conservative and auditable:
+            RecommendationTrace must list each trigger and each missing trigger. Do not frame the
+            result as diagnosing overtraining or injury.
+          touches:
+            - src/Forge.Application/Coaching/DeloadRecommendationRule.cs
+            - src/Forge.App/Features/Insights/Coaching/DeloadCardView.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:RadialGauge
+        testing:
+          - Unit tests for minimum data and two-signal trigger requirement.
+
+      - key: S17.02.03
+        title: Apply injury-aware safety guardrails to all coaching
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy]
+        userStory:
+          asA: Sam, managing an old shoulder injury
+          iWant: recommendations to respect injuries I declared
+          soThat: the app never nudges me towards exercises I should avoid
+        requirements:
+          - >-
+            Coaching reads declared injuries and movement restrictions from E06 through an
+            application abstraction.
+          - >-
+            Recommendations are blocked for exercises marked contraindicated by the user and
+            downgraded for affected muscle groups.
+          - >-
+            Every coaching screen includes a persistent not-medical-advice statement and an
+            override path that records user responsibility locally.
+        acceptanceCriteria:
+          - id: AC1
+            given: the user has declared shoulder pain and marked overhead press as avoided
+            when: recommendations are generated
+            then: no overhead press recommendation is displayed and the trace says blocked by declared restriction
+          - id: AC2
+            given: a recommendation is downgraded because of an injury flag
+            when: the card renders
+            then: the explanation names the affected restriction without exposing it in logs
+        implementation:
+          notes: >-
+            Centralise guardrails in CoachingSafetyService so every rule passes through the same
+            boundary before display. The service should accept injury and equipment abstractions,
+            enforce load and volume bounds, append the not-medical-advice copy, and return blocked
+            recommendations for audit tests without rendering them to the user.
+          touches:
+            - src/Forge.Application/Coaching/CoachingSafetyService.cs
+            - src/Forge.Application/Abstractions/IInjuryProfileReader.cs
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests proving blocked exercises never reach display DTOs.
+          - Privacy test confirming injury labels are redacted from diagnostics.
+
+  - key: F17.03
+    title: Detect plateaus and suggest concrete interventions
+    wave: 5
+    summary: >-
+      Identify stalled progress with enough data, then recommend specific changes such as repeating
+      loads, changing rep ranges, adding recovery or reducing volume.
+    outcome: >-
+      Users receive actionable plateau help with confidence ranges and no false precision.
+    concerns: [devexpress]
+    stories:
+      - key: S17.03.01
+        title: Detect exercise plateaus from repeated stalled performance
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        userStory:
+          asA: Alex, stuck on a lift
+          iWant: Forge to notice a likely plateau
+          soThat: I can change something before frustration builds
+        requirements:
+          - >-
+            Plateau detection requires at least 4 comparable sessions for the same exercise in the
+            last 8 weeks.
+          - >-
+            A plateau is flagged when best estimated max changes by less than 1 percent and target
+            reps are missed in at least 2 of the last 4 sessions.
+          - >-
+            The UI labels the result likely plateau, not failed progress.
+        acceptanceCriteria:
+          - id: AC1
+            given: 4 comparable sessions with estimated max change of 0.6 percent and 2 missed targets
+            when: plateau detection runs
+            then: a likely plateau card is generated
+          - id: AC2
+            given: 3 comparable sessions
+            when: plateau detection runs
+            then: no plateau card appears and the trace states that 4 sessions are required
+        implementation:
+          notes: >-
+            Implement PlateauDetectionRule over E16 strength projections and workout target data.
+            Comparable sessions must match exercise, target rep band and major variation so a
+            paused squat does not silently compare with a high-bar squat unless the exercise
+            catalogue declares them equivalent. The rule returns a confidence label based only on
+            data sufficiency, not a model score.
+          touches:
+            - src/Forge.Application/Coaching/PlateauDetectionRule.cs
+            - src/Forge.Domain/Training/ExerciseEquivalence.cs
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for 1 percent threshold, missed target counts and comparable exercise filtering.
+
+      - key: S17.03.02
+        title: Suggest plateau interventions with explicit trade-offs
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [devexpress]
+        userStory:
+          asA: Alex, seeing a plateau card
+          iWant: concrete intervention choices
+          soThat: I can try a reasonable change instead of randomly swapping programmes
+        requirements:
+          - >-
+            Interventions include repeat load, reduce load by 5 to 10 percent, change rep range,
+            add one rest day, reduce weekly sets by 20 percent or substitute an exercise.
+          - >-
+            The engine shows no more than 3 interventions at once and ranks them by matching
+            available signals.
+          - >-
+            Each intervention lists one expected benefit and one trade-off.
+        acceptanceCriteria:
+          - id: AC1
+            given: plateau detection with high soreness and missed reps
+            when: interventions are generated
+            then: at least one intervention reduces load or volume and the trade-off is visible
+          - id: AC2
+            given: 5 candidate interventions
+            when: the card renders
+            then: no more than 3 interventions are visible without opening the detail screen
+        implementation:
+          notes: >-
+            Add PlateauInterventionService that maps detected signals to a bounded set of actions.
+            Use deterministic scoring such as soreness match, missed-rep match and schedule match.
+            Avoid generic motivation copy; the value is in concrete next steps and transparent
+            trade-offs. Render interventions in a DXCollectionView with accept and dismiss actions.
+          touches:
+            - src/Forge.Application/Coaching/PlateauInterventionService.cs
+            - src/Forge.App/Features/Insights/Coaching/PlateauInterventionView.xaml
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests ensuring candidate list is capped at 3 and includes trade-off text.
+
+      - key: S17.03.03
+        title: Forecast goal progress with confidence ranges
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [devexpress]
+        userStory:
+          asA: Alex, chasing a strength goal
+          iWant: a cautious forecast for when I might reach it
+          soThat: I can adjust expectations without being promised certainty
+        requirements:
+          - >-
+            Forecasting uses linear trend over at least 6 data points and requires at least 6 weeks
+            of history.
+          - >-
+            Forecast cards show earliest, midpoint and latest dates from a confidence range rather
+            than one guaranteed date.
+          - >-
+            Forecasts are hidden when trend slope is zero or negative and explain why.
+        acceptanceCriteria:
+          - id: AC1
+            given: 8 weekly estimated max points with positive slope
+            when: a goal forecast is generated
+            then: the card shows an earliest, midpoint and latest date with the sample count visible
+          - id: AC2
+            given: 6 weekly points with a negative slope
+            when: a forecast is requested
+            then: no date is shown and the explanation states that the recent trend is not positive
+        implementation:
+          notes: >-
+            Implement a simple least-squares trend in Forge.Domain/Analytics/LinearTrend.cs and
+            expose confidence as a heuristic range derived from residual error, not as a statistical
+            guarantee. The UI should use dx:ChartView to show historical points and the forecast
+            band. Put uncertainty copy directly in the card and include an open question if the
+            evidence basis needs refinement.
+          touches:
+            - src/Forge.Domain/Analytics/LinearTrend.cs
+            - src/Forge.Application/Coaching/GoalForecastService.cs
+          devexpress:
+            - dx:ChartView
+        testing:
+          - Unit tests for positive, zero and negative slopes.
+          - Unit tests for minimum 6 point and 6 week requirements.
+        openQuestions:
+          - The confidence range is a product heuristic, not a validated prediction interval, so beta testing must check whether users understand it correctly.
+
+  - key: F17.04
+    title: Guide training volume, substitutions and form reminders
+    wave: 5
+    summary: >-
+      Help users make programme adjustments by explaining volume landmarks in plain language,
+      suggesting substitutions from equipment and performance, and timing form reminders.
+    outcome: >-
+      Coaching supports safer programme tweaks without needing a remote coach or opaque model.
+    concerns: [devexpress]
+    stories:
+      - key: S17.04.01
+        title: Explain volume landmarks in plain language
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [devexpress]
+        userStory:
+          asA: Alex, planning hypertrophy work
+          iWant: MEV, MAV and MRV translated into plain language
+          soThat: I can understand volume guidance without jargon
+        requirements:
+          - >-
+            The app explains MEV as the likely minimum useful volume, MAV as a productive range and
+            MRV as a likely recoverability ceiling.
+          - >-
+            Volume landmarks are presented as broad ranges and never as exact biological limits.
+          - >-
+            Weekly muscle volume from E16 is mapped into below range, in range or above range only
+            after 4 weeks of history.
+        acceptanceCriteria:
+          - id: AC1
+            given: 4 weeks of chest set history below the configured MEV range
+            when: volume guidance runs
+            then: the card labels chest below range and explains MEV in plain language
+          - id: AC2
+            given: fewer than 4 weeks of history
+            when: the volume landmark screen opens
+            then: no range judgement is shown and the minimum data requirement is visible
+        implementation:
+          notes: >-
+            Store default landmark ranges as editable content in Forge.Infrastructure seed data so
+            the product team can adjust wording without code changes. The recommendation engine
+            should consume muscle-set aggregates from E16 and output plain categories rather than
+            precise claims. Render the educational cards with dx:DXCollectionView.
+          touches:
+            - src/Forge.Infrastructure/Seed/VolumeLandmarks.json
+            - src/Forge.Application/Coaching/VolumeLandmarkService.cs
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for below, in-range and above-range classifications.
+        grounding:
+          - title: Renaissance Periodization volume landmarks overview
+            url: https://rpstrength.com/blogs/articles/training-volume-landmarks-muscle-growth
+            note: Source for product vocabulary, with ranges kept editable and cautious.
+
+      - key: S17.04.02
+        title: Suggest exercise substitutions from equipment and constraints
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [devexpress]
+        userStory:
+          asA: Sam, training in a crowded gym
+          iWant: substitute exercises that fit my equipment and restrictions
+          soThat: I can keep the session moving safely
+        requirements:
+          - >-
+            Substitution suggestions match primary muscle group, movement pattern, available
+            equipment and declared injury restrictions.
+          - >-
+            Suggestions never include exercises the user has marked avoided or unavailable.
+          - >-
+            Each suggestion explains the match using at least two factors such as same muscle and
+            available dumbbells.
+        acceptanceCriteria:
+          - id: AC1
+            given: barbell bench is unavailable and dumbbells are available
+            when: substitutions are requested
+            then: dumbbell bench can appear with explanation naming same primary muscle and available equipment
+          - id: AC2
+            given: an exercise is marked avoided due to injury
+            when: substitutions are generated
+            then: that exercise is absent from the result set
+        implementation:
+          notes: >-
+            Build ExerciseSubstitutionService over exercise catalogue metadata from E07 and
+            restriction readers from E06. Ranking is a transparent weighted score over movement
+            pattern, muscles, equipment and user history. The UI uses dx:DXCollectionView with a
+            details expander showing score factors, not a single unexplained best match.
+          touches:
+            - src/Forge.Application/Coaching/ExerciseSubstitutionService.cs
+            - src/Forge.App/Features/Insights/Coaching/SubstitutionSheet.xaml
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for equipment filtering, injury filtering and explanation factors.
+
+      - key: S17.04.03
+        title: Schedule form-check reminders by exercise cadence
+        wave: 5
+        size: s
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [a11y]
+        userStory:
+          asA: Maya, learning lifts
+          iWant: occasional form-check reminders
+          soThat: I build safer habits without being interrupted every set
+        requirements:
+          - >-
+            Reminder cadence defaults to first working set for new exercises and then every 4th
+            exposure or 28 days, whichever comes first.
+          - >-
+            Reminders are disabled during timed rest countdowns and never appear mid-set.
+          - >-
+            The user can silence a reminder for an exercise for 30 days.
+        acceptanceCriteria:
+          - id: AC1
+            given: an exercise is performed for the first time
+            when: the first working set is about to start
+            then: a form-check reminder is shown before the set and not during the set
+          - id: AC2
+            given: the user silences reminders for squat
+            when: squat appears in workouts for the next 29 days
+            then: no squat form-check reminder is shown
+        implementation:
+          notes: >-
+            Implement FormCheckReminderService in Forge.Application using exercise exposure history
+            and local silence preferences. This story schedules in-app reminders only, not push
+            notifications, so it avoids local notification infrastructure. Render the
+            reminder as a lightweight card in the workout prep flow with accessible labels.
+          touches:
+            - src/Forge.Application/Coaching/FormCheckReminderService.cs
+            - src/Forge.App/Features/Workout/FormCheckReminderView.xaml
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for first exposure, fourth exposure, 28 day and 30 day silence rules.
+
+  - key: F17.05
+    title: Summarise weeks and nudge habits safely
+    wave: 5
+    summary: >-
+      Convert the week's local data into a review and small behaviour nudges that support retention
+      without shame, medical claims or manipulative dark patterns.
+    outcome: >-
+      Users get a concise weekly review and bounded nudges that are helpful, dismissible and privacy-preserving.
+    concerns: [devexpress, privacy]
+    stories:
+      - key: S17.05.01
+        title: Generate an explainable weekly coaching review
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [devexpress]
+        userStory:
+          asA: Maya, finishing a training week
+          iWant: a short review of what changed
+          soThat: I know what to focus on next week
+        requirements:
+          - >-
+            Weekly review includes completed sessions, strongest PR or progress signal, main
+            consistency signal and one suggested focus for next week.
+          - >-
+            Review generation requires at least one completed workout in the week and completes
+            locally within 300 ms.
+          - >-
+            Every statement links to its source metric or source workout.
+        acceptanceCriteria:
+          - id: AC1
+            given: a week with 3 completed sessions and 1 PR
+            when: the weekly review opens
+            then: it shows 3 completed sessions, the PR and one next-week focus with source links
+          - id: AC2
+            given: a week with no completed workouts
+            when: the review opens
+            then: no performance judgement is shown and the empty state suggests planning the next session
+        implementation:
+          notes: >-
+            Build WeeklyReviewService as a deterministic composition over E16 projections and
+            coaching rules. Avoid generated prose from an LLM. Use rule-backed templates with
+            source ids so tapping a statement opens the underlying chart or workout. Render review
+            sections with dx:DXCollectionView and simple card ordering.
+          touches:
+            - src/Forge.Application/Coaching/WeeklyReviewService.cs
+            - src/Forge.App/Features/Insights/Coaching/WeeklyReviewPage.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:ChartView
+        testing:
+          - Unit tests for empty week, PR week and consistency focus selection.
+
+      - key: S17.05.02
+        title: Nudge habits without shame or unsafe pressure
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: newcomer
+        concerns: [privacy, a11y]
+        userStory:
+          asA: Maya, trying to be consistent
+          iWant: small habit nudges that respect my context
+          soThat: I feel supported rather than nagged
+        requirements:
+          - >-
+            Nudges cover missed planned sessions, low protein logging adherence, hydration gaps
+            and repeated late workouts only when relevant data exists.
+          - >-
+            No more than one habit nudge is shown per day and each nudge can be dismissed for 7 days.
+          - >-
+            Copy must avoid shame terms such as failed, lazy or bad and must include a concrete
+            next action.
+        acceptanceCriteria:
+          - id: AC1
+            given: 2 relevant nudge candidates on the same day
+            when: the Today screen loads
+            then: only the highest ranked nudge is shown
+          - id: AC2
+            given: a nudge is dismissed
+            when: the same condition remains true for the next 6 days
+            then: the nudge stays hidden until day 7 has elapsed
+        implementation:
+          notes: >-
+            Add HabitNudgeService in Forge.Application with fixed rules and local dismissal state.
+            This service should produce candidate nudges with priority, expiry and source metric,
+            then let the Today screen render only one. Keep content strings in resources for later
+            localization and review them through safety copy tests.
+          touches:
+            - src/Forge.Application/Coaching/HabitNudgeService.cs
+            - src/Forge.App/Features/Today/HabitNudgeCard.xaml
+          devexpress:
+            - dx:DXCollectionView
+        testing:
+          - Unit tests for one-per-day ranking and 7 day dismissal.
+          - Text test rejecting banned shame terms in nudge resources.
+
+      - key: S17.05.03
+        title: Display recommendation confidence and trace details
+        wave: 5
+        size: m
+        platforms: [android, ios]
+        persona: masters
+        concerns: [devexpress, privacy]
+        userStory:
+          asA: Tom, cautious about automated advice
+          iWant: to inspect why Forge suggested something
+          soThat: I can decide whether to trust it today
+        requirements:
+          - >-
+            Every recommendation stores a trace with rule id, input metrics, safety bounds applied,
+            blocked factors and confidence label.
+          - >-
+            Confidence labels are Low, Medium or High based only on data quantity and recency.
+          - >-
+            Trace detail contains no raw injury notes, free-text notes or hidden identifiers.
+        acceptanceCriteria:
+          - id: AC1
+            given: a recommendation generated from 3 recent sessions
+            when: the user opens Why this
+            then: the trace lists the 3 source sessions, rule id and safety bounds applied
+          - id: AC2
+            given: a recommendation derived from stale data older than 28 days
+            when: confidence is calculated
+            then: the confidence label is Low and the reason mentions stale data
+        implementation:
+          notes: >-
+            RecommendationTrace is the trust backbone of E17. Define it in Forge.Application and
+            persist only non-sensitive metric summaries. The UI should show a compact explanation
+            by default and a dx:DXCollectionView detail sheet for source metrics. Confidence must
+            never imply correctness, only data sufficiency.
+          touches:
+            - src/Forge.Application/Coaching/RecommendationTrace.cs
+            - src/Forge.App/Features/Insights/Coaching/RecommendationTraceSheet.xaml
+          devexpress:
+            - dx:DXCollectionView
+            - dx:RadialGauge
+        testing:
+          - Unit tests for confidence labels by sample count and recency.
+          - Privacy test ensuring trace serialization excludes free-text notes.

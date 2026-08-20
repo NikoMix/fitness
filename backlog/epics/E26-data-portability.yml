@@ -1,0 +1,577 @@
+key: E26
+title: Data Portability, Backup and Restore
+domain: data
+wave: 4
+summary: >-
+  Forge has no cloud account and no server copy, so portability is a correctness requirement and a GDPR Article 20 obligation. This epic gives users encrypted backups, safe restore, open exports and competitor imports while making irreversible local data loss clear.
+problem: >-
+  Users can lose years of special-category fitness and nutrition data if a phone is lost, the app is uninstalled or a bad restore overwrites the active store. They also need practical ways to leave, audit or join Forge without re-entering their history.
+outcome: >-
+  Users can create and verify encrypted local backups, restore compatible archives with explicit overwrite consent, export selected or complete data in open formats, import common competitor files, and understand that Forge cannot recover unbacked data.
+successMetrics:
+  - A complete encrypted backup of the 50,000 set fixture verifies in under 60 seconds.
+  - Restore rejects corrupt or incompatible archives before active database replacement in all negative tests.
+  - CSV export covers every user-created entity with stable headers validated by snapshots.
+  - Supported competitor import previews map at least 95 percent of valid rows in representative fixtures.
+nonGoals:
+  - No automatic cloud sync, hosted backup service or remote account.
+  - No automatic upload to analytics, crash reporting or support systems.
+  - No desktop-only portability tools in waves 1 to 5.
+risks:
+  - risk: Restore overwrites the only valid database with an incompatible archive.
+    mitigation: Perform manifest, schema, checksum and decryptability preflight before safety copy and replacement.
+    severity: critical
+  - risk: Exports omit data required for portability rights.
+    mitigation: Drive coverage tests from the persistence model and fail when user-created tables lack an exporter.
+    severity: high
+  - risk: Competitor export formats change without notice.
+    mitigation: Use fixture-based adapters with preview and document unverified mappings as open questions.
+    severity: medium
+grounding:
+  - title: GDPR right to data portability
+    url: https://gdpr.eu/article-20-right-to-data-portability/
+    note: Explains the portability obligation behind open exports.
+  - title: .NET MAUI file picker
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/storage/file-picker
+    note: Used for user-chosen backup, restore and import files.
+  - title: .NET MAUI share files
+    url: https://learn.microsoft.com/dotnet/maui/platform-integration/data/share
+    note: Used to share exports only after explicit user action.
+  - title: RFC 4180 CSV format
+    url: https://www.rfc-editor.org/rfc/rfc4180
+    note: Defines interoperable CSV rules.
+features:
+  - key: F26.01
+    title: Create encrypted local backups
+    wave: 4
+    summary: >-
+      Let users write complete encrypted backups to files they control, verify them and receive local-only risk reminders.
+    outcome: >-
+      A verified backup exists before risky device changes or uninstall.
+    concerns: [security, privacy, offline]
+    dependsOn: [E04]
+    stories:
+      - key: S26.01.01
+        title: Create a full encrypted backup archive
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [security, privacy]
+        userStory:
+          asA: enthusiast user
+          iWant: a complete encrypted backup file
+          soThat: losing my phone does not mean losing Forge history
+        requirements:
+          - Backup includes database content, schema version, app version, catalogue manifests and checksums.
+          - Archive encryption uses a backup-specific key or passphrase and never reuses the SQLCipher database key directly.
+          - The user chooses the destination through the OS document flow and the 50,000 set fixture backs up in under 60 seconds.
+        acceptanceCriteria:
+          - id: AC1
+            given: the database contains all core entity types
+            when: backup completes
+            then: the archive decrypts and contains every user-created table
+          - id: AC2
+            given: the 50,000 set fixture is backed up
+            when: duration is measured
+            then: backup and verification finish under 60 seconds
+        implementation:
+          notes: >-
+            Implement BackupArchiveService in Infrastructure and expose it through Application. Stream data with manifest and checksums; app code only selects the destination.
+          touches: [src/Forge.Application/Portability/IBackupArchiveService.cs, src/Forge.Infrastructure/Portability/BackupArchiveService.cs]
+          devexpress: [TextEdit, DXButton, DXProgressBar]
+          apis: [Microsoft.Maui.Storage.FilePicker, System.Security.Cryptography]
+        testing:
+          - Round-trip backup creation and decryption test.
+      - key: S26.01.02
+        title: Verify backup integrity before success
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [security]
+        userStory:
+          asA: returner user
+          iWant: Forge to verify a backup file before I trust it
+          soThat: I do not uninstall with a corrupt only copy
+        requirements:
+          - The created archive is reopened and checksum-verified before success is shown.
+          - Verification failure leaves the active database untouched.
+          - Progress appears for verification taking longer than 1 second with stable error codes.
+        acceptanceCriteria:
+          - id: AC1
+            given: one byte in the archive payload is modified
+            when: verification runs
+            then: verification fails and names the checksum section
+          - id: AC2
+            given: verification fails
+            when: the user returns to Forge
+            then: the active database checksum is unchanged
+        implementation:
+          notes: >-
+            Treat verification as part of backup. The ViewModel must not show success until BackupVerifier has reopened the exact output file and checked manifest plus payload.
+          touches: [src/Forge.Infrastructure/Portability/BackupVerifier.cs]
+          devexpress: [DXProgressBar, DXPopup]
+          apis: [System.Security.Cryptography.SHA256]
+        testing:
+          - Corrupt manifest and payload verification tests.
+      - key: S26.01.03
+        title: Schedule local backup reminders
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy, offline]
+        userStory:
+          asA: returner user
+          iWant: periodic reminders to back up
+          soThat: I remember before local data loss is irreversible
+        requirements:
+          - Reminder choices are weekly, monthly or disabled.
+          - Reminder copy states that Forge has no server copy.
+          - Scheduling uses local notifications only and a successful backup suppresses reminders for 7 days.
+        acceptanceCriteria:
+          - id: AC1
+            given: weekly reminders are enabled and no backup exists
+            when: 7 days pass
+            then: a local notification appears with local-only wording
+          - id: AC2
+            given: a backup completed today
+            when: tomorrow reminder window arrives
+            then: no reminder is shown
+        implementation:
+          notes: >-
+            Use Plugin.LocalNotification, store last successful backup timestamp locally, and do not add push, email or backend reminders.
+          touches: [src/Forge.Infrastructure/Notifications/BackupReminderScheduler.cs, src/Forge.App/Features/Settings/BackupReminderPage.xaml]
+          devexpress: [ComboBoxEdit, DXButton]
+          apis: [Plugin.LocalNotification]
+        testing:
+          - Reminder cadence and suppression unit tests.
+  - key: F26.02
+    title: Restore backups with overwrite safety
+    wave: 4
+    summary: >-
+      Validate archive compatibility and replace the active database atomically only after explicit user confirmation.
+    outcome: >-
+      Restore cannot silently damage the current local store.
+    concerns: [security, privacy]
+    dependsOn: [F26.01, E04]
+    stories:
+      - key: S26.02.01
+        title: Preflight backup restore compatibility
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [security]
+        userStory:
+          asA: returner user
+          iWant: Forge to check a backup before restore
+          soThat: valid current data is not replaced by an incompatible archive
+        requirements:
+          - Preflight validates signature, manifest version, schema version, app version range and checksums.
+          - No active database file is modified during preflight.
+          - Preview shows backup date, app version and record counts and the large fixture preflights under 10 seconds.
+        acceptanceCriteria:
+          - id: AC1
+            given: a future unsupported schema backup is selected
+            when: preflight runs
+            then: restore is blocked and active database timestamp is unchanged
+          - id: AC2
+            given: a valid backup is selected
+            when: preflight completes
+            then: preview shows creation date, app version, workout count and meal count
+        implementation:
+          notes: >-
+            Build RestorePreflightService to read metadata and checksums without opening or replacing the active database. Return typed results for UI decisions.
+          touches: [src/Forge.Application/Portability/IRestorePreflightService.cs, src/Forge.Infrastructure/Portability/RestorePreflightService.cs]
+          devexpress: [DXCollectionView, DXButton]
+          apis: [Microsoft.Maui.Storage.FilePicker, System.Security.Cryptography.SHA256]
+        testing:
+          - Negative preflight tests for future schema and corrupt checksum.
+      - key: S26.02.02
+        title: Require typed confirmation before restore overwrite
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy, a11y]
+        userStory:
+          asA: returner user
+          iWant: a clear overwrite warning
+          soThat: I do not accidentally replace my only local copy
+        requirements:
+          - Confirmation states that current local data will be replaced.
+          - Final restore is disabled until the user types RESTORE exactly.
+          - A pre-restore safety backup is created before replacement.
+        acceptanceCriteria:
+          - id: AC1
+            given: a valid preflight result exists
+            when: confirmation opens
+            then: Restore remains disabled until RESTORE is typed
+          - id: AC2
+            given: final restore is confirmed
+            when: replacement begins
+            then: a safety backup of the current database is created first
+        implementation:
+          notes: >-
+            Use DXPopup with TextEdit for typed confirmation, showing current local backup date and incoming archive date before E04 safety-copy service runs.
+          touches: [src/Forge.App/Features/Portability/RestoreConfirmationPopup.xaml]
+          devexpress: [DXPopup, TextEdit, DXButton]
+          apis: [Microsoft.Maui.Accessibility.SemanticScreenReader]
+        testing:
+          - UI tests for typed phrase and safety-copy ordering.
+      - key: S26.02.03
+        title: Replace the active database atomically
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: team
+        concerns: [security, offline]
+        userStory:
+          asA: Forge team member
+          iWant: restore file replacement to be journaled
+          soThat: a process kill cannot leave Forge with no valid database
+        requirements:
+          - Restore extracts to staging before active replacement.
+          - Database, WAL and SHM files are swapped as one operation group.
+          - A restore journal records stage and startup reconciles interrupted restore.
+        acceptanceCriteria:
+          - id: AC1
+            given: restore is killed after staging before swap
+            when: the app restarts
+            then: the original database opens and resume restore is offered
+          - id: AC2
+            given: restore is killed after swap before cleanup
+            when: startup reconciliation runs
+            then: the restored database opens and staging files are removed
+        implementation:
+          notes: >-
+            Implement RestoreExecutor as a journaled state machine. Close active connections, stage files, swap database plus WAL and SHM, then run integrity_check.
+          touches: [src/Forge.Infrastructure/Portability/RestoreExecutor.cs, src/Forge.Infrastructure/Portability/RestoreJournal.cs]
+          apis: [Microsoft.Maui.Storage.FileSystem, SQLite PRAGMA integrity_check]
+        testing:
+          - Fault-injection tests at every restore stage.
+  - key: F26.03
+    title: Export open data formats
+    wave: 4
+    summary: >-
+      Produce CSV and JSON exports for complete portability and selective sharing, with reviewable contents.
+    outcome: >-
+      Users can inspect or share their records without proprietary lock-in.
+    concerns: [privacy, offline]
+    dependsOn: [E04]
+    stories:
+      - key: S26.03.01
+        title: Export all user entities as CSV
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: enthusiast user
+          iWant: CSV files for each Forge entity
+          soThat: I can analyse my data outside the app
+        requirements:
+          - CSV export creates one RFC 4180-compatible file per user-created entity type.
+          - Headers are stable and covered by snapshot tests.
+          - UTC timestamps, units and soft-delete markers are included and the large fixture exports in under 45 seconds.
+        acceptanceCriteria:
+          - id: AC1
+            given: all entity types exist
+            when: CSV export runs
+            then: separate files for workouts, sets, meals, hydration, body metrics, achievements and overrides are present
+          - id: AC2
+            given: exported CSV files are parsed
+            when: rows are validated
+            then: every row has the same column count as its header
+        implementation:
+          notes: >-
+            Export from explicit projections, stream each CSV into an archive, and use the share sheet only after review.
+          touches: [src/Forge.Infrastructure/Portability/CsvExportService.cs]
+          devexpress: [DXCollectionView, CheckEdit, DXButton]
+          apis: [System.IO.Compression.ZipArchive]
+        testing:
+          - Header snapshot tests and CSV parser tests.
+      - key: S26.03.02
+        title: Export a complete JSON archive
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: team
+        concerns: [privacy]
+        userStory:
+          asA: Forge team member
+          iWant: a complete machine-readable JSON archive
+          soThat: another tool can reconstruct relationships without guessing
+        requirements:
+          - JSON export includes schema version, timestamp, entities and relationship identifiers.
+          - Export is deterministic except documented volatile metadata.
+          - Generated JSON validates against a committed schema.
+        acceptanceCriteria:
+          - id: AC1
+            given: workout sets reference exercises
+            when: JSON export runs
+            then: each referenced exercise id exists in the same archive
+          - id: AC2
+            given: the committed schema is applied
+            when: archive validates
+            then: zero schema errors occur
+        implementation:
+          notes: >-
+            Define ForgeExportArchive in Application and serialize with System.Text.Json source generation. Commit a JSON schema and order arrays by stable id.
+          touches: [src/Forge.Application/Portability/ForgeExportArchive.cs, docs/portability/forge-export.schema.json]
+          apis: [System.Text.Json]
+        testing:
+          - Schema validation and deterministic export tests.
+      - key: S26.03.03
+        title: Export selected data for dietitian review
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [privacy]
+        userStory:
+          asA: cutter user
+          iWant: nutrition-focused export controls
+          soThat: I can share meals and macros without unrelated health data
+        requirements:
+          - Filters support date range and data type.
+          - Nutrition preset includes meals, servings, macros, calories and hydration.
+          - Workouts, achievements and body metrics are excluded by default and reviewed before sharing.
+        acceptanceCriteria:
+          - id: AC1
+            given: nutrition report is generated for 14 days
+            when: the file is inspected
+            then: meals, macro totals and hydration rows exist with no workout set rows
+          - id: AC2
+            given: the review screen opens
+            when: categories are listed
+            then: workouts, achievements and body metrics are excluded by default
+        implementation:
+          notes: >-
+            Build dietitian export as a preset over selective export. Use DevExpress editors for choices and OS Share only after explicit confirmation.
+          touches: [src/Forge.Infrastructure/Portability/NutritionReportExporter.cs, src/Forge.App/Features/Portability/NutritionReportPage.xaml]
+          devexpress: [DateEdit, ComboBoxEdit, DXCollectionView]
+          apis: [Microsoft.Maui.ApplicationModel.DataTransfer.Share]
+        testing:
+          - Privacy test proving workout rows are absent from nutrition reports.
+  - key: F26.04
+    title: Import from competing apps
+    wave: 4
+    summary: >-
+      Import common workout, nutrition and health export files through staging and preview to lower switching cost.
+    outcome: >-
+      New users can bring history into Forge without overwriting current local data.
+    concerns: [privacy, offline]
+    dependsOn: [E04]
+    stories:
+      - key: S26.04.01
+        title: Import Strong and Hevy workout exports
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: enthusiast
+        concerns: [privacy]
+        userStory:
+          asA: enthusiast user
+          iWant: to import lifting history from other trackers
+          soThat: I can switch without losing years of workouts
+        requirements:
+          - Import accepts user-selected CSV files from Strong and Hevy.
+          - Preview shows workouts, exercises, sets, unmapped rows and errors before writing.
+          - Duplicate detection prevents importing the same workouts twice.
+        acceptanceCriteria:
+          - id: AC1
+            given: a representative Strong CSV is selected
+            when: preview runs
+            then: at least 95 percent of valid rows map to Forge workout and set drafts
+          - id: AC2
+            given: unknown exercise names exist
+            when: preview completes
+            then: unmapped exercises are listed and no database write occurs
+        implementation:
+          notes: >-
+            Importer adapters produce WorkoutImportDraft records and commit through a unit of work after DXCollectionView mapping review.
+          touches: [src/Forge.Infrastructure/Portability/Competitors/StrongImporter.cs, src/Forge.Infrastructure/Portability/Competitors/HevyImporter.cs]
+          devexpress: [DXCollectionView, ComboBoxEdit, DXButton]
+          apis: [Microsoft.Maui.Storage.FilePicker]
+        testing:
+          - Fixture tests for Strong and Hevy CSV imports.
+        openQuestions:
+          - Confirm current Strong and Hevy export column names from real fixtures before finalising mappings.
+      - key: S26.04.02
+        title: Import MyFitnessPal nutrition exports
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [privacy]
+        userStory:
+          asA: cutter user
+          iWant: to import meal history
+          soThat: I keep trend context after switching to Forge
+        requirements:
+          - Import accepts user-selected MyFitnessPal CSV exports.
+          - Preview shows days, meals, food rows, macro totals and review-needed rows.
+          - Existing Forge meals are not overwritten unless the user chooses a duplicate option.
+        acceptanceCriteria:
+          - id: AC1
+            given: a 10,000 row fixture is selected
+            when: preview runs
+            then: parsing completes under 2 minutes and shows counts by meal type
+          - id: AC2
+            given: imported meals overlap existing local meals
+            when: no duplicate option is selected
+            then: existing meals remain unchanged
+        implementation:
+          notes: >-
+            Parse into NutritionImportDraft records with explicit units and preserve original food text without automatically merging competitor foods into the catalogue.
+          touches: [src/Forge.Infrastructure/Portability/Competitors/MyFitnessPalImporter.cs]
+          devexpress: [DXCollectionView, DXPopup, DXButton]
+          apis: [Microsoft.Maui.Storage.FilePicker]
+        testing:
+          - Fixture tests for macro parsing and duplicate meal handling.
+        openQuestions:
+          - MyFitnessPal export columns may vary by region and subscription; collect current fixtures before implementation.
+      - key: S26.04.03
+        title: Import Apple Health XML selectively
+        wave: 4
+        size: l
+        platforms: [android, ios]
+        persona: masters
+        concerns: [privacy]
+        userStory:
+          asA: masters user
+          iWant: to import selected health export records
+          soThat: Forge can reflect long-term body metrics without unrelated health data
+        requirements:
+          - Import accepts user-selected Apple Health XML or zipped XML.
+          - The user chooses data types before commit, with body mass and workouts supported first.
+          - Unsupported types are listed and excluded by default.
+        acceptanceCriteria:
+          - id: AC1
+            given: Apple Health XML contains body mass records
+            when: preview runs with body mass selected
+            then: count, earliest date and latest date are shown before database write
+          - id: AC2
+            given: unsupported clinical records exist
+            when: preview completes
+            then: unsupported types are listed and excluded by default
+        implementation:
+          notes: >-
+            Stream XML with XmlReader, default to no selected types, and require explicit opt-in per Article 9 data category. This is file import, not HealthKit integration.
+          touches: [src/Forge.Infrastructure/Portability/Competitors/AppleHealthXmlImporter.cs]
+          devexpress: [DXCollectionView, CheckEdit, DateEdit]
+          apis: [System.Xml.XmlReader, Microsoft.Maui.Storage.FilePicker]
+        testing:
+          - Large XML streaming and unsupported-type exclusion tests.
+        openQuestions:
+          - Confirm Apple Health XML type identifiers and packaging from current iOS exports before parser implementation.
+  - key: F26.05
+    title: Make portability operations reviewable
+    wave: 4
+    summary: >-
+      Record local operation history and show review screens so users know what is being exported, imported, backed up or restored.
+    outcome: >-
+      Portability actions are transparent and locally auditable without automatic transmission.
+    concerns: [privacy, a11y]
+    dependsOn: [F26.01, F26.02, F26.03, F26.04]
+    stories:
+      - key: S26.05.01
+        title: Show portability operation history
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [privacy]
+        userStory:
+          asA: returner user
+          iWant: to see previous portability actions
+          soThat: I understand what happened to my local records
+        requirements:
+          - History records backup, restore, export, import and verification metadata.
+          - Metadata includes timestamp, status, display file name, source hash and counts, but no health values.
+          - History filters by operation type within 300 ms.
+        acceptanceCriteria:
+          - id: AC1
+            given: a backup and import completed
+            when: history opens
+            then: both operations appear with status and counts but no workout or food names
+          - id: AC2
+            given: five operation types exist
+            when: filter Restore is selected
+            then: only restore operations remain within 300 ms
+        implementation:
+          notes: >-
+            Write PortabilityOperation records from services, not UI handlers. Render history with DXCollectionView and TokenEdit filters without storing absolute paths.
+          touches: [src/Forge.Domain/Portability/PortabilityOperation.cs]
+          devexpress: [DXCollectionView, TokenEdit]
+          apis: [Microsoft.EntityFrameworkCore]
+        testing:
+          - Metadata privacy tests and operation-type filtering UI test.
+      - key: S26.05.02
+        title: Review export contents before sharing
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: cutter
+        concerns: [privacy, a11y]
+        userStory:
+          asA: cutter user
+          iWant: to review categories before sharing
+          soThat: I do not disclose more health data than intended
+        requirements:
+          - Every export flow lists included and excluded categories before sharing.
+          - Share or Save is disabled until generation and validation complete.
+          - The OS share sheet opens only after explicit tap.
+        acceptanceCriteria:
+          - id: AC1
+            given: an export includes meals and hydration only
+            when: review opens
+            then: workouts, body metrics and achievements are marked excluded
+          - id: AC2
+            given: validation passes
+            when: the user taps Share
+            then: the OS share sheet opens and Forge makes no network request
+        implementation:
+          notes: >-
+            Use a shared ExportReviewViewModel. DXCollectionView rows expose included state with text and icon, not colour alone.
+          touches: [src/Forge.App/Features/Portability/ExportReviewPage.xaml]
+          devexpress: [DXCollectionView, DXButton, DXProgressBar]
+          apis: [Microsoft.Maui.ApplicationModel.DataTransfer.Share]
+        testing:
+          - UI tests for disabled Share and included-category rendering.
+      - key: S26.05.03
+        title: Verify an existing backup without restoring
+        wave: 4
+        size: m
+        platforms: [android, ios]
+        persona: returner
+        concerns: [security]
+        userStory:
+          asA: returner user
+          iWant: to check an old backup file
+          soThat: I know whether it is safe before replacing my phone
+        requirements:
+          - The user can select a backup and run verification without active database changes.
+          - Result states pass, fail or unsupported version with error codes.
+          - The large backup fixture verifies in under 15 seconds.
+        acceptanceCriteria:
+          - id: AC1
+            given: a valid backup is selected
+            when: Verify backup runs
+            then: pass result shows date, version and counts
+          - id: AC2
+            given: an unsupported future backup is selected
+            when: Verify backup runs
+            then: unsupported version appears and active database timestamp is unchanged
+        implementation:
+          notes: >-
+            Reuse RestorePreflightService through a verification UI that never navigates automatically into overwrite restore.
+          touches: [src/Forge.App/Features/Portability/VerifyBackupPage.xaml]
+          devexpress: [DXButton, DXCollectionView]
+          apis: [Microsoft.Maui.Storage.FilePicker]
+        testing:
+          - Verification tests for valid, corrupt and unsupported archives.
