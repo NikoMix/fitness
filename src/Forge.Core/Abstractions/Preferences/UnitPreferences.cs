@@ -42,7 +42,9 @@ public enum EnergyUnitPreference
 
 /// <summary>Raised when a unit preference changes.</summary>
 /// <param name="PreferenceName">The changed preference name.</param>
+#pragma warning disable CA1711 // EventHandler<T> payloads conventionally use the EventArgs suffix.
 public sealed record UnitPreferenceChangedEventArgs(string PreferenceName);
+#pragma warning restore CA1711
 
 /// <summary>Stores the user's display and calendar unit preferences.</summary>
 public interface IUnitPreferences

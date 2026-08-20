@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    xmlns:dx="http://schemas.devexpress.com/maui">
+
+    <!-- Merge this dictionary in App.xaml during integration. Durations remain in ForgeTokens.xaml. -->
+    <Style x:Key="MotionAppearStart" TargetType="VisualElement">
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="TranslationY" Value="{StaticResource SpaceM}" />
+    </Style>
+
+    <Style x:Key="MotionAppearReady" TargetType="VisualElement">
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="TranslationY" Value="0" />
+    </Style>
+
+    <Style x:Key="MotionPressable" TargetType="VisualElement">
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetMin}" />
+    </Style>
+
+    <Style x:Key="MotionAttentionText" TargetType="Label">
+        <Setter Property="TextColor" Value="{dx:ThemeColor Primary}" />
+    </Style>
+</ResourceDictionary>

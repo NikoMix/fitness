@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Engagement.AchievementsPage"
+             x:Name="Page"
+             Title="Achievements"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+                <Label Text="Achievements" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+                <Label Text="A local trophy cabinet for meaningful training moments. Nothing is uploaded." Style="{StaticResource SecondaryText}" />
+
+                <controls:EmptyState IsVisible="{Binding HasNoAchievements}"
+                                     Glyph="🏆"
+                                     Headline="Your cabinet is ready"
+                                     Message="Log a workout, try a new movement, or set your first personal record. Forge celebrates real progress without pressure or fake scarcity." />
+
+                <dx:DXCollectionView ItemsSource="{Binding Achievements}" HeightRequest="560">
+                    <dx:DXCollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <dx:DXBorder Style="{StaticResource Card}" Margin="0,0,0,12">
+                                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}" RowSpacing="{StaticResource SpaceS}">
+                                    <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                        <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
+                                        <Label Text="{Binding Category}" Style="{StaticResource CaptionText}" />
+                                    </VerticalStackLayout>
+                                    <dx:RadialProgressBar Grid.Column="1"
+                                                          Value="{Binding Progress}"
+                                                          HeightRequest="72"
+                                                          WidthRequest="72"
+                                                          StartAngle="-90"
+                                                          SweepAngle="360" />
+                                    <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Description}" Style="{StaticResource SecondaryText}" />
+                                    <dx:DXButton Grid.Row="2"
+                                                 Grid.ColumnSpan="2"
+                                                 Content="Share card"
+                                                 Style="{StaticResource SecondaryButton}"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.ShareCommand}"
+                                                 CommandParameter="{Binding .}" />
+                                </Grid>
+                            </dx:DXBorder>
+                        </DataTemplate>
+                    </dx:DXCollectionView.ItemTemplate>
+                </dx:DXCollectionView>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <dx:DXBorder x:Name="ShareCard"
+                     IsVisible="False"
+                     Style="{StaticResource ElevatedCard}"
+                     WidthRequest="360"
+                     Padding="{StaticResource SpaceXl}">
+            <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                <Label Text="{Binding Title}" Style="{StaticResource HeadlineText}" HorizontalTextAlignment="Center" />
+                <Label Text="{Binding Category}" Style="{StaticResource CaptionText}" HorizontalTextAlignment="Center" />
+                <Label Text="{Binding Description}" Style="{StaticResource BodyText}" HorizontalTextAlignment="Center" />
+                <Label Text="Forge · local achievement" Style="{StaticResource CaptionText}" HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+        </dx:DXBorder>
+    </Grid>
+</ContentPage>

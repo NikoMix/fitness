@@ -34,7 +34,7 @@ public static class SeedCatalogue
         return Exercises.FirstOrDefault(exercise => string.Equals(exercise.Name, name, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static IReadOnlyList<Exercise> LoadExercises()
+    private static List<Exercise> LoadExercises()
     {
         var assembly = typeof(SeedCatalogue).Assembly;
         using var stream = assembly.GetManifestResourceStream(ResourceName)

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Engagement.StreaksPage"
+             Title="Streaks"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Streaks" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Rest days and recovery are treated as part of training, not as mistakes." Style="{StaticResource SecondaryText}" />
+
+            <controls:ForgeCard Title="Current rhythm" Subtitle="Forgiving by design">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
+                    <controls:MetricTile Value="{Binding CurrentStreakDays}" Unit="days" Caption="Current" />
+                    <controls:MetricTile Grid.Column="1" Value="{Binding BestStreakDays}" Unit="days" Caption="Best" />
+                </Grid>
+            </controls:ForgeCard>
+
+            <controls:ForgeCard Title="Streak freezes" Subtitle="Protection for real life">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <dx:RadialProgressBar Value="{Binding FreezesRemainingProgress}" HeightRequest="112" WidthRequest="112" HorizontalOptions="Center" />
+                    <Label Text="{Binding FreezesRemaining, StringFormat='{0} freezes remaining'}" Style="{StaticResource TitleText}" HorizontalTextAlignment="Center" />
+                    <Label Text="{Binding EncouragingMessage}" Style="{StaticResource SecondaryText}" HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <Label Text="History" Style="{StaticResource SectionHeaderText}" />
+            <dx:DXCollectionView ItemsSource="{Binding History}" HeightRequest="300">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource SpaceM}">
+                                <Label Text="{Binding Date}" Style="{StaticResource CaptionText}" VerticalTextAlignment="Center" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="{StaticResource SpaceXs}">
+                                    <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
+                                    <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

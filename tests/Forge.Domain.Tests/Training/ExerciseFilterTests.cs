@@ -44,7 +44,8 @@ public sealed class ExerciseFilterTests
 
         filter.Matches(squat).ShouldBeFalse();
         filter.Matches(row).ShouldBeTrue();
-        filter.ExcludedMovements.ShouldContain(MovementPattern.Squat);
-        filter.ExcludedMovements.ShouldContain(MovementPattern.Lunge);
+        var excludedMovements = filter.ExcludedMovements.ShouldNotBeNull();
+        excludedMovements.ShouldContain(MovementPattern.Squat);
+        excludedMovements.ShouldContain(MovementPattern.Lunge);
     }
 }

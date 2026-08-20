@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             x:Class="Forge.App.Features.Media.ExerciseVideoPage"
+             Title="Exercise video"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid x:Name="RootGrid" RowDefinitions="Auto,*">
+        <ScrollView x:Name="GuidanceScroll" Grid.Row="1">
+            <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+                <Label Text="{Binding Title}"
+                       Style="{StaticResource HeadlineText}"
+                       SemanticProperties.HeadingLevel="Level1" />
+                <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
+
+                <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasMedia}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <Grid x:Name="VideoPanel" RowDefinitions="Auto,Auto,Auto" RowSpacing="{StaticResource SpaceS}">
+                            <toolkit:MediaElement x:Name="DemoPlayer"
+                                                  Grid.Row="0"
+                                                  Aspect="AspectFit"
+                                                  Source="{Binding MediaSource}"
+                                                  ShouldAutoPlay="{Binding ShouldAutoPlay}"
+                                                  ShouldLoopPlayback="True"
+                                                  ShouldMute="True"
+                                                  ShouldKeepScreenOn="True"
+                                                  ShouldShowPlaybackControls="False"
+                                                  Speed="{Binding Speed}"
+                                                  MediaOpened="OnMediaOpened"
+                                                  PositionChanged="OnPositionChanged"
+                                                  MediaFailed="OnMediaFailed"
+                                                  SemanticProperties.Description="Silent exercise demonstration video. A synchronized text description is shown below." />
+
+                            <Label Grid.Row="1"
+                                   Text="{Binding CurrentDescription}"
+                                   Style="{StaticResource BodyText}"
+                                   SemanticProperties.HeadingLevel="Level2" />
+
+                            <VerticalStackLayout Grid.Row="2" Spacing="{StaticResource SpaceS}">
+                                <Slider x:Name="ScrubSlider"
+                                        Minimum="0"
+                                        DragStarted="OnScrubDragStarted"
+                                        DragCompleted="OnScrubDragCompleted" />
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Label Text="{Binding CurrentPositionText}" Style="{StaticResource CaptionText}" />
+                                    <Label Grid.Column="2" Text="{Binding DurationText}" Style="{StaticResource CaptionText}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="{StaticResource SpaceS}">
+                                    <dx:DXButton Content="Play / pause" Style="{StaticResource SecondaryButton}" Clicked="OnPlayPauseClicked" />
+                                    <dx:DXButton Grid.Column="1" Content="- frame" Style="{StaticResource SecondaryButton}" Clicked="OnFrameBackClicked" />
+                                    <dx:DXButton Grid.Column="2" Content="+ frame" Style="{StaticResource SecondaryButton}" Clicked="OnFrameForwardClicked" />
+                                    <dx:DXButton Grid.Column="3" Content="{Binding FullScreenButtonText}" Style="{StaticResource SecondaryButton}" Command="{Binding ToggleFullScreenCommand}" />
+                                </Grid>
+                                <HorizontalStackLayout Spacing="{StaticResource SpaceS}">
+                                    <Label Text="Speed" Style="{StaticResource SecondaryText}" VerticalTextAlignment="Center" />
+                                    <dx:DXButton Content="0.5x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="0.5" />
+                                    <dx:DXButton Content="0.75x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="0.75" />
+                                    <dx:DXButton Content="1x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="1" />
+                                    <dx:DXButton Content="1.25x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="1.25" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                        </Grid>
+                    </VerticalStackLayout>
+                </dx:DXBorder>
+
+                <dx:DXBorder Style="{StaticResource AdvisoryCard}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                        <Label Text="Media availability" Style="{StaticResource TitleText}" />
+                        <Label Text="{Binding AvailabilityMessage}" Style="{StaticResource BodyText}" />
+                    </VerticalStackLayout>
+                </dx:DXBorder>
+
+                <dx:DXBorder Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                        <Label Text="Text-only form guide" Style="{StaticResource TitleText}" SemanticProperties.HeadingLevel="Level2" />
+                        <Label Text="Use this guide when video is unavailable, when Reduce Motion or data-saver settings suppress autoplay, or whenever text is easier to follow." Style="{StaticResource BodyText}" />
+                        <Label Text="Execution steps" Style="{StaticResource SectionHeaderText}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding ExecutionSteps}" Spacing="{StaticResource SpaceS}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate><Label Text="{Binding .}" Style="{StaticResource BodyText}" /></DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Label Text="Coaching cues" Style="{StaticResource SectionHeaderText}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding CoachingCues}" Spacing="{StaticResource SpaceS}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate><Label Text="{Binding .}" Style="{StaticResource BodyText}" /></DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Label Text="Common mistakes" Style="{StaticResource SectionHeaderText}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding CommonMistakes}" Spacing="{StaticResource SpaceS}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate><Label Text="{Binding .}" Style="{StaticResource BodyText}" /></DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </dx:DXBorder>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>
