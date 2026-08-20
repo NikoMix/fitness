@@ -15,7 +15,8 @@
     <DevExpressVersion>26.1.4</DevExpressVersion>
     <MauiVersion>10.0.20</MauiVersion>
     <EfCoreVersion>10.0.11</EfCoreVersion>
-    <ExtensionsVersion>10.0.0</ExtensionsVersion>
+    <!-- Kept in step with EF Core, which depends on these transitively at the same version. -->
+    <ExtensionsVersion>10.0.11</ExtensionsVersion>
   </PropertyGroup>
 
   <ItemGroup Label="DevExpress .NET MAUI">
