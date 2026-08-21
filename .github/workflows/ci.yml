@@ -1,15 +1,20 @@
 name: CI
 
-# Validates every pull request and every push to main.
+# Validates every pull request and every push to any branch.
 #
 # The jobs are split by cost. Core and backlog validation run on Linux in under a couple of
 # minutes and catch the majority of mistakes; the platform builds are slower and only need to
 # run once the cheap gates are green. Failing fast on the cheap jobs keeps the feedback loop
 # tight while parallel feature work is landing.
+#
+# Feature branches are included deliberately. Restricting pushes to main meant CI never ran
+# during long-lived branch work, and a .gitignore rule that excluded the entire application
+# from the repository went unnoticed across four waves - a fresh clone could not build, and
+# nothing reported it because nothing ever built a fresh clone.
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
   workflow_dispatch:
