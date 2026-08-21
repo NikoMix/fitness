@@ -32,32 +32,24 @@ public sealed partial class PlatformMediaPackService
 
     private readonly Dictionary<string, ActiveRequest> activeRequests = new(StringComparer.Ordinal);
     private readonly IAssetPackManager? assetPackManager;
-    private readonly PackStateListener listener;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PlatformMediaPackService"/> class.
     /// </summary>
-    public PlatformMediaPackService()
-    {
-        assetPackManager = CreateAssetPackManager();
-        listener = new PackStateListener(OnStateUpdate);
-        assetPackManager?.RegisterListener(listener);
-    }
+    public PlatformMediaPackService() => assetPackManager = CreateAssetPackManager();
 
     /// <inheritdoc />
     public partial bool IsSupported => assetPackManager is not null;
 
     /// <summary>
-    /// Unregisters the state listener and releases it.
+    /// Releases native resources. Nothing is registered with Play, so there is nothing to unhook.
     /// </summary>
-    /// <remarks>
-    /// The listener is registered with Play's asset pack manager, which holds a reference to it.
-    /// Unregistering first prevents callbacks arriving against a disposed instance.
-    /// </remarks>
     public partial void Dispose()
     {
-        assetPackManager?.UnregisterListener(listener);
-        listener.Dispose();
+        lock (syncRoot)
+        {
+            activeRequests.Clear();
+        }
     }
 
     /// <inheritdoc />
@@ -148,7 +140,26 @@ public sealed partial class PlatformMediaPackService
                 HandleStateUpdate(initialState);
             }
 
+            // Progress is polled rather than pushed.
+            //
+            // Play's push route is AssetPackManager.RegisterListener, which needs an
+            // implementation of AssetPackStateUpdateListener. That interface extends
+            // StateUpdatedListener<AssetPackState>, so javac requires onStateUpdate(AssetPackState)
+            // while the generated binding only offers the erased onStateUpdate(Object) - the two
+            // have the same erasure and neither overrides the other, so a managed implementation
+            // cannot compile. Deriving from NativeAssetPackStateUpdateListener does compile, but
+            // that class exists for Play's own native side: its only reachable member is a FINAL
+            // bridge overload, and overriding it terminates the process with Java.Lang.LinkageError
+            // the moment the type loads. That took out every screen that might show a
+            // demonstration video.
+            //
+            // Polling avoids the broken binding entirely. Downloads are user-initiated and
+            // short-lived, and a request is only polled while it is actually in flight, so the
+            // cost is negligible next to the transfer itself.
+            var pollTask = PollUntilSettledAsync(manager, pack, active, cancellationToken);
+
             var result = await active.Completion.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await pollTask.ConfigureAwait(false);
             return result;
         }
         catch (OperationCanceledException)
@@ -176,6 +187,49 @@ public sealed partial class PlatformMediaPackService
                     activeRequests.Remove(pack.Id);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Polls Play for a pack's state until the request settles or is cancelled.
+    /// </summary>
+    /// <param name="manager">Play's asset pack manager.</param>
+    /// <param name="pack">The pack being fetched.</param>
+    /// <param name="active">The in-flight request whose completion ends polling.</param>
+    /// <param name="cancellationToken">Stops polling.</param>
+    /// <returns>A task that completes once polling stops.</returns>
+    private async Task PollUntilSettledAsync(
+        IAssetPackManager manager,
+        PackDefinition pack,
+        ActiveRequest active,
+        CancellationToken cancellationToken)
+    {
+        // Half a second is frequent enough that a progress bar moves smoothly and slow enough
+        // that it costs nothing next to the download itself.
+        var interval = TimeSpan.FromMilliseconds(500);
+
+        try
+        {
+            while (!active.Completion.Task.IsCompleted && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
+
+                var statesTask = manager.GetPackStates([pack.Id]);
+                if (statesTask is null)
+                {
+                    continue;
+                }
+
+                var states = await statesTask.AsAsync<AssetPackStates>().ConfigureAwait(false);
+                if (states.PackStates()?.TryGetValue(pack.Id, out var state) is true)
+                {
+                    HandleStateUpdate(state);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancellation is the caller's decision and is already reported through the request.
         }
     }
 
@@ -450,10 +504,5 @@ public sealed partial class PlatformMediaPackService
         }
     }
 
-    private sealed class PackStateListener(Action<AssetPackState?> stateUpdated) : NativeAssetPackStateUpdateListener
-    {
-        public override void OnStateUpdate(Java.Lang.Object? state) =>
-            stateUpdated(state as AssetPackState);
-    }
 }
 #endif
