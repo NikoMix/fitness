@@ -248,7 +248,9 @@ jobs:
           restore-keys: nuget-ios-
 
       - name: Install MAUI iOS workload
-        run: dotnet workload install maui-ios --skip-sign-check
+        # macOS evaluates both target frameworks, so it needs the Android workload too. Restoring
+        # from the project installs exactly what the project declares rather than a hand-kept list.
+        run: dotnet workload restore src/Forge.App/Forge.App.csproj --skip-sign-check
 
       # No code signing here. This job proves the iOS head compiles; signed device builds and
       # TestFlight upload belong to the release workflow, where the signing secrets live.

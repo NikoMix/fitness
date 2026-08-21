@@ -11,7 +11,14 @@
       Desktop heads are therefore deferred to v1.1 rather than built on a control suite
       that cannot render them. See docs/adr/0002-platform-scope.md.
     -->
-    <TargetFrameworks>net10.0-android;net10.0-ios</TargetFrameworks>
+    <!--
+      iOS is excluded on Linux. Even when a build passes -f net10.0-android, restore still
+      evaluates every framework in this list, and the iOS workload packs cannot be installed on
+      Linux at all (NETSDK1178). Without this condition the Linux CI jobs fail before they
+      compile a single Android file. Windows and macOS keep both frameworks.
+    -->
+    <TargetFrameworks>net10.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
 
     <OutputType>Exe</OutputType>
     <RootNamespace>Forge.App</RootNamespace>
