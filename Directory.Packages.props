@@ -74,6 +74,13 @@
     <PackageVersion Include="Plugin.LocalNotification" Version="14.1.1" />
     <PackageVersion Include="Plugin.InAppBilling" Version="10.0.0" />
     <PackageVersion Include="Xamarin.Google.Android.Play.Asset.Delivery" Version="2.3.0.7" />
+    <!--
+      Health Connect. This is the official .NET for Android binding of
+      androidx.health.connect:connect-client, published from dotnet/android-libraries. The package
+      id is ConnectClient, not the Client that older notes in this repository looked for, which is
+      why the search for a binding previously came up empty.
+    -->
+    <PackageVersion Include="Xamarin.AndroidX.Health.Connect.ConnectClient" Version="1.1.0.4" />
   </ItemGroup>
 
   <!--

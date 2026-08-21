@@ -1,6 +1,41 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Application manifest.
+
+    Health Connect's permissions, its <queries> entry and the Android 14 permissions-rationale
+    activity-alias are NOT here. They live in Platforms/Android/Health/HealthConnectManifestOverlay
+    .xml, merged in at build time, so that the permission list stays next to the code that requests
+    it and the Play Health Apps declaration that has to justify it.
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 	<application android:allowBackup="true" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true"></application>
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 	<uses-permission android:name="android.permission.INTERNET" />
+
+	<!--
+		Camera, for barcode scanning of packaged foods.
+
+		android:required="false" is load-bearing, not boilerplate. A <uses-feature> defaults to
+		required="true", and Play then treats a rear camera as a hardware requirement and filters
+		Forge out of the store listing for every device without one - many tablets, and Chromebooks.
+		Barcode scanning is an optional shortcut with manual food entry behind it, so it must never
+		decide who can install the app.
+
+		Declaring the feature at all (rather than omitting it) is what lets Play know the camera is
+		used but optional; leaving it out entirely makes the CAMERA permission imply required="true"
+		with the same filtering consequence.
+	-->
+	<uses-permission android:name="android.permission.CAMERA" />
+	<uses-feature android:name="android.hardware.camera" android:required="false" />
+
+	<!--
+		Biometrics, for the optional app lock. Without this permission
+		BiometricPrompt.Authenticate throws SecurityException rather than reporting that biometrics
+		are unavailable, so the lock is broken outright on device.
+
+		No matching <uses-feature> is declared. Doing so would let Play filter the listing by
+		fingerprint or face hardware, and the app lock is optional with a PIN behind it - a phone
+		without a sensor should still be able to install Forge.
+	-->
+	<uses-permission android:name="android.permission.USE_BIOMETRIC" />
 </manifest>

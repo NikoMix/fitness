@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Health Connect manifest declarations.
+
+    Merged into the application manifest by the AndroidManifestOverlay item in Forge.App.csproj.
+    Keeping them here rather than in Platforms/Android/AndroidManifest.xml means the permission
+    list, the rationale entry points and the code that requests them are reviewed together - which
+    matters because Google Play's Health Apps declaration has to describe exactly this list.
+
+    Three things in here are load-bearing and easy to get wrong:
+
+    1. <queries>. From Android 11 package visibility hides other apps by default. Without this
+       entry HealthConnectClient.getSdkStatus() reports SDK_UNAVAILABLE on devices where Health
+       Connect is installed and working, and the app tells the user their phone is unsupported.
+
+    2. The rationale <activity>. Health Connect on Android 13 and below sends
+       androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE when the user taps the privacy policy
+       link on the Health Connect permissions screen. That activity is declared by the [Activity]
+       and [IntentFilter] attributes on HealthPermissionsRationaleActivity, not here, because the
+       Android SDK generates it from the code that implements it.
+
+    3. The <activity-alias>. Android 14 moved Health Connect into the platform and switched to
+       android.intent.action.VIEW_PERMISSION_USAGE, which the system will only send to a component
+       protected by android.permission.START_VIEW_PERMISSION_USAGE. That permission cannot be put
+       on the rationale activity itself without breaking the pre-14 path, so the alias exists to
+       carry it. Shipping the activity without the alias is a documented Play review rejection.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Read permissions. One per category in HealthConnectPermissions; nothing else. -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.READ_HYDRATION" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+
+    <!--
+        The only write permission. Health Connect stores active energy and distance as separate
+        record types rather than as fields on the exercise session, so writing those would mean
+        declaring two more write permissions for numbers a strength-training app cannot measure.
+    -->
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
+    <application>
+        <activity-alias
+            android:name="com.nikomix.forge.ViewHealthPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity="com.nikomix.forge.HealthPermissionsRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+    </application>
+
+</manifest>

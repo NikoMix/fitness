@@ -13,6 +13,67 @@
 	<array>
 		<string>arm64</string>
 	</array>
+	<!--
+		HealthKit usage descriptions.
+
+		App Review rejects a HealthKit app whose purpose strings are generic, and iOS itself
+		terminates the process the first time HealthKit is touched without them. Both strings are
+		required: NSHealthShareUsageDescription covers reads and NSHealthUpdateUsageDescription
+		covers the workout write. The wording names what is read and states that data stays on the
+		device, which is what Apple's guideline 5.1.3 asks for.
+	-->
+	<key>NSHealthShareUsageDescription</key>
+	<string>Forge reads steps, sleep, water, active energy, heart rate and body weight from Apple Health to fill in your rings, readiness score and weight trend. Everything read stays in the encrypted database on this device.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Forge saves the workouts you complete here to Apple Health so your rings and other fitness apps include the training you did in Forge.</string>
+	<!--
+		Export compliance.
+
+		Every App Store Connect upload asks whether the build uses encryption, and Forge does: the
+		local database is encrypted with SQLCipher. Answering here rather than in the web UI is what
+		makes automated TestFlight delivery work. Without this key an uploaded build sits marked
+		"Missing Compliance" and is not distributable until a human answers the question by hand -
+		an automated upload appears to succeed and then quietly delivers nothing.
+
+		This value is an EXPORT-COMPLIANCE DETERMINATION FOR THE ACCOUNT HOLDER, not a build
+		setting. It is set to false on the basis that Forge's encryption is limited to protecting
+		the user's own data on their own device, which generally qualifies as exempt: the key is
+		generated on-device, held in the Keychain, and nothing encrypted is transmitted anywhere.
+
+		WHAT WOULD CHANGE THE ANSWER: if Forge ever encrypts data in transit, ships its own or a
+		non-standard cryptographic implementation, or uses encryption for anything beyond the
+		user's own local data, the exemption may no longer apply. In that case the app needs an
+		Encryption Registration Number (ERN) from the US Bureau of Industry and Security and this
+		value becomes true, with the ERN recorded in App Store Connect.
+
+		Flagged to the account holder for confirmation; the determination is theirs to make.
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!--
+		Camera, for barcode scanning of packaged foods. iOS rejects a build that touches the camera
+		without this string, and App Review reads it as one of the first privacy claims in the app.
+
+		The wording is specific rather than generic on purpose, and it is accurate: scanning
+		resolves a barcode against the food catalogue already on the device, with no network call
+		and no image leaving the phone (see docs/adr/0001-local-first-no-backend.md). If barcode
+		lookup ever gains a remote fallback, this string stops being true and must change with it.
+	-->
+	<key>NSCameraUsageDescription</key>
+	<string>Forge reads barcodes to find a food you have already saved. The image is processed on your device and is never uploaded.</string>
+	<!--
+		Face ID, for the optional app lock.
+
+		Without this string iOS refuses the evaluation and App Review rejects the build. The failure
+		mode is worth knowing: it only appears on hardware that has Face ID, so an older test device
+		with Touch ID passes and the rejection arrives from the reviewer instead of from testing.
+		There is no equivalent key for Touch ID, which is covered by this one.
+
+		Forge never receives the biometric itself - the platform answers yes or no and the data stays
+		in the secure enclave - so this adds no entry to PrivacyInfo.xcprivacy.
+	-->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Forge asks for Face ID before showing your training history and body measurements, so they are not visible to anyone who picks up your phone.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
