@@ -120,6 +120,20 @@ public static class ForgeRoutes
     /// <summary>Choose, download and remove optional exercise video packs.</summary>
     public const string VideoLibrary = "video-library";
 
+    // ---- Wave 6 destinations ----
+
+    /// <summary>Full-screen rest timer between sets.</summary>
+    public const string RestTimer = "rest-timer";
+
+    /// <summary>Barbell plate loading helper for a target weight.</summary>
+    public const string PlateCalculator = "plate-calculator";
+
+    /// <summary>Past workout sessions, newest first.</summary>
+    public const string WorkoutHistory = "workout-history";
+
+    /// <summary>Display language selection.</summary>
+    public const string LanguageSettings = "language-settings";
+
     // ---- Engagement ----
 
     /// <summary>Achievement and badge cabinet.</summary>
