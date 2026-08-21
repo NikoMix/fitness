@@ -19,15 +19,35 @@ public static class MauiProgram
     /// <summary>Builds and configures the <see cref="MauiApp"/>.</summary>
     public static MauiApp CreateMauiApp()
     {
+        // Phase marks for the cold-start harness (tools/perf). The first one is also what starts
+        // the timeline's clock, so it must stay the first statement in this method: anything
+        // above it is attributed to the native runtime instead of to Forge.
+        //
+        // The second is immediately after the first on purpose. With no work between them, the
+        // gap between the two IS the cost of one mark, which is how the report proves the
+        // instrument is cheap rather than claiming it.
+        StartupTimeline.Mark("program-enter");
+        StartupTimeline.Mark("timeline-probe");
+
         // Assigned before CreateBuilder because the DevExpress theme engine reads it while the
         // builder is constructed. Setting it afterwards leaves the first rendered frame using
         // the default palette, which shows as a visible flash of the wrong brand colour.
         ThemeManager.UseAndroidSystemColor = false;
         ThemeManager.Theme = new Theme(Color.FromArgb(ForgeBrand.SeedHex));
 
+        StartupTimeline.Mark("theme-set");
+
         var builder = MauiApp.CreateBuilder();
 
-        builder
+        StartupTimeline.Mark("builder-created");
+
+        // Split into two statements purely so the registration cost is attributable: the
+        // measured gap between 'devexpress-registered' and 'maui-configured' is what the
+        // CommunityToolkit and font registration cost, which is otherwise buried inside one
+        // opaque chain. The DevExpress calls deliberately stay in the SAME chain expression as
+        // UseMauiApp, because analyzer DXM001 checks that relationship syntactically and
+        // starting a fresh statement with the builder variable would trip it.
+        var configured = builder
             // The factory overload is required, not stylistic. The container can only activate a
             // type through a PUBLIC constructor, and App's constructor is internal because it
             // takes internal services (a public constructor cannot expose an internal parameter
@@ -47,7 +67,11 @@ public static class MauiProgram
             .UseDevExpressCollectionView()
             .UseDevExpressEditors()
             .UseDevExpressCharts()
-            .UseDevExpressGauges()
+            .UseDevExpressGauges();
+
+        StartupTimeline.Mark("devexpress-registered");
+
+        configured
             // Supplies converters, behaviours and the media element DevExpress does not cover.
             .UseMauiCommunityToolkit()
             // Exercise demonstration video. DevExpress ships no media control.
@@ -66,15 +90,23 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
+        StartupTimeline.Mark("maui-configured");
+
         builder.Services.AddForgeInfrastructure();
         builder.Services.AddForgeShell();
         builder.Services.AddForgeFeatures();
+
+        StartupTimeline.Mark("services-registered");
 
 #if DEBUG
         builder.Logging.AddDebug();
 #endif
 
-        return builder.Build();
+        var app = builder.Build();
+
+        StartupTimeline.Mark("container-built");
+
+        return app;
     }
 
     /// <summary>

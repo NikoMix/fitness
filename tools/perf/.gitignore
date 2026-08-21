@@ -1,0 +1,4 @@
+# Measurement output. Results are machine- and moment-specific: they record the host load, the
+# device and the ABI they were taken on, and none of that is reproducible from the repository.
+# Numbers worth keeping are transcribed into docs/performance/ with their conditions.
+results/
