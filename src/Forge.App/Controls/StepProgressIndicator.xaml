@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    StepProgressIndicator - "Step 2 of 6" plus a segmented bar.
+
+    A wizard that shows no progress reads as an unbounded form, and an unbounded form during first
+    run is something people abandon.     Segments rather than a continuous bar so the remaining effort is countable at a glance instead
+    of estimated from a length.
+
+    The segments themselves are created in code because the step count belongs to the flow, not to
+    the markup - but their colour stays here, on DevExpress semantic roles, so the indicator follows
+    the theme and dark mode like everything else.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Controls.StepProgressIndicator"
+             x:Name="Root">
+    <ContentView.Resources>
+        <Style x:Key="StepSegmentReached" TargetType="dx:DXBorder">
+            <Setter Property="BackgroundColor" Value="{dx:ThemeColor Primary}" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusS}" />
+        </Style>
+        <Style x:Key="StepSegmentPending" TargetType="dx:DXBorder">
+            <Setter Property="BackgroundColor" Value="{dx:ThemeColor OutlineVariant}" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusS}" />
+        </Style>
+    </ContentView.Resources>
+    <VerticalStackLayout x:Name="IndicatorLayout"
+                         Spacing="{StaticResource SpaceS}">
+        <Grid x:Name="SegmentHost"
+              ColumnSpacing="{StaticResource SpaceXs}"
+              HeightRequest="{StaticResource SpaceXs}" />
+        <Label x:Name="CaptionLabel"
+               Style="{StaticResource CaptionText}"
+               LineBreakMode="WordWrap" />
+    </VerticalStackLayout>
+</ContentView>

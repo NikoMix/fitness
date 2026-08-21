@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    PageHeader - the single in-page title block.
+
+    Forge shows exactly one title per page. On tab roots and on flows that own their own chrome the
+    Shell navigation bar is hidden and this control is the title; on pushed pages that rely on the
+    Shell back button the navigation bar carries the title and this control is not used. Doing both
+    is what produced "Today" above "Today" on every screen.
+
+    Because the title is a normal in-page element it can scroll away, carry a subtitle, sit next to
+    an action, and grow with the OS font scale - none of which a Shell title can do.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Controls.PageHeader"
+             x:Name="Root">
+    <VerticalStackLayout x:Name="HeaderLayout"
+                         Spacing="{StaticResource SpaceXs}">
+        <dx:DXButton x:Name="BackButton"
+                     Content="{Binding BackText, Source={x:Reference Root}}"
+                     Command="{Binding BackCommand, Source={x:Reference Root}}"
+                     Style="{StaticResource TextButton}"
+                     HorizontalOptions="Start" />
+        <Grid ColumnDefinitions="*,Auto"
+              ColumnSpacing="{StaticResource SpaceM}">
+            <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                <Label x:Name="EyebrowLabel"
+                       Text="{Binding Eyebrow, Source={x:Reference Root}}"
+                       Style="{StaticResource CaptionText}"
+                       LineBreakMode="WordWrap" />
+                <Label x:Name="TitleLabel"
+                       Text="{Binding Title, Source={x:Reference Root}}"
+                       Style="{StaticResource HeadlineText}"
+                       LineBreakMode="WordWrap"
+                       SemanticProperties.HeadingLevel="Level1" />
+                <Label x:Name="SubtitleLabel"
+                       Text="{Binding Subtitle, Source={x:Reference Root}}"
+                       Style="{StaticResource SecondaryText}"
+                       LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+            <dx:DXButton x:Name="ActionButton"
+                         Grid.Column="1"
+                         Content="{Binding ActionText, Source={x:Reference Root}}"
+                         Command="{Binding ActionCommand, Source={x:Reference Root}}"
+                         Style="{StaticResource TextButton}"
+                         VerticalOptions="Start" />
+        </Grid>
+    </VerticalStackLayout>
+</ContentView>

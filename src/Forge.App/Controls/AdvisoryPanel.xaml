@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    AdvisoryPanel - safety refusals, warnings and validation guidance.
+
+    Safety copy is the one place in Forge where the app tells someone it will not do what they
+    asked. That conversation has to carry the full reasoning, a signpost to real help where the
+    guardrail is a health matter, and an explicit statement that their answers are still there -
+    otherwise a refusal reads as the app quietly discarding their input.
+
+    Blocking advisories use the shared AdvisoryCard surface so they are visually distinct from
+    ordinary content; non-blocking guidance uses an ordinary card so a routine "this is fine" note
+    does not shout.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Controls.AdvisoryPanel"
+             x:Name="Root">
+    <dx:DXBorder x:Name="PanelChrome"
+                 Style="{StaticResource Card}">
+        <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+            <Label x:Name="HeadlineLabel"
+                   Text="{Binding Headline, Source={x:Reference Root}}"
+                   Style="{StaticResource TitleText}"
+                   LineBreakMode="WordWrap"
+                   SemanticProperties.HeadingLevel="Level2" />
+            <Label x:Name="MessageLabel"
+                   Text="{Binding Message, Source={x:Reference Root}}"
+                   Style="{StaticResource BodyText}"
+                   LineBreakMode="WordWrap" />
+            <Label x:Name="SignpostLabel"
+                   Text="{Binding Signpost, Source={x:Reference Root}}"
+                   Style="{StaticResource SecondaryText}"
+                   LineBreakMode="WordWrap" />
+            <Label x:Name="ReassuranceLabel"
+                   Text="{Binding Reassurance, Source={x:Reference Root}}"
+                   Style="{StaticResource CaptionText}"
+                   LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
+    </dx:DXBorder>
+</ContentView>

@@ -3,81 +3,144 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
              xmlns:controls="clr-namespace:Forge.App.Controls"
+             xmlns:motion="clr-namespace:Forge.App.Motion"
              x:Class="Forge.App.Features.Today.TodayPage"
              x:Name="Page"
              Title="Today"
+             Shell.NavBarIsVisible="False"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <!--
+        The Shell navigation bar is hidden on tab roots.
+
+        The tab bar already names the destination, so a navigation bar titled "Today" above an
+        in-page heading reading "Today" was pure duplication - it cost a fixed band of vertical
+        space on every launch and said nothing. The in-page header replaces it, and unlike a Shell
+        title it can carry the date, scroll away, and grow with the OS font scale.
+    -->
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
-            <Label Text="Today" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
-            <Label Text="Your local dashboard for the next useful fitness action." Style="{StaticResource SecondaryText}" />
+            <controls:PageHeader Eyebrow="{Binding DateLine}"
+                                 Title="{Binding Greeting}"
+                                 Subtitle="Everything here is read from what you have actually logged on this device."
+                                 ActionText="Refresh"
+                                 ActionCommand="{Binding RefreshCommand}" />
 
             <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="160" />
 
-            <controls:ForgeCard Title="{Binding SessionTitle}" Subtitle="{Binding SessionSubtitle}">
+            <!-- The hero: one action, chosen from real state. -->
+            <controls:ForgeCard Title="{Binding FocusHeadline}">
+                <!--
+                    A short staggered entrance on the cards that carry real content. The behaviour
+                    reads Forge's shared motion preference and simply does not run when Reduce
+                    Motion is on, so the screen appears instantly rather than degraded.
+                -->
+                <controls:ForgeCard.Behaviors>
+                    <motion:StaggeredAppearBehavior Index="0" />
+                </controls:ForgeCard.Behaviors>
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <controls:EmptyState Glyph="＋"
-                                         IsVisible="{Binding HasNoScheduledSession}"
-                                         Headline="Plan your first session"
-                                         Message="Create or pick a workout and Forge will show the next exercise, target sets and progress rings here."
-                                         ActionText="Find training options"
-                                         ActionCommand="{Binding CreatePlanCommand}" />
-                    <dx:DXButton Content="Start an open workout"
-    SemanticProperties.Description="Start an open workout" Style="{StaticResource PrimaryButton}" Command="{Binding StartWorkoutCommand}" />
+                    <Label Text="{Binding FocusMessage}" Style="{StaticResource BodyText}" />
+                    <dx:DXButton Content="{Binding FocusActionText}"
+                                 SemanticProperties.Description="{Binding FocusActionText}"
+                                 Command="{Binding PrimaryActionCommand}"
+                                 Style="{StaticResource WorkoutActionButton}" />
+                    <Label Text="{Binding SetupNudge}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding HasSetupNudge}" />
+                    <dx:DXButton Content="Finish setup"
+                                 SemanticProperties.Description="Finish setup"
+                                 Command="{Binding FinishSetupCommand}"
+                                 IsVisible="{Binding HasSetupNudge}"
+                                 Style="{StaticResource TextButton}"
+                                 HorizontalOptions="Start" />
                 </VerticalStackLayout>
             </controls:ForgeCard>
 
-            <Label Text="Activity rings" Style="{StaticResource SectionHeaderText}" />
-            <HorizontalStackLayout Spacing="{StaticResource SpaceM}"
-                                   BindableLayout.ItemsSource="{Binding Rings}">
+            <!-- Today's plan, only when there is a real plan to describe. -->
+            <controls:ForgeCard Title="{Binding SessionTitle}"
+                                Subtitle="{Binding SessionSubtitle}"
+                                IsVisible="{Binding HasScheduledSession}">
+                <controls:ForgeCard.Behaviors>
+                    <motion:StaggeredAppearBehavior Index="1" />
+                </controls:ForgeCard.Behaviors>
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{Binding PlanDetail}" Style="{StaticResource SecondaryText}" />
+                    <dx:DXButton Content="Open training"
+                                 SemanticProperties.Description="Open training"
+                                 Command="{Binding StartWorkoutCommand}"
+                                 Style="{StaticResource PrimaryButton}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <controls:EmptyState IsVisible="{Binding ShowsPlanPrompt}"
+                                 Glyph="＋"
+                                 Headline="No plan scheduled today"
+                                 Message="Pick a plan and Forge will schedule sessions for you, fill the training ring as you log sets, and stop asking you what to do next."
+                                 ActionText="Find training options"
+                                 ActionCommand="{Binding CreatePlanCommand}" />
+
+            <!--
+                Rings.
+
+                A wrapping FlexLayout with a percentage basis instead of a horizontal scroller: the
+                scroller sized each card to a fixed width, which cut the third ring in half and
+                truncated "Hydration" to "Hyd..." with no visible affordance that anything had been
+                cut off. Percentage basis means the set always fits the viewport, and a fourth ring
+                would wrap onto a second row rather than hide off-screen.
+            -->
+            <controls:SectionHeader Title="Activity rings" />
+            <Label Text="{Binding RingSummary}" Style="{StaticResource SecondaryText}" />
+            <FlexLayout BindableLayout.ItemsSource="{Binding Rings}"
+                        Direction="Row"
+                        Wrap="Wrap"
+                        JustifyContent="SpaceBetween"
+                        AlignItems="Stretch">
+                <FlexLayout.Behaviors>
+                    <motion:StaggeredAppearBehavior Index="2" />
+                </FlexLayout.Behaviors>
                 <BindableLayout.ItemTemplate>
                     <DataTemplate>
-                        <dx:DXBorder Style="{StaticResource Card}" WidthRequest="150">
-                            <VerticalStackLayout Spacing="{StaticResource SpaceS}" HorizontalOptions="Center">
-                                <dx:RadialProgressBar Value="{Binding Progress}"
-                                                      StartAngle="-90"
-                                                      SweepAngle="360"
-                                                      HeightRequest="112"
-                                                      WidthRequest="112" />
-                                <Label Text="{Binding Label}" Style="{StaticResource TitleText}" HorizontalTextAlignment="Center" />
-                                <Label Text="{Binding Detail}" Style="{StaticResource CaptionText}" HorizontalTextAlignment="Center" />
-                            </VerticalStackLayout>
-                        </dx:DXBorder>
+                        <controls:ActivityRing Progress="{Binding Progress}"
+                                               Label="{Binding Label}"
+                                               Detail="{Binding Detail}"
+                                               FlexLayout.Basis="31%" />
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
-            </HorizontalStackLayout>
+            </FlexLayout>
+            <dx:DXButton Content="Log hydration"
+                         SemanticProperties.Description="Log hydration"
+                         SemanticProperties.Hint="Opens hydration logging, the quickest ring to move"
+                         Command="{Binding LogHydrationCommand}"
+                         Style="{StaticResource TextButton}"
+                         HorizontalOptions="Start"
+                         IsVisible="{Binding HasNoRingData}" />
 
-            <controls:ForgeCard Title="Next action" Subtitle="Small, concrete and local">
-                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="{Binding NextActionTitle}" Style="{StaticResource TitleText}" />
-                    <Label Text="{Binding NextActionDetail}" Style="{StaticResource BodyText}" />
-                    <dx:DXButton Content="Log today's training"
-    SemanticProperties.Description="Log today's training" Style="{StaticResource WorkoutActionButton}" Command="{Binding StartWorkoutCommand}" />
-                </VerticalStackLayout>
-            </controls:ForgeCard>
-
-            <Label Text="Recent activity" Style="{StaticResource SectionHeaderText}" />
+            <controls:SectionHeader Title="Recent activity" />
             <controls:EmptyState IsVisible="{Binding HasNoRecentActivity}"
                                  Glyph="•"
-                                 Headline="No activity yet"
-                                 Message="After your first workout or body metric entry, a short recap will appear here so Today feels alive without fake sample data."
+                                 Headline="Nothing logged yet"
+                                 Message="After your first workout or weight entry a short recap appears here. Forge leaves this empty rather than filling it with sample data you did not do."
                                  ActionText="Start logging"
                                  ActionCommand="{Binding StartWorkoutCommand}" />
-            <dx:DXCollectionView ItemsSource="{Binding RecentActivity}" IsVisible="{Binding HasRecentActivity}" HeightRequest="240">
-                <dx:DXCollectionView.ItemTemplate>
+            <VerticalStackLayout Spacing="{StaticResource SpaceXs}"
+                                 IsVisible="{Binding HasRecentActivity}"
+                                 BindableLayout.ItemsSource="{Binding RecentActivity}">
+                <BindableLayout.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ListRow}">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
-                                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
                                     <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
                                     <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
                                 </VerticalStackLayout>
-                                <Label Grid.Column="1" Text="{Binding When}" Style="{StaticResource CaptionText}" VerticalTextAlignment="Center" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding When}"
+                                       Style="{StaticResource CaptionText}"
+                                       VerticalTextAlignment="Center" />
                             </Grid>
                         </dx:DXBorder>
                     </DataTemplate>
-                </dx:DXCollectionView.ItemTemplate>
-            </dx:DXCollectionView>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

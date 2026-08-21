@@ -4,54 +4,67 @@
              xmlns:dx="http://schemas.devexpress.com/maui"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Onboarding.WelcomePage"
-             Title="Welcome">
+             Title="Welcome"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{dx:ThemeColor Surface}">
     <!--
-        First-run onboarding is pushed as a route, so Shell offers a back button by default.
-        There is nowhere legitimate to go back to: dismissing this screen would drop the user
-        into the tabs with no profile, which is the state onboarding exists to resolve. Skipping
-        is still available, but as an explicit choice that records a minimal profile.
+        The Shell navigation bar is hidden, so this page has exactly one title: the display heading
+        below. That also removes the back button, which had nowhere legitimate to go - dismissing
+        this screen would drop the user into the tabs with no profile at all, which is precisely the
+        state onboarding exists to resolve. Skipping remains available as an explicit, described
+        choice that records a minimal profile.
     -->
-    <Shell.BackButtonBehavior>
-        <BackButtonBehavior IsVisible="False" IsEnabled="False" />
-    </Shell.BackButtonBehavior>
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceXl}">
             <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                 <Label Text="Forge works without an account"
                        Style="{StaticResource DisplayText}"
                        SemanticProperties.HeadingLevel="Level1" />
-                <Label Text="Build a useful training profile in under a minute, or skip now and start exploring. Your data stays on this device."
+                <Label Text="Build a useful training profile in about a minute, or skip and start exploring. Everything stays on this device either way."
                        Style="{StaticResource BodyText}" />
             </VerticalStackLayout>
 
             <dx:DXBorder Style="{StaticResource ElevatedCard}">
-                <VerticalStackLayout Spacing="{StaticResource SpaceL}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="No sign-up. No backend. No waiting."
                            Style="{StaticResource TitleText}" />
-                    <Label Text="Forge stores your profile, goals and logs locally. Optional app lock can protect the device later, but credentials are not required to begin."
+                    <Label Text="Forge stores your profile, goals and logs locally. An optional app lock can protect the device later, but no credentials are needed to begin."
                            Style="{StaticResource SecondaryText}" />
-                    <dx:RadialProgressBar Value="1"
-                                          StartAngle="-90"
-                                          SweepAngle="360"
-                                          HeightRequest="120"
-                                          SemanticProperties.Description="Ready to start" />
+                    <controls:StatRow Label="Setup takes" Value="About a minute" />
+                    <controls:StatRow Label="Steps" Value="Six, with back at every one" />
+                    <controls:StatRow Label="Leaving part-way" Value="Keeps your answers" />
                 </VerticalStackLayout>
             </dx:DXBorder>
 
-            <dx:DXButton Content="Set up my goal"
-                         SemanticProperties.Description="Set up my goal"
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasSavedDraft}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="You already started" Style="{StaticResource TitleText}" />
+                    <Label Text="Forge kept the answers from your last attempt and will reopen on the first step that still needs something."
+                           Style="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXButton Content="{Binding StartActionText}"
+                         SemanticProperties.Description="{Binding StartActionText}"
                          Command="{Binding StartCommand}"
                          Style="{StaticResource PrimaryButton}" />
-            <dx:DXButton Content="Skip and use Forge now"
-                         SemanticProperties.Description="Skip and use Forge now"
-                         Command="{Binding SkipCommand}"
-                         Style="{StaticResource SecondaryButton}"
-                         SemanticProperties.Hint="Opens the app without creating credentials" />
-           <controls:SkeletonPlaceholder IsBusy="{Binding IsBusy}"
-                                         HeightRequest="88" />
-           <controls:EmptyState IsVisible="{Binding HasError}"
-                                Headline="Local storage is still starting"
-                                Message="{Binding ErrorMessage}" />
+
+            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                <dx:DXButton Content="Skip and use Forge now"
+                             SemanticProperties.Description="Skip and use Forge now"
+                             SemanticProperties.Hint="Opens the app with a minimal profile that you can complete later"
+                             Command="{Binding SkipCommand}"
+                             Style="{StaticResource SecondaryButton}" />
+                <Label Text="Skipping is fine. Forge will open with empty rings and no plan, and Today will show exactly which answers would fill them in."
+                       Style="{StaticResource CaptionText}"
+                       HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsBusy}"
+                                          HeightRequest="88" />
+            <controls:EmptyState IsVisible="{Binding HasError}"
+                                 Headline="Local storage is still starting"
+                                 Message="{Binding ErrorMessage}" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
