@@ -2,84 +2,239 @@
 
 How a Forge build gets from a git tag to a person's phone.
 
-Read the first section before planning a launch date. The rest is a checklist you can follow
-top to bottom.
+Read the first two sections before planning a launch date. The rest is a checklist you can
+follow top to bottom.
 
 ---
 
-## 1. The launch date is set by paperwork, not by code
+## 1. The Android launch date is set by paperwork, not by code
 
-The Google Play **Health Apps declaration** is required before an app that reads Health
-Connect data can be published to production. Google's review has historically taken **four
-to eight weeks**, and Google publishes **no SLA**. It cannot be escalated, paid for, or
-compressed by writing code faster.
+The owner has decided that **v1 ships with Health Connect on Android**, accepting the Google
+Play **Health Apps declaration** review. That is a deliberate choice, and it has one large
+consequence: **Google's review, not engineering, now sets the Android launch date.**
 
-It also has a hard prerequisite: a **publicly hosted privacy policy URL**. The declaration
-form asks for it, and the hosted text has to match the in-app policy. That page is owned by
-the compliance stream, and until it is live the declaration cannot even be submitted.
+The review has historically taken **four to eight weeks** with **no published SLA**. It
+cannot be escalated, paid for, or compressed by writing code faster. The only lever anyone
+controls is the date it is submitted.
+
+> `docs/legal/store/play-health-apps-declaration.md` sets out the alternative — Option A,
+> ship Android v1 without Health Connect and skip the declaration entirely — and recommends
+> it. **Option B was chosen instead**, so that recommendation is superseded. The decision and
+> its consequence are recorded in [`launch-gates.yml`](launch-gates.yml) under `decisions`,
+> where the preflight gate enforces it rather than relying on everyone remembering.
+
+### iOS is not blocked by any of this
+
+Apple has **no equivalent multi-week declaration**. HealthKit is governed by App Review in
+the normal way, so the iOS submission runs on its own timeline and should not wait for
+Google.
+
+This is worth stating flatly because the natural instinct is to launch both platforms
+together. Doing that would hand Apple's schedule to Google for no benefit. In
+`launch-gates.yml`, no `ios-*` scope depends on `play-health-apps-declaration`, and that
+separation is load-bearing — check the `blocks` list before adding a gate, or the iOS launch
+quietly slips by weeks.
+
+iOS has its own blocker instead, and it is a much shorter one: the privacy manifest and
+HealthKit usage descriptions in section 2.
+
+### The critical path
 
 ```mermaid
 gantt
-    title What actually gates the Forge launch
+    title Forge launch - Android waits on Google, iOS does not
     dateFormat  YYYY-MM-DD
     axisFormat  %b %d
-    section Blocking, start now
-    Host the privacy policy publicly            :crit, policy, 2026-08-21, 14d
-    Play Health Apps declaration (4-8 wks, no SLA) :crit, health, after policy, 56d
-    Developer accounts, bundle id, certificates :crit, accts, 2026-08-21, 14d
-    section Can run in parallel
-    Signing secrets and store-release environment :sign, after accts, 3d
-    Encode and wire the video asset packs         :media, 2026-08-21, 21d
-    Screenshots, listing copy, questionnaires     :listing, 2026-08-21, 21d
-    Release candidates to internal / TestFlight   :rc, after sign, 60d
-    section Only after everything above
-    Production submission                         :crit, submit, after health, 7d
-    Staged rollout                                :rollout, after submit, 14d
+
+    section Milestone 1 - unblocks everything
+    Owner enables GitHub Pages                     :crit, pages, 2026-08-21, 2d
+    Owner fills 21 TODO(owner) placeholders        :crit, todos, 2026-08-21, 5d
+    Freeze the Health Connect permission list      :crit, perms, 2026-08-21, 5d
+    Privacy policy + deletion route live           :milestone, live, after todos, 0d
+    Health Apps declaration SUBMITTED              :milestone, sub, after live, 0d
+
+    section Android - the wait
+    Google reviews the declaration (4-8 wks, no SLA) :crit, health, after sub, 56d
+    Android production submission                    :submit, after health, 7d
+    Staged rollout 10 to 100 percent                 :rollout, after submit, 14d
+
+    section Runs DURING the wait, not after
+    Developer accounts and certificates            :accts, 2026-08-21, 14d
+    Signing secrets and store-release environment  :sign, after accts, 3d
+    Internal testing track                         :internal, after sign, 50d
+    Closed testing track                           :closed, after internal, 30d
+    Encode and wire the video asset packs          :media, 2026-08-21, 21d
+    Screenshots, listing copy, questionnaires      :listing, 2026-08-21, 21d
+
+    section iOS - independent timeline
+    Fix privacy manifest and HealthKit strings     :crit, iosfix, 2026-08-21, 5d
+    TestFlight builds                              :tf, after iosfix, 30d
+    App Store submission and review                :ios, after tf, 10d
+    iOS phased release                             :iosrel, after ios, 7d
 ```
 
-Read that as: **the day the privacy policy goes live plus roughly two months is the earliest
-possible production launch**, no matter how finished the app is.
+Read that as two independent statements:
 
-Everything else in this runbook is designed around that fact. Release candidates ship to
-internal testing and TestFlight the whole time - those tracks are deliberately *not* blocked
-by the declaration - so engineering keeps validating on real devices while Google reviews.
+* **Android production ≈ the day the policy goes live + ~2 months**, no matter how finished
+  the app is.
+* **iOS can ship well before that**, and should.
 
-`docs/release/launch-gates.yml` tracks the state of each of these. It is not decoration:
-`tools/release/Invoke-ReleasePreflight.ps1` reads it and the publish jobs refuse to upload to
-a scope whose gates are not approved.
+### The wait is only dead time if the runbook sequences it badly
+
+Four to eight weeks is a long time to stand still, so nothing stands still. Everything in the
+"runs DURING the wait" band above is deliberately **not** gated on the declaration:
+
+| During the wait | Why it is safe |
+| --- | --- |
+| Internal and closed testing tracks | `launch-gates.yml` blocks only `android-production`. Test tracks stay open for the whole review. |
+| Release candidates on real devices | `v*-rc.N` tags resolve to the `internal` track automatically — see [`versioning.md`](versioning.md). |
+| Accounts, certificates, signing secrets | Independent of the declaration, and needed before any track. |
+| Video asset pack encoding and wiring | The longest engineering lead time; it should finish inside the wait. |
+| Screenshots, listing copy, questionnaires | Needed for both stores; none of it depends on Google. |
+| The entire iOS launch | Not blocked at all. |
+
+So the correct posture during the review is: **Android is in closed testing and iOS is
+shipping.** If the team is idle waiting for Google, something has been sequenced wrong.
+
+One thing that genuinely must wait: **do not roll out a build containing Health Connect
+permissions to production before the declaration is approved.** That is the one rule the wait
+actually imposes, and `launch-gates.yml` enforces it.
+
+`docs/release/launch-gates.yml` tracks the state of every gate. It is not decoration:
+`tools/release/Invoke-ReleasePreflight.ps1` reads it, and the publish jobs refuse to upload to
+a scope whose gates are not approved — including refusing to believe the declaration is
+approved while the privacy policy it depends on is not.
 
 ---
 
-## 2. One-time setup
+## 2. Milestone 1: policy live → declaration submitted
 
-Do this once, in this order. Steps 1 and 2 have external lead times; start them first.
+**This is the first thing to do and the only thing on the critical path today.** Every day it
+slips moves the Android launch by a day. It is four steps, two of which only the repository
+owner can perform, plus one product decision that can run alongside them.
+
+### Step 1 — enable GitHub Pages *(owner only)*
+
+Settings → Pages → Source = **GitHub Actions**.
+
+`.github/workflows/pages.yml` already builds the site from `docs/legal/`. Until Pages is
+enabled it has nowhere to deploy, and no automation can work around that.
+
+### Step 2 — fill the 21 `TODO(owner: ...)` placeholders *(owner only)*
+
+```bash
+git grep -n "TODO(owner"
+```
+
+They cover the legal entity, addresses, contact details and governing law. **The publish job
+fails by design while any remain** — that is not an obstacle to route around, it is the point.
+A privacy policy naming a placeholder legal entity is worse than no page at all, because it
+gets submitted to a store as though it were true.
+
+### Step 3 — verify the pages are actually public
+
+| Page | URL |
+| --- | --- |
+| Privacy policy | https://nikomix.github.io/fitness/privacy/ |
+| Data deletion | https://nikomix.github.io/fitness/delete-my-data/ |
+
+Open both in a **private browser window with no login**. Google requires the deletion route to
+be reachable without installing the app, which is why it is a separate page.
+
+Then set `public-privacy-policy-url` to `approved` in `launch-gates.yml`.
+
+### Step 4 — submit the declaration the same day
+
+Do not batch this with other work. The submission pack, the permission justification table and
+the answers that follow from the architecture are all in
+**`docs/legal/store/play-health-apps-declaration.md`** — work from that document, which is the
+source of truth. It is deliberately not restated here, because a second copy would drift.
+
+**One precondition that is easy to miss, and it is a decision rather than engineering work.**
+The declaration must describe the Health Connect permissions the app *actually requests*, and
+it must match the shipped `AndroidManifest.xml` exactly. As recorded in the declaration pack,
+the manifest currently declares **no** `android.permission.health.*` entries at all.
+
+That does **not** mean waiting until Health Connect is fully built. It means the **final
+permission list must be agreed** before submitting, because:
+
+* declaring a permission the app does not end up requesting is an inconsistent submission;
+* adding a permission after approval means going back through the review.
+
+So the honest precondition is: *the list is frozen*, not *the feature is finished*. Freezing
+the list is a product decision that can be made in an afternoon, and it should be made now
+rather than discovered as a blocker on the day the policy goes live. Delete every row of the
+justification table for a permission that will not ship.
+
+The other thing to get right, because it is a common rejection: Android 14+ needs both the
+permissions-rationale `<activity>` **and** the matching `<activity-alias>`. Omitting the alias
+is recorded as a known trap in `docs/health-integration.md`.
+
+Capture the review evidence — consent-prompt and Delete-my-data recordings — **before**
+submitting, per the "Evidence to keep for the review" section of the declaration pack. Being
+asked for it later costs another round-trip.
+
+Then set `play-health-apps-declaration` to `submitted`, record the date, and **diarise a chase
+at four weeks**. There is no SLA to rely on, so nobody will tell you it has stalled.
+
+> If freezing the permission list turns out to be contentious and would delay submission by
+> more than a week or two, that is worth escalating rather than absorbing: every week spent
+> deciding is a week added to the Android launch date, and at that point Option A in the
+> declaration pack — ship Android v1 without Health Connect and add it in v1.1 — becomes worth
+> re-examining. The owner has chosen Option B; this note exists so the cost of that choice
+> stays visible rather than quietly accumulating.
+
+---
+
+## 3. One-time setup
+
+Everything here runs **in parallel with the review**. Do not wait for Google.
 
 1. **Register the developer accounts** and reserve `com.nikomix.forge` on both stores.
-   Account verification can take up to two weeks. The identifier is permanent - it cannot be
-   changed after the first published release without shipping a different app.
-2. **Host the privacy policy.** Compliance stream. Replace the placeholder contact section in
-   `docs/legal/privacy-policy.md` first. Then set `public-privacy-policy-url` to `approved`
-   in `launch-gates.yml`.
-3. **Start the Play Health Apps declaration** the same day the policy is live. Set the gate
-   to `submitted`, and to `approved` only when Google confirms.
-4. **Create the signing material** and add the secrets, following
+   Verification can take up to two weeks, so start it alongside milestone 1. The identifier is
+   permanent — it cannot be changed after the first published release without shipping a
+   different app.
+2. **Create the signing material** and add the secrets, following
    [`signing-and-secrets.md`](signing-and-secrets.md). Enrol in Play App Signing at the first
    upload.
-5. **Create the `store-release` environment** in repository settings and add required
+3. **Create the `store-release` environment** in repository settings and add required
    reviewers. Both publish jobs use it, so nothing reaches a store without a human approving.
-6. **Create `forge.pro.lifetime`** on both stores - a non-consumable on Apple, a managed
+4. **Fix the iOS P0 items** — HealthKit usage descriptions and the privacy manifest, section
+   3.1 below. This is the iOS critical path and it is measured in hours, not weeks.
+5. **Create `forge.pro.lifetime`** on both stores — a non-consumable on Apple, a managed
    product on Google. See `docs/store/README.md`.
-7. **Complete the questionnaires**: Play Data safety, Apple App Privacy, and both age
-   ratings. Answers are drafted in [`store-listing.md`](store-listing.md).
-8. **Leave `FORGE_STORE_UPLOAD` unset** until a manual upload has succeeded once on each
-   store. The first upload of a new app has account-level steps that no CI job can perform.
+6. **Complete the questionnaires**: Play Data safety, Apple App Privacy, and both age ratings.
+   Draft answers are in `docs/legal/store/` and [`store-listing.md`](store-listing.md).
+7. **Leave `FORGE_STORE_UPLOAD` unset** until a manual upload has succeeded once on each store.
+   The first upload of a new app has account-level steps that no CI job can perform.
 
-Update the matching gate in `launch-gates.yml` as each one completes. The file is the
-handover artefact: it is what tells the next person what is actually done.
+Update the matching gate in `launch-gates.yml` as each one completes. The file is the handover
+artefact: it is what tells the next person what is actually done.
+
+### 3.1 The iOS blockers, and why they are urgent
+
+`docs/legal/store-compliance-checklist.md` flags two **P0** items under "iOS privacy manifest
+and entitlements". Both are guaranteed rejections, and neither appears in a build log:
+
+* **No `NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription` in `Info.plist`.**
+  iOS does not warn about this — it *terminates the app* the moment HealthKit is touched. A
+  reviewer finds it in the first minute, and so does every TestFlight tester.
+* **`PrivacyInfo.xcprivacy` is the unmodified MAUI template.** The `NSUserDefaults`
+  required-reason entry exists only inside an XML comment, and `NSPrivacyTracking`,
+  `NSPrivacyTrackingDomains` and `NSPrivacyCollectedDataTypes` are absent. Forge uses the
+  Preferences API, which is `NSUserDefaults` underneath, so the upload is rejected.
+
+The health worktree owns fixing both; the files are under `src/` and the release pipeline only
+reads them. `tools/release/Test-IosPrivacyManifest.ps1` verifies them against the tree being
+archived — including detecting the comment-only case rather than being fooled by a naive
+string match. It runs advisory on the `ios` build job and **blocking** before any upload.
+
+Against the tree as it stands today it reports **7 problems**. That is the current, honest
+state of iOS submission readiness.
 
 ---
 
-## 3. Video asset packs
+## 4. Video asset packs
 
 Exercise video is **not** in the binary. It ships as store-hosted asset packs so the download
 stays inside the 80-120 MB installed budget while the media grows independently.
@@ -111,7 +266,7 @@ the packs are not in the repository yet, and engineering must still be able to p
 test build.
 
 **This needs an MSBuild change the release stream does not own** - see
-[section 10](#10-project-changes-someone-else-must-make).
+[section 11](#11-project-changes-someone-else-must-make).
 
 Publishing the packs themselves:
 
@@ -129,7 +284,7 @@ Only then set `video-asset-packs-published` to `approved`.
 
 ---
 
-## 4. Cutting a release candidate
+## 5. Cutting a release candidate
 
 ```powershell
 # 1. Confirm the branch is green in CI.
@@ -169,7 +324,7 @@ reproduces the same build identity rather than burning a new one.
 
 ---
 
-## 5. Pre-submission checks
+## 6. Pre-submission checks
 
 Automated, on every release:
 
@@ -177,9 +332,29 @@ Automated, on every release:
 - [ ] Android bundle under the 90 MiB ceiling
 - [ ] All three Play asset packs present and on-demand
 - [ ] All three iOS ODR tags present
+- [ ] **iOS privacy manifest and HealthKit usage descriptions correct** —
+      `Test-IosPrivacyManifest.ps1`, advisory on the build job and blocking before upload
 - [ ] Listing text within every store character limit, with no placeholder words
 - [ ] R8 mapping and dSYMs captured - they cannot be regenerated later
 - [ ] Every launch gate for the target scope approved (publish jobs only)
+
+Before an **iOS** archive is uploaded — these two are guaranteed rejections, so they are
+checked mechanically rather than remembered (see section 3.1):
+
+- [ ] `NSHealthShareUsageDescription` and `NSHealthUpdateUsageDescription` present in
+      `Info.plist`, and specific enough to say what the data is used for
+- [ ] `PrivacyInfo.xcprivacy` customised: `NSPrivacyTracking` false, `NSPrivacyTrackingDomains`
+      and `NSPrivacyCollectedDataTypes` present, and the `NSUserDefaults` required-reason
+      category declared with `CA92.1` — **not** left inside the template's XML comment
+- [ ] `com.apple.developer.healthkit` entitlement enabled on the app ID and the provisioning
+      profile
+
+Before an **Android production** upload:
+
+- [ ] `play-health-apps-declaration` is `approved`, not merely `submitted`
+- [ ] The declaration's permission table still matches the shipped `AndroidManifest.xml`
+- [ ] Android 14+ rationale `<activity>` **and** its matching `<activity-alias>` are present
+- [ ] Consent-prompt and Delete-my-data recordings captured for the reviewer
 
 Manual, on a device installed **from the store**, not sideloaded:
 
@@ -200,32 +375,30 @@ Manual, on a device installed **from the store**, not sideloaded:
 - [ ] The medical disclaimer appears before any training or nutrition guidance
 - [ ] Screenshots match screens that exist in this build
 
-Anything in that second list that is false is a rejection risk, and a rejection costs another
+`docs/legal/store-compliance-checklist.md` is the fuller compliance list, including the P1
+health-and-fitness rejection risks and the re-check triggers for when the "no data collected"
+answers stop being true. Work from it before a first submission; this list is the release-time
+subset.
+
+Anything in the manual list that is false is a rejection risk, and a rejection costs another
 review cycle - which on Google is measured in days and on Apple in an unpredictable number of
-them.
+them. For an Android production release it can cost considerably more, because a rejection
+that touches the health declaration can send you back into the multi-week queue.
 
 ---
 
-## 6. Production submission
+## 7. Production submission
 
-Only after `play-health-apps-declaration` is **approved**.
+**Android and iOS are submitted independently. Do not batch them.**
+
+### iOS — as soon as it is ready
+
+Nothing about the App Store submission waits for Google. Once section 3.1 is fixed and the
+gates blocking `ios-appstore` are approved:
 
 ```powershell
-pwsh tools/release/Invoke-ReleasePreflight.ps1 -Tag v1.0.0 -Platform All   # must pass, no -Advisory
-git tag -a v1.0.0 -m "Forge 1.0.0"
-git push origin v1.0.0
+pwsh tools/release/Invoke-ReleasePreflight.ps1 -Tag v1.0.0 -Platform IOS   # must pass, no -Advisory
 ```
-
-Google Play:
-
-1. The `publish-play` job uploads to the production track at the staged rollout fraction and
-   uploads the listing text from `fastlane/metadata/android`.
-2. Confirm the release in Play Console. Screenshots and the feature graphic are uploaded by
-   hand, once - CI never touches them.
-3. Play review is typically hours to a few days for an established app, and longer for a
-   first submission.
-
-App Store:
 
 1. The `publish-testflight` job uploads the archive. It lands in TestFlight.
 2. Wait for processing, then submit for review from App Store Connect **by hand**. Promotion
@@ -234,9 +407,31 @@ App Store:
 3. Choose **Phased release for automatic updates** and **Manually release this version**, so
    the moment of going live is yours rather than the reviewer's.
 
+### Android — only after the declaration is approved
+
+Only after `play-health-apps-declaration` is **`approved`**, not `submitted`.
+
+```powershell
+pwsh tools/release/Invoke-ReleasePreflight.ps1 -Tag v1.0.0 -Platform Android   # must pass, no -Advisory
+git tag -a v1.0.0 -m "Forge 1.0.0"
+git push origin v1.0.0
+```
+
+1. The `publish-play` job uploads to the production track at the staged rollout fraction and
+   uploads the listing text from `fastlane/metadata/android`.
+2. Confirm the release in Play Console. Screenshots and the feature graphic are uploaded by
+   hand, once - CI never touches them.
+3. Play review is typically hours to a few days for an established app, and longer for a
+   first submission — that is the *release* review, separate from and after the health
+   declaration review.
+
+A tag builds both platforms regardless; what differs is which publish job is allowed to run,
+and `launch-gates.yml` decides that per scope. So tagging `v1.0.0` while the declaration is
+still under review is safe: iOS publishes, Android production does not.
+
 ---
 
-## 7. Phased rollout
+## 8. Phased rollout
 
 Ship to a fraction, watch, then widen. This is not caution theatre - on Google Play a staged
 rollout is the *only* rollback that exists.
@@ -261,7 +456,7 @@ Saturday.
 
 ---
 
-## 8. Halting and rolling back
+## 9. Halting and rolling back
 
 **Neither store lets you un-ship a version.** Plan around that rather than hoping.
 
@@ -302,7 +497,7 @@ raises the bar on any release containing an EF Core migration:
 
 ---
 
-## 9. Running pieces by hand
+## 10. Running pieces by hand
 
 ```powershell
 # What will this tag produce?
@@ -313,6 +508,9 @@ pwsh tools/release/Get-ReleaseVersion.ps1 -SelfTest
 
 # What is blocking a publish?
 pwsh tools/release/Invoke-ReleasePreflight.ps1 -Tag v1.0.0 -Platform All -Advisory
+
+# Is iOS actually submittable? (both items are guaranteed rejections)
+pwsh tools/release/Test-IosPrivacyManifest.ps1 -Advisory
 
 # Is the listing text within store limits?
 pwsh tools/release/Test-StoreMetadata.ps1
@@ -347,12 +545,12 @@ anything that will be submitted.
 
 ---
 
-## 10. Project changes someone else must make
+## 11. Project changes someone else must make
 
 The release stream does not own `src/**`. These changes are required before a **production**
 release and are described precisely so whoever owns those files can make them.
 
-### 10.1 Android asset packs - `src/Forge.App/Forge.App.csproj`
+### 11.1 Android asset packs - `src/Forge.App/Forge.App.csproj`
 
 Required for `video-asset-packs-published`. Add an Android-only item group, per
 `docs/media/android-asset-delivery.md`:
@@ -377,14 +575,14 @@ Required for `video-asset-packs-published`. Add an Android-only item group, per
 
 Until this exists, `Test-AndroidAssetPacks.ps1` reports all three packs missing - correctly.
 
-### 10.2 iOS On-Demand Resources - `src/Forge.App/Forge.App.csproj`
+### 11.2 iOS On-Demand Resources - `src/Forge.App/Forge.App.csproj`
 
 Per `docs/media/ios-on-demand-resources.md`: iOS-only `BundleResource` items carrying
 `ResourceTags` of `forge-video-standard` / `-high` / `-max`, plus empty
 `OnDemandResourcesInitialInstallTags` and `OnDemandResourcesPrefetchOrder` so none of the
 tiers is downloaded at install time.
 
-### 10.3 Export compliance - `src/Forge.App/Platforms/iOS/Info.plist`
+### 11.3 Export compliance - `src/Forge.App/Platforms/iOS/Info.plist`
 
 **This blocks automated TestFlight delivery**, so it matters more than it looks.
 
@@ -408,7 +606,7 @@ and it is worth ten minutes with Apple's export compliance documentation before 
 committed. If the answer turns out to be that the encryption is not exempt, the app needs an
 ERN and the key should be `true` instead.
 
-### 10.4 iPad support - decide, then be consistent
+### 11.4 iPad support - decide, then be consistent
 
 `Info.plist` declares `UIDeviceFamily` `1` and `2`, so the listing **supports iPad**. That
 means App Store Connect requires a 13-inch iPad screenshot set, and a reviewer will run the
@@ -418,7 +616,7 @@ Either commit to that - test the iPad layout and capture iPad screenshots - or r
 from `UIDeviceFamily`. Shipping a stretched phone layout to an iPad-declared listing is a
 routine rejection.
 
-### 10.5 Not required
+### 11.5 Not required
 
 `ApplicationVersion` and `ApplicationDisplayVersion` already flow from `Directory.Build.props`
 and are overridable on the command line, which is exactly what the workflow does. **No
@@ -426,7 +624,7 @@ versioning change to any project file is needed.**
 
 ---
 
-## 11. What has actually been verified
+## 12. What has actually been verified
 
 Being straight about this matters more than the runbook reading confidently.
 
@@ -445,8 +643,9 @@ Being straight about this matters more than the runbook reading confidently.
 | Asset pack detection, pass and fail paths | `Test-AndroidAssetPacks.ps1` against a synthetic AAB and against the real one |
 | ODR tag detection, pass and fail paths | `Test-IosOnDemandResources.ps1` against a synthetic build output |
 | Preflight gating, advisory and blocking | Blocking mode exits non-zero and names the Health Apps declaration and its unmet privacy-policy dependency |
+| iOS privacy manifest check, both directions | `Test-IosPrivacyManifest.ps1` reports **7 problems** against the tree as it stands, passes 11 checks against a corrected tree, and rejects a vague usage string. It detects the MAUI template's comment-only `NSUserDefaults` entry rather than being fooled by it |
 | Upload command construction and secret redaction | `Publish-StoreRelease.ps1 -WhatIf` for both platforms |
-| Workflow and gate YAML | Parsed; all six scripts parse clean |
+| Workflow and gate YAML | Parsed; all seven scripts parse clean |
 
 **Worth knowing from that run:** the real release bundle is **64.7 MiB**, not the "about
 45 MiB" that the comment in `ci.yml` estimates. It is comfortably under the 90 MiB ceiling,
@@ -467,7 +666,13 @@ turned on in the project - which the release stream does not own.
 | `fastlane supply` actually reaching Play | Needs the service account key and an app that exists in Play Console |
 | `xcrun altool` actually reaching App Store Connect | Needs the API key and an app record |
 | `bundletool` delivery-type assertion | Needs an AAB that contains real asset packs |
+| That the published legal pages resolve | Needs the owner to enable Pages and fill the placeholders; until then both URLs 404 and `public-privacy-policy-url` stays `not-started` |
 | Play and Apple review outcomes | Nobody can verify these in advance |
+
+The four-to-eight week figure is the commonly reported range for the Health Apps declaration,
+not a guarantee. Google publishes no SLA, so treat it as a planning estimate with a real tail
+risk rather than a date to promise anyone. That is exactly why the runbook sequences work to
+run during the wait instead of after it.
 
 The first upload to each store will find something this runbook did not predict. That is
 expected. When it does, fix it here in the same change as the workaround, so the next person
