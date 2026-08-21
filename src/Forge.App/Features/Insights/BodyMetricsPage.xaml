@@ -1,47 +1,96 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Body metrics.
+
+    The smoothed average is a line and the raw entries are points, not two lines in different
+    colours. Shape survives colour blindness, greyscale screenshots and a phone in direct sun;
+    colour alone does not, and here it is the difference between reading a settled average and
+    reading yesterday's water weight.
+
+    Below the charting threshold the entries are listed instead of drawn. Two weigh-ins are real
+    information, but the straight line between them is not.
+-->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:sys="clr-namespace:System;assembly=netstandard"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Insights.BodyMetricsPage"
              Title="Body metrics"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <ContentPage.Resources>
+        <sys:Double x:Key="ChartHeight">240</sys:Double>
+    </ContentPage.Resources>
+
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
             <Label Text="Body metrics" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
-            <Label Text="Weight and measurements are shown as a smoothed trend first, with raw entries available for context." Style="{StaticResource SecondaryText}" />
+            <Label Text="Weight is shown as a smoothed trend first, with every raw entry kept visible beside it."
+                   Style="{StaticResource SecondaryText}" />
 
-            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="260" />
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource ChartHeight}" />
 
             <controls:EmptyState IsVisible="{Binding IsEmpty}"
-                                Glyph="≈"
-                                Headline="Add your first body metric"
-                                 Message="Forge will default to a visible 7-day moving average so water, food and timing noise do not dominate the chart."
+                                 Glyph="≈"
+                                 Headline="Add your first body metric"
+                                 Message="Forge defaults to a visible moving average so that water, food and weighing time do not dominate the picture. It will not draw a line until there is enough history for one to mean something."
                                  ActionText="Open profile"
                                  ActionCommand="{Binding AddBodyMetricCommand}" />
 
-            <controls:ForgeCard IsVisible="{Binding HasData}" Title="Weight trend" Subtitle="{Binding SmoothingLabel}">
+            <controls:ForgeCard IsVisible="{Binding HasData}"
+                                Title="Weight trend"
+                                Subtitle="{Binding SmoothingLabel}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <dx:ChartView HeightRequest="260">
+                    <dx:ChartView IsVisible="{Binding ShowChart}"
+                                  HeightRequest="{StaticResource ChartHeight}"
+                                  AutomationProperties.IsInAccessibleTree="False">
+                        <dx:ChartView.Legend>
+                            <dx:Legend Visible="True"
+                                       HorizontalPosition="Center"
+                                       VerticalPosition="BottomOutside"
+                                       Orientation="LeftToRight" />
+                        </dx:ChartView.Legend>
                         <dx:ChartView.Series>
-                            <dx:LineSeries DisplayName="Smoothed">
+                            <dx:LineSeries DisplayName="Moving average">
                                 <dx:LineSeries.Data>
                                     <dx:SeriesDataAdapter DataSource="{Binding Points}" ArgumentDataMember="DateLabel">
                                         <dx:ValueDataMember Type="Value" Member="SmoothedKilograms" />
                                     </dx:SeriesDataAdapter>
                                 </dx:LineSeries.Data>
                             </dx:LineSeries>
-                            <dx:LineSeries DisplayName="Raw entries">
-                                <dx:LineSeries.Data>
+                            <dx:PointSeries DisplayName="Recorded entries">
+                                <dx:PointSeries.Data>
                                     <dx:SeriesDataAdapter DataSource="{Binding Points}" ArgumentDataMember="DateLabel">
                                         <dx:ValueDataMember Type="Value" Member="RawKilograms" />
                                     </dx:SeriesDataAdapter>
-                                </dx:LineSeries.Data>
-                            </dx:LineSeries>
+                                </dx:PointSeries.Data>
+                            </dx:PointSeries>
                         </dx:ChartView.Series>
                     </dx:ChartView>
-                    <Label Text="{Binding TrendSummary}" Style="{StaticResource SecondaryText}" />
-                    <Label Text="{Binding RawSeriesLabel}" Style="{StaticResource CaptionText}" />
+
+                    <Label Text="{Binding ChartSummary}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding ShowChart}" />
+
+                    <Label Text="{Binding ReadinessNote}"
+                           Style="{StaticResource SecondaryText}"
+                           IsVisible="{Binding ShowValues}" />
+
+                    <VerticalStackLayout IsVisible="{Binding ShowValues}"
+                                         Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding Points}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource SpaceM}">
+                                    <Label Text="{Binding DateLabel}" Style="{StaticResource TitleText}" />
+                                    <Label Grid.Column="1" Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Text="{Binding TrendSummary}" Style="{StaticResource BodyText}" />
+                    <Label Text="{Binding PartialWindowNote}" Style="{StaticResource CaptionText}" />
                 </VerticalStackLayout>
             </controls:ForgeCard>
         </VerticalStackLayout>

@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Personal records.
+
+    Estimated records carry a visible "Estimate" badge as well as their caption, because those rows
+    sit directly beneath rows showing loads that were genuinely lifted. Someone scanning the list
+    has to be able to tell the two apart without reading every line, and a colour difference alone
+    would not carry that.
+-->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
@@ -6,33 +14,59 @@
              x:Class="Forge.App.Features.Insights.PersonalRecordsPage"
              Title="Personal records"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <Grid Padding="{StaticResource PagePadding}" RowDefinitions="Auto,Auto,*" RowSpacing="{StaticResource SpaceL}">
-        <Label Text="Personal records" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
-        <Label Grid.Row="1" Text="Records are tied to the exact local set that achieved them." Style="{StaticResource SecondaryText}" />
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Personal records" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Each record names the set and the date that produced it."
+                   Style="{StaticResource SecondaryText}" />
 
-        <controls:SkeletonPlaceholder Grid.Row="2" IsBusy="{Binding IsLoading}" HeightRequest="260" />
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource TouchTargetPrimary}" />
 
-        <controls:EmptyState Grid.Row="2"
-                             IsVisible="{Binding IsEmpty}"
-                             Glyph="★"
-                             Headline="Your first records are waiting"
-                             Message="Log working sets and Forge will detect heaviest loads, estimated 1RM, reps at a load, and session-volume records without counting warm-ups."
-                             ActionText="Log training"
-                             ActionCommand="{Binding LogWorkoutCommand}" />
+            <controls:EmptyState IsVisible="{Binding IsEmpty}"
+                                 Glyph="★"
+                                 Headline="Your first records are waiting"
+                                 Message="Log working sets and Forge will detect heaviest loads, estimated one-rep maxima, most reps at a load, and session-volume records, without counting warm-ups."
+                                 ActionText="Log training"
+                                 ActionCommand="{Binding LogWorkoutCommand}" />
 
-        <dx:DXCollectionView Grid.Row="2" ItemsSource="{Binding Records}" IsVisible="{Binding HasRecords}">
-            <dx:DXCollectionView.ItemTemplate>
-                <DataTemplate>
-                    <dx:DXBorder Style="{StaticResource ListRow}">
-                        <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
-                            <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
-                            <Label Text="{Binding Exercise}" Style="{StaticResource BodyText}" />
-                            <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
-                            <Label Text="{Binding AchievedOn}" Style="{StaticResource CaptionText}" />
-                        </VerticalStackLayout>
-                    </dx:DXBorder>
-                </DataTemplate>
-            </dx:DXCollectionView.ItemTemplate>
-        </dx:DXCollectionView>
-    </Grid>
+            <VerticalStackLayout IsVisible="{Binding HasRecords}"
+                                 Spacing="{StaticResource SpaceS}"
+                                 BindableLayout.ItemsSource="{Binding Records}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}"
+                                     SemanticProperties.Description="{Binding Description}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceS}">
+                                    <Label Text="{Binding Title}"
+                                           Style="{StaticResource TitleText}"
+                                           AutomationProperties.IsInAccessibleTree="False" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding Badge}"
+                                           Style="{StaticResource CaptionText}"
+                                           AutomationProperties.IsInAccessibleTree="False" />
+                                </Grid>
+                                <Label Text="{Binding Headline}"
+                                       Style="{StaticResource BodyText}"
+                                       AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Exercise}"
+                                       Style="{StaticResource SecondaryText}"
+                                       AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Detail}"
+                                       Style="{StaticResource CaptionText}"
+                                       AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding AchievedOn}"
+                                       Style="{StaticResource CaptionText}"
+                                       AutomationProperties.IsInAccessibleTree="False" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <Label Text="{Binding EstimateNote}"
+                   Style="{StaticResource CaptionText}"
+                   IsVisible="{Binding HasEstimates}" />
+        </VerticalStackLayout>
+    </ScrollView>
 </ContentPage>

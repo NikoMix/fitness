@@ -1,45 +1,211 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Insights hub.
+
+    The muscle and pattern breakdowns are always listed as figures and only additionally charted
+    once a few training days exist, because a bar chart built from one session reads as a claim
+    about how someone trains rather than as a record of what they did on Tuesday.
+
+    The sleep card states its own limits in the card itself rather than in a footnote. An
+    association drawn from self-tracked observations is not evidence of cause, and someone reading
+    it is deciding what to do with their training.
+-->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:sys="clr-namespace:System;assembly=netstandard"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Insights.InsightsPage"
              x:Name="Page"
              Title="Insights"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <ContentPage.Resources>
+        <sys:Double x:Key="ChartHeight">240</sys:Double>
+    </ContentPage.Resources>
+
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
             <Label Text="Insights" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
-            <Label Text="Deterministic, on-device analysis that explains where every number came from." Style="{StaticResource SecondaryText}" />
+            <Label Text="On-device analysis that explains where every number came from, and says so when your data cannot support a claim."
+                   Style="{StaticResource SecondaryText}" />
 
-            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource ChartHeight}" />
 
-            <controls:ForgeCard Title="Analytics hub" Subtitle="No cloud inference, no black boxes">
-                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="Open a focused view when you want progression, records, or body metric trends. New accounts start empty on purpose; Forge only claims what your local log supports." Style="{StaticResource BodyText}" />
+            <controls:EmptyState IsVisible="{Binding IsEmpty}"
+                                 Glyph="◇"
+                                 Headline="Nothing to analyse yet"
+                                 Message="Forge builds every one of these views from your own logged sets. New accounts start empty on purpose, because sample data teaches you to distrust the real numbers later."
+                                 ActionText="Log training"
+                                 ActionCommand="{Binding LogWorkoutCommand}" />
+
+            <controls:ForgeCard IsVisible="{Binding HasBreakdown}"
+                                Title="Consistency"
+                                Subtitle="{Binding ConsistencyHeadline}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="{Binding ConsistencyDetail}" Style="{StaticResource BodyText}" />
                     <Label Text="{Binding HistorySummary}" Style="{StaticResource SecondaryText}" />
-                    <dx:DXButton Content="Exercise progress"
-    SemanticProperties.Description="Exercise progress" Style="{StaticResource PrimaryButton}" Command="{Binding OpenExerciseProgressCommand}" />
-                    <dx:DXButton Content="Personal records"
-    SemanticProperties.Description="Personal records" Style="{StaticResource SecondaryButton}" Command="{Binding OpenPersonalRecordsCommand}" />
-                    <dx:DXButton Content="Body metrics"
-    SemanticProperties.Description="Body metrics" Style="{StaticResource SecondaryButton}" Command="{Binding OpenBodyMetricsCommand}" />
                 </VerticalStackLayout>
             </controls:ForgeCard>
 
-            <Label Text="What Forge will explain" Style="{StaticResource SectionHeaderText}" />
-            <dx:DXCollectionView ItemsSource="{Binding Highlights}" HeightRequest="280">
-                <dx:DXCollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <dx:DXBorder Style="{StaticResource ListRow}">
-                            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
-                                <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
-                                <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
-                            </VerticalStackLayout>
-                        </dx:DXBorder>
-                    </DataTemplate>
-                </dx:DXCollectionView.ItemTemplate>
-            </dx:DXCollectionView>
+            <controls:ForgeCard IsVisible="{Binding HasBreakdown}"
+                                Title="Volume by muscle group"
+                                Subtitle="Working volume attributed to every muscle an exercise trains">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <dx:ChartView IsVisible="{Binding ShowMuscleChart}"
+                                  HeightRequest="{StaticResource ChartHeight}"
+                                  AutomationProperties.IsInAccessibleTree="False">
+                        <dx:ChartView.Series>
+                            <dx:BarSeries DisplayName="Volume (kg)">
+                                <dx:BarSeries.Data>
+                                    <dx:SeriesDataAdapter DataSource="{Binding MuscleGroups}" ArgumentDataMember="Label">
+                                        <dx:ValueDataMember Type="Value" Member="VolumeKilograms" />
+                                    </dx:SeriesDataAdapter>
+                                </dx:BarSeries.Data>
+                            </dx:BarSeries>
+                        </dx:ChartView.Series>
+                    </dx:ChartView>
+
+                    <Label Text="{Binding MuscleSummary}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding ShowMuscleChart}" />
+
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding MuscleGroups}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                    <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                                        <Label Text="{Binding Label}" Style="{StaticResource TitleText}" />
+                                        <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                                    </VerticalStackLayout>
+                                    <dx:DXButton Grid.Column="1"
+                                                 Content="Trend"
+                                                 SemanticProperties.Description="{Binding Label, StringFormat='Show the weekly trend for {0}'}"
+                                                 Style="{StaticResource TextButton}"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.FocusCommand}"
+                                                 CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Text="{Binding MuscleNote}" Style="{StaticResource CaptionText}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <controls:ForgeCard IsVisible="{Binding HasFocusSlice}"
+                                Title="{Binding FocusLabel}"
+                                Subtitle="Weekly volume for this slice, over time">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <dx:ChartView IsVisible="{Binding ShowFocusChart}"
+                                  HeightRequest="{StaticResource ChartHeight}"
+                                  AutomationProperties.IsInAccessibleTree="False">
+                        <dx:ChartView.Series>
+                            <dx:LineSeries DisplayName="Volume (kg)" MarkersVisible="True">
+                                <dx:LineSeries.Data>
+                                    <dx:SeriesDataAdapter DataSource="{Binding FocusWeeks}" ArgumentDataMember="WeekLabel">
+                                        <dx:ValueDataMember Type="Value" Member="VolumeKilograms" />
+                                    </dx:SeriesDataAdapter>
+                                </dx:LineSeries.Data>
+                            </dx:LineSeries>
+                        </dx:ChartView.Series>
+                    </dx:ChartView>
+
+                    <Label Text="{Binding FocusSummary}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding ShowFocusChart}" />
+
+                    <Label Text="{Binding FocusNote}"
+                           Style="{StaticResource SecondaryText}"
+                           IsVisible="{Binding ShowFocusValues}" />
+
+                    <VerticalStackLayout IsVisible="{Binding ShowFocusValues}"
+                                         Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding FocusWeeks}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource SpaceM}">
+                                    <Label Text="{Binding WeekLabel}" Style="{StaticResource TitleText}" />
+                                    <Label Grid.Column="1" Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <controls:ForgeCard IsVisible="{Binding HasBreakdown}"
+                                Title="Volume by movement pattern"
+                                Subtitle="Squat, hinge, push, pull and the rest">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <dx:ChartView IsVisible="{Binding ShowPatternChart}"
+                                  HeightRequest="{StaticResource ChartHeight}"
+                                  AutomationProperties.IsInAccessibleTree="False">
+                        <dx:ChartView.Series>
+                            <dx:BarSeries DisplayName="Volume (kg)">
+                                <dx:BarSeries.Data>
+                                    <dx:SeriesDataAdapter DataSource="{Binding MovementPatterns}" ArgumentDataMember="Label">
+                                        <dx:ValueDataMember Type="Value" Member="VolumeKilograms" />
+                                    </dx:SeriesDataAdapter>
+                                </dx:BarSeries.Data>
+                            </dx:BarSeries>
+                        </dx:ChartView.Series>
+                    </dx:ChartView>
+
+                    <Label Text="{Binding PatternSummary}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding ShowPatternChart}" />
+
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding MovementPatterns}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                    <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                                        <Label Text="{Binding Label}" Style="{StaticResource TitleText}" />
+                                        <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                                    </VerticalStackLayout>
+                                    <dx:DXButton Grid.Column="1"
+                                                 Content="Trend"
+                                                 SemanticProperties.Description="{Binding Label, StringFormat='Show the weekly trend for {0}'}"
+                                                 Style="{StaticResource TextButton}"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.FocusCommand}"
+                                                 CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <controls:ForgeCard IsVisible="{Binding HasBreakdown}"
+                                Title="Sleep and training"
+                                Subtitle="An association, never a cause">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{Binding SleepMessage}" Style="{StaticResource BodyText}" />
+                    <Label Text="{Binding SleepCounts}" Style="{StaticResource SecondaryText}" />
+                    <Label Text="{Binding NonCausationCaveat}" Style="{StaticResource CaptionText}" />
+                    <Label Text="{Binding PerformanceMeasureCaveat}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding HasSleepClaim}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <Label Text="Go deeper" Style="{StaticResource SectionHeaderText}" />
+            <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                <dx:DXButton Content="Exercise progress"
+                             SemanticProperties.Description="Open exercise progress"
+                             Style="{StaticResource PrimaryButton}"
+                             Command="{Binding OpenExerciseProgressCommand}" />
+                <dx:DXButton Content="Personal records"
+                             SemanticProperties.Description="Open personal records"
+                             Style="{StaticResource SecondaryButton}"
+                             Command="{Binding OpenPersonalRecordsCommand}" />
+                <dx:DXButton Content="Body metrics"
+                             SemanticProperties.Description="Open body metrics"
+                             Style="{StaticResource SecondaryButton}"
+                             Command="{Binding OpenBodyMetricsCommand}" />
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
