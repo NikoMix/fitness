@@ -16,7 +16,9 @@
       and every gate a gate depends on is approved too;
     * every secret the scope needs is configured (by NAME - no secret value is read, passed
       or printed by this script, ever);
-    * the store listing text is within store limits.
+    * the store listing text is within store limits;
+    * for iOS, the privacy manifest and HealthKit usage descriptions are correct, because
+      both are guaranteed App Store rejections.
 
   Run it locally before tagging. The release workflow runs it automatically: advisory on
   the build jobs, blocking on the publish jobs.
@@ -301,6 +303,23 @@ if (Test-Path $placeholderScript) {
     }
 
     Add-Check -Area 'legal' -Item 'owner placeholders' -Passed $false -Detail "$count unresolved TODO(owner) marker(s) would ship; fix in docs/legal then regenerate"
+  }
+}
+
+# ---------------------------------------------------------------------------------------
+# iOS privacy manifest and HealthKit usage descriptions
+# ---------------------------------------------------------------------------------------
+# Checked here as well as in the ios build job so that a publish cannot proceed on an
+# archive built before the health worktree landed the fixes. Both failures are guaranteed
+# App Store rejections and neither is visible in a build log.
+if ($Platform -in @('IOS', 'All')) {
+  $privacyScript = Join-Path $PSScriptRoot 'Test-IosPrivacyManifest.ps1'
+  try {
+    & $privacyScript | Out-String | Write-Host
+    Add-Check -Area 'ios-privacy' -Item 'privacy manifest and HealthKit usage' -Passed $true -Detail 'complete'
+  }
+  catch {
+    Add-Check -Area 'ios-privacy' -Item 'privacy manifest and HealthKit usage' -Passed $false -Detail $_.Exception.Message
   }
 }
 

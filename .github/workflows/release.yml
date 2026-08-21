@@ -361,6 +361,17 @@ jobs:
             exit 1
           fi
 
+      # Missing HealthKit usage descriptions terminate the app the moment HealthKit is
+      # touched, and a stock privacy manifest is rejected at upload. Both are P0 in
+      # docs/legal/store-compliance-checklist.md and neither shows up in a build log, so
+      # they are checked against the tree that is about to be archived.
+      #
+      # Advisory here because the health worktree is still landing the fixes and an archive
+      # is still worth producing. The publish job runs the same check blocking.
+      - name: Verify iOS privacy manifest and HealthKit usage descriptions
+        shell: pwsh
+        run: ./tools/release/Test-IosPrivacyManifest.ps1 -Advisory
+
       # Signing material goes into a dedicated, randomly-keyed keychain created for this job
       # only, never the login keychain, so nothing outlives the runner.
       #

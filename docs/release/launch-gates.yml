@@ -8,6 +8,13 @@
 # scope that a gate blocks until the gate is approved. Editing a status here is a
 # deliberate, reviewable act with an author and a date, which is the point.
 #
+# THE TWO PLATFORMS ARE SCHEDULED SEPARATELY, ON PURPOSE.
+# Android production is gated by the Google Play Health Apps declaration, which takes four
+# to eight weeks with no published SLA. Apple has no equivalent review, so no iOS scope
+# depends on that gate. Coupling them would hand Apple's schedule to Google for no reason.
+# Check the `blocks` list before adding a gate: putting an ios-* scope on an
+# Android-specific gate silently delays the iOS launch by weeks.
+#
 # status values
 #   not-started    nobody has begun
 #   in-progress    being prepared, not yet submitted to the store
@@ -23,7 +30,109 @@
 
 version: 1
 
+# The owner decided that v1 ships with Health Connect on Android, accepting the Health Apps
+# declaration review. docs/legal/store/play-health-apps-declaration.md sets out Option A
+# (ship without Health Connect, no declaration, no multi-week gate) and Option B (ship with
+# it and wait), and recommends A. B was chosen deliberately, so the recommendation in that
+# document is superseded and the launch date is now the declaration date.
+#
+# Recording it here rather than only in prose means the preflight gate enforces the
+# consequence instead of trusting everyone to remember it.
+decisions:
+  - id: health-connect-in-v1
+    decided: 2026-08-21
+    choice: >
+      Option B - Android v1 ships with Health Connect, accepting the Play Health Apps
+      declaration review of 4-8 weeks with no published SLA.
+    consequence: >
+      The Android production launch date is set by Google's review, not by engineering.
+      iOS is unaffected and ships on its own timeline. Every Android track below production
+      stays open during the wait, so the wait is not dead time.
+    supersedes: >
+      The Option A recommendation in docs/legal/store/play-health-apps-declaration.md.
+
 gates:
+  # ---------------------------------------------------------------------------------------
+  # Milestone 1: policy live -> declaration submitted. Nothing on the Android production
+  # path can start moving until these are done, in this order.
+  # ---------------------------------------------------------------------------------------
+  - id: github-pages-enabled
+    name: GitHub Pages serving the legal site
+    status: not-started
+    blocks: []
+    lead-time: minutes, once someone with repository admin does it
+    owner: repository owner only
+    notes: >
+      Settings -> Pages -> Source = GitHub Actions. Nothing in this repository can do it and
+      no automation can work around it. .github/workflows/pages.yml already builds the site
+      from docs/legal/; until Pages is enabled the workflow has nowhere to deploy to.
+
+      It blocks no scope directly because it is a prerequisite of public-privacy-policy-url
+      rather than a store requirement in its own right. It is listed separately so that
+      "the policy is not live" resolves to a specific action rather than to a mystery.
+    evidence: ""
+
+  - id: legal-placeholders-filled
+    name: Every TODO(owner) placeholder in docs/legal filled
+    status: not-started
+    blocks: []
+    lead-time: hours, but needs legal-entity decisions the owner may not have to hand
+    owner: repository owner only
+    notes: >
+      21 placeholders across docs/legal covering the legal entity, addresses, contact
+      details and governing law. Find them with: git grep -n "TODO(owner"
+
+      The Pages publish job fails by design while any remain, so this is not advisory - the
+      site does not go live until they are gone. That is deliberate: a privacy policy naming
+      a placeholder legal entity is worse than no page, because it gets submitted to a store
+      as if it were true.
+    evidence: ""
+
+  - id: public-privacy-policy-url
+    name: Privacy policy and deletion route publicly reachable
+    status: not-started
+    blocks:
+      - android-production
+      - ios-appstore
+    lead-time: immediate once Pages is enabled and placeholders are filled
+    depends-on:
+      - github-pages-enabled
+      - legal-placeholders-filled
+    urls:
+      privacy: https://nikomix.github.io/fitness/privacy/
+      deletion: https://nikomix.github.io/fitness/delete-my-data/
+    notes: >
+      Both stores require a public privacy policy URL, and Google additionally requires a
+      deletion route reachable without installing the app. The W6 legal session has written
+      and merged both pages; only the two owner actions above stand between here and live.
+
+      This is the hard dependency of the Health Apps declaration. Every day it slips moves
+      the Android launch date by a day, because the declaration clock cannot start without
+      it. Verify in a private browser window with no login before marking this approved.
+    evidence: ""
+
+  - id: health-permission-list-frozen
+    name: Final Health Connect permission list agreed
+    status: not-started
+    blocks: []
+    lead-time: a product decision, not engineering work - an afternoon if someone decides
+    notes: >
+      The declaration must describe the Health Connect permissions the app actually requests
+      and must match the shipped AndroidManifest.xml exactly. The manifest currently declares
+      no android.permission.health.* entries at all, so there is nothing to justify yet.
+
+      This does NOT mean waiting until Health Connect is fully built. It means the final list
+      must be frozen before submitting, because declaring a permission that does not ship is
+      an inconsistent submission, and adding one after approval means going back through the
+      review.
+
+      It blocks no scope directly because it gates the submission rather than the release -
+      but it sits on the critical path in front of a 4-to-8 week review, so treat it as
+      urgent. Every week spent deciding is a week added to the Android launch date.
+
+      Justification table to fill: docs/legal/store/play-health-apps-declaration.md.
+    evidence: ""
+
   - id: play-health-apps-declaration
     name: Google Play Health Apps declaration
     status: not-started
@@ -32,35 +141,28 @@ gates:
     lead-time: 4-8 weeks, no published SLA
     depends-on:
       - public-privacy-policy-url
+      - health-permission-list-frozen
     notes: >
-      THE LAUNCH DATE. Google requires this declaration before an app that reads Health
-      Connect data can be published to production, review has historically taken four to
-      eight weeks, and Google publishes no SLA. It cannot be compressed by working harder,
-      and it cannot start until the privacy policy is publicly hosted, so it is sequenced
-      first in docs/release/runbook.md.
+      THE ANDROID LAUNCH DATE. Required because the owner chose Option B: v1 ships with
+      Health Connect. Google publishes no SLA and the review cannot be escalated or paid
+      for, so the only lever anyone controls is the submission date.
 
-      Internal and closed testing tracks are deliberately NOT blocked: the whole point of
-      starting the declaration early is that engineering keeps shipping to testers while
-      Google reviews.
+      Submission pack, permission justification table and the answers that follow from the
+      architecture: docs/legal/store/play-health-apps-declaration.md. Do not restate them
+      here; that document is the source of truth and a second copy would drift.
+
+      Two things gate submission beyond the privacy policy: the manifest must actually
+      declare the Health Connect permissions being justified, and the declaration must match
+      that manifest exactly. Declaring permissions the app does not request is an
+      inconsistent submission and invites a rejection round-trip.
+
+      Internal and closed testing are deliberately NOT blocked. That is the entire point of
+      submitting early: engineering keeps shipping to testers for the whole review.
     evidence: ""
 
-  - id: public-privacy-policy-url
-    name: Publicly hosted privacy policy
-    status: not-started
-    blocks:
-      - android-production
-      - ios-appstore
-    lead-time: hours once hosting is chosen
-    notes: >
-      Owned by the compliance stream, not by the release pipeline. Both stores require a
-      reachable public URL, and the hosted text must match docs/legal/privacy-policy.md and
-      the in-app policy screen. It is listed here because it is the hard dependency of the
-      Health Apps declaration, so every day it slips moves the launch date by a day.
-
-      docs/legal/privacy-policy.md still ends with a placeholder contact section. That must
-      be replaced before hosting.
-    evidence: ""
-
+  # ---------------------------------------------------------------------------------------
+  # Account and signing prerequisites. These gate everything, including test tracks.
+  # ---------------------------------------------------------------------------------------
   - id: store-accounts-and-identifiers
     name: Developer accounts, bundle id and package name registered
     status: not-started
@@ -87,10 +189,13 @@ gates:
     lead-time: hours
     notes: >
       See docs/release/signing-and-secrets.md. Play App Signing must be enrolled at the
-      first upload; the upload key is not the app signing key and losing it is recoverable,
-      whereas losing an app signing key before enrolment is not.
+      first upload; the upload key is not the app signing key, and losing an app signing key
+      before enrolment is unrecoverable.
     evidence: ""
 
+  # ---------------------------------------------------------------------------------------
+  # Store forms. Cheap to complete, but each one is a hard block on a public release.
+  # ---------------------------------------------------------------------------------------
   - id: play-data-safety-form
     name: Play Data safety form completed
     status: not-started
@@ -98,9 +203,11 @@ gates:
       - android-production
     lead-time: hours, reviewed with the release
     notes: >
-      Must state that health and fitness data is processed on device, not sold, not shared,
-      and not used for advertising. It has to agree with the privacy policy and with what
-      the binary actually does; a mismatch is a policy violation, not a paperwork error.
+      Draft answers: docs/legal/store/play-data-safety.md. Must agree with the privacy
+      policy and with what the binary actually does; a mismatch is a policy violation, not a
+      paperwork error. The "no data collected" answers are true only while there is no
+      backend and no telemetry - see the re-check list in
+      docs/legal/store-compliance-checklist.md.
     evidence: ""
 
   - id: apple-app-privacy-answers
@@ -110,8 +217,9 @@ gates:
       - ios-appstore
     lead-time: hours, reviewed with the release
     notes: >
-      The equivalent of Data safety. Health and fitness data is collected but not linked to
-      an identity and not used for tracking, because there is no backend to link it to.
+      Draft answers: docs/legal/store/apple-app-privacy.md. Apple holds the developer
+      responsible for third-party SDK behaviour, so re-confirm every package in
+      Directory.Packages.props before each submission.
     evidence: ""
 
   - id: age-rating-questionnaires
@@ -139,6 +247,34 @@ gates:
       product and its review screenshot must exist before that submission, not after.
     evidence: ""
 
+  # ---------------------------------------------------------------------------------------
+  # Binary-shaped prerequisites.
+  # ---------------------------------------------------------------------------------------
+  - id: ios-privacy-manifest-complete
+    name: iOS privacy manifest and HealthKit usage descriptions correct
+    status: not-started
+    blocks:
+      - ios-testflight
+      - ios-appstore
+    lead-time: hours
+    owner: health worktree
+    notes: >
+      P0 in docs/legal/store-compliance-checklist.md. Two guaranteed rejections. Info.plist
+      has no NSHealthShareUsageDescription or NSHealthUpdateUsageDescription - iOS
+      terminates the app the moment HealthKit is touched without them - and
+      PrivacyInfo.xcprivacy is the stock MAUI template, with the UserDefaults
+      required-reason entry present only inside an XML comment and no NSPrivacyTracking,
+      NSPrivacyTrackingDomains or NSPrivacyCollectedDataTypes.
+
+      tools/release/Test-IosPrivacyManifest.ps1 checks all of it against the tree being
+      archived, and detects the comment-only case rather than being fooled by it. The files
+      live under src/ and are owned by the health worktree; the release pipeline only reads
+      them.
+
+      Blocks TestFlight as well as the App Store: an archive without the usage descriptions
+      crashes for internal testers too, so shipping it to TestFlight wastes a test cycle.
+    evidence: ""
+
   - id: video-asset-packs-published
     name: Exercise video asset packs built into the release artefacts
     status: not-started
@@ -154,7 +290,7 @@ gates:
       check the built artefacts, and the production publish requires them.
 
       Requires an MSBuild change to src/Forge.App/Forge.App.csproj that the release stream
-      does not own - see docs/release/runbook.md, "Required project changes".
+      does not own - see docs/release/runbook.md, "Project changes someone else must make".
     evidence: ""
 
   - id: store-listing-assets-uploaded
@@ -180,4 +316,9 @@ gates:
       Forge has no accounts, so there are no reviewer credentials to supply - but that
       itself has to be stated, along with where to find Restore purchases, Delete my data
       and the medical disclaimer, or a reviewer will report them as missing.
+
+      For Android, the health reviewer additionally expects recordings of the prominent
+      disclosure and consent prompts and of Delete my data. The list is in
+      docs/legal/store/play-health-apps-declaration.md under "Evidence to keep for the
+      review"; capture it before submitting, not after being asked for it.
     evidence: ""

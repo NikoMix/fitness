@@ -16,15 +16,26 @@ against the live console at submission time and update this file when it drifts.
 | --- | --- |
 | Package / bundle id | `com.nikomix.forge` |
 | Developer name | NikoMix |
-| Support URL | https://github.com/NikoMix/fitness/issues |
+| Support URL | https://nikomix.github.io/fitness/support/ |
 | Marketing URL | https://nikomix.github.io/fitness/ |
-| Privacy policy URL | https://nikomix.github.io/fitness/privacy |
+| Privacy policy URL | https://nikomix.github.io/fitness/privacy/ |
+| Data deletion URL | https://nikomix.github.io/fitness/delete-my-data/ |
 
-The privacy policy URL is the **planned** location. It is owned by the compliance stream,
-not by the release pipeline, and the `public-privacy-policy-url` launch gate stays
-`not-started` until the page is actually reachable. If the compliance stream chooses a
-different host, change `fastlane/metadata/ios/en-US/privacy_url.txt`, the Play Console field
-and this table together.
+These are the real published locations. The W6 legal session has written and merged the site
+and `.github/workflows/pages.yml` builds it from `docs/legal/`, so the pages exist in the
+repository - but two owner actions still stand between here and live, and until both are done
+these URLs 404:
+
+1. Enable GitHub Pages (Settings → Pages → Source = **GitHub Actions**).
+2. Fill the 21 `TODO(owner: ...)` placeholders — `git grep -n "TODO(owner"`. The publish job
+   fails by design while any remain.
+
+Both are tracked as gates in [`launch-gates.yml`](launch-gates.yml). The privacy URL is not
+just a listing field: it is the hard prerequisite of the Play Health Apps declaration, which
+sets the Android launch date. See [`runbook.md`](runbook.md#1-the-android-launch-date-is-set-by-paperwork-not-by-code).
+
+Google requires the deletion URL to be reachable **without installing the app**, which is why
+it is a separate page rather than a section of the policy.
 
 ---
 
@@ -114,6 +125,10 @@ Expected outcome: Everyone / PEGI 3 / USK 0, with an in-app purchases disclosure
 
 ## Play Data safety
 
+Draft answers live in `docs/legal/store/play-data-safety.md` and that document is the source
+of truth — complete the Play Console form from it, not from this page. The summary below
+exists only so the listing work has the shape of the answer to hand.
+
 Play defines *collection* as transmitting data off the device. Forge v1 has no backend, so:
 
 | Question | Answer |
@@ -140,6 +155,13 @@ assertion that stops being true is a policy violation rather than a stale docume
 Answer **Data Not Collected** for the app, on the same reasoning, and confirm the same for
 every third-party SDK in `Directory.Packages.props` before each submission. Apple holds the
 developer responsible for SDK behaviour, not the SDK vendor.
+
+Draft answers: `docs/legal/store/apple-app-privacy.md`.
+
+Note that App Privacy answers are separate from `PrivacyInfo.xcprivacy`. The console form is
+a declaration; the manifest is a file in the binary, and a stock MAUI manifest is rejected at
+upload. `tools/release/Test-IosPrivacyManifest.ps1` checks the file — see
+[`runbook.md`](runbook.md#5-pre-submission-checks).
 
 ---
 

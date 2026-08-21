@@ -6,10 +6,11 @@ Scripts used by `.github/workflows/release.yml` and runnable by hand. All of the
 | Script | Does | Runs without credentials? |
 | --- | --- | --- |
 | `Get-ReleaseVersion.ps1` | The single source of truth mapping a git tag to `ApplicationDisplayVersion` and `ApplicationVersion`. | Yes |
-| `Invoke-ReleasePreflight.ps1` | Gate check before a publish: tag, launch gates, secret names, listing lengths. | Yes |
+| `Invoke-ReleasePreflight.ps1` | Gate check before a publish: tag, launch gates, secret names, listing lengths, iOS privacy. | Yes |
 | `Test-StoreMetadata.ps1` | Validates `fastlane/metadata` against store character limits and placeholder text. | Yes |
 | `Test-AndroidAssetPacks.ps1` | Asserts the Play Asset Delivery video packs are in the built `.aab`. | Yes, given an `.aab` |
 | `Test-IosOnDemandResources.ps1` | Asserts the three ODR tags are in the iOS build output. | Yes, given a build output |
+| `Test-IosPrivacyManifest.ps1` | Asserts the HealthKit usage descriptions and privacy manifest are correct. Both are guaranteed App Store rejections. | Yes |
 | `Publish-StoreRelease.ps1` | Uploads to Google Play or App Store Connect. Supports `-WhatIf`. | Only with `-WhatIf` |
 
 Design rules these follow, learned from the rest of `tools/`:
@@ -33,6 +34,7 @@ pwsh tools/release/Get-ReleaseVersion.ps1 -Tag v1.0.0-rc.3
 pwsh tools/release/Get-ReleaseVersion.ps1 -SelfTest
 pwsh tools/release/Invoke-ReleasePreflight.ps1 -Tag v1.0.0 -Platform All -Advisory
 pwsh tools/release/Test-StoreMetadata.ps1
+pwsh tools/release/Test-IosPrivacyManifest.ps1 -Advisory
 pwsh tools/release/Test-AndroidAssetPacks.ps1 -BundlePath artifacts/android
 pwsh tools/release/Publish-StoreRelease.ps1 -Platform Android -PackagePath artifacts/android `
   -Track internal -ServiceAccountJsonPath key.json -WhatIf
