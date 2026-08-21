@@ -2,12 +2,16 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Engagement.StreaksPage"
              Title="Streaks"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
     <ScrollView>
-        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                             HorizontalOptions="Center"
+                             WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" Spacing="{StaticResource SpaceL}">
             <Label Text="Streaks" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <Label Text="Rest days and recovery are treated as part of training, not as mistakes." Style="{StaticResource SecondaryText}" />
 
@@ -39,6 +43,7 @@
 
             <Label Text="History" Style="{StaticResource SectionHeaderText}" />
             <dx:DXCollectionView ItemsSource="{Binding History}" HeightRequest="300">
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ListRow}">
@@ -55,4 +60,5 @@
             </dx:DXCollectionView>
         </VerticalStackLayout>
     </ScrollView>
+    </adaptive:AdaptiveHost>
 </ContentPage>

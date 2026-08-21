@@ -2,12 +2,16 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Coaching.CoachingPage"
              Title="Coaching"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
     <ScrollView>
-        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                             HorizontalOptions="Center"
+                             WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" Spacing="{StaticResource SpaceL}">
             <Label Text="Next session" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <Label Text="Deterministic, explainable and overridable coaching that stays on device." Style="{StaticResource SecondaryText}" />
             <dx:DXButton Content="Load recommendation"
@@ -26,4 +30,5 @@
             </controls:ForgeCard>
         </VerticalStackLayout>
     </ScrollView>
+    </adaptive:AdaptiveHost>
 </ContentPage>

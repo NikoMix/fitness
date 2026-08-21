@@ -2,12 +2,16 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Workout.WorkoutHistoryPage"
              x:Name="Page"
              Title="Workout history"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <Grid RowDefinitions="Auto,Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceM}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
+    <Grid RowDefinitions="Auto,Auto,*" Padding="{StaticResource PagePadding}"
+                                       HorizontalOptions="Center"
+                                       WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" RowSpacing="{StaticResource SpaceM}">
         <Label Text="Every session, newest first"
                Style="{StaticResource HeadlineText}"
                SemanticProperties.HeadingLevel="Level1" />
@@ -22,7 +26,8 @@
 
         <dx:DXCollectionView Grid.Row="2"
                              ItemsSource="{Binding Sessions}"
-                             IsVisible="{Binding HasSessions}">
+                             IsVisible="{Binding HasSessions}"
+                             ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
             <dx:DXCollectionView.ItemTemplate>
                 <DataTemplate>
                     <dx:DXBorder Style="{StaticResource ListRow}"
@@ -47,4 +52,5 @@
             </dx:DXCollectionView.ItemTemplate>
         </dx:DXCollectionView>
     </Grid>
+    </adaptive:AdaptiveHost>
 </ContentPage>

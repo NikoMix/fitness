@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
              xmlns:controls="clr-namespace:Forge.App.Controls"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
+             xmlns:exercises="clr-namespace:Forge.App.Features.Exercises"
              x:Class="Forge.App.Features.Exercises.ExerciseLibraryPage"
              x:Name="Page"
              Title="Exercise library"
@@ -26,8 +28,20 @@
         </Style>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto,Auto,*"
-          Padding="{StaticResource PagePadding}"
+    <!--
+        The library is the clearest case in Forge for a list-and-detail split: choosing between two
+        movements is a comparison, and a comparison that needs a push and a back gesture between
+        each look is one nobody actually performs. On a phone this collapses to exactly the layout
+        it had before, and View pushes the detail page as it always did.
+    -->
+    <adaptive:AdaptiveHost x:Name="Adaptive">
+    <Grid ColumnDefinitions="{Binding Source={x:Reference Adaptive}, Path=SplitColumns}"
+          ColumnSpacing="{Binding Source={x:Reference Adaptive}, Path=PaneSpacing}"
+          Padding="{StaticResource PagePadding}">
+
+    <Grid Grid.Column="0"
+          Grid.ColumnSpan="{Binding ListPaneColumnSpan}"
+          RowDefinitions="Auto,Auto,*"
           RowSpacing="{StaticResource SpaceM}">
 
         <VerticalStackLayout Spacing="{StaticResource SpaceS}">
@@ -167,7 +181,9 @@
         <Grid Grid.Row="2">
 
             <ScrollView IsVisible="{Binding IsEditorVisible}">
-                <dx:DXBorder Style="{StaticResource Card}">
+                <dx:DXBorder Style="{StaticResource Card}"
+                             HorizontalOptions="Center"
+                             WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ReadingWidth}">
                     <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                         <Label Text="{Binding EditorTitle}"
                                Style="{StaticResource TitleText}"
@@ -314,4 +330,35 @@
             </Grid>
         </Grid>
     </Grid>
+
+    <!--
+        The detail pane. Hidden while the editor is open, because the editor takes the width; and
+        hidden entirely when the window is too narrow, at which point View pushes the detail page
+        instead. The pane starts empty rather than pre-selecting the first exercise: opening one
+        marks it as recently used, and inventing that history for a movement nobody looked at would
+        quietly corrupt the Recently used filter.
+    -->
+    <dx:DXBorder Grid.Column="1"
+                 Style="{StaticResource DetailPane}"
+                 IsVisible="{Binding IsDetailPaneVisible}">
+        <Grid>
+            <controls:EmptyState IsVisible="{Binding HasNoDetailSelection}"
+                                 Glyph="&#8592;"
+                                 Headline="Pick a movement"
+                                 Message="Choose an exercise on the left and its full technique guidance opens here, beside the list." />
+            <!--
+                A second host, measuring the pane rather than the page. The reading measure has to
+                be taken from the width the prose actually gets: capping against the window would
+                force a 680 point column into a 420 point pane on a small tablet.
+            -->
+            <adaptive:AdaptiveHost x:Name="DetailAdaptive" IsVisible="{Binding HasDetailSelection}">
+                <exercises:ExerciseGuidanceView BindingContext="{Binding Detail}"
+                                                HorizontalOptions="Center"
+                                                WidthRequest="{Binding Source={x:Reference DetailAdaptive}, Path=ReadingWidth}" />
+            </adaptive:AdaptiveHost>
+        </Grid>
+    </dx:DXBorder>
+
+    </Grid>
+    </adaptive:AdaptiveHost>
 </ContentPage>

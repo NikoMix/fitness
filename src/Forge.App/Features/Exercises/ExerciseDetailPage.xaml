@@ -2,186 +2,22 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
-             xmlns:controls="clr-namespace:Forge.App.Controls"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
+             xmlns:exercises="clr-namespace:Forge.App.Features.Exercises"
              x:Class="Forge.App.Features.Exercises.ExerciseDetailPage"
              Title="Exercise"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <ScrollView>
-        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+    <!--
+        Long-form technique guidance, so this uses the tight reading measure rather than the looser
+        content one. Left uncapped on a 13-inch iPad a coaching cue runs to roughly 180 characters
+        a line, about twice the width at which the eye reliably finds the start of the next one.
 
-            <VerticalStackLayout IsVisible="{Binding IsLoading}" Spacing="{StaticResource SpaceM}">
-                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="72" />
-                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="140" />
-                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="140" />
-            </VerticalStackLayout>
-
-            <controls:EmptyState IsVisible="{Binding HasError}"
-                                 Glyph="!"
-                                 Headline="Exercise unavailable"
-                                 Message="{Binding ErrorMessage}" />
-
-            <VerticalStackLayout IsVisible="{Binding HasContent}" Spacing="{StaticResource SpaceL}">
-
-                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
-                    <Label Text="{Binding Name}"
-                           Style="{StaticResource HeadlineText}"
-                           SemanticProperties.HeadingLevel="Level1" />
-                    <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
-                    <Label Text="Your own exercise"
-                           Style="{StaticResource CaptionText}"
-                           IsVisible="{Binding IsCustom}" />
-                    <Label Text="{Binding PatternDescription}" Style="{StaticResource CaptionText}" />
-                </VerticalStackLayout>
-
-                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
-                    <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding HasActionMessage}">
-                        <Label Text="{Binding ActionMessage}"
-                               Style="{StaticResource BodyText}"
-                               TextColor="{dx:ThemeColor OnErrorContainer}" />
-                    </dx:DXBorder>
-                    <dx:DXButton Content="{Binding FavouriteText}"
-                                 SemanticProperties.Description="{Binding FavouriteText}"
-                                 Style="{StaticResource SecondaryButton}"
-                                 Command="{Binding ToggleFavouriteCommand}" />
-                    <!--
-                        Only offered once a video pack is already on the device. Video is an
-                        optional extra in Forge, so an exercise page never asks for a download.
-                    -->
-                    <dx:DXButton Content="Watch demonstration"
-                                 SemanticProperties.Description="Watch the downloaded demonstration video"
-                                 Style="{StaticResource SecondaryButton}"
-                                 IsVisible="{Binding HasVideo}"
-                                 Command="{Binding WatchVideoCommand}" />
-                    <dx:DXButton Content="Find alternatives"
-                                 SemanticProperties.Description="Find alternative exercises for the equipment you have"
-                                 Style="{StaticResource PrimaryButton}"
-                                 Command="{Binding OpenAlternativesCommand}" />
-                </VerticalStackLayout>
-
-                <dx:DXBorder Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
-                        <Label Text="Set up"
-                               Style="{StaticResource TitleText}"
-                               SemanticProperties.HeadingLevel="Level2" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding SetupSteps}"
-                                             Spacing="{StaticResource SpaceS}">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate>
-                                    <Label Text="{Binding .}" Style="{StaticResource BodyText}" />
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                </dx:DXBorder>
-
-                <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasExecutionSteps}">
-                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
-                        <Label Text="How to perform it"
-                               Style="{StaticResource TitleText}"
-                               SemanticProperties.HeadingLevel="Level2" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding ExecutionSteps}"
-                                             Spacing="{StaticResource SpaceM}">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource SpaceM}">
-                                        <Label Text="{Binding Label}"
-                                               Style="{StaticResource TitleText}"
-                                               TextColor="{dx:ThemeColor Primary}" />
-                                        <Label Grid.Column="1"
-                                               Text="{Binding Text}"
-                                               Style="{StaticResource BodyText}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                </dx:DXBorder>
-
-                <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasCoachingCues}">
-                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
-                        <Label Text="Coaching cues"
-                               Style="{StaticResource TitleText}"
-                               SemanticProperties.HeadingLevel="Level2" />
-                        <Label Text="Short reminders to say to yourself during the set."
-                               Style="{StaticResource CaptionText}" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding CoachingCues}"
-                                             Spacing="{StaticResource SpaceS}">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate>
-                                    <Label Text="{Binding .}" Style="{StaticResource BodyText}" />
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                </dx:DXBorder>
-
-                <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasCommonMistakes}">
-                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
-                        <Label Text="Common mistakes"
-                               Style="{StaticResource TitleText}"
-                               SemanticProperties.HeadingLevel="Level2" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding CommonMistakes}"
-                                             Spacing="{StaticResource SpaceS}">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate>
-                                    <Label Text="{Binding .}" Style="{StaticResource BodyText}" />
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                </dx:DXBorder>
-
-                <dx:DXBorder Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
-                        <Label Text="Details"
-                               Style="{StaticResource TitleText}"
-                               SemanticProperties.HeadingLevel="Level2" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Facts}"
-                                             Spacing="{StaticResource SpaceXs}">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
-                                        <Label Text="{Binding Label}" Style="{StaticResource StatRowLabelText}" />
-                                        <Label Grid.Column="1"
-                                               Text="{Binding Value}"
-                                               Style="{StaticResource StatRowValueText}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                </dx:DXBorder>
-
-                <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding HasSafetyNotes}">
-                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
-                        <Label Text="Safety notes"
-                               Style="{StaticResource TitleText}"
-                               TextColor="{dx:ThemeColor OnErrorContainer}"
-                               SemanticProperties.HeadingLevel="Level2" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding SafetyNotes}"
-                                             Spacing="{StaticResource SpaceS}">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate>
-                                    <Label Text="{Binding .}"
-                                           Style="{StaticResource BodyText}"
-                                           TextColor="{dx:ThemeColor OnErrorContainer}" />
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                </dx:DXBorder>
-
-                <dx:DXBorder Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
-                        <Label Text="{Binding MedicalDisclaimer}" Style="{StaticResource CaptionText}" />
-                        <dx:DXButton Content="Read the medical disclaimer"
-                                     SemanticProperties.Description="Read the full medical disclaimer"
-                                     Style="{StaticResource TextButton}"
-                                     Command="{Binding OpenMedicalDisclaimerCommand}" />
-                    </VerticalStackLayout>
-                </dx:DXBorder>
-
-            </VerticalStackLayout>
-        </VerticalStackLayout>
-    </ScrollView>
+        The body lives in ExerciseGuidanceView because the tablet library shows the same thing in
+        its detail pane rather than pushing this page.
+    -->
+    <adaptive:AdaptiveHost x:Name="Adaptive">
+        <exercises:ExerciseGuidanceView Padding="{StaticResource PagePadding}"
+                                        Style="{StaticResource MeasuredColumn}"
+                                        WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ReadingWidth}" />
+    </adaptive:AdaptiveHost>
 </ContentPage>

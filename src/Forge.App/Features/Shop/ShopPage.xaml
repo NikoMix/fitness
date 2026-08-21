@@ -2,13 +2,17 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Shop.ShopPage"
              x:Name="ShopRoot"
              Title="Forge Pro"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                             HorizontalOptions="Center"
+                             WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}"
                              Spacing="{StaticResource SpaceXl}">
             <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                 <Label Text="Forge Pro"
@@ -30,7 +34,8 @@
             </controls:ForgeCard>
 
             <dx:DXCollectionView ItemsSource="{Binding Products}"
-                                 IsVisible="{Binding HasProducts}">
+                                 IsVisible="{Binding HasProducts}"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ElevatedCard}">
@@ -82,4 +87,5 @@
                          IsVisible="{Binding CanManageSubscription}" />
         </VerticalStackLayout>
     </ScrollView>
+    </adaptive:AdaptiveHost>
 </ContentPage>

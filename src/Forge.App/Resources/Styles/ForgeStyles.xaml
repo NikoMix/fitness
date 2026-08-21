@@ -16,25 +16,25 @@
     <!-- ===================== Typography ===================== -->
 
     <Style x:Key="DisplayText" TargetType="Label">
-        <Setter Property="FontSize" Value="{StaticResource FontDisplay}" />
+        <Setter Property="FontSize" Value="{OnIdiom Default={StaticResource FontDisplay}, Phone={StaticResource FontDisplay}, Tablet={StaticResource FontDisplayTablet}}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{dx:ThemeColor OnSurface}" />
     </Style>
 
     <Style x:Key="HeadlineText" TargetType="Label">
-        <Setter Property="FontSize" Value="{StaticResource FontHeadlineM}" />
+        <Setter Property="FontSize" Value="{OnIdiom Default={StaticResource FontHeadlineM}, Phone={StaticResource FontHeadlineM}, Tablet={StaticResource FontHeadlineMTablet}}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{dx:ThemeColor OnSurface}" />
     </Style>
 
     <Style x:Key="TitleText" TargetType="Label">
-        <Setter Property="FontSize" Value="{StaticResource FontTitleM}" />
+        <Setter Property="FontSize" Value="{OnIdiom Default={StaticResource FontTitleM}, Phone={StaticResource FontTitleM}, Tablet={StaticResource FontTitleMTablet}}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{dx:ThemeColor OnSurface}" />
     </Style>
 
     <Style x:Key="BodyText" TargetType="Label">
-        <Setter Property="FontSize" Value="{StaticResource FontBodyL}" />
+        <Setter Property="FontSize" Value="{OnIdiom Default={StaticResource FontBodyL}, Phone={StaticResource FontBodyL}, Tablet={StaticResource FontBodyLTablet}}" />
         <Setter Property="TextColor" Value="{dx:ThemeColor OnSurface}" />
     </Style>
 
@@ -44,12 +44,12 @@
         4.5:1 contrast floor; the variant role is generated to stay above it.
     -->
     <Style x:Key="SecondaryText" TargetType="Label">
-        <Setter Property="FontSize" Value="{StaticResource FontBodyM}" />
+        <Setter Property="FontSize" Value="{OnIdiom Default={StaticResource FontBodyM}, Phone={StaticResource FontBodyM}, Tablet={StaticResource FontBodyMTablet}}" />
         <Setter Property="TextColor" Value="{dx:ThemeColor OnSurfaceVariant}" />
     </Style>
 
     <Style x:Key="CaptionText" TargetType="Label">
-        <Setter Property="FontSize" Value="{StaticResource FontCaption}" />
+        <Setter Property="FontSize" Value="{OnIdiom Default={StaticResource FontCaption}, Phone={StaticResource FontCaption}, Tablet={StaticResource FontCaptionTablet}}" />
         <Setter Property="TextColor" Value="{dx:ThemeColor OnSurfaceVariant}" />
     </Style>
 
@@ -59,20 +59,20 @@
         rendered with a fixed-width presentation and centred alignment.
     -->
     <Style x:Key="MetricText" TargetType="Label">
-        <Setter Property="FontSize" Value="{StaticResource FontMetric}" />
+        <Setter Property="FontSize" Value="{OnIdiom Default={StaticResource FontMetric}, Phone={StaticResource FontMetric}, Tablet={StaticResource FontMetricTablet}}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="HorizontalTextAlignment" Value="Center" />
         <Setter Property="TextColor" Value="{dx:ThemeColor OnSurface}" />
     </Style>
 
     <Style x:Key="MetricUnitText" TargetType="Label">
-        <Setter Property="FontSize" Value="{StaticResource FontLabel}" />
+        <Setter Property="FontSize" Value="{OnIdiom Default={StaticResource FontLabel}, Phone={StaticResource FontLabel}, Tablet={StaticResource FontLabelTablet}}" />
         <Setter Property="HorizontalTextAlignment" Value="Center" />
         <Setter Property="TextColor" Value="{dx:ThemeColor OnSurfaceVariant}" />
     </Style>
 
     <Style x:Key="SectionHeaderText" TargetType="Label" BasedOn="{StaticResource TitleText}">
-        <Setter Property="FontSize" Value="{StaticResource FontBodyL}" />
+        <Setter Property="FontSize" Value="{OnIdiom Default={StaticResource FontBodyL}, Phone={StaticResource FontBodyL}, Tablet={StaticResource FontBodyLTablet}}" />
     </Style>
 
     <Style x:Key="StatRowLabelText" TargetType="Label" BasedOn="{StaticResource SecondaryText}">
@@ -132,8 +132,8 @@
         The larger target is a usability requirement, not decoration.
     -->
     <Style x:Key="WorkoutActionButton" TargetType="dx:DXButton" BasedOn="{StaticResource PrimaryButton}">
-        <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetPrimary}" />
-        <Setter Property="FontSize" Value="{StaticResource FontTitleM}" />
+        <Setter Property="MinimumHeightRequest" Value="{OnIdiom Default={StaticResource TouchTargetPrimary}, Phone={StaticResource TouchTargetPrimary}, Tablet={StaticResource TouchTargetPrimaryTablet}}" />
+        <Setter Property="FontSize" Value="{OnIdiom Default={StaticResource FontTitleM}, Phone={StaticResource FontTitleM}, Tablet={StaticResource FontTitleMTablet}}" />
     </Style>
 
     <Style x:Key="SecondaryButton" TargetType="dx:DXButton">
