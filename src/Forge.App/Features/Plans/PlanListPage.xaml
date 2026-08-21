@@ -12,10 +12,13 @@
             <Label Text="Training plans" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <Label Text="Start from a template or keep full control over your own programming." Style="{StaticResource SecondaryText}" />
             <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
-                <dx:DXButton Content="Browse templates" Style="{StaticResource PrimaryButton}" Command="{Binding OpenTemplatesCommand}" />
-                <dx:DXButton Grid.Column="1" Content="Create plan" Style="{StaticResource SecondaryButton}" Command="{Binding OpenEditorCommand}" />
+                <dx:DXButton Content="Browse templates"
+    SemanticProperties.Description="Browse templates" Style="{StaticResource PrimaryButton}" Command="{Binding OpenTemplatesCommand}" />
+                <dx:DXButton Grid.Column="1" Content="Create plan"
+    SemanticProperties.Description="Create plan" Style="{StaticResource SecondaryButton}" Command="{Binding OpenEditorCommand}" />
             </Grid>
-            <dx:DXButton Content="Open schedule" ButtonType="Text" Command="{Binding OpenScheduleCommand}" />
+            <dx:DXButton Content="Open schedule"
+    SemanticProperties.Description="Open schedule" ButtonType="Text" Command="{Binding OpenScheduleCommand}" />
         </VerticalStackLayout>
         <Grid Grid.Row="1">
             <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="112" />
@@ -32,6 +35,7 @@
                         <VerticalStackLayout Spacing="{StaticResource SpaceS}">
                             <Label Text="{Binding Description}" Style="{StaticResource BodyText}" />
                             <dx:DXButton Content="Make active"
+                                         SemanticProperties.Description="Make active"
                                          ButtonType="Text"
                                          Command="{Binding Source={x:Reference Page}, Path=BindingContext.ActivateCommand}"
                                          CommandParameter="{Binding .}" />

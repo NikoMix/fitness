@@ -36,6 +36,7 @@
                     <Label Text="If you want to keep a copy, export a backup before continuing. Backup export is a separate feature, but this deletion flow exposes the required hook."
                            Style="{StaticResource SecondaryText}" />
                     <dx:DXButton Content="Export backup before deleting"
+                                 SemanticProperties.Description="Export backup before deleting"
                                  Style="{StaticResource SecondaryButton}"
                                  Command="{Binding ExportBackupCommand}" />
                 </VerticalStackLayout>
@@ -49,6 +50,7 @@
                     <dx:TextEdit Text="{Binding ConfirmationText}"
                                  Style="{StaticResource ForgeTextEdit}" />
                     <dx:DXButton Content="Erase all local data permanently"
+                                 SemanticProperties.Description="Erase all local data permanently"
                                  Style="{StaticResource PrimaryButton}"
                                  Command="{Binding EraseAllDataCommand}" />
                 </VerticalStackLayout>

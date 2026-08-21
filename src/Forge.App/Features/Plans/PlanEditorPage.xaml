@@ -12,9 +12,12 @@
             <Label Text="Build your plan" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <dx:TextEdit Text="{Binding Name}" PlaceholderText="Plan name" Style="{StaticResource ForgeTextEdit}" />
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceM}">
-                <dx:DXButton Content="Add day" Style="{StaticResource SecondaryButton}" Command="{Binding AddDayCommand}" />
-                <dx:DXButton Grid.Column="1" Content="Add exercise" Style="{StaticResource SecondaryButton}" Command="{Binding AddExerciseCommand}" />
-                <dx:DXButton Grid.Column="2" Content="Save" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
+                <dx:DXButton Content="Add day"
+    SemanticProperties.Description="Add day" Style="{StaticResource SecondaryButton}" Command="{Binding AddDayCommand}" />
+                <dx:DXButton Grid.Column="1" Content="Add exercise"
+    SemanticProperties.Description="Add exercise" Style="{StaticResource SecondaryButton}" Command="{Binding AddExerciseCommand}" />
+                <dx:DXButton Grid.Column="2" Content="Save"
+    SemanticProperties.Description="Save" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
             </Grid>
         </VerticalStackLayout>
         <dx:DXBorder Grid.Row="1" Style="{StaticResource AdvisoryCard}">
@@ -38,6 +41,7 @@
                         <controls:ForgeCard Title="{Binding Name}" Subtitle="{Binding Duration}">
                             <VerticalStackLayout Spacing="{StaticResource SpaceS}">
                                 <dx:DXButton Content="Move up"
+                                             SemanticProperties.Description="Move up"
                                              ButtonType="Text"
                                              Command="{Binding Source={x:Reference Page}, Path=BindingContext.MoveDayUpCommand}"
                                              CommandParameter="{Binding .}" />
@@ -53,6 +57,7 @@
                                                     </VerticalStackLayout>
                                                     <dx:DXButton Grid.Column="2"
                                                                  Content="+ set"
+                                                                 SemanticProperties.Description="+ set"
                                                                  ButtonType="Text"
                                                                  Command="{Binding Source={x:Reference Page}, Path=BindingContext.AddTargetSetCommand}"
                                                                  CommandParameter="{Binding .}" />

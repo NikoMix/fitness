@@ -15,6 +15,7 @@
                        SemanticProperties.HeadingLevel="Level1" />
                 <dx:DXButton Grid.Column="1"
                             Content="New"
+                            SemanticProperties.Description="New"
                             Style="{StaticResource PrimaryButton}"
                             Command="{Binding NewExerciseCommand}" />
             </Grid>
@@ -102,9 +103,11 @@
                                  Style="{StaticResource ForgeTextEdit}" />
                 <HorizontalStackLayout Spacing="{StaticResource SpaceS}">
                     <dx:DXButton Content="Save"
+                                 SemanticProperties.Description="Save"
                                  Style="{StaticResource PrimaryButton}"
                                  Command="{Binding SaveExerciseCommand}" />
                     <dx:DXButton Content="Cancel"
+                                 SemanticProperties.Description="Cancel"
                                  ButtonType="Text"
                                  Command="{Binding CancelEditCommand}" />
                 </HorizontalStackLayout>
@@ -145,15 +148,18 @@
                                                  Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleFavouriteCommand}"
                                                  CommandParameter="{Binding .}" />
                                     <dx:DXButton Content="View"
+                                                 SemanticProperties.Description="View"
                                                  ButtonType="Text"
                                                  Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenExerciseCommand}"
                                                  CommandParameter="{Binding .}" />
                                     <dx:DXButton Content="Edit"
+                                                 SemanticProperties.Description="Edit"
                                                  ButtonType="Text"
                                                  IsVisible="{Binding IsUserCreated}"
                                                  Command="{Binding Source={x:Reference Page}, Path=BindingContext.EditExerciseCommand}"
                                                  CommandParameter="{Binding .}" />
                                     <dx:DXButton Content="Delete"
+                                                 SemanticProperties.Description="Delete"
                                                  ButtonType="Text"
                                                  IsVisible="{Binding IsUserCreated}"
                                                  Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteExerciseCommand}"

@@ -57,6 +57,7 @@
                                     </VerticalStackLayout>
                                     <dx:DXButton Grid.Column="1"
                                                  Content="View"
+                                                 SemanticProperties.Description="View"
                                                  ButtonType="Text"
                                                  Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenRecipeCommand}"
                                                  CommandParameter="{Binding .}" />
@@ -74,6 +75,7 @@
                                     <Label Text="{Binding SelectedName}" Style="{StaticResource TitleText}" />
                                     <dx:DXButton Grid.Column="1"
                                                  Content="Close"
+                                                 SemanticProperties.Description="Close"
                                                  ButtonType="Text"
                                                  Command="{Binding ClearSelectionCommand}" />
                                 </Grid>
@@ -84,6 +86,7 @@
                                                  Style="{StaticResource ForgeTextEdit}" />
                                 <Label Text="{Binding SelectedMacros}" Style="{StaticResource SectionHeaderText}" />
                                 <dx:DXButton Content="Log this meal"
+                                             SemanticProperties.Description="Log this meal"
                                              Style="{StaticResource PrimaryButton}"
                                              Command="{Binding LogThisMealCommand}" />
                                 <Label Text="{Binding LogIntegrationHint}" Style="{StaticResource CaptionText}" />

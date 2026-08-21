@@ -15,6 +15,8 @@
                     <Label Text="Browse the offline catalogue, review form notes, and find substitutions for the equipment you have today." Style="{StaticResource BodyText}" />
                     <dx:DXButton Content="Browse exercises"
                                  Style="{StaticResource PrimaryButton}"
+                                 SemanticProperties.Description="Browse exercises"
+                                 SemanticProperties.Hint="Opens the offline exercise library"
                                  Command="{Binding OpenExerciseLibraryCommand}" />
                 </VerticalStackLayout>
             </dx:DXBorder>

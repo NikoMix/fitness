@@ -16,9 +16,11 @@
                     <ProgressBar Progress="{Binding Progress}" />
                     <Label Text="{Binding Status}" Style="{StaticResource BodyText}" />
                     <dx:DXButton Content="Create backup"
+                                 SemanticProperties.Description="Create backup"
                                  Style="{StaticResource PrimaryButton}"
                                  Command="{Binding CreateBackupCommand}" />
                     <dx:DXButton Content="Refresh previous backups"
+                                 SemanticProperties.Description="Refresh previous backups"
                                  Style="{StaticResource SecondaryButton}"
                                  Command="{Binding LoadBackupsCommand}" />
                 </VerticalStackLayout>
@@ -28,6 +30,7 @@
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="Forge verifies the file and asks for deliberate confirmation before replacing data. If restore fails, existing data is left unchanged." Style="{StaticResource BodyText}" />
                     <dx:DXButton Content="Choose backup to restore"
+                                 SemanticProperties.Description="Choose backup to restore"
                                  Style="{StaticResource PrimaryButton}"
                                  Command="{Binding PickAndRestoreCommand}" />
                 </VerticalStackLayout>

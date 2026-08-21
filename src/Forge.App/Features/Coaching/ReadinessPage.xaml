@@ -10,7 +10,8 @@
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
             <Label Text="Readiness" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <Label Text="The score is a weighted breakdown, not an oracle." Style="{StaticResource SecondaryText}" />
-            <dx:DXButton Content="Refresh readiness" Style="{StaticResource PrimaryButton}" Command="{Binding LoadReadinessCommand}" />
+            <dx:DXButton Content="Refresh readiness"
+    SemanticProperties.Description="Refresh readiness" Style="{StaticResource PrimaryButton}" Command="{Binding LoadReadinessCommand}" />
 
             <controls:ForgeCard Title="Today" Subtitle="Input breakdown below">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">

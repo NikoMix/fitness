@@ -93,6 +93,7 @@
             </dx:DXBorder>
 
             <dx:DXButton Content="Finish setup"
+                         SemanticProperties.Description="Finish setup"
                          Command="{Binding FinishCommand}"
                          Style="{StaticResource PrimaryButton}" />
            <controls:SkeletonPlaceholder IsBusy="{Binding IsSaving}"

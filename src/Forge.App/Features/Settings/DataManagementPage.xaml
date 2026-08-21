@@ -18,9 +18,11 @@
                     <Label Text="Storage usage" Style="{StaticResource TitleText}" />
                     <Label Text="{Binding StorageUsage}" Style="{StaticResource BodyText}" />
                     <dx:DXButton Content="Refresh storage usage"
+                                 SemanticProperties.Description="Refresh storage usage"
                                  Style="{StaticResource SecondaryButton}"
                                  Command="{Binding RefreshStorageCommand}" />
                     <dx:DXButton Content="Reclaim downloaded media"
+                                 SemanticProperties.Description="Reclaim downloaded media"
                                  Style="{StaticResource SecondaryButton}"
                                  Command="{Binding ReclaimMediaCommand}" />
                 </VerticalStackLayout>
@@ -31,12 +33,15 @@
                     <Label Text="Backup and export" Style="{StaticResource TitleText}" />
                     <Label Text="{Binding BackupStatus}" Style="{StaticResource SecondaryText}" />
                     <dx:DXButton Content="Backup and restore"
+                                 SemanticProperties.Description="Backup and restore"
                                  Style="{StaticResource SecondaryButton}"
                                  Command="{Binding OpenBackupRestoreCommand}" />
                     <dx:DXButton Content="Export data"
+                                 SemanticProperties.Description="Export data"
                                  Style="{StaticResource SecondaryButton}"
                                  Command="{Binding OpenExportDataCommand}" />
                     <dx:DXButton Content="Import data"
+                                 SemanticProperties.Description="Import data"
                                  Style="{StaticResource SecondaryButton}"
                                  Command="{Binding OpenImportDataCommand}" />
                 </VerticalStackLayout>
@@ -48,6 +53,7 @@
                     <Label Text="This opens the required irreversible deletion flow. It is never a single tap."
                            Style="{StaticResource BodyText}" />
                     <dx:DXButton Content="Open delete-my-data"
+                                 SemanticProperties.Description="Open delete-my-data"
                                  Style="{StaticResource PrimaryButton}"
                                  Command="{Binding OpenDeleteMyDataCommand}" />
                 </VerticalStackLayout>

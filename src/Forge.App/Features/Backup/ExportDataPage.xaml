@@ -51,6 +51,7 @@
             <ProgressBar Progress="{Binding Progress}" />
             <Label Text="{Binding Status}" Style="{StaticResource BodyText}" />
             <dx:DXButton Content="Export and share"
+                         SemanticProperties.Description="Export and share"
                          Style="{StaticResource PrimaryButton}"
                          Command="{Binding ExportCommand}" />
         </VerticalStackLayout>

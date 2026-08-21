@@ -38,6 +38,7 @@
                                 <Label Grid.Column="1" Text="{Binding Volume}" Style="{StaticResource SecondaryText}" VerticalTextAlignment="Center" />
                                 <dx:DXButton Grid.Column="2"
                                              Content="Add"
+                                             SemanticProperties.Description="Add"
                                              Style="{StaticResource TextButton}"
                                              Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.AddPresetCommand}"
                                              CommandParameter="{Binding .}" />

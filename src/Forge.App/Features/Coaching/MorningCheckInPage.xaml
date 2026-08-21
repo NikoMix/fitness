@@ -23,7 +23,8 @@
                     <dx:NumericEdit Value="{Binding Stress}" Style="{StaticResource ForgeNumericEdit}" />
                     <Label Text="Sleep hours (optional)" Style="{StaticResource TitleText}" />
                     <dx:NumericEdit Value="{Binding SleepHours}" Style="{StaticResource ForgeNumericEdit}" />
-                    <dx:DXButton Content="Save check-in" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
+                    <dx:DXButton Content="Save check-in"
+    SemanticProperties.Description="Save check-in" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
                     <Label Text="{Binding SaveStatus}" Style="{StaticResource CaptionText}" />
                 </VerticalStackLayout>
             </controls:ForgeCard>

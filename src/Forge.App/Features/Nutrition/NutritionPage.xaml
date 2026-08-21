@@ -64,10 +64,12 @@
 
             <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
                 <dx:DXButton Content="Log food"
+                             SemanticProperties.Description="Log food"
                              Style="{StaticResource PrimaryButton}"
                              Command="{Binding GoToFoodLogCommand}" />
                 <dx:DXButton Grid.Column="1"
                              Content="Hydration"
+                             SemanticProperties.Description="Hydration"
                              Style="{StaticResource SecondaryButton}"
                              Command="{Binding GoToHydrationCommand}" />
             </Grid>

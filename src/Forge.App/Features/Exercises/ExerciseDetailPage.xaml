@@ -66,6 +66,7 @@
                          ButtonType="Outlined"
                          Command="{Binding ToggleFavouriteCommand}" />
             <dx:DXButton Content="Find alternatives"
+                         SemanticProperties.Description="Find alternatives"
                          Style="{StaticResource PrimaryButton}"
                          Command="{Binding OpenAlternativesCommand}" />
         </VerticalStackLayout>

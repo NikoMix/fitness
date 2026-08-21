@@ -94,18 +94,21 @@
 
                                 <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceS}">
                                     <dx:DXButton Content="Download"
+                                                 SemanticProperties.Description="Download"
                                                  Style="{StaticResource PrimaryButton}"
                                                  Command="{Binding DownloadCommand}"
                                                  IsEnabled="{Binding CanDownload}"
                                                  SemanticProperties.Hint="Requests this optional exercise video pack" />
                                     <dx:DXButton Grid.Column="1"
                                                  Content="Cancel"
+                                                 SemanticProperties.Description="Cancel"
                                                  Style="{StaticResource SecondaryButton}"
                                                  Command="{Binding CancelCommand}"
                                                  IsEnabled="{Binding CanCancel}"
                                                  SemanticProperties.Hint="Cancels a queued or active download" />
                                 </Grid>
                                 <dx:DXButton Content="Remove and reclaim storage"
+                                             SemanticProperties.Description="Remove and reclaim storage"
                                              Style="{StaticResource SecondaryButton}"
                                              Command="{Binding RemoveCommand}"
                                              IsEnabled="{Binding CanRemove}"

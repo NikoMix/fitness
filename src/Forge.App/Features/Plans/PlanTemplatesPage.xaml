@@ -20,7 +20,8 @@
                     <controls:ForgeCard Title="{Binding Name}" Subtitle="{Binding Summary}">
                         <VerticalStackLayout Spacing="{StaticResource SpaceS}">
                             <Label Text="{Binding Description}" Style="{StaticResource BodyText}" />
-                            <dx:DXButton Content="Preview week" ButtonType="Text" Command="{Binding Source={x:Reference Page}, Path=BindingContext.PreviewTemplateCommand}" CommandParameter="{Binding .}" />
+                            <dx:DXButton Content="Preview week"
+    SemanticProperties.Description="Preview week" ButtonType="Text" Command="{Binding Source={x:Reference Page}, Path=BindingContext.PreviewTemplateCommand}" CommandParameter="{Binding .}" />
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Days}" Spacing="{StaticResource SpaceXs}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate>
@@ -40,7 +41,8 @@
                     <Label Text="{Binding SelectedTemplate.Name}" Style="{StaticResource TitleText}" />
                     <Label Text="{Binding SelectedTemplate.Summary}" Style="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
-                <dx:DXButton Grid.Column="1" Content="Adopt" Style="{StaticResource PrimaryButton}" Command="{Binding AdoptTemplateCommand}" CommandParameter="{Binding SelectedTemplate}" />
+                <dx:DXButton Grid.Column="1" Content="Adopt"
+    SemanticProperties.Description="Adopt" Style="{StaticResource PrimaryButton}" Command="{Binding AdoptTemplateCommand}" CommandParameter="{Binding SelectedTemplate}" />
             </Grid>
         </dx:DXBorder>
     </Grid>

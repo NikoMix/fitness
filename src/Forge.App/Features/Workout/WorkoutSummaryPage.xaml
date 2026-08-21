@@ -45,7 +45,8 @@
                 </BindableLayout.ItemTemplate>
             </VerticalStackLayout>
 
-            <dx:DXButton Content="Done" Style="{StaticResource WorkoutActionButton}" Command="{Binding DoneCommand}" />
+            <dx:DXButton Content="Done"
+    SemanticProperties.Description="Done" Style="{StaticResource WorkoutActionButton}" Command="{Binding DoneCommand}" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

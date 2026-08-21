@@ -10,7 +10,8 @@
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
             <Label Text="Next session" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <Label Text="Deterministic, explainable and overridable coaching that stays on device." Style="{StaticResource SecondaryText}" />
-            <dx:DXButton Content="Load recommendation" Style="{StaticResource PrimaryButton}" Command="{Binding LoadRecommendationCommand}" />
+            <dx:DXButton Content="Load recommendation"
+    SemanticProperties.Description="Load recommendation" Style="{StaticResource PrimaryButton}" Command="{Binding LoadRecommendationCommand}" />
 
             <controls:ForgeCard Title="Recommendation" Subtitle="{Binding Status}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
@@ -18,7 +19,8 @@
                     <Label Text="{Binding Reps}" Style="{StaticResource TitleText}" />
                     <Label Text="{Binding Explanation}" Style="{StaticResource BodyText}" />
                     <Label Text="{Binding MedicalDisclaimer}" Style="{StaticResource CaptionText}" />
-                    <dx:DXButton Content="Override recommendation" IsVisible="{Binding IsOverrideVisible}" Style="{StaticResource SecondaryButton}" Command="{Binding OverrideCommand}" />
+                    <dx:DXButton Content="Override recommendation"
+    SemanticProperties.Description="Override recommendation" IsVisible="{Binding IsOverrideVisible}" Style="{StaticResource SecondaryButton}" Command="{Binding OverrideCommand}" />
                     <Label Text="{Binding OverrideNote}" Style="{StaticResource CaptionText}" />
                 </VerticalStackLayout>
             </controls:ForgeCard>

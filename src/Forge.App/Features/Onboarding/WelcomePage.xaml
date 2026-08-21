@@ -39,9 +39,11 @@
             </dx:DXBorder>
 
             <dx:DXButton Content="Set up my goal"
+                         SemanticProperties.Description="Set up my goal"
                          Command="{Binding StartCommand}"
                          Style="{StaticResource PrimaryButton}" />
             <dx:DXButton Content="Skip and use Forge now"
+                         SemanticProperties.Description="Skip and use Forge now"
                          Command="{Binding SkipCommand}"
                          Style="{StaticResource SecondaryButton}"
                          SemanticProperties.Hint="Opens the app without creating credentials" />

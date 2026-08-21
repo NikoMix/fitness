@@ -27,6 +27,7 @@
             </controls:ForgeCard>
 
             <dx:DXButton Content="Restore now"
+                         SemanticProperties.Description="Restore now"
                          Command="{Binding RestoreCommand}"
                          Style="{StaticResource PrimaryButton}"
                          SemanticProperties.Hint="Checks the store account for previous Forge purchases" />

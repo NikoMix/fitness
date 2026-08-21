@@ -70,11 +70,13 @@
             </controls:ForgeCard>
 
             <dx:DXButton Content="Restore purchases"
+                         SemanticProperties.Description="Restore purchases"
                          Command="{Binding RestoreCommand}"
                          Style="{StaticResource SecondaryButton}"
                          SemanticProperties.Hint="Restore purchases from the current Apple or Google account" />
 
             <dx:DXButton Content="Manage or cancel subscription"
+                         SemanticProperties.Description="Manage or cancel subscription"
                          Command="{Binding ManageSubscriptionsCommand}"
                          Style="{StaticResource TextButton}"
                          IsVisible="{Binding CanManageSubscription}" />

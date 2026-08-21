@@ -18,7 +18,8 @@
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="Forge will keep first-run progress screens purposeful: no blank axes, no fake trends, and no records from warm-up volume." Style="{StaticResource BodyText}" />
                     <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
-                    <dx:DXButton Content="Log training" Style="{StaticResource PrimaryButton}" Command="{Binding StartLoggingCommand}" />
+                    <dx:DXButton Content="Log training"
+    SemanticProperties.Description="Log training" Style="{StaticResource PrimaryButton}" Command="{Binding StartLoggingCommand}" />
                 </VerticalStackLayout>
             </controls:ForgeCard>
 
@@ -34,6 +35,7 @@
                                 </VerticalStackLayout>
                                 <dx:DXButton Grid.Column="1"
                                              Content="Open"
+                                             SemanticProperties.Description="Open"
                                              Style="{StaticResource TextButton}"
                                              Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenDestinationCommand}"
                                              CommandParameter="{Binding .}" />

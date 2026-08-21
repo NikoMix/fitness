@@ -37,6 +37,7 @@
                                     <dx:DXButton Grid.Row="2"
                                                  Grid.ColumnSpan="2"
                                                  Content="Share card"
+                                                 SemanticProperties.Description="Share card"
                                                  Style="{StaticResource SecondaryButton}"
                                                  Command="{Binding Source={x:Reference Page}, Path=BindingContext.ShareCommand}"
                                                  CommandParameter="{Binding .}" />

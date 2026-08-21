@@ -22,7 +22,8 @@
                                          Message="Create or pick a workout and Forge will show the next exercise, target sets and progress rings here."
                                          ActionText="Find training options"
                                          ActionCommand="{Binding CreatePlanCommand}" />
-                    <dx:DXButton Content="Start an open workout" Style="{StaticResource PrimaryButton}" Command="{Binding StartWorkoutCommand}" />
+                    <dx:DXButton Content="Start an open workout"
+    SemanticProperties.Description="Start an open workout" Style="{StaticResource PrimaryButton}" Command="{Binding StartWorkoutCommand}" />
                 </VerticalStackLayout>
             </controls:ForgeCard>
 
@@ -50,7 +51,8 @@
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="{Binding NextActionTitle}" Style="{StaticResource TitleText}" />
                     <Label Text="{Binding NextActionDetail}" Style="{StaticResource BodyText}" />
-                    <dx:DXButton Content="Log today's training" Style="{StaticResource WorkoutActionButton}" Command="{Binding StartWorkoutCommand}" />
+                    <dx:DXButton Content="Log today's training"
+    SemanticProperties.Description="Log today's training" Style="{StaticResource WorkoutActionButton}" Command="{Binding StartWorkoutCommand}" />
                 </VerticalStackLayout>
             </controls:ForgeCard>
 

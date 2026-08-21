@@ -47,17 +47,24 @@
                                     <Label Grid.Column="2" Text="{Binding DurationText}" Style="{StaticResource CaptionText}" />
                                 </Grid>
                                 <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="{StaticResource SpaceS}">
-                                    <dx:DXButton Content="Play / pause" Style="{StaticResource SecondaryButton}" Clicked="OnPlayPauseClicked" />
-                                    <dx:DXButton Grid.Column="1" Content="- frame" Style="{StaticResource SecondaryButton}" Clicked="OnFrameBackClicked" />
-                                    <dx:DXButton Grid.Column="2" Content="+ frame" Style="{StaticResource SecondaryButton}" Clicked="OnFrameForwardClicked" />
+                                    <dx:DXButton Content="Play / pause"
+    SemanticProperties.Description="Play / pause" Style="{StaticResource SecondaryButton}" Clicked="OnPlayPauseClicked" />
+                                    <dx:DXButton Grid.Column="1" Content="- frame"
+    SemanticProperties.Description="- frame" Style="{StaticResource SecondaryButton}" Clicked="OnFrameBackClicked" />
+                                    <dx:DXButton Grid.Column="2" Content="+ frame"
+    SemanticProperties.Description="+ frame" Style="{StaticResource SecondaryButton}" Clicked="OnFrameForwardClicked" />
                                     <dx:DXButton Grid.Column="3" Content="{Binding FullScreenButtonText}" Style="{StaticResource SecondaryButton}" Command="{Binding ToggleFullScreenCommand}" />
                                 </Grid>
                                 <HorizontalStackLayout Spacing="{StaticResource SpaceS}">
                                     <Label Text="Speed" Style="{StaticResource SecondaryText}" VerticalTextAlignment="Center" />
-                                    <dx:DXButton Content="0.5x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="0.5" />
-                                    <dx:DXButton Content="0.75x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="0.75" />
-                                    <dx:DXButton Content="1x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="1" />
-                                    <dx:DXButton Content="1.25x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="1.25" />
+                                    <dx:DXButton Content="0.5x"
+    SemanticProperties.Description="0.5x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="0.5" />
+                                    <dx:DXButton Content="0.75x"
+    SemanticProperties.Description="0.75x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="0.75" />
+                                    <dx:DXButton Content="1x"
+    SemanticProperties.Description="1x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="1" />
+                                    <dx:DXButton Content="1.25x"
+    SemanticProperties.Description="1.25x" Style="{StaticResource TextButton}" Command="{Binding SetSpeedCommand}" CommandParameter="1.25" />
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
                         </Grid>

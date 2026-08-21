@@ -17,6 +17,7 @@
                 </VerticalStackLayout>
                 <dx:DXButton Grid.Column="1"
                              Content="Settings"
+                             SemanticProperties.Description="Settings"
                              Command="{Binding OpenSettingsCommand}"
                              Style="{StaticResource TextButton}" />
             </Grid>
