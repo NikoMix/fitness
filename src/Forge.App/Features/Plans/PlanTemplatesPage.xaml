@@ -77,8 +77,15 @@
             <dx:DXBorder Grid.Column="1"
                          Style="{StaticResource DetailPane}"
                          IsVisible="{Binding Source={x:Reference Adaptive}, Path=IsSplit}">
+                <!--
+                    A second host, measuring the pane rather than the page. A template description
+                    is prose, and the pane is nearly a thousand points wide on a 13-inch display.
+                -->
+                <adaptive:AdaptiveHost x:Name="PreviewAdaptive">
                 <ScrollView>
-                    <VerticalStackLayout Spacing="{StaticResource SpaceL}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceL}"
+                                         HorizontalOptions="Center"
+                                         WidthRequest="{Binding Source={x:Reference PreviewAdaptive}, Path=ReadingWidth}">
                         <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
                             <Label Text="{Binding SelectedTemplate.Name}"
                                    Style="{StaticResource HeadlineText}"
@@ -109,6 +116,7 @@
                         </VerticalStackLayout>
                     </VerticalStackLayout>
                 </ScrollView>
+                </adaptive:AdaptiveHost>
             </dx:DXBorder>
         </Grid>
     </adaptive:AdaptiveHost>
