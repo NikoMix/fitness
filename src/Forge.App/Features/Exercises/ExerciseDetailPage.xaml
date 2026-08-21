@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Exercises.ExerciseDetailPage"
+             Title="Exercise detail"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="120" />
+            <controls:EmptyState IsVisible="{Binding HasError}"
+                                 Glyph="!"
+                                 Headline="Exercise unavailable"
+                                 Message="{Binding ErrorMessage}" />
+            <Label Text="{Binding Name}" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Muscles worked" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding Muscles}" Style="{StaticResource BodyText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Execution" Style="{StaticResource TitleText}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding ExecutionSteps}" Spacing="{StaticResource SpaceS}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate><Label Text="{Binding .}" Style="{StaticResource BodyText}" /></DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Coaching cues" Style="{StaticResource TitleText}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding CoachingCues}" Spacing="{StaticResource SpaceS}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate><Label Text="{Binding .}" Style="{StaticResource BodyText}" /></DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Common mistakes" Style="{StaticResource TitleText}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding CommonMistakes}" Spacing="{StaticResource SpaceS}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate><Label Text="{Binding .}" Style="{StaticResource BodyText}" /></DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Safety notes" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding SafetySummary}" Style="{StaticResource BodyText}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding SafetyNotes}" Spacing="{StaticResource SpaceS}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate><Label Text="{Binding .}" Style="{StaticResource BodyText}" /></DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+            <dx:DXButton Content="{Binding FavouriteText}"
+                         ButtonType="Outlined"
+                         Command="{Binding ToggleFavouriteCommand}" />
+            <dx:DXButton Content="Find alternatives"
+                         Style="{StaticResource PrimaryButton}"
+                         Command="{Binding OpenAlternativesCommand}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

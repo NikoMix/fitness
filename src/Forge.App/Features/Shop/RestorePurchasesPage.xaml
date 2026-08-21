@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Shop.RestorePurchasesPage"
+             Title="Restore purchases"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                             Spacing="{StaticResource SpaceXl}">
+            <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                <Label Text="Restore purchases"
+                       Style="{StaticResource HeadlineText}"
+                       SemanticProperties.HeadingLevel="Level1" />
+                <Label Text="Use the same Apple ID or Google account you used for the purchase. Restore never creates a Forge account or contacts a Forge backend."
+                       Style="{StaticResource BodyText}" />
+            </VerticalStackLayout>
+
+            <controls:ForgeCard Title="Restore status">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{Binding StatusMessage}"
+                           Style="{StaticResource SecondaryText}" />
+                    <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                       IsVisible="{Binding IsBusy}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <dx:DXButton Content="Restore now"
+                         Command="{Binding RestoreCommand}"
+                         Style="{StaticResource PrimaryButton}"
+                         SemanticProperties.Hint="Checks the store account for previous Forge purchases" />
+
+            <dx:DXCollectionView ItemsSource="{Binding RestoredItems}"
+                                 IsVisible="{Binding HasRestoredItems}">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <Label Text="{Binding .}"
+                                   Style="{StaticResource BodyText}" />
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+
+            <controls:ForgeCard Title="Local-only limit"
+                                Subtitle="Forge stores the restored entitlement locally. Secure storage and signing make casual edits harder, but without a server this cannot be a perfect anti-tamper system.">
+                <Label Text="For a low-price local fitness app, that trade-off protects privacy and avoids account friction."
+                       Style="{StaticResource SecondaryText}" />
+            </controls:ForgeCard>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

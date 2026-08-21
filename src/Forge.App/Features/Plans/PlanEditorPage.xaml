@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Plans.PlanEditorPage"
+             x:Name="Page"
+             Title="Plan editor"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid RowDefinitions="Auto,Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+            <Label Text="Build your plan" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <dx:TextEdit Text="{Binding Name}" PlaceholderText="Plan name" Style="{StaticResource ForgeTextEdit}" />
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceM}">
+                <dx:DXButton Content="Add day" Style="{StaticResource SecondaryButton}" Command="{Binding AddDayCommand}" />
+                <dx:DXButton Grid.Column="1" Content="Add exercise" Style="{StaticResource SecondaryButton}" Command="{Binding AddExerciseCommand}" />
+                <dx:DXButton Grid.Column="2" Content="Save" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
+            </Grid>
+        </VerticalStackLayout>
+        <dx:DXBorder Grid.Row="1" Style="{StaticResource AdvisoryCard}">
+            <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                <Label Text="{Binding EstimatedDuration}" Style="{StaticResource TitleText}" />
+                <Label Text="{Binding ImbalanceWarning}" Style="{StaticResource BodyText}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BalanceLines}" Spacing="{StaticResource SpaceXxs}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <Label Text="{Binding .}" Style="{StaticResource CaptionText}" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </dx:DXBorder>
+        <Grid Grid.Row="2">
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="112" />
+            <dx:DXCollectionView ItemsSource="{Binding Days}">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <controls:ForgeCard Title="{Binding Name}" Subtitle="{Binding Duration}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                                <dx:DXButton Content="Move up"
+                                             ButtonType="Text"
+                                             Command="{Binding Source={x:Reference Page}, Path=BindingContext.MoveDayUpCommand}"
+                                             CommandParameter="{Binding .}" />
+                                <VerticalStackLayout Spacing="{StaticResource SpaceS}" BindableLayout.ItemsSource="{Binding Exercises}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate>
+                                            <dx:DXBorder Style="{StaticResource ListRow}">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                                    <Label Text="{Binding GroupKey}" Style="{StaticResource CaptionText}" VerticalTextAlignment="Center" />
+                                                    <VerticalStackLayout Grid.Column="1" Spacing="{StaticResource SpaceXxs}">
+                                                        <Label Text="{Binding Name}" Style="{StaticResource TitleText}" />
+                                                        <Label Text="{Binding Prescription}" Style="{StaticResource SecondaryText}" />
+                                                    </VerticalStackLayout>
+                                                    <dx:DXButton Grid.Column="2"
+                                                                 Content="+ set"
+                                                                 ButtonType="Text"
+                                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.AddTargetSetCommand}"
+                                                                 CommandParameter="{Binding .}" />
+                                                </Grid>
+                                            </dx:DXBorder>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </controls:ForgeCard>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </Grid>
+    </Grid>
+</ContentPage>

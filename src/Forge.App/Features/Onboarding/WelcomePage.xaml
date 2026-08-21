@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Onboarding.WelcomePage"
+             Title="Welcome">
+    <!--
+        First-run onboarding is pushed as a route, so Shell offers a back button by default.
+        There is nowhere legitimate to go back to: dismissing this screen would drop the user
+        into the tabs with no profile, which is the state onboarding exists to resolve. Skipping
+        is still available, but as an explicit choice that records a minimal profile.
+    -->
+    <Shell.BackButtonBehavior>
+        <BackButtonBehavior IsVisible="False" IsEnabled="False" />
+    </Shell.BackButtonBehavior>
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceXl}">
+            <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                <Label Text="Forge works without an account"
+                       Style="{StaticResource DisplayText}"
+                       SemanticProperties.HeadingLevel="Level1" />
+                <Label Text="Build a useful training profile in under a minute, or skip now and start exploring. Your data stays on this device."
+                       Style="{StaticResource BodyText}" />
+            </VerticalStackLayout>
+
+            <dx:DXBorder Style="{StaticResource ElevatedCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceL}">
+                    <Label Text="No sign-up. No backend. No waiting."
+                           Style="{StaticResource TitleText}" />
+                    <Label Text="Forge stores your profile, goals and logs locally. Optional app lock can protect the device later, but credentials are not required to begin."
+                           Style="{StaticResource SecondaryText}" />
+                    <dx:RadialProgressBar Value="1"
+                                          StartAngle="-90"
+                                          SweepAngle="360"
+                                          HeightRequest="120"
+                                          SemanticProperties.Description="Ready to start" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXButton Content="Set up my goal"
+                         Command="{Binding StartCommand}"
+                         Style="{StaticResource PrimaryButton}" />
+            <dx:DXButton Content="Skip and use Forge now"
+                         Command="{Binding SkipCommand}"
+                         Style="{StaticResource SecondaryButton}"
+                         SemanticProperties.Hint="Opens the app without creating credentials" />
+           <controls:SkeletonPlaceholder IsBusy="{Binding IsBusy}"
+                                         HeightRequest="88" />
+           <controls:EmptyState IsVisible="{Binding HasError}"
+                                Headline="Local storage is still starting"
+                                Message="{Binding ErrorMessage}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

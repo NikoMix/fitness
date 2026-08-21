@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Backup.ExportDataPage"
+             Title="Export data"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Export data" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Create an open JSON archive or spreadsheet-friendly CSV zip for data portability." Style="{StaticResource SecondaryText}" />
+
+            <controls:ForgeCard Title="Format">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
+                        <CheckBox IsChecked="{Binding ExportJson}" />
+                        <Label Text="JSON archive (off = CSV zip)" Style="{StaticResource BodyText}" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <controls:ForgeCard Title="Data types">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
+                        <CheckBox IsChecked="{Binding IncludeTraining}" />
+                        <Label Text="Training" Style="{StaticResource BodyText}" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
+                        <CheckBox IsChecked="{Binding IncludeNutrition}" />
+                        <Label Text="Nutrition and hydration" Style="{StaticResource BodyText}" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
+                        <CheckBox IsChecked="{Binding IncludeProfile}" />
+                        <Label Text="Profile and body metrics" Style="{StaticResource BodyText}" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <controls:ForgeCard Title="Date range">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
+                        <CheckBox IsChecked="{Binding LimitDateRange}" />
+                        <Label Text="Limit history by date" Style="{StaticResource BodyText}" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                    <DatePicker Date="{Binding FromDate}" />
+                    <DatePicker Date="{Binding ToDate}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <ProgressBar Progress="{Binding Progress}" />
+            <Label Text="{Binding Status}" Style="{StaticResource BodyText}" />
+            <dx:DXButton Content="Export and share"
+                         Style="{StaticResource PrimaryButton}"
+                         Command="{Binding ExportCommand}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

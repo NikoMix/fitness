@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    Forge shared styles.
+
+    These are the named styles every feature is expected to use. Adding a screen-local style
+    that duplicates one of these is how a design system quietly dies, so prefer extending a
+    style here over redefining it in a page.
+
+    Colour always comes from a DevExpress Material Design 3 semantic role. Never write a hex
+    literal in a page: it will not adapt to dark mode and it will not survive a rebrand.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    xmlns:dx="http://schemas.devexpress.com/maui">
+
+    <!-- ===================== Typography ===================== -->
+
+    <Style x:Key="DisplayText" TargetType="Label">
+        <Setter Property="FontSize" Value="{StaticResource FontDisplay}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{dx:ThemeColor OnSurface}" />
+    </Style>
+
+    <Style x:Key="HeadlineText" TargetType="Label">
+        <Setter Property="FontSize" Value="{StaticResource FontHeadlineM}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{dx:ThemeColor OnSurface}" />
+    </Style>
+
+    <Style x:Key="TitleText" TargetType="Label">
+        <Setter Property="FontSize" Value="{StaticResource FontTitleM}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{dx:ThemeColor OnSurface}" />
+    </Style>
+
+    <Style x:Key="BodyText" TargetType="Label">
+        <Setter Property="FontSize" Value="{StaticResource FontBodyL}" />
+        <Setter Property="TextColor" Value="{dx:ThemeColor OnSurface}" />
+    </Style>
+
+    <!--
+        Secondary text uses OnSurfaceVariant rather than a reduced opacity on OnSurface.
+        Lowering opacity is the usual shortcut and it routinely drops body text below the
+        4.5:1 contrast floor; the variant role is generated to stay above it.
+    -->
+    <Style x:Key="SecondaryText" TargetType="Label">
+        <Setter Property="FontSize" Value="{StaticResource FontBodyM}" />
+        <Setter Property="TextColor" Value="{dx:ThemeColor OnSurfaceVariant}" />
+    </Style>
+
+    <Style x:Key="CaptionText" TargetType="Label">
+        <Setter Property="FontSize" Value="{StaticResource FontCaption}" />
+        <Setter Property="TextColor" Value="{dx:ThemeColor OnSurfaceVariant}" />
+    </Style>
+
+    <!--
+        Metric readouts. Numeric values that change in place - a rest countdown, a rep count,
+        a running total - must not reflow as digits change, so these are reserved for values
+        rendered with a fixed-width presentation and centred alignment.
+    -->
+    <Style x:Key="MetricText" TargetType="Label">
+        <Setter Property="FontSize" Value="{StaticResource FontMetric}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="HorizontalTextAlignment" Value="Center" />
+        <Setter Property="TextColor" Value="{dx:ThemeColor OnSurface}" />
+    </Style>
+
+    <Style x:Key="MetricUnitText" TargetType="Label">
+        <Setter Property="FontSize" Value="{StaticResource FontLabel}" />
+        <Setter Property="HorizontalTextAlignment" Value="Center" />
+        <Setter Property="TextColor" Value="{dx:ThemeColor OnSurfaceVariant}" />
+    </Style>
+
+    <Style x:Key="SectionHeaderText" TargetType="Label" BasedOn="{StaticResource TitleText}">
+        <Setter Property="FontSize" Value="{StaticResource FontBodyL}" />
+    </Style>
+
+    <Style x:Key="StatRowLabelText" TargetType="Label" BasedOn="{StaticResource SecondaryText}">
+        <Setter Property="VerticalTextAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="StatRowValueText" TargetType="Label" BasedOn="{StaticResource BodyText}">
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="HorizontalTextAlignment" Value="End" />
+        <Setter Property="VerticalTextAlignment" Value="Center" />
+    </Style>
+
+    <!-- ===================== Surfaces ===================== -->
+
+    <Style x:Key="Card" TargetType="dx:DXBorder">
+        <Setter Property="BackgroundColor" Value="{dx:ThemeColor SurfaceContainerLow}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusL}" />
+        <Setter Property="Padding" Value="{StaticResource CardPadding}" />
+    </Style>
+
+    <Style x:Key="ElevatedCard" TargetType="dx:DXBorder" BasedOn="{StaticResource Card}">
+        <Setter Property="BackgroundColor" Value="{dx:ThemeColor SurfaceContainerHigh}" />
+    </Style>
+
+    <!--
+        Used to draw attention to a safety message, for example an unsafe calorie target or a
+        contraindicated movement. Deliberately distinct from ordinary cards.
+    -->
+    <Style x:Key="AdvisoryCard" TargetType="dx:DXBorder" BasedOn="{StaticResource Card}">
+        <Setter Property="BackgroundColor" Value="{dx:ThemeColor ErrorContainer}" />
+    </Style>
+
+    <Style x:Key="MetricTileCard" TargetType="dx:DXBorder" BasedOn="{StaticResource Card}">
+        <Setter Property="Padding" Value="{StaticResource SpaceM}" />
+    </Style>
+
+    <Style x:Key="EmptyStateCard" TargetType="dx:DXBorder" BasedOn="{StaticResource Card}">
+        <Setter Property="Padding" Value="{StaticResource SpaceXl}" />
+    </Style>
+
+    <Style x:Key="SkeletonBlock" TargetType="dx:DXBorder">
+        <Setter Property="BackgroundColor" Value="{dx:ThemeColor SurfaceContainerLow}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetMin}" />
+    </Style>
+
+    <!-- ===================== Actions ===================== -->
+
+    <Style x:Key="PrimaryButton" TargetType="dx:DXButton">
+        <Setter Property="ButtonType" Value="Accent" />
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetMin}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+    </Style>
+
+    <!--
+        For controls used mid-set, where the user is breathing hard and may be wearing gloves.
+        The larger target is a usability requirement, not decoration.
+    -->
+    <Style x:Key="WorkoutActionButton" TargetType="dx:DXButton" BasedOn="{StaticResource PrimaryButton}">
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetPrimary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontTitleM}" />
+    </Style>
+
+    <Style x:Key="SecondaryButton" TargetType="dx:DXButton">
+        <Setter Property="ButtonType" Value="Outlined" />
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetMin}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+    </Style>
+
+    <Style x:Key="TextButton" TargetType="dx:DXButton">
+        <Setter Property="ButtonType" Value="Text" />
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetMin}" />
+    </Style>
+
+    <!-- ===================== Pages and lists ===================== -->
+
+    <Style x:Key="ForgePage" TargetType="ContentPage" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{dx:ThemeColor Surface}" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style x:Key="ListRow" TargetType="dx:DXBorder">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="Padding" Value="{StaticResource ListRowPadding}" />
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetMin}" />
+    </Style>
+
+    <Style x:Key="Divider" TargetType="BoxView">
+        <Setter Property="HeightRequest" Value="1" />
+        <Setter Property="BackgroundColor" Value="{dx:ThemeColor OutlineVariant}" />
+    </Style>
+
+    <!-- ===================== Editors ===================== -->
+
+    <Style x:Key="ForgeTextEdit" TargetType="dx:TextEdit">
+        <Setter Property="BoxMode" Value="Outlined" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetMin}" />
+    </Style>
+
+    <Style x:Key="ForgeNumericEdit" TargetType="dx:NumericEdit">
+        <Setter Property="BoxMode" Value="Outlined" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetMin}" />
+    </Style>
+
+</ResourceDictionary>

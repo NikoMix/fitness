@@ -1,0 +1,104 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      v1 targets Android and iOS only.
+
+      DevExpress .NET MAUI 26.1.4 ships implementation assemblies solely for
+      net10.0-android35.0 and net10.0-ios18.0. On Windows and Mac Catalyst the packages
+      resolve to a net10.0 stub intended for unit tests: the project compiles, and then
+      crashes at runtime inside Microsoft.UI.Xaml.dll because no handlers are registered.
+      Desktop heads are therefore deferred to v1.1 rather than built on a control suite
+      that cannot render them. See docs/adr/0002-platform-scope.md.
+    -->
+    <TargetFrameworks>net10.0-android;net10.0-ios</TargetFrameworks>
+
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Forge.App</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Compile XAML to C# at build time rather than inflating it at runtime. -->
+    <MauiXamlInflator>SourceGen</MauiXamlInflator>
+
+    <ApplicationTitle>Forge</ApplicationTitle>
+    <ApplicationId>com.nikomix.forge</ApplicationId>
+
+    <!-- Version values come from Directory.Build.props and are overridden by CI. -->
+
+    <!--
+      Android 8.0. The template default of API 21 is far below anything worth supporting
+      in 2026, and Health Connect requires a materially newer platform in any case.
+    -->
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">26.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
+
+    <!--
+      CA1711 objects to the 'Delegate' suffix, but AppDelegate is the name iOS requires for
+      the application delegate. The rule cannot be satisfied without breaking the platform
+      contract, so it is suppressed rather than worked around.
+
+      NU1608: transitive AndroidX version constraints. CommunityToolkit.Maui.MediaElement
+      (via Media3/ExoPlayer) and Plugin.InAppBilling (via Lifecycle.LiveData.Core) declare
+      upper bounds such as "< 2.9.3" on AndroidX packages, while the .NET Android SDK
+      resolves the newer AndroidX set it ships with. The packages are binary compatible; the
+      constraint metadata in the bindings is stale.
+
+      The alternative is centrally pinning roughly a dozen transitive AndroidX packages, which
+      would need revisiting on every Android SDK or binding update and would buy no real
+      safety. This suppression must sit in the unconditioned PropertyGroup because NU1608 is
+      raised by restore, before any target-framework-conditioned property applies.
+
+      Revisit if a genuine binding failure appears. That would surface at runtime as a
+      MissingMethodException or Java.Lang.NoClassDefFoundError, not as a build warning.
+    -->
+    <NoWarn>$(NoWarn);CA1711;NU1608</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- Size and startup matter against the 40 MB APK and 2.0 s cold-start budgets. -->
+    <AndroidLinkMode>SdkOnly</AndroidLinkMode>
+    <AndroidEnableProfiledAot>true</AndroidEnableProfiledAot>
+    <MtouchLink>SdkOnly</MtouchLink>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0B0E14" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0B0E14" BaseSize="128,128" />
+    <MauiImage Include="Resources\Images\*" />
+    <MauiFont Include="Resources\Fonts\*" />
+    <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup Label="MAUI">
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="CommunityToolkit.Maui" />
+    <PackageReference Include="CommunityToolkit.Maui.MediaElement" />
+    <PackageReference Include="SkiaSharp.Extended.UI.Maui" />
+  </ItemGroup>
+
+  <ItemGroup Label="Device capabilities">
+    <PackageReference Include="Plugin.LocalNotification" />
+    <PackageReference Include="Plugin.InAppBilling" />
+  </ItemGroup>
+
+  <ItemGroup Label="DevExpress">
+    <PackageReference Include="DevExpress.Maui.Core" />
+    <PackageReference Include="DevExpress.Maui.Controls" />
+    <PackageReference Include="DevExpress.Maui.CollectionView" />
+    <PackageReference Include="DevExpress.Maui.Editors" />
+    <PackageReference Include="DevExpress.Maui.Charts" />
+    <PackageReference Include="DevExpress.Maui.Gauges" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Forge.Core\Forge.Core.csproj" />
+    <ProjectReference Include="..\Forge.Domain\Forge.Domain.csproj" />
+    <ProjectReference Include="..\Forge.Infrastructure\Forge.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

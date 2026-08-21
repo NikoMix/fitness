@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    Forge design tokens.
+
+    Raw values only. Nothing here references a colour, because colour comes from the
+    DevExpress Material Design 3 theme generated from the brand seed in
+    Forge.App/Branding/ForgeBrand.cs. Screens use semantic roles such as
+    {dx:ThemeColor OnSurface} rather than literal hex, so dark mode and any future rebrand
+    are handled centrally.
+
+    Feature code must reference these tokens rather than inventing magic numbers. A screen
+    that hard-codes Padding="17" is a screen that will drift out of alignment with the rest
+    of the product the moment anything changes.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=netstandard">
+
+    <!--
+        Spacing - a 4pt base grid. Restricting layout to this scale is what makes unrelated
+        screens built by different people look like one product.
+    -->
+    <sys:Double x:Key="SpaceXxs">2</sys:Double>
+    <sys:Double x:Key="SpaceXs">4</sys:Double>
+    <sys:Double x:Key="SpaceS">8</sys:Double>
+    <sys:Double x:Key="SpaceM">12</sys:Double>
+    <sys:Double x:Key="SpaceL">16</sys:Double>
+    <sys:Double x:Key="SpaceXl">24</sys:Double>
+    <sys:Double x:Key="SpaceXxl">32</sys:Double>
+    <sys:Double x:Key="SpaceXxxl">48</sys:Double>
+
+    <Thickness x:Key="PagePadding">20,16,20,24</Thickness>
+    <Thickness x:Key="CardPadding">16</Thickness>
+    <Thickness x:Key="ListRowPadding">16,12</Thickness>
+
+    <!-- Corner radii. Pill is deliberately large so it stays fully rounded at any height. -->
+    <sys:Double x:Key="RadiusS">8</sys:Double>
+    <sys:Double x:Key="RadiusM">12</sys:Double>
+    <sys:Double x:Key="RadiusL">20</sys:Double>
+    <sys:Double x:Key="RadiusXl">28</sys:Double>
+    <sys:Double x:Key="RadiusPill">999</sys:Double>
+
+    <!--
+        Touch targets.
+
+        48 is the Android minimum and comfortably exceeds Apple's 44pt guidance, so one value
+        satisfies both. Forge is used in a gym with sweaty or gloved hands, often one-handed
+        and out of breath, so anything smaller fails in exactly the moment that matters most.
+        TouchTargetPrimary is for controls used mid-set, where a mis-tap costs a rep.
+    -->
+    <sys:Double x:Key="TouchTargetMin">48</sys:Double>
+    <sys:Double x:Key="TouchTargetPrimary">64</sys:Double>
+
+    <!--
+        Type scale. Sizes are unscaled base values; MAUI applies the OS font-scale factor on
+        top, so every layout must tolerate 200% scaling without truncation or overlap.
+    -->
+    <sys:Double x:Key="FontDisplay">34</sys:Double>
+    <sys:Double x:Key="FontHeadlineL">28</sys:Double>
+    <sys:Double x:Key="FontHeadlineM">24</sys:Double>
+    <sys:Double x:Key="FontTitleL">20</sys:Double>
+    <sys:Double x:Key="FontTitleM">17</sys:Double>
+    <sys:Double x:Key="FontBodyL">16</sys:Double>
+    <sys:Double x:Key="FontBodyM">14</sys:Double>
+    <sys:Double x:Key="FontLabel">13</sys:Double>
+    <sys:Double x:Key="FontCaption">12</sys:Double>
+
+    <!--
+        Metric display. Deliberately large: a working weight or a rest countdown must be
+        readable at arm's length, on a bench, in bright gym lighting.
+    -->
+    <sys:Double x:Key="FontMetric">40</sys:Double>
+    <sys:Double x:Key="FontMetricLarge">56</sys:Double>
+
+    <!--
+        Motion.
+
+        Durations follow Material guidance: short for small local changes, longer for
+        transitions that move a lot of pixels. Every animation must be skipped entirely when
+        the OS reports Reduce Motion, and must never block input - see E03.
+    -->
+    <sys:Int32 x:Key="MotionInstant">0</sys:Int32>
+    <sys:Int32 x:Key="MotionFast">150</sys:Int32>
+    <sys:Int32 x:Key="MotionMedium">250</sys:Int32>
+    <sys:Int32 x:Key="MotionSlow">400</sys:Int32>
+    <sys:Int32 x:Key="MotionCelebration">900</sys:Int32>
+
+    <!-- Layout breakpoints in device-independent units. -->
+    <sys:Double x:Key="BreakpointCompact">600</sys:Double>
+    <sys:Double x:Key="BreakpointMedium">840</sys:Double>
+
+    <!-- Opacity for disabled affordances, chosen to stay above a 3:1 contrast floor. -->
+    <sys:Double x:Key="OpacityDisabled">0.38</sys:Double>
+    <sys:Double x:Key="OpacityMuted">0.68</sys:Double>
+
+</ResourceDictionary>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Exercises.ExerciseAlternativesPage"
+             Title="Alternatives"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+            <Label Text="{Binding Title}" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="{Binding Subtitle}" Style="{StaticResource SecondaryText}" />
+        </VerticalStackLayout>
+        <VerticalStackLayout Grid.Row="1" IsVisible="{Binding IsLoading}" Spacing="{StaticResource SpaceM}">
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+        </VerticalStackLayout>
+        <controls:EmptyState Grid.Row="1"
+                             IsVisible="{Binding HasError}"
+                             Glyph="!"
+                             Headline="Alternatives unavailable"
+                             Message="{Binding ErrorMessage}" />
+        <controls:EmptyState Grid.Row="1"
+                             IsVisible="{Binding IsEmpty}"
+                             Headline="No alternatives found"
+                             Message="Try making more equipment available or adding a custom exercise." />
+        <dx:DXCollectionView Grid.Row="1" ItemsSource="{Binding Alternatives}" IsVisible="{Binding HasAlternatives}">
+            <dx:DXCollectionView.ItemTemplate>
+                <DataTemplate>
+                    <dx:DXBorder Style="{StaticResource ListRow}">
+                        <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                            <Label Text="{Binding Name}" Style="{StaticResource TitleText}" />
+                            <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
+                            <Label Text="{Binding RankReason}" Style="{StaticResource CaptionText}" />
+                        </VerticalStackLayout>
+                    </dx:DXBorder>
+                </DataTemplate>
+            </dx:DXCollectionView.ItemTemplate>
+        </dx:DXCollectionView>
+    </Grid>
+</ContentPage>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:dx="http://schemas.devexpress.com/maui"
+       xmlns:today="clr-namespace:Forge.App.Features.Today"
+       xmlns:train="clr-namespace:Forge.App.Features.Train"
+       xmlns:nutrition="clr-namespace:Forge.App.Features.Nutrition"
+       xmlns:progress="clr-namespace:Forge.App.Features.Progress"
+       xmlns:profile="clr-namespace:Forge.App.Features.Profile"
+       x:Class="Forge.App.Hosting.AppShell"
+       Title="Forge"
+       FlyoutBehavior="Disabled">
+
+    <!--
+        MAUI Shell provides primary navigation because it owns routing, deep linking and the
+        Android hardware back stack. DevExpress TabView is a content tab control rather than a
+        navigation host, so it is used inside pages instead of replacing the shell here.
+    -->
+    <Shell.Resources>
+        <Style TargetType="TabBar">
+            <Setter Property="Shell.TabBarBackgroundColor" Value="{dx:ThemeColor SurfaceContainer}" />
+            <Setter Property="Shell.TabBarTitleColor" Value="{dx:ThemeColor Primary}" />
+            <Setter Property="Shell.TabBarUnselectedColor" Value="{dx:ThemeColor OnSurfaceVariant}" />
+        </Style>
+    </Shell.Resources>
+
+    <TabBar>
+        <ShellContent Title="Today" Route="today"
+                      ContentTemplate="{DataTemplate today:TodayPage}" />
+        <ShellContent Title="Train" Route="train"
+                      ContentTemplate="{DataTemplate train:TrainPage}" />
+        <ShellContent Title="Nutrition" Route="nutrition"
+                      ContentTemplate="{DataTemplate nutrition:NutritionPage}" />
+        <ShellContent Title="Progress" Route="progress"
+                      ContentTemplate="{DataTemplate progress:ProgressPage}" />
+        <ShellContent Title="Profile" Route="profile"
+                      ContentTemplate="{DataTemplate profile:ProfilePage}" />
+    </TabBar>
+
+</Shell>

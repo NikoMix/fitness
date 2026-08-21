@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Nutrition.FoodLogPage"
+             x:Name="Page"
+             Title="Food log"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Search and log food" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <dx:TextEdit Text="{Binding SearchQuery}"
+                         PlaceholderText="Search foods"
+                         Style="{StaticResource ForgeTextEdit}" />
+
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="96" />
+
+            <controls:EmptyState IsVisible="{Binding HasNoLoggedFoods}"
+                                 Glyph="＋"
+                                 Headline="No food logged today"
+                                 Message="Search the local catalogue or use repeat shortcuts once you have history. Everything stays on this device." />
+ 
+            <Label Text="Recent" Style="{StaticResource SectionHeaderText}" />
+            <dx:DXCollectionView ItemsSource="{Binding RecentFoods}" HeightRequest="160">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                         <dx:DXBorder Style="{StaticResource ListRow}">
+                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                 <VerticalStackLayout>
+                                     <Label Text="{Binding Name}" Style="{StaticResource BodyText}" FontAttributes="Bold" />
+                                     <Label Text="{Binding Nutrition}" Style="{StaticResource CaptionText}" />
+                                 </VerticalStackLayout>
+                                 <dx:DXButton Grid.Column="1"
+                                              Content="Log"
+                                              Style="{StaticResource TextButton}"
+                                              Command="{Binding Source={x:Reference Page}, Path=BindingContext.LogFoodCommand}"
+                                              CommandParameter="{Binding .}" />
+                             </Grid>
+                         </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+
+            <Label Text="Search results" Style="{StaticResource SectionHeaderText}" />
+            <dx:DXCollectionView ItemsSource="{Binding SearchResults}" HeightRequest="360">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                         <dx:DXBorder Style="{StaticResource ListRow}">
+                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                 <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                     <Label Text="{Binding Name}" Style="{StaticResource BodyText}" FontAttributes="Bold" />
+                                     <Label Text="{Binding Brand}" Style="{StaticResource SecondaryText}" />
+                                     <Label Text="{Binding Nutrition}" Style="{StaticResource CaptionText}" />
+                                 </VerticalStackLayout>
+                                 <dx:DXButton Grid.Column="1"
+                                              Content="Log"
+                                              Style="{StaticResource TextButton}"
+                                              Command="{Binding Source={x:Reference Page}, Path=BindingContext.LogFoodCommand}"
+                                              CommandParameter="{Binding .}" />
+                             </Grid>
+                         </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+
+            <Label Text="Frequent shortcuts" Style="{StaticResource SectionHeaderText}" />
+            <dx:DXCollectionView ItemsSource="{Binding FrequentFoods}" HeightRequest="160">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                         <dx:DXBorder Style="{StaticResource ListRow}">
+                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                 <Label Text="{Binding Name}" Style="{StaticResource BodyText}" VerticalTextAlignment="Center" />
+                                 <dx:DXButton Grid.Column="1"
+                                              Content="Log"
+                                              Style="{StaticResource TextButton}"
+                                              Command="{Binding Source={x:Reference Page}, Path=BindingContext.LogFoodCommand}"
+                                              CommandParameter="{Binding .}" />
+                             </Grid>
+                         </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+
+            <Label Text="Logged today" Style="{StaticResource SectionHeaderText}" />
+            <dx:DXButton Content="Copy yesterday"
+                         Style="{StaticResource SecondaryButton}"
+                         Command="{Binding CopyPreviousDayCommand}" />
+            <dx:DXCollectionView ItemsSource="{Binding LoggedFoods}" HeightRequest="160">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                <Label Text="{Binding Meal}" Style="{StaticResource CaptionText}" />
+                                <Label Text="{Binding Food}" Style="{StaticResource BodyText}" FontAttributes="Bold" />
+                                <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

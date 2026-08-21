@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Plans.PlanTemplatesPage"
+             x:Name="Page"
+             Title="Programme templates"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+            <Label Text="Templates" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Choose a starting point, preview the week, then edit anything." Style="{StaticResource SecondaryText}" />
+        </VerticalStackLayout>
+        <Grid Grid.Row="1">
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="112" />
+            <dx:DXCollectionView ItemsSource="{Binding Templates}">
+            <dx:DXCollectionView.ItemTemplate>
+                <DataTemplate>
+                    <controls:ForgeCard Title="{Binding Name}" Subtitle="{Binding Summary}">
+                        <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                            <Label Text="{Binding Description}" Style="{StaticResource BodyText}" />
+                            <dx:DXButton Content="Preview week" ButtonType="Text" Command="{Binding Source={x:Reference Page}, Path=BindingContext.PreviewTemplateCommand}" CommandParameter="{Binding .}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Days}" Spacing="{StaticResource SpaceXs}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate>
+                                        <Label Text="{Binding Summary, StringFormat='• {0}'}" Style="{StaticResource CaptionText}" />
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </controls:ForgeCard>
+                </DataTemplate>
+            </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </Grid>
+        <dx:DXBorder Grid.Row="2" Style="{StaticResource ElevatedCard}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                    <Label Text="{Binding SelectedTemplate.Name}" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding SelectedTemplate.Summary}" Style="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+                <dx:DXButton Grid.Column="1" Content="Adopt" Style="{StaticResource PrimaryButton}" Command="{Binding AdoptTemplateCommand}" CommandParameter="{Binding SelectedTemplate}" />
+            </Grid>
+        </dx:DXBorder>
+    </Grid>
+</ContentPage>

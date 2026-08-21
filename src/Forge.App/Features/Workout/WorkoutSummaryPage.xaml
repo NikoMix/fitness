@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Workout.WorkoutSummaryPage"
+             Title="Workout summary"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <dx:DXBorder Style="{StaticResource ElevatedCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="✦" FontSize="{StaticResource FontMetricLarge}" HorizontalTextAlignment="Center" TextColor="{dx:ThemeColor Primary}" SemanticProperties.Description="Workout completed" />
+                    <Label Text="{Binding Title}" Style="{StaticResource HeadlineText}" HorizontalTextAlignment="Center" SemanticProperties.HeadingLevel="Level1" />
+                    <Label Text="{Binding Comparison}" Style="{StaticResource SecondaryText}" HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <controls:SectionHeader Title="Totals" />
+            <dx:DXCollectionView ItemsSource="{Binding Metrics}" HeightRequest="190">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <controls:StatRow Label="{Binding Label}" Value="{Binding Value}" />
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+
+            <controls:SectionHeader Title="Volume by muscle" />
+            <dx:DXCollectionView ItemsSource="{Binding MuscleVolume}" HeightRequest="220">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <controls:StatRow Label="{Binding Label}" Value="{Binding Value}" />
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+
+            <controls:SectionHeader Title="Records" />
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Records}" Spacing="{StaticResource SpaceS}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <Label Text="{Binding .}" Style="{StaticResource BodyText}" />
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <dx:DXButton Content="Done" Style="{StaticResource WorkoutActionButton}" Command="{Binding DoneCommand}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

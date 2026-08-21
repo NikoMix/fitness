@@ -50,7 +50,10 @@ coverage*.info
 *.aab
 *.apk
 *.ipa
-*.app
+# NOTE: do not add "*.app" here. Git on Windows matches ignore patterns case-insensitively
+# (core.ignorecase=true), so "*.app" also matches the src/Forge.App project directory and
+# silently excludes the entire app from the repository - csproj, MauiProgram and all. macOS
+# .app bundles are build output and are already covered by bin/, obj/ and artifacts/.
 *.dSYM/
 *.appx
 *.appxbundle

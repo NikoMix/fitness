@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Plans.PlanSchedulePage"
+             x:Name="Page"
+             Title="Plan schedule"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+            <Label Text="Schedule" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="{Binding Reassurance}" Style="{StaticResource SecondaryText}" />
+        </VerticalStackLayout>
+        <Grid Grid.Row="1">
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="112" />
+            <controls:EmptyState IsVisible="{Binding IsEmpty}"
+                                 Glyph="＋"
+                                 Headline="No active plan yet"
+                                 Message="Adopt a template or create a plan so Forge can build your calendar."
+                                 ActionText="Browse plans"
+                                 ActionCommand="{Binding Source={x:Reference Page}, Path=BindingContext.OpenTemplatesCommand}" />
+            <dx:DXCollectionView ItemsSource="{Binding Days}" IsVisible="{Binding HasSchedule}">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource Card}" Margin="2">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceXxs}" MinimumHeightRequest="96">
+                                <Label Text="{Binding DayName}" Style="{StaticResource CaptionText}" />
+                                <Label Text="{Binding DateText}" Style="{StaticResource TitleText}" />
+                                <Label Text="{Binding SessionTitle}" Style="{StaticResource SecondaryText}" LineBreakMode="TailTruncation" />
+                                <Label Text="Shifted" Style="{StaticResource CaptionText}" IsVisible="{Binding WasShifted}" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </Grid>
+    </Grid>
+</ContentPage>

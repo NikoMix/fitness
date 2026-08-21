@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Profile.ProfilePage"
+             Title="Profile">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                    <Label Text="Profile"
+                           Style="{StaticResource HeadlineText}"
+                           SemanticProperties.HeadingLevel="Level1" />
+                    <Label Text="Local-only profile, goals and body metrics."
+                           Style="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+                <dx:DXButton Grid.Column="1"
+                             Content="Settings"
+                             Command="{Binding OpenSettingsCommand}"
+                             Style="{StaticResource TextButton}" />
+            </Grid>
+
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}"
+                                          HeightRequest="120" />
+
+            <controls:EmptyState IsVisible="{Binding IsEmpty}"
+                                 Headline="Create your local profile"
+                                 Message="Complete onboarding to save goals, equipment and body metrics on this device." />
+
+            <dx:DXBorder Style="{StaticResource ElevatedCard}" IsVisible="{Binding HasProfile}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{Binding DisplayName}" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding TrainingSummary}" Style="{StaticResource SecondaryText}" />
+                    <dx:RadialProgressBar Value="0.6"
+                                          StartAngle="-90"
+                                          SweepAngle="360"
+                                          HeightRequest="140"
+                                          SemanticProperties.Description="Profile completion, sixty percent complete" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasProfile}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Goal" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding GoalSummary}" Style="{StaticResource BodyText}" />
+                    <Label Text="Forge keeps goal changes gradual and flags nutrition targets outside configured safety guardrails."
+                           Style="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasProfile}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Body metrics" Style="{StaticResource TitleText}" />
+                    <dx:DXCollectionView ItemsSource="{Binding BodyMetrics}" HeightRequest="220">
+                        <dx:DXCollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <dx:DXBorder Style="{StaticResource ListRow}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                        <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                                            <Label Text="{Binding Name}" Style="{StaticResource BodyText}" />
+                                            <Label Text="{Binding Detail}" Style="{StaticResource CaptionText}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1"
+                                               Text="{Binding Value}"
+                                               Style="{StaticResource BodyText}"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                </dx:DXBorder>
+                            </DataTemplate>
+                        </dx:DXCollectionView.ItemTemplate>
+                    </dx:DXCollectionView>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

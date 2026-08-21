@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    These drive the Android system chrome (status bar, task switcher entry) before any MAUI or
+    DevExpress styling is applied. Leaving the project template's purple here shows an indigo
+    status bar above Forge's ember palette on every screen, which reads as a rendering bug.
+    Keep colorPrimary in step with ForgeBrand.SeedHex.
+-->
+<resources>
+    <color name="colorPrimary">#E2571F</color>
+    <color name="colorPrimaryDark">#A94117</color>
+    <color name="colorAccent">#E2571F</color>
+</resources>

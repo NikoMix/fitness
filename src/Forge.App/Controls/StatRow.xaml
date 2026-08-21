@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Forge.App.Controls.StatRow"
+             x:Name="Root"
+             Padding="{StaticResource ListRowPadding}"
+             MinimumHeightRequest="{StaticResource TouchTargetMin}">
+    <Grid ColumnDefinitions="*,*"
+          ColumnSpacing="{StaticResource SpaceL}"
+          VerticalOptions="Center">
+        <Label x:Name="LabelText"
+               Grid.Column="0"
+               Text="{Binding Label, Source={x:Reference Root}}"
+               Style="{StaticResource StatRowLabelText}"
+               LineBreakMode="WordWrap"
+               AutomationProperties.IsInAccessibleTree="False" />
+        <Label x:Name="ValueText"
+               Grid.Column="1"
+               Text="{Binding Value, Source={x:Reference Root}}"
+               Style="{StaticResource StatRowValueText}"
+               LineBreakMode="WordWrap"
+               AutomationProperties.IsInAccessibleTree="False" />
+    </Grid>
+</ContentView>

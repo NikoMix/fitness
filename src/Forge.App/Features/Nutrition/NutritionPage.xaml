@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Nutrition.NutritionPage"
+             Title="Nutrition"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Nutrition"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="96" />
+
+            <controls:EmptyState IsVisible="{Binding HasNoNutritionData}"
+                                 Glyph="＋"
+                                 Headline="Start today’s food log"
+                                 Message="Your food, macro split and calorie budget will appear here after the first logged item."
+                                 ActionText="Log food"
+                                 ActionCommand="{Binding GoToFoodLogCommand}" />
+ 
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasNutritionData}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Today's macro split" Style="{StaticResource SectionHeaderText}" />
+                    <dx:PieChartView HeightRequest="220">
+                        <dx:PieChartView.Series>
+                            <dx:PieSeries>
+                                <dx:PieSeries.Data>
+                                    <dx:PieSeriesDataAdapter DataSource="{Binding MacroSlices}"
+                                                             LabelDataMember="Label"
+                                                             ValueDataMember="Value" />
+                                </dx:PieSeries.Data>
+                            </dx:PieSeries>
+                        </dx:PieChartView.Series>
+                    </dx:PieChartView>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource ElevatedCard}" IsVisible="{Binding HasNutritionData}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceL}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}" VerticalOptions="Center">
+                        <Label Text="Calorie budget" Style="{StaticResource SectionHeaderText}" />
+                        <Label Text="{Binding CalorieBudgetText}" Style="{StaticResource SecondaryText}" />
+                        <Label Text="Numbers can stay hidden for qualitative tracking." Style="{StaticResource CaptionText}" />
+                    </VerticalStackLayout>
+                    <dx:RadialProgressBar Grid.Column="1"
+                                          WidthRequest="120"
+                                          HeightRequest="120"
+                                          Value="{Binding CalorieProgress}"
+                                          StartAngle="-90"
+                                          SweepAngle="360" />
+                </Grid>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Safety check" Style="{StaticResource SectionHeaderText}" />
+                    <Label Text="{Binding SafetyAdvisory.Message}" Style="{StaticResource SecondaryText}" />
+                    <Label Text="{Binding SafetyAdvisory.SupportSignpost}" Style="{StaticResource CaptionText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
+                <dx:DXButton Content="Log food"
+                             Style="{StaticResource PrimaryButton}"
+                             Command="{Binding GoToFoodLogCommand}" />
+                <dx:DXButton Grid.Column="1"
+                             Content="Hydration"
+                             Style="{StaticResource SecondaryButton}"
+                             Command="{Binding GoToHydrationCommand}" />
+            </Grid>
+
+            <Label Text="Meals" Style="{StaticResource SectionHeaderText}" IsVisible="{Binding HasNutritionData}" />
+            <dx:DXCollectionView ItemsSource="{Binding MealSummaries}" HeightRequest="360" IsVisible="{Binding HasNutritionData}">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                <Label Text="{Binding Meal}" Style="{StaticResource BodyText}" FontAttributes="Bold" />
+                                <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
+                                <Label Text="{Binding Detail}" Style="{StaticResource CaptionText}" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Backup.ImportDataPage"
+             Title="Import data"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Import data" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Preview a Strong or Hevy CSV export before Forge writes anything." Style="{StaticResource SecondaryText}" />
+
+            <controls:ForgeCard Title="Preview before commit" Subtitle="Malformed files never produce partial imports.">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <dx:DXButton Content="Choose CSV export"
+                                 Style="{StaticResource PrimaryButton}"
+                                 Command="{Binding PickFileCommand}" />
+                    <Label Text="{Binding PreviewSummary}" Style="{StaticResource BodyText}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <ProgressBar Progress="{Binding Progress}" />
+            <Label Text="{Binding Status}" Style="{StaticResource BodyText}" />
+            <dx:DXButton Content="Import previewed data"
+                         Style="{StaticResource PrimaryButton}"
+                         Command="{Binding ImportCommand}"
+                         IsEnabled="{Binding CanImport}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

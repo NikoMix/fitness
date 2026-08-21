@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Plans.PlanListPage"
+             x:Name="Page"
+             Title="Plans"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+            <Label Text="Training plans" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Start from a template or keep full control over your own programming." Style="{StaticResource SecondaryText}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
+                <dx:DXButton Content="Browse templates" Style="{StaticResource PrimaryButton}" Command="{Binding OpenTemplatesCommand}" />
+                <dx:DXButton Grid.Column="1" Content="Create plan" Style="{StaticResource SecondaryButton}" Command="{Binding OpenEditorCommand}" />
+            </Grid>
+            <dx:DXButton Content="Open schedule" ButtonType="Text" Command="{Binding OpenScheduleCommand}" />
+        </VerticalStackLayout>
+        <Grid Grid.Row="1">
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="112" />
+            <controls:EmptyState IsVisible="{Binding IsEmpty}"
+                                 Glyph="＋"
+                                 Headline="Choose your first plan"
+                                 Message="Start from a template, then edit the copy so it matches your week."
+                                 ActionText="Browse templates"
+                                 ActionCommand="{Binding OpenTemplatesCommand}" />
+            <dx:DXCollectionView ItemsSource="{Binding Plans}" IsVisible="{Binding HasPlans}">
+            <dx:DXCollectionView.ItemTemplate>
+                <DataTemplate>
+                    <controls:ForgeCard Title="{Binding Name}" Subtitle="{Binding Summary}">
+                        <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                            <Label Text="{Binding Description}" Style="{StaticResource BodyText}" />
+                            <dx:DXButton Content="Make active"
+                                         ButtonType="Text"
+                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.ActivateCommand}"
+                                         CommandParameter="{Binding .}" />
+                        </VerticalStackLayout>
+                    </controls:ForgeCard>
+                </DataTemplate>
+            </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </Grid>
+    </Grid>
+</ContentPage>

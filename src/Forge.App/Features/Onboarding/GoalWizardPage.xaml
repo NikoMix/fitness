@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Onboarding.GoalWizardPage"
+             Title="Goal setup">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Set a safe starting point"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="You can change everything later. Forge uses these answers to tune training and nutrition estimates locally."
+                   Style="{StaticResource SecondaryText}" />
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="1. Goal" Style="{StaticResource TitleText}" />
+                    <dx:TextEdit Text="{Binding DisplayName}"
+                                 LabelText="Display name"
+                                 Style="{StaticResource ForgeTextEdit}" />
+                    <dx:ComboBoxEdit ItemsSource="{Binding Goals}"
+                                     SelectedItem="{Binding SelectedGoal}"
+                                     Style="{StaticResource ForgeTextEdit}" />
+                    <dx:NumericEdit Value="{Binding TargetWeightKilograms}"
+                                    LabelText="Target weight (kg)"
+                                    Style="{StaticResource ForgeNumericEdit}" />
+                    <dx:NumericEdit Value="{Binding TimeframeWeeks}"
+                                    LabelText="Timeframe (weeks)"
+                                    Style="{StaticResource ForgeNumericEdit}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="2. Body metrics" Style="{StaticResource TitleText}" />
+                    <dx:NumericEdit Value="{Binding CurrentWeightKilograms}"
+                                    LabelText="Current weight (kg)"
+                                    Style="{StaticResource ForgeNumericEdit}" />
+                    <dx:NumericEdit Value="{Binding HeightCentimetres}"
+                                    LabelText="Height (cm)"
+                                    Style="{StaticResource ForgeNumericEdit}" />
+                    <dx:NumericEdit Value="{Binding TargetDailyCalories}"
+                                    LabelText="Daily energy target (kcal)"
+                                    Style="{StaticResource ForgeNumericEdit}" />
+                    <dx:DateEdit Date="{Binding DateOfBirth}"
+                                 LabelText="Date of birth"
+                                 Style="{StaticResource ForgeTextEdit}" />
+                    <dx:ComboBoxEdit ItemsSource="{Binding SexOptions}"
+                                     SelectedItem="{Binding SelectedSex}"
+                                     Style="{StaticResource ForgeTextEdit}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding HasSafetyAdvisory}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Safety check" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding SafetyMessage}" Style="{StaticResource BodyText}" />
+                    <Label Text="{Binding SafetySignpost}" Style="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="3. Experience" Style="{StaticResource TitleText}" />
+                    <dx:ComboBoxEdit ItemsSource="{Binding ExperienceLevels}"
+                                     SelectedItem="{Binding SelectedExperience}"
+                                     Style="{StaticResource ForgeTextEdit}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="4. Equipment" Style="{StaticResource TitleText}" />
+                   <dx:CheckEdit Label="Bodyweight" IsChecked="{Binding HasBodyweight}" />
+                   <dx:CheckEdit Label="Dumbbells" IsChecked="{Binding HasDumbbells}" />
+                   <dx:CheckEdit Label="Barbell" IsChecked="{Binding HasBarbell}" />
+                   <dx:CheckEdit Label="Machines" IsChecked="{Binding HasMachines}" />
+                   <dx:CheckEdit Label="Bands" IsChecked="{Binding HasBands}" />
+                   <dx:TextEdit Text="{Binding MovementLimitations}"
+                                LabelText="Injuries or movement limits (optional)"
+                                Style="{StaticResource ForgeTextEdit}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="5. Availability" Style="{StaticResource TitleText}" />
+                    <dx:NumericEdit Value="{Binding TrainingDaysPerWeek}"
+                                    LabelText="Training days per week"
+                                    Style="{StaticResource ForgeNumericEdit}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXButton Content="Finish setup"
+                         Command="{Binding FinishCommand}"
+                         Style="{StaticResource PrimaryButton}" />
+           <controls:SkeletonPlaceholder IsBusy="{Binding IsSaving}"
+                                         HeightRequest="88" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

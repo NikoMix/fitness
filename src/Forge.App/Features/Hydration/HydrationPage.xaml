@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Hydration.HydrationPage"
+             Title="Hydration"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Hydration" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+ 
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+
+            <dx:DXBorder Style="{StaticResource ElevatedCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}" HorizontalOptions="Fill">
+                    <dx:RadialProgressBar Value="{Binding Progress}"
+                                          StartAngle="-90"
+                                          SweepAngle="360"
+                                          HeightRequest="180"
+                                          WidthRequest="180"
+                                          HorizontalOptions="Center" />
+                    <Label Text="{Binding ProgressText}" Style="{StaticResource MetricText}" />
+                    <Label Text="{Binding RemainingText}" Style="{StaticResource SecondaryText}" HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <Label Text="One-tap presets" Style="{StaticResource SectionHeaderText}" />
+            <dx:DXCollectionView ItemsSource="{Binding Presets}" HeightRequest="240">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                    <Label Text="{Binding Label}" Style="{StaticResource BodyText}" FontAttributes="Bold" />
+                                    <Label Text="{Binding Detail}" Style="{StaticResource CaptionText}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="{Binding Volume}" Style="{StaticResource SecondaryText}" VerticalTextAlignment="Center" />
+                                <dx:DXButton Grid.Column="2"
+                                             Content="Add"
+                                             Style="{StaticResource TextButton}"
+                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.AddPresetCommand}"
+                                             CommandParameter="{Binding .}" />
+                            </Grid>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+ 
+            <Label Text="Today" Style="{StaticResource SectionHeaderText}" />
+            <controls:EmptyState IsVisible="{Binding HasNoHydrationHistory}"
+                                 Glyph="＋"
+                                 Headline="No drinks logged today"
+                                 Message="Tap a preset to start the hydration ring from your saved local history." />
+            <dx:DXCollectionView ItemsSource="{Binding History}" HeightRequest="260" IsVisible="{Binding HasHydrationHistory}">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                <Label Text="{Binding Time}" Style="{StaticResource CaptionText}" VerticalTextAlignment="Center" />
+                                <Label Grid.Column="1" Text="{Binding Beverage}" Style="{StaticResource BodyText}" />
+                                <Label Grid.Column="2" Text="{Binding VolumeText}" Style="{StaticResource SecondaryText}" />
+                            </Grid>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

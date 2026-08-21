@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Backup.BackupRestorePage"
+             Title="Backup and restore"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Backup and restore" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Forge has no server copy. Keep a backup outside this device before uninstalling or changing phones." Style="{StaticResource SecondaryText}" />
+
+            <controls:ForgeCard Title="Create a restorable backup" Subtitle="A backup is verified before Forge reports success.">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <ProgressBar Progress="{Binding Progress}" />
+                    <Label Text="{Binding Status}" Style="{StaticResource BodyText}" />
+                    <dx:DXButton Content="Create backup"
+                                 Style="{StaticResource PrimaryButton}"
+                                 Command="{Binding CreateBackupCommand}" />
+                    <dx:DXButton Content="Refresh previous backups"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Command="{Binding LoadBackupsCommand}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <controls:ForgeCard Title="Restore from backup" Subtitle="Restore overwrites all local Forge data on this device.">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Forge verifies the file and asks for deliberate confirmation before replacing data. If restore fails, existing data is left unchanged." Style="{StaticResource BodyText}" />
+                    <dx:DXButton Content="Choose backup to restore"
+                                 Style="{StaticResource PrimaryButton}"
+                                 Command="{Binding PickAndRestoreCommand}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <controls:SectionHeader Title="Previous app-local backups" />
+            <CollectionView ItemsSource="{Binding Backups}">
+                <CollectionView.EmptyView>
+                    <controls:EmptyState Headline="No backups yet" Message="Create a backup and keep the exported copy somewhere safe." />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource Card}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                                <Label Text="{Binding Created}" Style="{StaticResource TitleText}" />
+                                <Label Text="{Binding Size}" Style="{StaticResource SecondaryText}" />
+                                <Label Text="{Binding RecordCounts}" Style="{StaticResource BodyText}" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
+

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Shop.ShopPage"
+             x:Name="ShopRoot"
+             Title="Forge Pro"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                             Spacing="{StaticResource SpaceXl}">
+            <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                <Label Text="Forge Pro"
+                       Style="{StaticResource DisplayText}"
+                       SemanticProperties.HeadingLevel="Level1" />
+                <Label Text="The core training loop stays free: log workouts, use the exercise library and keep your data local. Pro unlocks additive analysis and planning tools."
+                       Style="{StaticResource BodyText}" />
+            </VerticalStackLayout>
+
+            <controls:ForgeCard Title="No pressure pricing"
+                                Subtitle="No countdowns, no fake scarcity, no hard-coded prices. Your store supplies the local price and currency.">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{Binding StatusMessage}"
+                           Style="{StaticResource SecondaryText}" />
+                    <Label Text="Active Forge Pro entitlement found on this device."
+                           Style="{StaticResource BodyText}"
+                           IsVisible="{Binding HasActivePro}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <dx:DXCollectionView ItemsSource="{Binding Products}"
+                                 IsVisible="{Binding HasProducts}">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ElevatedCard}"
+                                     Margin="0,0,0,12">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                                <Grid ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="{StaticResource SpaceM}">
+                                    <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                        <Label Text="{Binding KindLabel}"
+                                               Style="{StaticResource CaptionText}" />
+                                        <Label Text="{Binding Title}"
+                                               Style="{StaticResource TitleText}" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1"
+                                           Text="{Binding LocalizedPrice}"
+                                           Style="{StaticResource TitleText}"
+                                           VerticalOptions="Center" />
+                                </Grid>
+                                <Label Text="{Binding Description}"
+                                       Style="{StaticResource SecondaryText}" />
+                                <Label Text="{Binding SubscriptionPeriod}"
+                                       Style="{StaticResource CaptionText}"
+                                       IsVisible="{Binding IsSubscription}" />
+                                <dx:DXButton Content="{Binding PurchaseLabel}"
+                                             Command="{Binding BindingContext.PurchaseCommand, Source={x:Reference ShopRoot}}"
+                                             CommandParameter="{Binding .}"
+                                             Style="{StaticResource PrimaryButton}" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+
+            <controls:ForgeCard Title="What stays free"
+                                Subtitle="Basic workout logging, core exercise browsing, nutrition logging, Health platform import and local export/backup remain usable without paying.">
+                <Label Text="Forge Pro should make the app better, not hold your training history hostage."
+                       Style="{StaticResource SecondaryText}" />
+            </controls:ForgeCard>
+
+            <dx:DXButton Content="Restore purchases"
+                         Command="{Binding RestoreCommand}"
+                         Style="{StaticResource SecondaryButton}"
+                         SemanticProperties.Hint="Restore purchases from the current Apple or Google account" />
+
+            <dx:DXButton Content="Manage or cancel subscription"
+                         Command="{Binding ManageSubscriptionsCommand}"
+                         Style="{StaticResource TextButton}"
+                         IsVisible="{Binding CanManageSubscription}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
