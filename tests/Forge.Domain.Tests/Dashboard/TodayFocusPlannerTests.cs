@@ -141,6 +141,94 @@ public sealed class TodayFocusPlannerTests
             recentActivity));
     }
 
+    [Fact]
+    public void Every_branch_produces_text_for_every_slot_the_card_renders()
+    {
+        // The Today hero card renders Headline, Message and PrimaryActionLabel unconditionally.
+        // An empty value there is not "no data", it is a blank slab that reads as a broken app, so
+        // every reachable branch is walked rather than trusting the ones the other tests cover.
+        foreach (var focus in EveryBranch())
+        {
+            focus.Headline.ShouldNotBeNullOrWhiteSpace($"{focus.Kind} headline");
+            focus.Message.ShouldNotBeNullOrWhiteSpace($"{focus.Kind} message");
+            focus.PrimaryActionLabel.ShouldNotBeNullOrWhiteSpace($"{focus.Kind} action label");
+        }
+    }
+
+    [Fact]
+    public void Every_branch_reaches_a_registered_destination()
+    {
+        EveryBranch().Select(focus => focus.Kind).Distinct().Count().ShouldBe(6);
+    }
+
+    [Fact]
+    public void The_setup_nudge_is_never_shown_without_something_to_say()
+    {
+        foreach (var focus in EveryBranch())
+        {
+            if (focus.ShowsSetupNudge)
+            {
+                focus.SetupNudge.ShouldNotBeNullOrWhiteSpace($"{focus.Kind} nudge");
+            }
+        }
+    }
+
+    [Fact]
+    public void A_focus_that_shows_an_empty_nudge_is_corrected_rather_than_rendered()
+    {
+        var focus = new TodayFocus(
+            TodayFocusKind.StartOpenWorkout,
+            "Headline",
+            "Message",
+            "Do the thing",
+            TodayFocusAction.StartWorkout,
+            ShowsSetupNudge: true,
+            SetupNudge: "   ");
+
+        focus.ShowsSetupNudge.ShouldBeFalse("a visible empty label reserves layout and looks like a fault");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void A_focus_cannot_be_built_without_a_headline_message_or_action_label(string blank)
+    {
+        Should.Throw<ArgumentException>(() => new TodayFocus(
+            TodayFocusKind.StartOpenWorkout, blank, "Message", "Label", TodayFocusAction.StartWorkout, false, ""));
+
+        Should.Throw<ArgumentException>(() => new TodayFocus(
+            TodayFocusKind.StartOpenWorkout, "Headline", blank, "Label", TodayFocusAction.StartWorkout, false, ""));
+
+        Should.Throw<ArgumentException>(() => new TodayFocus(
+            TodayFocusKind.StartOpenWorkout, "Headline", "Message", blank, TodayFocusAction.StartWorkout, false, ""));
+    }
+
+    private static IReadOnlyList<TodayFocus> EveryBranch()
+    {
+        var complete = FullProfile();
+        var completeCompletion = ProfileCompletionCalculator.Evaluate(complete, LatestMetric(complete));
+
+        var partial = FullProfile();
+        partial.ExperienceLevel = TrainingExperienceLevel.Unspecified;
+        var partialCompletion = ProfileCompletionCalculator.Evaluate(partial, LatestMetric(partial));
+
+        var skipped = ProfileCompletionCalculator.Evaluate(SkippedProfile(), null);
+        var missing = ProfileCompletionCalculator.Evaluate(null, null);
+
+        return
+        [
+            TodayFocusPlanner.Plan(new TodayFocusInputs(missing, false, 0d, 0)),
+            TodayFocusPlanner.Plan(new TodayFocusInputs(skipped, false, 0d, 0)),
+            TodayFocusPlanner.Plan(new TodayFocusInputs(completeCompletion, false, 0d, 0)),
+            TodayFocusPlanner.Plan(new TodayFocusInputs(completeCompletion, true, 0d, 4)),
+            TodayFocusPlanner.Plan(new TodayFocusInputs(completeCompletion, true, 0.4d, 4)),
+            TodayFocusPlanner.Plan(new TodayFocusInputs(completeCompletion, true, 1d, 4)),
+            TodayFocusPlanner.Plan(new TodayFocusInputs(completeCompletion, false, 0d, 9)),
+            TodayFocusPlanner.Plan(new TodayFocusInputs(partialCompletion, false, 0d, 0)),
+            TodayFocusPlanner.Plan(new TodayFocusInputs(partialCompletion, true, 0.5d, 3)),
+        ];
+    }
+
     private static UserProfile SkippedProfile() => new()
     {
         DisplayName = ProfileCompletionCalculator.PlaceholderDisplayName,

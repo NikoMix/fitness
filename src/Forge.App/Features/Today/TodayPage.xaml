@@ -42,6 +42,7 @@
                     <dx:DXButton Content="{Binding FocusActionText}"
                                  SemanticProperties.Description="{Binding FocusActionText}"
                                  Command="{Binding PrimaryActionCommand}"
+                                 IsVisible="{Binding HasFocusAction}"
                                  Style="{StaticResource WorkoutActionButton}" />
                     <Label Text="{Binding SetupNudge}"
                            Style="{StaticResource CaptionText}"
