@@ -1,0 +1,38 @@
+Forge is a training and nutrition app that runs entirely on your phone.
+
+No account. No sign-up. No cloud sync. Your workouts, meals, body metrics and goals live in an encrypted database on your device, and they stay there unless you export them yourself.
+
+TRAIN
+• Build plans from a searchable exercise library, or start from a template
+• Run a session with set-by-set logging, rest timers and a clear next-set prompt
+• Swap any movement for an alternative that suits your equipment and your injuries
+• Get a summary the moment you finish, not a spreadsheet to fill in later
+
+EAT
+• Log food, recipes and portions, and see protein, carbs, fat and calories add up
+• Build a recipe once and reuse it in one tap
+• Set a hydration target and log drinks without opening a second app
+
+SEE PROGRESS
+• Personal records and per-exercise progression over time
+• Body metric trends you can read at a glance
+• Streaks and achievements designed to reward consistency, not to punish a missed day
+• Morning check-ins and readiness that adjust what the day asks of you
+
+OWN YOUR DATA
+• Everything is stored locally in an encrypted database
+• Export a complete backup whenever you want and keep it wherever you like
+• Import it back on a new device
+• Delete everything from inside the app, in one flow, without contacting support
+
+OPTIONAL EXERCISE VIDEO
+Demonstration videos are not bundled into the download. Pick a quality tier and Google Play delivers it on demand, so the install stays small and you only keep what you actually use. Remove a pack any time to reclaim the space.
+
+HEALTH CONNECT
+Forge can read and write Health Connect data if you allow it. Permission is requested at the point of use and explained before it is asked for, and you can revoke it in Android settings at any time. Nothing read from Health Connect leaves your device.
+
+FORGE PRO
+Forge Pro is a single one-time purchase, not a subscription. It unlocks deeper planning, analysis and personalisation. Logging your training, your food and your body metrics does not require it and never will.
+
+IMPORTANT
+Forge is a fitness tracking tool, not a medical device. It does not diagnose, treat, cure or prevent any condition, and everything it suggests is general fitness information rather than medical advice. Speak to a qualified professional before starting a new training or nutrition programme, especially if you are pregnant, recovering from injury, or living with a health condition.

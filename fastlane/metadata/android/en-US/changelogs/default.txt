@@ -1,0 +1,11 @@
+Forge 1.0 - the first public release.
+
+• Training plans with set-by-set logging and rest timers
+• Exercise library with equipment-aware alternatives
+• Food, recipe, macro and hydration logging
+• Personal records, progression and body metric trends
+• Streaks, achievements and readiness check-ins
+• Encrypted on-device storage, backup export and import
+• Delete all your data from inside the app
+• Optional exercise video packs, downloaded on demand
+• Forge Pro: one purchase, no subscription

@@ -1,8 +1,16 @@
 ## .NET / Visual Studio
 bin/
 obj/
-[Dd]ebug/
-[Rr]elease/
+# NOTE: do not add bare "[Dd]ebug/" or "[Rr]elease/" here. Those patterns match ANY directory
+# with that name at any depth, so they silently excluded docs/release/ and tools/release/ -
+# the entire release runbook and release pipeline tooling - from the repository. Nothing was
+# reported: git add -A simply skipped them. Build output for those configurations already
+# lives under bin/, obj/ and artifacts/, so anchoring the patterns loses nothing. The same
+# trap is latent in "[Rr]eleases/" below; leave it unless a real docs/releases/ appears.
+[Bb]in/[Dd]ebug/
+[Bb]in/[Rr]elease/
+[Oo]bj/[Dd]ebug/
+[Oo]bj/[Rr]elease/
 x64/
 x86/
 [Aa][Rr][Mm]/

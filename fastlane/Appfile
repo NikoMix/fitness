@@ -1,0 +1,10 @@
+# Identifiers shared by fastlane commands.
+#
+# The release workflow passes --package_name and --json_key explicitly, so this file is
+# mainly for running `fastlane supply` by hand from a workstation. Nothing secret goes
+# here: the service account key is read from the SUPPLY_JSON_KEY environment variable or
+# passed on the command line.
+
+package_name("com.nikomix.forge")
+
+json_key_file(ENV["SUPPLY_JSON_KEY"]) if ENV["SUPPLY_JSON_KEY"]

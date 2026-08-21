@@ -1,0 +1,183 @@
+# Forge launch gates
+#
+# These are the things that block a release and are NOT code. They are tracked here, in the
+# repository, because the alternative - tracking them in someone's head - is how a project
+# discovers in week 20 that the 4-to-8-week paperwork was never started.
+#
+# tools/release/Invoke-ReleasePreflight.ps1 reads this file and refuses to publish to a
+# scope that a gate blocks until the gate is approved. Editing a status here is a
+# deliberate, reviewable act with an author and a date, which is the point.
+#
+# status values
+#   not-started    nobody has begun
+#   in-progress    being prepared, not yet submitted to the store
+#   submitted      submitted to the store and waiting on them
+#   approved       the store has confirmed it
+#   not-applicable justified in `notes`, and the justification is reviewed at each release
+#
+# scopes a gate can block
+#   android-internal   Play internal / closed testing tracks
+#   android-production Play open testing and production
+#   ios-testflight     TestFlight
+#   ios-appstore       App Store review and release
+
+version: 1
+
+gates:
+  - id: play-health-apps-declaration
+    name: Google Play Health Apps declaration
+    status: not-started
+    blocks:
+      - android-production
+    lead-time: 4-8 weeks, no published SLA
+    depends-on:
+      - public-privacy-policy-url
+    notes: >
+      THE LAUNCH DATE. Google requires this declaration before an app that reads Health
+      Connect data can be published to production, review has historically taken four to
+      eight weeks, and Google publishes no SLA. It cannot be compressed by working harder,
+      and it cannot start until the privacy policy is publicly hosted, so it is sequenced
+      first in docs/release/runbook.md.
+
+      Internal and closed testing tracks are deliberately NOT blocked: the whole point of
+      starting the declaration early is that engineering keeps shipping to testers while
+      Google reviews.
+    evidence: ""
+
+  - id: public-privacy-policy-url
+    name: Publicly hosted privacy policy
+    status: not-started
+    blocks:
+      - android-production
+      - ios-appstore
+    lead-time: hours once hosting is chosen
+    notes: >
+      Owned by the compliance stream, not by the release pipeline. Both stores require a
+      reachable public URL, and the hosted text must match docs/legal/privacy-policy.md and
+      the in-app policy screen. It is listed here because it is the hard dependency of the
+      Health Apps declaration, so every day it slips moves the launch date by a day.
+
+      docs/legal/privacy-policy.md still ends with a placeholder contact section. That must
+      be replaced before hosting.
+    evidence: ""
+
+  - id: store-accounts-and-identifiers
+    name: Developer accounts, bundle id and package name registered
+    status: not-started
+    blocks:
+      - android-internal
+      - android-production
+      - ios-testflight
+      - ios-appstore
+    lead-time: up to 2 weeks for account verification
+    notes: >
+      com.nikomix.forge must be reserved on both stores before the first upload. The
+      identifier is permanent; it cannot be changed after the first published release
+      without shipping a different app.
+    evidence: ""
+
+  - id: signing-material-configured
+    name: Signing secrets present in GitHub Actions
+    status: not-started
+    blocks:
+      - android-internal
+      - android-production
+      - ios-testflight
+      - ios-appstore
+    lead-time: hours
+    notes: >
+      See docs/release/signing-and-secrets.md. Play App Signing must be enrolled at the
+      first upload; the upload key is not the app signing key and losing it is recoverable,
+      whereas losing an app signing key before enrolment is not.
+    evidence: ""
+
+  - id: play-data-safety-form
+    name: Play Data safety form completed
+    status: not-started
+    blocks:
+      - android-production
+    lead-time: hours, reviewed with the release
+    notes: >
+      Must state that health and fitness data is processed on device, not sold, not shared,
+      and not used for advertising. It has to agree with the privacy policy and with what
+      the binary actually does; a mismatch is a policy violation, not a paperwork error.
+    evidence: ""
+
+  - id: apple-app-privacy-answers
+    name: App Store Connect App Privacy answers completed
+    status: not-started
+    blocks:
+      - ios-appstore
+    lead-time: hours, reviewed with the release
+    notes: >
+      The equivalent of Data safety. Health and fitness data is collected but not linked to
+      an identity and not used for tracking, because there is no backend to link it to.
+    evidence: ""
+
+  - id: age-rating-questionnaires
+    name: Age rating questionnaires answered on both stores
+    status: not-started
+    blocks:
+      - android-production
+      - ios-appstore
+    lead-time: hours
+    notes: >
+      Answers are recorded in docs/release/store-listing.md so both stores are answered
+      consistently and the reasoning survives a change of maintainer.
+    evidence: ""
+
+  - id: iap-products-created
+    name: forge.pro.lifetime created on both stores
+    status: not-started
+    blocks:
+      - android-production
+      - ios-appstore
+    lead-time: hours, plus Apple review of the product itself
+    notes: >
+      A non-consumable on Apple and a managed product on Google, per docs/store/README.md.
+      Apple reviews the in-app purchase alongside the first binary that offers it, so the
+      product and its review screenshot must exist before that submission, not after.
+    evidence: ""
+
+  - id: video-asset-packs-published
+    name: Exercise video asset packs built into the release artefacts
+    status: not-started
+    blocks:
+      - android-production
+      - ios-appstore
+    lead-time: depends on encoding the catalogue
+    notes: >
+      Play Asset Delivery packs forge_video_standard / _high / _max and iOS ODR tags
+      forge-video-standard / -high / -max. The app requests these by name at runtime, so a
+      release without them installs fine and then fails the first time a user asks for a
+      video. tools/release/Test-AndroidAssetPacks.ps1 and Test-IosOnDemandResources.ps1
+      check the built artefacts, and the production publish requires them.
+
+      Requires an MSBuild change to src/Forge.App/Forge.App.csproj that the release stream
+      does not own - see docs/release/runbook.md, "Required project changes".
+    evidence: ""
+
+  - id: store-listing-assets-uploaded
+    name: Screenshots, feature graphic and icon uploaded
+    status: not-started
+    blocks:
+      - android-production
+      - ios-appstore
+    lead-time: days, needs a device or simulator capture pass
+    notes: >
+      Specifications are in docs/release/store-listing.md. Apple requires at least one
+      6.9-inch iPhone set; Google requires a phone set plus a 1024x500 feature graphic.
+    evidence: ""
+
+  - id: review-account-and-notes
+    name: Reviewer notes and demo path prepared
+    status: not-started
+    blocks:
+      - android-production
+      - ios-appstore
+    lead-time: hours
+    notes: >
+      Forge has no accounts, so there are no reviewer credentials to supply - but that
+      itself has to be stated, along with where to find Restore purchases, Delete my data
+      and the medical disclaimer, or a reviewer will report them as missing.
+    evidence: ""
