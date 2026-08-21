@@ -11,7 +11,22 @@ param(
 
 $reports = Get-ChildItem -Path $CoverageRoot -Filter 'coverage.cobertura.xml' -Recurse
 if (-not $reports) {
-  throw "No coverlet Cobertura reports found under '$CoverageRoot'."
+  throw "No Cobertura reports found under '$CoverageRoot'."
+}
+
+# Shells disagree about how to pass an array. bash turns 'a','b' into the single token a,b,
+# while PowerShell splits it. Normalising here means the gate measures the same thing no matter
+# who invokes it - previously a mis-bound filter silently matched nothing and the script threw
+# "no coverable lines" rather than reporting real coverage.
+$filters = @(
+  $PathFilters |
+    ForEach-Object { $_ -split ',' } |
+    ForEach-Object { $_.Trim().Trim("'", '"').Trim().Replace('\', '/') } |
+    Where-Object { $_ }
+)
+
+if (-not $filters) {
+  throw 'No usable path filters were supplied.'
 }
 
 $validLines = 0
@@ -27,8 +42,8 @@ foreach ($report in $reports) {
 
     $normalized = $fileName.Replace('\', '/')
     $matchesFilter = $false
-    foreach ($filter in $PathFilters) {
-      if ($normalized.Contains($filter.Replace('\', '/'))) {
+    foreach ($filter in $filters) {
+      if ($normalized.Contains($filter)) {
         $matchesFilter = $true
         break
       }
@@ -48,7 +63,7 @@ foreach ($report in $reports) {
 }
 
 if ($validLines -eq 0) {
-  throw "No coverable lines matched filters: $($PathFilters -join ', ')."
+  throw "No coverable lines matched filters: $($filters -join ', ')."
 }
 
 $actualPercent = [Math]::Round(($coveredLines / $validLines) * 100, 2)
