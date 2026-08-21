@@ -154,6 +154,28 @@
     <PackageReference Include="Xamarin.Google.Android.Play.Asset.Delivery" />
   </ItemGroup>
 
+  <ItemGroup Label="Android Health Connect" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <PackageReference Include="Xamarin.AndroidX.Health.Connect.ConnectClient" />
+    <!--
+      Health Connect's manifest entries live beside the code that requests them rather than in
+      Platforms/Android/AndroidManifest.xml. An overlay is merged into the application manifest at
+      build time, so the permission list, the <queries> entry Health Connect needs to be visible
+      under Android 11 package filtering, and the Android 14 permissions-rationale activity-alias
+      stay in one reviewable place with the service that depends on them.
+    -->
+    <AndroidManifestOverlay Include="Platforms\Android\Health\HealthConnectManifestOverlay.xml" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <!--
+      HealthKit is entitlement-gated. Without com.apple.developer.healthkit the API still compiles
+      and still runs, the authorization sheet silently never appears, and every read returns an
+      empty array - which HealthKit also returns for a genuine refusal, so the misconfiguration is
+      invisible from inside the app. See Platforms/iOS/Entitlements.plist.
+    -->
+    <CodesignEntitlements>Platforms/iOS/Entitlements.plist</CodesignEntitlements>
+  </PropertyGroup>
+
   <ItemGroup Label="DevExpress">
     <PackageReference Include="DevExpress.Maui.Core" />
     <PackageReference Include="DevExpress.Maui.Controls" />

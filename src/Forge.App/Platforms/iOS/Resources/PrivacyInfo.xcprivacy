@@ -1,17 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This is the minimum required version of the Apple Privacy Manifest for .NET MAUI apps.
-The contents below are needed because of APIs that are used in the .NET framework and .NET MAUI SDK.
+    Forge privacy manifest.
 
-You are responsible for adding extra entries as needed for your application.
+    Apple rejects manifests that under-declare, and the required-reason API list is checked
+    automatically at submission. Equally, over-declaring is not a safe default: claiming a data
+    type Forge does not collect contradicts the App Privacy questionnaire and the privacy policy at
+    https://nikomix.github.io/fitness/privacy/, and an inconsistency between the three is itself a
+    rejection reason.
 
-More information: https://aka.ms/maui-privacy-manifest
+    The truthful position for Forge v1: no backend, no analytics SDK, no advertising SDK, no
+    identifiers leaving the device. Health data, workouts, nutrition and preferences are written to
+    an encrypted local database and never transmitted. Under Apple's definition, data that never
+    leaves the device is not "collected", so NSPrivacyCollectedDataTypes is empty - and it is
+    present-and-empty rather than absent, because an absent key reads as "not answered".
 -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!--
+        Forge does not track. There is no advertising identifier, no cross-app or cross-site
+        linkage, no data broker, and no third-party SDK that phones home. HealthKit data is
+        additionally barred by Apple from advertising use, and Forge does not use it that way.
+    -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <!--
+        Empty because nothing tracks. If any domain were ever contacted for tracking it would have
+        to be listed here, and an unlisted domain is blocked at runtime by App Tracking
+        Transparency rather than failing quietly.
+    -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!--
+        Empty because nothing is collected in Apple's sense of the word: no data is transmitted off
+        the device. Health, fitness, nutrition and body measurements are stored in the encrypted
+        local database only. If a v1.1 feature ever uploads anything - a sync service, crash
+        reporting, an account system - this array and the App Privacy questionnaire must be filled
+        in together before that feature ships.
+    -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+
     <key>NSPrivacyAccessedAPITypes</key>
     <array>
+        <!-- File timestamps: used by the .NET runtime and by Forge's backup and export files. -->
         <dict>
             <key>NSPrivacyAccessedAPIType</key>
             <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
@@ -20,6 +54,8 @@ More information: https://aka.ms/maui-privacy-manifest
                 <string>C617.1</string>
             </array>
         </dict>
+
+        <!-- System boot time: used by the .NET runtime for monotonic timing. -->
         <dict>
             <key>NSPrivacyAccessedAPIType</key>
             <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
@@ -28,6 +64,11 @@ More information: https://aka.ms/maui-privacy-manifest
                 <string>35F9.1</string>
             </array>
         </dict>
+
+        <!--
+            Disk space: used by the .NET runtime, and by Forge's storage-usage screen and video
+            pack downloads, which must not start a download that cannot fit.
+        -->
         <dict>
             <key>NSPrivacyAccessedAPIType</key>
             <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
@@ -36,8 +77,17 @@ More information: https://aka.ms/maui-privacy-manifest
                 <string>E174.1</string>
             </array>
         </dict>
+
         <!--
-            The entry below is only needed when you're using the Preferences API in your app.
+            User defaults. Required because Forge uses the MAUI Preferences API, which is
+            NSUserDefaults underneath, for settings, quiet hours, unit choices and the active
+            workout draft. CA92.1 is the correct reason: the data is accessible only to this app
+            and its containing app group, and never leaves the device.
+
+            The template ships this entry commented out. Leaving it that way while calling
+            Preferences - which Forge does in Settings, Notifications, Workout and Legal - is an
+            under-declaration that submission checks catch automatically.
+        -->
         <dict>
             <key>NSPrivacyAccessedAPIType</key>
             <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
@@ -45,7 +95,7 @@ More information: https://aka.ms/maui-privacy-manifest
             <array>
                 <string>CA92.1</string>
             </array>
-        </dict> -->
+        </dict>
     </array>
 </dict>
 </plist>
