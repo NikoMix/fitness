@@ -86,6 +86,56 @@
     <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!--
+    Optional exercise video ships OUTSIDE the app binary, as store-hosted asset packs: Play
+    Asset Delivery on Android, On-Demand Resources on iOS. Both stores host and serve them at
+    no cost, which is what lets Forge offer video while remaining entirely client-side with no
+    server to pay for. Keeping video out of the binary is also what holds the download near
+    45 MiB against an 80-120 MB budget.
+
+    The globs below match nothing today because no video has been produced yet. That is
+    deliberate: the wiring is declared so the packs build the moment media lands, and
+    tools/release/Test-AndroidAssetPacks.ps1 correctly reports all three packs missing until
+    then rather than silently passing.
+  -->
+  <ItemGroup Label="Play Asset Delivery video packs"
+             Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <AndroidAsset Include="Media\Videos\Standard\**\*"
+                  Link="%(RecursiveDir)%(Filename)%(Extension)"
+                  AssetPack="forge_video_standard"
+                  DeliveryType="OnDemand" />
+    <AndroidAsset Include="Media\Videos\High\**\*"
+                  Link="%(RecursiveDir)%(Filename)%(Extension)"
+                  AssetPack="forge_video_high"
+                  DeliveryType="OnDemand" />
+    <AndroidAsset Include="Media\Videos\Max\**\*"
+                  Link="%(RecursiveDir)%(Filename)%(Extension)"
+                  AssetPack="forge_video_max"
+                  DeliveryType="OnDemand" />
+  </ItemGroup>
+
+  <!--
+    iOS equivalent. The two empty properties are load-bearing: leaving them unset would let a
+    tier download at install time, which defeats the point of making video optional.
+  -->
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <OnDemandResourcesInitialInstallTags></OnDemandResourcesInitialInstallTags>
+    <OnDemandResourcesPrefetchOrder></OnDemandResourcesPrefetchOrder>
+  </PropertyGroup>
+
+  <ItemGroup Label="On-Demand Resources video packs"
+             Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <BundleResource Include="Media\Videos\Standard\**\*"
+                    Link="%(RecursiveDir)%(Filename)%(Extension)"
+                    ResourceTags="forge-video-standard" />
+    <BundleResource Include="Media\Videos\High\**\*"
+                    Link="%(RecursiveDir)%(Filename)%(Extension)"
+                    ResourceTags="forge-video-high" />
+    <BundleResource Include="Media\Videos\Max\**\*"
+                    Link="%(RecursiveDir)%(Filename)%(Extension)"
+                    ResourceTags="forge-video-max" />
+  </ItemGroup>
+
   <ItemGroup Label="MAUI">
     <PackageReference Include="Microsoft.Maui.Controls" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />

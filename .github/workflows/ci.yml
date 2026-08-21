@@ -166,8 +166,9 @@ jobs:
         run: dotnet publish src/Forge.App/Forge.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormats=aab -p:ApplicationVersion=${{ github.run_number }} -o artifacts/android-size
 
       # This measures the AAB, which is every ABI and density in one file - not what a device
-      # downloads. Play splits it, so the real download is roughly this minus one ABI: about
-      # 45 MiB today against an agreed 80-120 MiB budget for the installed app.
+      # downloads. Play splits it, so the real download is roughly this minus one ABI. The
+      # release stream measured a real signed bundle at 64.7 MiB, so expect roughly 45-50 MiB
+      # on device against an agreed 80-120 MB budget for the installed app.
       #
       # The headroom is deliberate and is NOT free space to spend carelessly. Exercise video is
       # excluded from the binary entirely and ships as optional store-hosted asset packs, so the
