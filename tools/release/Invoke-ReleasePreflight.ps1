@@ -281,6 +281,30 @@ if (-not $SkipMetadata) {
 }
 
 # ---------------------------------------------------------------------------------------
+# Unresolved owner placeholders
+# ---------------------------------------------------------------------------------------
+# The legal copy shown in the app is generated from docs/legal, which carries TODO(owner: ...)
+# markers for facts only the publisher can supply. Those markers are correct during development
+# and are what stops the gap being forgotten - but a reviewer reading "[TODO for the publisher:
+# registered legal entity name]" in the privacy policy is a certain rejection, and on Google Play
+# that restarts a Health Apps declaration review measured in weeks.
+$placeholderScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'ci/Test-NoOwnerPlaceholders.ps1'
+if (Test-Path $placeholderScript) {
+  $placeholderOutput = & $placeholderScript 2>&1 | Out-String
+  if ($LASTEXITCODE -eq 0) {
+    Add-Check -Area 'legal' -Item 'owner placeholders' -Passed $true -Detail 'no unresolved placeholders ship'
+  }
+  else {
+    $count = 'unknown'
+    if ($placeholderOutput -match 'Owner placeholders\s*:\s*(\d+)') {
+      $count = $Matches[1]
+    }
+
+    Add-Check -Area 'legal' -Item 'owner placeholders' -Passed $false -Detail "$count unresolved TODO(owner) marker(s) would ship; fix in docs/legal then regenerate"
+  }
+}
+
+# ---------------------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------------------
 $checkList = @($checks)

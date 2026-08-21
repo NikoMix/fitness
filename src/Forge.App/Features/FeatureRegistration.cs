@@ -11,6 +11,7 @@ using Forge.App.Features.Onboarding;
 using Forge.App.Features.Plans;
 using Forge.App.Features.Profile;
 using Forge.App.Features.Progress;
+using Forge.App.Features.Scanning;
 using Forge.App.Features.Settings;
 using Forge.App.Features.Shop;
 using Forge.App.Features.Today;
@@ -58,6 +59,7 @@ public static class FeatureRegistration
             .AddPlansFeature()
             .AddProfileFeature()
             .AddProgressFeature()
+            .AddScanningFeature()
             .AddSettingsFeature()
             .AddShopFeature()
             .AddTodayFeature()

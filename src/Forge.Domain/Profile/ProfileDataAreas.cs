@@ -1,6 +1,7 @@
 using Forge.Domain.Common;
 using Forge.Domain.Engagement;
 using Forge.Domain.Nutrition;
+using Forge.Domain.Nutrition.Barcodes;
 using Forge.Domain.Nutrition.Recipes;
 using Forge.Domain.Planning;
 using Forge.Domain.Recovery;
@@ -119,8 +120,8 @@ public static class ProfileDataAreas
             "The shipped catalogue is shared on purpose. Custom exercises, favourites and recently used are not separated, so those choices are visible to every profile."),
         new(
             "Food catalogue",
-            [typeof(FoodItem)],
-            "The shipped catalogue is shared on purpose. Foods a user adds themselves are not separated and appear for every profile."),
+            [typeof(FoodItem), typeof(FoodBarcode)],
+            "The shipped catalogue is shared on purpose. Foods a user adds themselves, and the barcodes they scan and save, are not separated and appear for every profile."),
     ];
 
     /// <summary>Every kind of data, separated areas first.</summary>
