@@ -69,6 +69,13 @@
     <AndroidLinkMode>SdkOnly</AndroidLinkMode>
     <AndroidEnableProfiledAot>true</AndroidEnableProfiledAot>
     <MtouchLink>SdkOnly</MtouchLink>
+    <!--
+      Release ships only the ABIs real devices use. The default set also packages x86 and
+      x86_64, which exist for emulators, and with profiled AOT each ABI carries its own compiled
+      images - four slices pushed the bundle to 65 MiB against a 40 MiB budget. Debug is left
+      alone so the x86_64 emulator still works for local testing.
+    -->
+    <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">android-arm64;android-arm</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
