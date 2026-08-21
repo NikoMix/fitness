@@ -29,6 +29,7 @@ public static class OnboardingFeatureRegistration
         services.AddTransient<WelcomeViewModel>();
         services.AddTransient<GoalWizardPage>();
         services.AddTransient<GoalWizardViewModel>();
+        services.AddSingleton<IOnboardingDraftStore, OnboardingDraftStore>();
         services.AddSingleton<FirstRunGate>();
         services.AddSingleton(provider =>
         {

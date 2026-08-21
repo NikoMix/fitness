@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    ActivityRing - one progress ring with a label and a detail line.
+
+    The ring sizes itself to the width it is given rather than to a fixed pixel value. That is what
+    fixes the clipped ring row on Today: a fixed-width card in a horizontal scroller cut the third
+    ring in half and truncated its caption mid-word, with no visible affordance that anything had
+    been cut off. Laid out by a wrapping FlexLayout with a percentage basis, three rings fit the
+    viewport exactly at any screen width, and a fourth wraps onto a second row instead of hiding.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Controls.ActivityRing"
+             x:Name="Root">
+    <dx:DXBorder x:Name="TileChrome"
+                 Style="{StaticResource MetricTileCard}">
+        <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+            <Grid x:Name="RingHost"
+                  HorizontalOptions="Fill"
+                  MinimumHeightRequest="{StaticResource TouchTargetPrimary}">
+                <dx:RadialProgressBar x:Name="Ring"
+                                      Value="{Binding Progress, Source={x:Reference Root}}"
+                                      StartAngle="-90"
+                                      SweepAngle="360"
+                                      HorizontalOptions="Center"
+                                      VerticalOptions="Center"
+                                      Content="{Binding ValueText, Source={x:Reference Root}}">
+                    <dx:RadialProgressBar.ContentTemplate>
+                        <DataTemplate>
+                            <Label Text="{Binding .}"
+                                   Style="{StaticResource TitleText}"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center"
+                                   LineBreakMode="NoWrap"
+                                   AutomationProperties.IsInAccessibleTree="False" />
+                        </DataTemplate>
+                    </dx:RadialProgressBar.ContentTemplate>
+                </dx:RadialProgressBar>
+            </Grid>
+            <Label x:Name="LabelText"
+                   Text="{Binding Label, Source={x:Reference Root}}"
+                   Style="{StaticResource TitleText}"
+                   HorizontalTextAlignment="Center"
+                   LineBreakMode="WordWrap"
+                   AutomationProperties.IsInAccessibleTree="False" />
+            <Label x:Name="DetailText"
+                   Text="{Binding Detail, Source={x:Reference Root}}"
+                   Style="{StaticResource CaptionText}"
+                   HorizontalTextAlignment="Center"
+                   LineBreakMode="WordWrap"
+                   AutomationProperties.IsInAccessibleTree="False" />
+        </VerticalStackLayout>
+    </dx:DXBorder>
+</ContentView>

@@ -3,41 +3,70 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
              xmlns:controls="clr-namespace:Forge.App.Controls"
+             xmlns:motion="clr-namespace:Forge.App.Motion"
              x:Class="Forge.App.Features.Profile.ProfilePage"
-             Title="Profile">
+             Title="Profile"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <!--
+        Tab root, so the Shell navigation bar is hidden and the in-page header is the only title.
+        See TodayPage for the reasoning; the rule is applied identically here.
+    -->
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
-                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
-                    <Label Text="Profile"
-                           Style="{StaticResource HeadlineText}"
-                           SemanticProperties.HeadingLevel="Level1" />
-                    <Label Text="Local-only profile, goals and body metrics."
-                           Style="{StaticResource SecondaryText}" />
-                </VerticalStackLayout>
-                <dx:DXButton Grid.Column="1"
-                             Content="Settings"
-                             SemanticProperties.Description="Settings"
-                             Command="{Binding OpenSettingsCommand}"
-                             Style="{StaticResource TextButton}" />
-            </Grid>
+            <controls:PageHeader Title="Profile"
+                                 Subtitle="Local-only profile, goals and body metrics."
+                                 ActionText="Settings"
+                                 ActionCommand="{Binding OpenSettingsCommand}" />
 
             <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}"
                                           HeightRequest="120" />
 
             <controls:EmptyState IsVisible="{Binding IsEmpty}"
                                  Headline="Create your local profile"
-                                 Message="Complete onboarding to save goals, equipment and body metrics on this device." />
+                                 Message="Setup takes about a minute and stores goals, equipment and body metrics on this device only. You can stop part-way and Forge keeps your answers."
+                                 ActionText="Start setup"
+                                 ActionCommand="{Binding EditProfileCommand}" />
 
             <dx:DXBorder Style="{StaticResource ElevatedCard}" IsVisible="{Binding HasProfile}">
+                <!--
+                    Staggered entrance, skipped entirely when Reduce Motion is on. See TodayPage.
+                -->
+                <dx:DXBorder.Behaviors>
+                    <motion:StaggeredAppearBehavior Index="0" />
+                </dx:DXBorder.Behaviors>
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="{Binding DisplayName}" Style="{StaticResource TitleText}" />
                     <Label Text="{Binding TrainingSummary}" Style="{StaticResource SecondaryText}" />
-                    <dx:RadialProgressBar Value="0.6"
-                                          StartAngle="-90"
-                                          SweepAngle="360"
-                                          HeightRequest="140"
-                                          SemanticProperties.Description="Profile completion, sixty percent complete" />
+                    <controls:ActivityRing Progress="{Binding CompletionProgress}"
+                                           Label="Profile complete"
+                                           Detail="{Binding CompletionSummary}"
+                                           HorizontalOptions="Fill" />
+                    <Label Text="{Binding CompletionDescription}" Style="{StaticResource SecondaryText}" />
+                    <dx:DXButton Content="{Binding EditActionText}"
+                                 SemanticProperties.Description="{Binding EditActionText}"
+                                 Command="{Binding EditProfileCommand}"
+                                 Style="{StaticResource PrimaryButton}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasGaps}">
+                <dx:DXBorder.Behaviors>
+                    <motion:StaggeredAppearBehavior Index="1" />
+                </dx:DXBorder.Behaviors>
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Still missing" Style="{StaticResource TitleText}" />
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding Gaps}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                                    <Label Text="{Binding Label}" Style="{StaticResource BodyText}" />
+                                    <Label Text="{Binding Reason}" Style="{StaticResource CaptionText}" />
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
             </dx:DXBorder>
 
@@ -45,16 +74,17 @@
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="Goal" Style="{StaticResource TitleText}" />
                     <Label Text="{Binding GoalSummary}" Style="{StaticResource BodyText}" />
-                    <Label Text="Forge keeps goal changes gradual and flags nutrition targets outside configured safety guardrails."
+                    <Label Text="Forge keeps goal changes gradual and explains, rather than silently adjusting, any nutrition target outside its safety guardrails."
                            Style="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
 
             <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasProfile}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="Body metrics" Style="{StaticResource TitleText}" />
-                    <dx:DXCollectionView ItemsSource="{Binding BodyMetrics}" HeightRequest="220">
-                        <dx:DXCollectionView.ItemTemplate>
+                    <Label Text="Latest measurements" Style="{StaticResource TitleText}" />
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding BodyMetrics}">
+                        <BindableLayout.ItemTemplate>
                             <DataTemplate>
                                 <dx:DXBorder Style="{StaticResource ListRow}">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
@@ -64,13 +94,41 @@
                                         </VerticalStackLayout>
                                         <Label Grid.Column="1"
                                                Text="{Binding Value}"
-                                               Style="{StaticResource BodyText}"
-                                               VerticalOptions="Center" />
+                                               Style="{StaticResource StatRowValueText}" />
                                     </Grid>
                                 </dx:DXBorder>
                             </DataTemplate>
-                        </dx:DXCollectionView.ItemTemplate>
-                    </dx:DXCollectionView>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasProfile}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Weight history" Style="{StaticResource TitleText}" />
+                    <controls:EmptyState IsVisible="{Binding HasNoWeightHistory}"
+                                         Headline="No entries yet"
+                                         Message="Weight entries appear here as you record them." />
+                    <VerticalStackLayout Spacing="{StaticResource SpaceXs}"
+                                         IsVisible="{Binding HasWeightHistory}"
+                                         BindableLayout.ItemsSource="{Binding WeightHistory}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <dx:DXBorder Style="{StaticResource ListRow}">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                        <Label Text="{Binding When}" Style="{StaticResource BodyText}" VerticalTextAlignment="Center" />
+                                        <Label Grid.Column="1" Text="{Binding Value}" Style="{StaticResource StatRowValueText}" />
+                                        <Label Grid.Column="2" Text="{Binding Change}" Style="{StaticResource CaptionText}" VerticalTextAlignment="Center" />
+                                    </Grid>
+                                </dx:DXBorder>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <dx:DXButton Content="Open weight trends"
+                                 SemanticProperties.Description="Open weight trends"
+                                 Command="{Binding OpenBodyMetricsCommand}"
+                                 Style="{StaticResource TextButton}"
+                                 HorizontalOptions="Start" />
                 </VerticalStackLayout>
             </dx:DXBorder>
         </VerticalStackLayout>
