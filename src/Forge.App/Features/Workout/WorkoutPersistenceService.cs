@@ -90,11 +90,20 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         await EnsureDatabaseReadyAsync(cancellationToken);
         await using var context = CreateContext();
 
-        var session = await context.Set<WorkoutSession>()
+        // The ordering is applied client-side deliberately. SQLite has no DateTimeOffset type -
+        // EF stores it as text with an offset suffix - so "ORDER BY" over one throws
+        // "SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY clauses"
+        // at runtime. It compiles, it passes every unit test against the in-memory provider, and
+        // it then blocks workout logging entirely on a device.
+        //
+        // Only unfinished sessions are fetched, and there is normally at most one, so materialising
+        // them to pick the newest costs nothing.
+        var unfinished = await context.Set<WorkoutSession>()
             .Include(s => s.Sets)
             .Where(s => s.CompletedUtc == null)
-            .OrderByDescending(s => s.StartedUtc)
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+
+        var session = unfinished.OrderByDescending(s => s.StartedUtc).FirstOrDefault();
 
         if (session is null)
         {
@@ -242,9 +251,17 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         await using var context = CreateContext();
 
         var sessions = context.Set<WorkoutSession>().Include(s => s.Sets).AsQueryable();
-        var session = workoutSessionId is Guid id
-            ? await sessions.SingleOrDefaultAsync(s => s.Id == id, cancellationToken)
-            : await sessions.Where(s => s.CompletedUtc != null).OrderByDescending(s => s.CompletedUtc).FirstOrDefaultAsync(cancellationToken);
+        WorkoutSession? session;
+        if (workoutSessionId is Guid id)
+        {
+            session = await sessions.SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
+        }
+        else
+        {
+            // Ordered client-side: SQLite cannot ORDER BY a DateTimeOffset. See LoadOrStartAsync.
+            var completed = await sessions.Where(s => s.CompletedUtc != null).ToListAsync(cancellationToken);
+            session = completed.OrderByDescending(s => s.CompletedUtc).FirstOrDefault();
+        }
 
         if (session is null)
         {
@@ -268,12 +285,17 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
 
         // Include is why this service talks to the context directly: the history list needs each
         // session with its sets in one round trip, which the entity repository cannot express.
-        var sessions = await context.Set<WorkoutSession>()
+        // Ordered and paged client-side: SQLite cannot ORDER BY a DateTimeOffset, so neither the
+        // sort nor the Take that depends on it can run in the database. See LoadOrStartAsync.
+        var allSessions = await context.Set<WorkoutSession>()
             .Include(s => s.Sets)
+            .ToListAsync(cancellationToken);
+
+        var sessions = allSessions
             .OrderByDescending(s => s.CompletedUtc ?? s.StartedUtc)
             .ThenByDescending(s => s.StartedUtc)
             .Take(take)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         if (sessions.Count == 0)
         {

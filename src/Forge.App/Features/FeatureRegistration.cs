@@ -2,6 +2,7 @@ using Forge.App.Features.Backup;
 using Forge.App.Features.Coaching;
 using Forge.App.Features.Engagement;
 using Forge.App.Features.Exercises;
+using Forge.App.Features.Health;
 using Forge.App.Features.Hydration;
 using Forge.App.Features.Insights;
 using Forge.App.Features.Legal;
@@ -52,6 +53,7 @@ public static class FeatureRegistration
             .AddCoachingFeature()
             .AddEngagementFeature()
             .AddExercisesFeature()
+            .AddHealthFeature()
             .AddHydrationFeature()
             .AddInsightsFeature()
             .AddLegalFeature()

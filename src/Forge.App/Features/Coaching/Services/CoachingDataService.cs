@@ -18,7 +18,10 @@ internal sealed class CoachingDataService(ForgeStartupService startup, IDataSess
     {
         await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var context = CreateContext();
-        var sets = await context.Set<SetEntry>().Where(set => !set.IsWarmUp).OrderByDescending(set => set.CompletedUtc).Take(12).ToListAsync(cancellationToken).ConfigureAwait(false);
+        // Ordered client-side: SQLite has no DateTimeOffset type, so ORDER BY over one throws at
+        // runtime even though it compiles. See WorkoutPersistenceService.LoadOrStartAsync.
+        var workingSets = await context.Set<SetEntry>().Where(set => !set.IsWarmUp).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var sets = workingSets.OrderByDescending(set => set.CompletedUtc).Take(12).ToList();
         var latest = sets.FirstOrDefault();
         if (latest is null)
         {
