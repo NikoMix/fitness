@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Workout.PlateCalculatorPage"
+             x:Name="Page"
+             Title="Plate calculator"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="What goes on the bar"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Target weight" Style="{StaticResource SecondaryText}" />
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{StaticResource SpaceS}">
+                        <dx:NumericEdit Value="{Binding TargetKilograms}"
+                                        Style="{StaticResource ForgeNumericEdit}"
+                                        PlaceholderText="kg"
+                                        SemanticProperties.Description="Target weight in kilograms" />
+                        <dx:DXButton Grid.Column="1"
+                                     Content="−"
+                                     Style="{StaticResource SecondaryButton}"
+                                     MinimumWidthRequest="{StaticResource TouchTargetPrimary}"
+                                     MinimumHeightRequest="{StaticResource TouchTargetPrimary}"
+                                     SemanticProperties.Description="Decrease target weight"
+                                     Command="{Binding DecreaseTargetCommand}" />
+                        <dx:DXButton Grid.Column="2"
+                                     Content="+"
+                                     Style="{StaticResource SecondaryButton}"
+                                     MinimumWidthRequest="{StaticResource TouchTargetPrimary}"
+                                     MinimumHeightRequest="{StaticResource TouchTargetPrimary}"
+                                     SemanticProperties.Description="Increase target weight"
+                                     Command="{Binding IncreaseTargetCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource ElevatedCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="{Binding HeadlineText}" Style="{StaticResource MetricText}" />
+                    <Label Text="{Binding BarbellText}" Style="{StaticResource MetricUnitText}" />
+                    <Label Text="{Binding PerSideText}" Style="{StaticResource SecondaryText}" HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding IsApproximate}">
+                <Label Text="{Binding AccuracyText}" Style="{StaticResource BodyText}" />
+            </dx:DXBorder>
+
+            <controls:SectionHeader Title="Load each side" />
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding PlateRows}" Spacing="{StaticResource SpaceXs}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <controls:StatRow Label="{Binding Plate}" Value="{Binding Count}" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <dx:DXButton Content="Edit my bar and plates"
+                         Style="{StaticResource SecondaryButton}"
+                         SemanticProperties.Description="Edit the bar and plates you have"
+                         SemanticProperties.Hint="Results only use equipment you say you own"
+                         Command="{Binding ToggleInventoryEditorCommand}" />
+
+            <VerticalStackLayout Spacing="{StaticResource SpaceM}" IsVisible="{Binding IsEditingInventory}">
+                <controls:SectionHeader Title="Bar" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BarbellOptions}" Spacing="{StaticResource SpaceXs}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <dx:DXBorder Style="{StaticResource ListRow}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                    <VerticalStackLayout>
+                                        <Label Text="{Binding Label}" Style="{StaticResource BodyText}" />
+                                        <Label Text="{Binding PairCountLabel}" Style="{StaticResource CaptionText}" />
+                                    </VerticalStackLayout>
+                                    <dx:DXButton Grid.Column="1"
+                                                 Content="Use"
+                                                 Style="{StaticResource TextButton}"
+                                                 SemanticProperties.Description="Use this bar"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectBarbellCommand}"
+                                                 CommandParameter="{Binding Kilograms}" />
+                                </Grid>
+                            </dx:DXBorder>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <controls:SectionHeader Title="Plate pairs" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding InventoryRows}" Spacing="{StaticResource SpaceXs}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <dx:DXBorder Style="{StaticResource ListRow}">
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{StaticResource SpaceS}">
+                                    <VerticalStackLayout>
+                                        <Label Text="{Binding Label}" Style="{StaticResource BodyText}" />
+                                        <Label Text="{Binding PairCountLabel}" Style="{StaticResource CaptionText}" />
+                                    </VerticalStackLayout>
+                                    <dx:DXButton Grid.Column="1"
+                                                 Content="−"
+                                                 Style="{StaticResource TextButton}"
+                                                 MinimumWidthRequest="{StaticResource TouchTargetMin}"
+                                                 SemanticProperties.Description="Remove one pair of this plate"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.RemovePlatePairCommand}"
+                                                 CommandParameter="{Binding Kilograms}" />
+                                    <dx:DXButton Grid.Column="2"
+                                                 Content="+"
+                                                 Style="{StaticResource TextButton}"
+                                                 MinimumWidthRequest="{StaticResource TouchTargetMin}"
+                                                 SemanticProperties.Description="Add one pair of this plate"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.AddPlatePairCommand}"
+                                                 CommandParameter="{Binding Kilograms}" />
+                                </Grid>
+                            </dx:DXBorder>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <dx:DXButton Content="Reset to a standard gym"
+                             Style="{StaticResource TextButton}"
+                             SemanticProperties.Description="Reset the plate inventory to a standard gym"
+                             Command="{Binding ResetInventoryCommand}" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

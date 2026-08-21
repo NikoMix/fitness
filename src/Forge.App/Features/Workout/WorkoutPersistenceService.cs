@@ -8,21 +8,74 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Forge.App.Features.Workout;
 
+/// <summary>Reads and writes the workout aggregate for the active-workout surfaces.</summary>
 public interface IWorkoutPersistenceService
 {
+    /// <summary>Resumes an unfinished session or starts a new one.</summary>
+    /// <param name="exerciseCatalogue">Exercises available to queue.</param>
+    /// <param name="nowUtc">Current time.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The loaded state and how it was recovered.</returns>
     Task<WorkoutLoadResult> LoadOrStartAsync(IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue, DateTimeOffset nowUtc, CancellationToken cancellationToken);
 
+    /// <summary>Saves the recoverable snapshot and any set rows it is missing.</summary>
+    /// <param name="state">The state to save.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>A task that completes once the write commits.</returns>
     Task SaveActiveStateAsync(ActiveWorkoutState state, CancellationToken cancellationToken);
 
+    /// <summary>Saves a newly logged set together with the snapshot.</summary>
+    /// <param name="completedSet">The set just logged.</param>
+    /// <param name="state">The owning state.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>A task that completes once the write commits.</returns>
     Task SaveLoggedSetAsync(CompletedWorkoutSet completedSet, ActiveWorkoutState state, CancellationToken cancellationToken);
 
+    /// <summary>Applies a correction to an already-persisted set.</summary>
+    /// <param name="completedSet">The corrected set.</param>
+    /// <param name="state">The owning state.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>A task that completes once the write commits.</returns>
+    Task UpdateLoggedSetAsync(CompletedWorkoutSet completedSet, ActiveWorkoutState state, CancellationToken cancellationToken);
+
+    /// <summary>Deletes a mistakenly logged set and re-saves the remaining ordinals.</summary>
+    /// <param name="setEntryId">The set to delete.</param>
+    /// <param name="state">The owning state, already updated in memory.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>A task that completes once the write commits.</returns>
+    Task DeleteLoggedSetAsync(Guid setEntryId, ActiveWorkoutState state, CancellationToken cancellationToken);
+
+    /// <summary>Marks the session complete.</summary>
+    /// <param name="state">The state to complete.</param>
+    /// <param name="completedUtc">When the session finished.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>A task that completes once the write commits.</returns>
     Task CompleteAsync(ActiveWorkoutState state, DateTimeOffset completedUtc, CancellationToken cancellationToken);
 
+    /// <summary>Deletes a session and its sets outright.</summary>
+    /// <param name="workoutSessionId">The session to discard.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>A task that completes once the write commits.</returns>
     Task DiscardAsync(Guid workoutSessionId, CancellationToken cancellationToken);
 
+    /// <summary>Loads the post-session summary.</summary>
+    /// <param name="workoutSessionId">The session, or <see langword="null"/> for the most recent completed one.</param>
+    /// <param name="nowUtc">Current time.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The summary, or <see langword="null"/> when there is nothing to summarise.</returns>
     Task<WorkoutSummary?> LoadSummaryAsync(Guid? workoutSessionId, DateTimeOffset nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>Loads past sessions for the history list, newest first.</summary>
+    /// <param name="take">Maximum number of sessions to return.</param>
+    /// <param name="nowUtc">Current time, used to measure sessions that never completed.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>History entries, newest first.</returns>
+    Task<IReadOnlyList<WorkoutHistoryEntry>> LoadHistoryAsync(int take, DateTimeOffset nowUtc, CancellationToken cancellationToken);
 }
 
+/// <summary>The state loaded at start-up and how it was recovered.</summary>
+/// <param name="State">The active workout state.</param>
+/// <param name="RecoveryKind">Whether the state was resumed, stale, or brand new.</param>
 public sealed record WorkoutLoadResult(ActiveWorkoutState State, WorkoutRecoveryKind RecoveryKind);
 
 internal sealed class WorkoutPersistenceService(ForgeStartupService startup, IServiceProvider services) : IWorkoutPersistenceService
@@ -99,6 +152,54 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task UpdateLoggedSetAsync(CompletedWorkoutSet completedSet, ActiveWorkoutState state, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(completedSet);
+        ArgumentNullException.ThrowIfNull(state);
+        await EnsureDatabaseReadyAsync(cancellationToken);
+        await using var context = CreateContext();
+
+        var existing = await context.Set<SetEntry>().SingleOrDefaultAsync(s => s.Id == completedSet.SetEntryId, cancellationToken);
+        if (existing is null)
+        {
+            // The correction arrived before the original insert committed, which can happen when
+            // the user fixes a typo immediately. Inserting the corrected values is the right
+            // outcome either way.
+            await context.Set<SetEntry>().AddAsync(ActiveWorkoutState.ToSetEntry(completedSet), cancellationToken);
+        }
+        else
+        {
+            existing.Load = Mass.FromKilograms(completedSet.LoadKilograms);
+            existing.Repetitions = completedSet.Repetitions;
+            existing.IsWarmUp = completedSet.IsWarmUp;
+            existing.ToFailure = completedSet.ToFailure;
+            existing.RepsInReserve = completedSet.RepsInReserve;
+        }
+
+        context.Set<ActiveWorkoutState>().Update(state);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteLoggedSetAsync(Guid setEntryId, ActiveWorkoutState state, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        await EnsureDatabaseReadyAsync(cancellationToken);
+        await using var context = CreateContext();
+
+        var existing = await context.Set<SetEntry>().SingleOrDefaultAsync(s => s.Id == setEntryId, cancellationToken);
+        if (existing is not null)
+        {
+            context.Set<SetEntry>().Remove(existing);
+        }
+
+        // The removal renumbered the surviving sets in memory, so the stored rows have to catch up
+        // or the log would show two sets numbered three.
+        await SynchroniseOrdinalsAsync(context, state, cancellationToken);
+
+        context.Set<ActiveWorkoutState>().Update(state);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task CompleteAsync(ActiveWorkoutState state, DateTimeOffset completedUtc, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -158,6 +259,35 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         return WorkoutSummaryCalculator.Calculate(session, exercises, session.CompletedUtc ?? nowUtc, previousSets);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<WorkoutHistoryEntry>> LoadHistoryAsync(int take, DateTimeOffset nowUtc, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(take);
+        await EnsureDatabaseReadyAsync(cancellationToken);
+        await using var context = CreateContext();
+
+        // Include is why this service talks to the context directly: the history list needs each
+        // session with its sets in one round trip, which the entity repository cannot express.
+        var sessions = await context.Set<WorkoutSession>()
+            .Include(s => s.Sets)
+            .OrderByDescending(s => s.CompletedUtc ?? s.StartedUtc)
+            .ThenByDescending(s => s.StartedUtc)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        if (sessions.Count == 0)
+        {
+            return [];
+        }
+
+        var exerciseIds = sessions.SelectMany(s => s.Sets).Select(s => s.ExerciseId).Distinct().ToArray();
+        var names = await context.Set<Exercise>()
+            .Where(e => exerciseIds.Contains(e.Id))
+            .ToDictionaryAsync(e => e.Id, e => e.Name, cancellationToken);
+
+        return WorkoutHistoryBuilder.Build(sessions, names, nowUtc);
+    }
+
     private async Task EnsureDatabaseReadyAsync(CancellationToken cancellationToken)
     {
         await startup.InitialiseAsync(cancellationToken);
@@ -178,6 +308,27 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
             {
                 await context.Set<SetEntry>().AddAsync(ActiveWorkoutState.ToSetEntry(completedSet), cancellationToken);
             }
+        }
+    }
+
+    private static async Task SynchroniseOrdinalsAsync(ForgeDbContext context, ActiveWorkoutState state, CancellationToken cancellationToken)
+    {
+        var stored = await context.Set<SetEntry>()
+            .Where(s => s.WorkoutSessionId == state.WorkoutSessionId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var completedSet in state.CompletedSets)
+        {
+            var match = stored.Find(s => s.Id == completedSet.SetEntryId);
+            if (match is null || match.Ordinal == completedSet.Ordinal)
+            {
+                continue;
+            }
+
+            // Ordinal is init-only on the entity because it is part of the set's identity in the
+            // log. Writing through the change tracker renumbers the row without deleting and
+            // re-inserting it, which would orphan anything already referencing the set.
+            context.Entry(match).Property(entry => entry.Ordinal).CurrentValue = completedSet.Ordinal;
         }
     }
 

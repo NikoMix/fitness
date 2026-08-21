@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Workout.WorkoutHistoryPage"
+             x:Name="Page"
+             Title="Workout history"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid RowDefinitions="Auto,Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceM}">
+        <Label Text="Every session, newest first"
+               Style="{StaticResource HeadlineText}"
+               SemanticProperties.HeadingLevel="Level1" />
+
+        <Label Grid.Row="1" Text="{Binding SummaryText}" Style="{StaticResource SecondaryText}" />
+
+        <controls:EmptyState Grid.Row="2"
+                             IsVisible="{Binding IsEmpty}"
+                             Glyph="✦"
+                             Headline="No workouts yet"
+                             Message="Finish a session and it will appear here, with volume, sets and how long it took." />
+
+        <dx:DXCollectionView Grid.Row="2"
+                             ItemsSource="{Binding Sessions}"
+                             IsVisible="{Binding HasSessions}">
+            <dx:DXCollectionView.ItemTemplate>
+                <DataTemplate>
+                    <dx:DXBorder Style="{StaticResource ListRow}"
+                                 SemanticProperties.Description="{Binding AccessibilityDescription}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                                <Label Text="{Binding Title}" Style="{StaticResource BodyText}" />
+                                <Label Text="{Binding WhenText}" Style="{StaticResource CaptionText}" />
+                                <Label Text="{Binding DetailText}" Style="{StaticResource CaptionText}" />
+                                <Label Text="{Binding ExercisesText}" Style="{StaticResource CaptionText}" />
+                            </VerticalStackLayout>
+                            <dx:DXButton Grid.Column="1"
+                                         Content="Open"
+                                         Style="{StaticResource TextButton}"
+                                         MinimumWidthRequest="{StaticResource TouchTargetPrimary}"
+                                         SemanticProperties.Description="Open this workout summary"
+                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenSummaryCommand}"
+                                         CommandParameter="{Binding .}" />
+                        </Grid>
+                    </dx:DXBorder>
+                </DataTemplate>
+            </dx:DXCollectionView.ItemTemplate>
+        </dx:DXCollectionView>
+    </Grid>
+</ContentPage>

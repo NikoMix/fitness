@@ -20,6 +20,38 @@
                                  Command="{Binding OpenExerciseLibraryCommand}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource ElevatedCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Train now" Style="{StaticResource TitleText}" />
+                    <Label Text="Start logging straight away. Forge keeps the session recoverable, so an interrupted workout is never lost." Style="{StaticResource BodyText}" />
+                    <dx:DXButton Content="Start workout"
+                                 Style="{StaticResource WorkoutActionButton}"
+                                 SemanticProperties.Description="Start a workout"
+                                 SemanticProperties.Hint="Opens the active workout screen"
+                                 Command="{Binding StartWorkoutCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource ElevatedCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Workout history" Style="{StaticResource TitleText}" />
+                    <Label Text="Every past session, newest first, with volume, working sets and how long it took." Style="{StaticResource BodyText}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceS}">
+                        <dx:DXButton Content="View history"
+                                     Style="{StaticResource SecondaryButton}"
+                                     SemanticProperties.Description="View workout history"
+                                     SemanticProperties.Hint="Opens past sessions, newest first"
+                                     Command="{Binding OpenWorkoutHistoryCommand}" />
+                        <dx:DXButton Grid.Column="1"
+                                     Content="Plate calculator"
+                                     Style="{StaticResource SecondaryButton}"
+                                     SemanticProperties.Description="Open the plate calculator"
+                                     SemanticProperties.Hint="Works out which plates to load for a target weight"
+                                     Command="{Binding OpenPlateCalculatorCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </dx:DXBorder>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

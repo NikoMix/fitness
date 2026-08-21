@@ -72,6 +72,78 @@ public sealed class PlateCalculatorTests
         result.PlatesPerSide.Select(p => p.Kilograms).ShouldBe([20m, 20m, 10m]);
     }
 
+    [Fact]
+    public void Target_equal_to_the_bar_needs_no_plates_and_is_exact()
+    {
+        var result = PlateCalculator.Calculate(Mass.FromKilograms(20m), PlateCalculator.StandardBarbell, StandardPlates());
+
+        result.IsExact.ShouldBeTrue();
+        result.PlatesPerSide.ShouldBeEmpty();
+        result.AchievableLoad.Kilograms.ShouldBe(20m);
+        result.Difference.Kilograms.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void An_empty_plate_rack_reports_the_bar_and_how_far_short_it_falls()
+    {
+        var result = PlateCalculator.Calculate(Mass.FromKilograms(100m), PlateCalculator.StandardBarbell, []);
+
+        result.IsExact.ShouldBeFalse();
+        result.AchievableLoad.Kilograms.ShouldBe(20m);
+        result.Difference.Kilograms.ShouldBe(80m);
+        result.IsLighterThanTarget.ShouldBeTrue();
+        result.IsHeavierThanTarget.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Plates_with_no_pairs_left_are_ignored_rather_than_promised()
+    {
+        var result = PlateCalculator.Calculate(
+            Mass.FromKilograms(70m),
+            PlateCalculator.StandardBarbell,
+            [new AvailablePlate(Mass.FromKilograms(25m), 0), new AvailablePlate(Mass.FromKilograms(20m), 2)]);
+
+        result.PlatesPerSide.ShouldNotContain(Mass.FromKilograms(25m));
+        result.AchievableLoad.Kilograms.ShouldBe(60m);
+        result.IsLighterThanTarget.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void An_unreachable_target_reports_the_direction_of_the_miss()
+    {
+        var overshoot = PlateCalculator.Calculate(
+            Mass.FromKilograms(24m),
+            PlateCalculator.StandardBarbell,
+            [new AvailablePlate(Mass.FromKilograms(2.5m), 1)]);
+
+        overshoot.IsExact.ShouldBeFalse();
+        overshoot.AchievableLoad.Kilograms.ShouldBe(25m);
+        overshoot.IsHeavierThanTarget.ShouldBeTrue();
+        overshoot.Difference.Kilograms.ShouldBe(1m);
+    }
+
+    [Fact]
+    public void The_ez_curl_bar_is_a_supported_starting_weight()
+    {
+        var result = PlateCalculator.Calculate(Mass.FromKilograms(30m), PlateCalculator.EzCurlBar, StandardPlates());
+
+        result.IsExact.ShouldBeTrue();
+        result.BarbellWeight.Kilograms.ShouldBe(10m);
+        result.PerSideLoad.Kilograms.ShouldBe(10m);
+        result.PlateCountPerSide.ShouldBe(1);
+    }
+
+    [Fact]
+    public void A_bar_heavier_than_the_target_still_reports_what_will_be_on_it()
+    {
+        var result = PlateCalculator.Calculate(Mass.FromKilograms(5m), PlateCalculator.StandardBarbell, StandardPlates());
+
+        result.PlatesPerSide.ShouldBeEmpty();
+        result.AchievableLoad.Kilograms.ShouldBe(20m);
+        result.IsHeavierThanTarget.ShouldBeTrue();
+        result.Difference.Kilograms.ShouldBe(15m);
+    }
+
     private static IEnumerable<AvailablePlate> StandardPlates()
     {
         yield return new AvailablePlate(Mass.FromKilograms(20m), 4);

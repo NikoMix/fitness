@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Forge.App.Navigation;
 using Forge.Domain.Measurement;
 using Forge.Domain.Training;
 using Forge.Domain.Workout;
@@ -8,32 +10,82 @@ using Forge.Infrastructure.Content;
 
 namespace Forge.App.Features.Workout;
 
+/// <summary>
+/// The screen the user actually looks at mid-set.
+/// </summary>
+/// <remarks>
+/// Everything here is shaped by the moment it is used in: out of breath, one-handed, phone held
+/// at arm's length. Actions commit immediately rather than at the end of the session, mistakes
+/// are correctable without leaving the screen, and no state is inferred that could be wrong.
+/// </remarks>
 public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 {
     private readonly IWorkoutClock clock;
-    private readonly IWorkoutPersistenceService persistence;
-    private readonly IRestNotificationScheduler restNotifications;
+    private readonly IActiveWorkoutSession session;
+    private readonly IExerciseRestPreferences restPreferences;
+    private readonly IPlateInventoryStore plateInventory;
+    private readonly IRepCountingService repCounting;
     private readonly IReadOnlyList<Exercise> catalogue = SeedCatalogue.Exercises;
-    private readonly object persistenceGate = new();
-    private Task persistenceTail = Task.CompletedTask;
+    private readonly HashSet<Guid> supersetSelection = [];
     private Task? initializationTask;
-    private ActiveWorkoutState? state;
     private RestTimer? completedRestAnnouncement;
 
-    public ActiveWorkoutPageViewModel(IWorkoutClock clock, IWorkoutPersistenceService persistence, IRestNotificationScheduler restNotifications)
+    /// <summary>Creates the active workout view model.</summary>
+    /// <param name="clock">Workout clock.</param>
+    /// <param name="session">Shared owner of the workout in progress.</param>
+    /// <param name="restPreferences">Per-exercise rest settings.</param>
+    /// <param name="plateInventory">The user's bar and plates.</param>
+    /// <param name="repCounting">Optional accelerometer rep counting.</param>
+    public ActiveWorkoutPageViewModel(
+        IWorkoutClock clock,
+        IActiveWorkoutSession session,
+        IExerciseRestPreferences restPreferences,
+        IPlateInventoryStore plateInventory,
+        IRepCountingService repCounting)
     {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(repCounting);
+
         this.clock = clock;
-        this.persistence = persistence;
-        this.restNotifications = restNotifications;
+        this.session = session;
+        this.restPreferences = restPreferences;
+        this.plateInventory = plateInventory;
+        this.repCounting = repCounting;
+
         CurrentExerciseName = "Preparing workout";
     }
 
+    /// <summary>Raised when something happened that a screen reader should announce.</summary>
     public event EventHandler<string>? LiveAnnouncementRequested;
 
+    /// <summary>
+    /// Subscribes to the shared services while the screen is visible.
+    /// </summary>
+    /// <remarks>
+    /// The session and the rep counter are singletons while this view model is per-navigation, so
+    /// subscribing in the constructor would keep every view model the user ever opened alive for
+    /// the life of the app. Attaching and detaching with the screen keeps exactly one listener.
+    /// </remarks>
+    public void Attach()
+    {
+        session.PersistenceFailed += OnPersistenceFailed;
+        repCounting.SuggestionChanged += OnRepSuggestionChanged;
+    }
+
+    /// <summary>Unsubscribes from the shared services when the screen goes away.</summary>
+    public void Detach()
+    {
+        session.PersistenceFailed -= OnPersistenceFailed;
+        repCounting.SuggestionChanged -= OnRepSuggestionChanged;
+    }
+
+    /// <summary>Sets logged so far, oldest first.</summary>
     public ObservableCollection<WorkoutSetRow> SetRows { get; } = [];
 
+    /// <summary>Exercises available to swap to, group, or add.</summary>
     public ObservableCollection<WorkoutExerciseRow> ExerciseRows { get; } = [];
 
+    /// <summary>Plates to load per side for the current weight.</summary>
     public ObservableCollection<PlateRow> PlateRows { get; } = [];
 
     [ObservableProperty]
@@ -70,6 +122,12 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
     private bool isResting;
 
     [ObservableProperty]
+    private string restReasonText = string.Empty;
+
+    [ObservableProperty]
+    private string restSettingText = string.Empty;
+
+    [ObservableProperty]
     private bool hasRecoverableSession;
 
     [ObservableProperty]
@@ -87,21 +145,125 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
     [ObservableProperty]
     private bool isBusy;
 
+    [ObservableProperty]
+    private bool isInSuperset;
+
+    [ObservableProperty]
+    private string supersetLabel = string.Empty;
+
+    [ObservableProperty]
+    private int supersetSelectionCount;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasEditableSets))]
+    private bool isEditingSet;
+
+    [ObservableProperty]
+    private string editingSetTitle = string.Empty;
+
+    [ObservableProperty]
+    private decimal editWeightKilograms;
+
+    [ObservableProperty]
+    private int editRepetitions;
+
+    [ObservableProperty]
+    private int? editRepsInReserve;
+
+    [ObservableProperty]
+    private bool editIsWarmUp;
+
+    [ObservableProperty]
+    private bool editToFailure;
+
+    [ObservableProperty]
+    private bool isRepCountingEnabled;
+
+    [ObservableProperty]
+    private bool isRepCountingAvailable;
+
+    [ObservableProperty]
+    private string repCountText = "—";
+
+    [ObservableProperty]
+    private string repCountExplanation = "Rep counting is off. Turn it on to let Forge watch the movement.";
+
+    [ObservableProperty]
+    private string repCountConfidenceText = string.Empty;
+
+    [ObservableProperty]
+    private double repCountConfidence;
+
+    [ObservableProperty]
+    private bool canApplyRepCount;
+
+    [ObservableProperty]
+    private bool isRepCountUncertain;
+
+    /// <summary>Whether at least one set exists to correct or undo.</summary>
+    public bool HasEditableSets => SetRows.Count > 0;
+
+    /// <summary>Loads or resumes the workout. Safe to call more than once.</summary>
+    /// <param name="cancellationToken">Cancels the load.</param>
+    /// <returns>A task that completes once the screen is ready.</returns>
     public Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         initializationTask ??= InitializeCoreAsync(cancellationToken);
         return initializationTask;
     }
 
+    /// <summary>Flushes pending writes before the screen goes away.</summary>
+    /// <param name="cancellationToken">Cancels the flush.</param>
+    /// <returns>A task that completes once everything is committed.</returns>
     public async Task PrepareToNavigateAwayAsync(CancellationToken cancellationToken = default)
     {
-        await EnsureInitializedAsync(cancellationToken);
-        await FlushPersistenceAsync(cancellationToken);
+        await InitializeAsync(cancellationToken);
+        await session.FlushAsync(cancellationToken);
     }
 
+    /// <summary>Stops the accelerometer when the screen is not visible.</summary>
+    /// <returns>A task that completes once counting has stopped.</returns>
+    public async Task SuspendSensorsAsync()
+    {
+        if (repCounting.IsRunning)
+        {
+            await repCounting.StopAsync();
+        }
+    }
+
+    /// <summary>
+    /// Restarts rep counting if the user had it on before leaving the screen.
+    /// </summary>
+    /// <remarks>
+    /// Counting is stopped whenever the screen is hidden so it cannot drain the battery from the
+    /// rest timer or the plate calculator, but silently leaving it off on return would be a
+    /// setting that quietly stops working.
+    /// </remarks>
+    /// <returns>A task that completes once counting is running again.</returns>
+    public async Task ResumeSensorsAsync()
+    {
+        IsRepCountingAvailable = repCounting.IsAvailable;
+
+        if (IsRepCountingEnabled && !repCounting.IsRunning)
+        {
+            await repCounting.StartAsync();
+            IsRepCountingEnabled = repCounting.IsRunning;
+        }
+
+        ApplyRepSuggestion(repCounting.Current);
+    }
+
+    /// <summary>
+    /// Recomputes rest and elapsed time from the wall clock.
+    /// </summary>
+    /// <remarks>
+    /// Called on a one-second tick and again on every resume. A decrementing counter would drift
+    /// or freeze whenever the OS suspended the app, so the displayed value is always derived from
+    /// the timer's absolute end time instead.
+    /// </remarks>
     public void ReconcileRest()
     {
-        if (state is null)
+        if (session.State is not { } state)
         {
             return;
         }
@@ -113,6 +275,7 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
         {
             IsResting = false;
             RestRemainingText = "Ready";
+            RestReasonText = string.Empty;
             RestProgress = 0d;
             return;
         }
@@ -121,26 +284,26 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
         IsResting = remaining > TimeSpan.Zero;
         RestProgress = timer.Progress(now);
         RestRemainingText = remaining > TimeSpan.Zero ? FormatRest(remaining) : "Rest complete";
+        RestReasonText = DescribeRestReason(session.RestReason);
 
         if (remaining == TimeSpan.Zero && !ReferenceEquals(completedRestAnnouncement, timer))
         {
             completedRestAnnouncement = timer;
-            LiveAnnouncementRequested?.Invoke(this, "Rest complete. Your next set is ready.");
+            Announce("Rest complete. Your next set is ready.");
         }
     }
 
     [RelayCommand]
     private async Task LogSetAsync(CancellationToken cancellationToken)
     {
-        await EnsureInitializedAsync(cancellationToken);
-        if (!CanEditWorkout)
+        await InitializeAsync(cancellationToken);
+        if (!CanEditWorkout || session.State is not { } state)
         {
             return;
         }
 
-        var active = state!;
-        var exercise = CurrentExercise();
-        var completed = active.LogSet(
+        var exercise = CurrentCatalogueExercise();
+        var completed = state.LogSet(
             Mass.FromKilograms(Math.Max(0m, ActualWeightKilograms)),
             Math.Max(0, Repetitions),
             IsWarmUp,
@@ -150,25 +313,39 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
             exercise?.PrimaryMuscle);
 
         RefreshSets();
-        LiveAnnouncementRequested?.Invoke(this, $"Set {completed.Ordinal} logged: {completed.Repetitions} reps at {completed.LoadKilograms:0.##} kilograms.");
+        Announce($"Set {completed.Ordinal} logged: {completed.Repetitions} reps at {completed.LoadKilograms:0.##} kilograms.");
 
-        var setWrite = EnqueuePersistence(token => persistence.SaveLoggedSetAsync(completed, active, token));
-        _ = ReportPersistenceFaultAsync(setWrite);
+        await session.SaveLoggedSetAsync(completed);
 
-        var rest = RestTimer.Start(TimeSpan.FromSeconds(IsWarmUp ? 60 : 120), clock, CreateNotificationId());
-        active.StartRest(rest);
-        var stateWrite = EnqueuePersistence(token => persistence.SaveActiveStateAsync(active, token));
-        _ = ReportPersistenceFaultAsync(stateWrite);
+        var next = state.ResolveNextRest(IsWarmUp, restPreferences.AppDefault);
+        if (next is not null)
+        {
+            await session.StartRestAsync(next, cancellationToken);
+        }
+        else
+        {
+            Announce("Move to the next station. Rest comes at the end of the round.");
+        }
 
-        await restNotifications.ScheduleAsync(rest, cancellationToken);
+        // A superset only makes sense if logging a station moves you to the next one. Advancing
+        // after the rest decision means the decision is still made from the station just finished.
+        if (state.CurrentSupersetMembers().Count >= 2)
+        {
+            state.AdvanceSuperset();
+            await session.SaveStateAsync(cancellationToken);
+            ApplyCurrentExerciseDefaults();
+        }
+
+        repCounting.ResetForNextSet();
+        RefreshExerciseQueue();
         ReconcileRest();
     }
 
     [RelayCommand]
     private async Task RepeatLastSetAsync(CancellationToken cancellationToken)
     {
-        await EnsureInitializedAsync(cancellationToken);
-        var last = state!.CompletedSets.LastOrDefault(s => s.ExerciseId == state.CurrentExerciseId);
+        await InitializeAsync(cancellationToken);
+        var last = session.State?.CompletedSets.LastOrDefault(s => s.ExerciseId == session.State.CurrentExerciseId);
         if (last is not null)
         {
             ActualWeightKilograms = last.LoadKilograms;
@@ -196,46 +373,64 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
     [RelayCommand]
     private async Task AdjustRestAsync(string secondsText)
     {
-        await EnsureInitializedAsync(CancellationToken.None);
-        if (state!.ActiveRestTimer is null || !int.TryParse(secondsText, out var seconds))
+        await InitializeAsync(CancellationToken.None);
+        if (!int.TryParse(secondsText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds))
         {
             return;
         }
 
-        state.ActiveRestTimer.Adjust(TimeSpan.FromSeconds(seconds), clock.UtcNow);
-        var write = EnqueuePersistence(token => persistence.SaveActiveStateAsync(state, token));
-        _ = ReportPersistenceFaultAsync(write);
-        await restNotifications.ScheduleAsync(state.ActiveRestTimer, CancellationToken.None);
+        await session.AdjustRestAsync(TimeSpan.FromSeconds(seconds), CancellationToken.None);
         ReconcileRest();
     }
 
     [RelayCommand]
     private async Task SkipRestAsync()
     {
-        await EnsureInitializedAsync(CancellationToken.None);
-        if (state!.ActiveRestTimer is null)
+        await InitializeAsync(CancellationToken.None);
+        await session.SkipRestAsync(CancellationToken.None);
+        ReconcileRest();
+        Announce("Rest skipped.");
+    }
+
+    [RelayCommand]
+    private static Task OpenRestTimerAsync() => Shell.Current.GoToAsync(ForgeRoutes.RestTimer);
+
+    [RelayCommand]
+    private static Task OpenWorkoutHistoryAsync() => Shell.Current.GoToAsync(ForgeRoutes.WorkoutHistory);
+
+    [RelayCommand]
+    private async Task OpenPlateCalculatorAsync()
+    {
+        await InitializeAsync(CancellationToken.None);
+        await Shell.Current.GoToAsync($"{ForgeRoutes.PlateCalculator}?target={ActualWeightKilograms.ToString(CultureInfo.InvariantCulture)}");
+    }
+
+    [RelayCommand]
+    private async Task AdjustExerciseRestAsync(string secondsText)
+    {
+        await InitializeAsync(CancellationToken.None);
+        if (session.State?.CurrentExerciseId is not Guid exerciseId
+            || !int.TryParse(secondsText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var delta))
         {
             return;
         }
 
-        var notificationId = state.ActiveRestTimer.NotificationId;
-        state.ActiveRestTimer.EndEarly(clock.UtcNow);
-        state.ClearRest();
-        var write = EnqueuePersistence(token => persistence.SaveActiveStateAsync(state, token));
-        _ = ReportPersistenceFaultAsync(write);
-        await restNotifications.CancelAsync(notificationId, CancellationToken.None);
-        ReconcileRest();
-        LiveAnnouncementRequested?.Invoke(this, "Rest skipped.");
+        var current = restPreferences.Resolve(exerciseId).WorkingSetRest;
+        var updated = restPreferences.SetWorkingSetRest(exerciseId, current + TimeSpan.FromSeconds(delta));
+        session.State.SetRestPrescription(exerciseId, updated);
+        await session.SaveStateAsync(CancellationToken.None);
+
+        RefreshRestSetting();
+        Announce($"Rest for {CurrentExerciseName} set to {FormatRest(updated.WorkingSetRest)}.");
     }
 
     [RelayCommand]
     private void CalculatePlates()
     {
         PlateRows.Clear();
-        var result = PlateCalculator.Calculate(Mass.FromKilograms(ActualWeightKilograms), PlateCalculator.StandardBarbell, StandardPlates());
-        PlateSummary = result.IsExact
-            ? $"{result.AchievableLoad.Kilograms:0.##} kg exact"
-            : $"Closest: {result.AchievableLoad.Kilograms:0.##} kg ({result.Difference.Kilograms:0.##} kg off)";
+        var inventory = plateInventory.Load();
+        var result = inventory.Calculate(Mass.FromKilograms(Math.Max(0m, ActualWeightKilograms)));
+        PlateSummary = DescribePlateResult(result);
 
         foreach (var group in result.PlatesPerSide.GroupBy(p => p.Kilograms).OrderByDescending(g => g.Key))
         {
@@ -244,23 +439,27 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 
         if (PlateRows.Count == 0)
         {
-            PlateRows.Add(new PlateRow("Empty bar", "No plates per side"));
+            PlateRows.Add(new PlateRow($"Empty {result.BarbellWeight.Kilograms:0.##} kg bar", "No plates per side"));
         }
     }
 
     [RelayCommand]
     private async Task SwapExerciseAsync(WorkoutExerciseRow row)
     {
-        await EnsureInitializedAsync(CancellationToken.None);
+        await InitializeAsync(CancellationToken.None);
+        if (row is null || session.State is not { } state)
+        {
+            return;
+        }
+
         var exercise = catalogue.FirstOrDefault(e => e.Id == row.ExerciseId);
         if (exercise is null)
         {
             return;
         }
 
-        state!.SetCurrentExercise(new ActiveWorkoutExercise(exercise.Id, exercise.Name, exercise.PrimaryMuscle, ActualWeightKilograms, Repetitions));
-        var write = EnqueuePersistence(token => persistence.SaveActiveStateAsync(state, token));
-        _ = ReportPersistenceFaultAsync(write);
+        state.SetCurrentExercise(BuildQueueEntry(exercise));
+        await session.SaveStateAsync(CancellationToken.None);
         ApplyCurrentExerciseDefaults();
         RefreshExerciseQueue();
     }
@@ -268,10 +467,9 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
     [RelayCommand]
     private async Task SkipExerciseAsync()
     {
-        await EnsureInitializedAsync(CancellationToken.None);
-        state!.SkipCurrentExercise();
-        var write = EnqueuePersistence(token => persistence.SaveActiveStateAsync(state, token));
-        _ = ReportPersistenceFaultAsync(write);
+        await InitializeAsync(CancellationToken.None);
+        session.State?.SkipCurrentExercise();
+        await session.SaveStateAsync(CancellationToken.None);
         ApplyCurrentExerciseDefaults();
         RefreshExerciseQueue();
     }
@@ -279,16 +477,20 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
     [RelayCommand]
     private async Task AddUnplannedExerciseAsync()
     {
-        await EnsureInitializedAsync(CancellationToken.None);
-        var next = catalogue.FirstOrDefault(e => state!.ExerciseQueue.All(q => q.ExerciseId != e.Id));
+        await InitializeAsync(CancellationToken.None);
+        if (session.State is not { } state)
+        {
+            return;
+        }
+
+        var next = catalogue.FirstOrDefault(e => state.ExerciseQueue.TrueForAll(q => q.ExerciseId != e.Id));
         if (next is null)
         {
             return;
         }
 
-        state!.SetCurrentExercise(new ActiveWorkoutExercise(next.Id, next.Name, next.PrimaryMuscle, 20m, 8));
-        var write = EnqueuePersistence(token => persistence.SaveActiveStateAsync(state, token));
-        _ = ReportPersistenceFaultAsync(write);
+        state.SetCurrentExercise(BuildQueueEntry(next));
+        await session.SaveStateAsync(CancellationToken.None);
         ApplyCurrentExerciseDefaults();
         RefreshExerciseQueue();
     }
@@ -296,28 +498,258 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
     [RelayCommand]
     private async Task MoveExerciseEarlierAsync(WorkoutExerciseRow row)
     {
-        await EnsureInitializedAsync(CancellationToken.None);
-        var index = state!.ExerciseQueue.FindIndex(e => e.ExerciseId == row.ExerciseId);
+        await InitializeAsync(CancellationToken.None);
+        if (row is null || session.State is not { } state)
+        {
+            return;
+        }
+
+        var index = state.ExerciseQueue.FindIndex(e => e.ExerciseId == row.ExerciseId);
         state.ReorderExercise(row.ExerciseId, index - 1);
-        var write = EnqueuePersistence(token => persistence.SaveActiveStateAsync(state, token));
-        _ = ReportPersistenceFaultAsync(write);
+        await session.SaveStateAsync(CancellationToken.None);
         RefreshExerciseQueue();
+    }
+
+    [RelayCommand]
+    private async Task ToggleSupersetSelectionAsync(WorkoutExerciseRow row)
+    {
+        await InitializeAsync(CancellationToken.None);
+        if (row is null || session.State is not { } state)
+        {
+            return;
+        }
+
+        if (!supersetSelection.Remove(row.ExerciseId))
+        {
+            // Only queued exercises can be grouped; grouping something the session has never seen
+            // would create a station the user cannot reach.
+            var queued = state.ExerciseQueue.Find(item => item.ExerciseId == row.ExerciseId);
+            if (queued is null)
+            {
+                var exercise = catalogue.FirstOrDefault(e => e.Id == row.ExerciseId);
+                if (exercise is null)
+                {
+                    return;
+                }
+
+                state.ExerciseQueue.Add(BuildQueueEntry(exercise));
+                await session.SaveStateAsync(CancellationToken.None);
+            }
+
+            supersetSelection.Add(row.ExerciseId);
+        }
+
+        SupersetSelectionCount = supersetSelection.Count;
+        RefreshExerciseQueue();
+    }
+
+    [RelayCommand]
+    private async Task CreateSupersetAsync()
+    {
+        await InitializeAsync(CancellationToken.None);
+        if (session.State is not { } state || supersetSelection.Count < 2)
+        {
+            return;
+        }
+
+        var groupId = state.GroupIntoSuperset(supersetSelection);
+        if (groupId is null)
+        {
+            return;
+        }
+
+        var members = SupersetCycle.Members(state.ExerciseQueue, groupId.Value);
+        state.SetCurrentExercise(members[0]);
+        supersetSelection.Clear();
+        SupersetSelectionCount = 0;
+
+        await session.SaveStateAsync(CancellationToken.None);
+        ApplyCurrentExerciseDefaults();
+        RefreshExerciseQueue();
+        Announce($"Superset created with {members.Count} exercises.");
+    }
+
+    [RelayCommand]
+    private async Task BreakSupersetAsync()
+    {
+        await InitializeAsync(CancellationToken.None);
+        if (session.State is not { CurrentExerciseId: Guid exerciseId } state)
+        {
+            return;
+        }
+
+        state.UngroupFromSuperset(exerciseId);
+        await session.SaveStateAsync(CancellationToken.None);
+        ApplyCurrentExerciseDefaults();
+        RefreshExerciseQueue();
+        Announce("Superset broken. Exercises run one at a time again.");
+    }
+
+    [RelayCommand]
+    private async Task NextStationAsync()
+    {
+        await InitializeAsync(CancellationToken.None);
+        if (session.State?.AdvanceSuperset() is null)
+        {
+            return;
+        }
+
+        await session.SaveStateAsync(CancellationToken.None);
+        ApplyCurrentExerciseDefaults();
+        RefreshExerciseQueue();
+        Announce($"Next station: {CurrentExerciseName}.");
+    }
+
+    [RelayCommand]
+    private void BeginEditSet(WorkoutSetRow row)
+    {
+        if (row is null || session.State?.FindSet(row.SetEntryId) is not { } set)
+        {
+            return;
+        }
+
+        EditingSetId = set.SetEntryId;
+        EditingSetTitle = $"{set.ExerciseName} · set {set.Ordinal}";
+        EditWeightKilograms = set.LoadKilograms;
+        EditRepetitions = set.Repetitions;
+        EditRepsInReserve = set.RepsInReserve;
+        EditIsWarmUp = set.IsWarmUp;
+        EditToFailure = set.ToFailure;
+        IsEditingSet = true;
+    }
+
+    [RelayCommand]
+    private void CancelEditSet()
+    {
+        IsEditingSet = false;
+        EditingSetId = null;
+    }
+
+    [RelayCommand]
+    private async Task SaveEditedSetAsync()
+    {
+        if (EditingSetId is not Guid setEntryId || session.State is not { } state)
+        {
+            return;
+        }
+
+        var edited = state.EditSet(
+            setEntryId,
+            Mass.FromKilograms(Math.Max(0m, EditWeightKilograms)),
+            Math.Max(0, EditRepetitions),
+            EditIsWarmUp,
+            EditToFailure,
+            EditRepsInReserve);
+
+        IsEditingSet = false;
+        EditingSetId = null;
+
+        if (edited is null)
+        {
+            return;
+        }
+
+        RefreshSets();
+        await session.UpdateLoggedSetAsync(edited);
+        Announce($"Set corrected to {edited.Repetitions} reps at {edited.LoadKilograms:0.##} kilograms.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteSetAsync(WorkoutSetRow row)
+    {
+        await InitializeAsync(CancellationToken.None);
+        if (row is null || session.State is not { } state)
+        {
+            return;
+        }
+
+        var removed = state.RemoveSet(row.SetEntryId);
+        if (removed is null)
+        {
+            return;
+        }
+
+        if (EditingSetId == row.SetEntryId)
+        {
+            IsEditingSet = false;
+            EditingSetId = null;
+        }
+
+        RefreshSets();
+        await session.DeleteLoggedSetAsync(removed.SetEntryId);
+        Announce($"Removed set of {removed.Repetitions} reps at {removed.LoadKilograms:0.##} kilograms.");
+    }
+
+    [RelayCommand]
+    private async Task UndoLastSetAsync()
+    {
+        await InitializeAsync(CancellationToken.None);
+        var removed = session.State?.UndoLastSet();
+        if (removed is null)
+        {
+            return;
+        }
+
+        RefreshSets();
+        await session.DeleteLoggedSetAsync(removed.SetEntryId);
+        Announce($"Undid the last set: {removed.Repetitions} reps at {removed.LoadKilograms:0.##} kilograms.");
+    }
+
+    [RelayCommand]
+    private async Task ToggleRepCountingAsync()
+    {
+        if (IsRepCountingEnabled)
+        {
+            await repCounting.StopAsync();
+            IsRepCountingEnabled = false;
+            ApplyRepSuggestion(repCounting.Current);
+            return;
+        }
+
+        await repCounting.StartAsync();
+        IsRepCountingEnabled = repCounting.IsRunning;
+        ApplyRepSuggestion(repCounting.Current);
+        Announce(IsRepCountingEnabled
+            ? "Rep counting on. Forge will suggest a count; you confirm it before logging."
+            : "Rep counting is not available on this device.");
+    }
+
+    [RelayCommand]
+    private void ApplyRepCount()
+    {
+        var suggestion = repCounting.Current;
+        if (!suggestion.HasCount)
+        {
+            return;
+        }
+
+        Repetitions = suggestion.RepetitionCount;
+        Announce($"Rep count set to {suggestion.RepetitionCount}. Check it before logging.");
     }
 
     [RelayCommand]
     private async Task CompleteWorkoutAsync(CancellationToken cancellationToken)
     {
-        await EnsureInitializedAsync(cancellationToken);
-        await FlushPersistenceAsync(cancellationToken);
-
-        if (state!.ActiveRestTimer is not null)
+        await InitializeAsync(cancellationToken);
+        if (session.State is not { } state)
         {
-            await restNotifications.CancelAsync(state.ActiveRestTimer.NotificationId, cancellationToken);
+            return;
         }
 
-        var completedUtc = clock.UtcNow;
-        await persistence.CompleteAsync(state, completedUtc, cancellationToken);
-        await Shell.Current.GoToAsync($"workout-summary?sessionId={state.WorkoutSessionId}");
+        await SuspendSensorsAsync();
+
+        var sessionId = state.WorkoutSessionId;
+        if (!await session.CompleteAsync(cancellationToken))
+        {
+            // The save failed and PersistenceFailed has already surfaced the reason. Staying put
+            // keeps the logged sets on screen instead of navigating away from unsaved work.
+            return;
+        }
+
+        session.Reset();
+        initializationTask = null;
+
+        await Shell.Current.GoToAsync($"{ForgeRoutes.WorkoutSummary}?sessionId={sessionId}");
     }
 
     [RelayCommand]
@@ -328,32 +760,34 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task FinishRecoveredAsync(CancellationToken cancellationToken)
-    {
-        await CompleteWorkoutAsync(cancellationToken);
-    }
+    private Task FinishRecoveredAsync(CancellationToken cancellationToken) => CompleteWorkoutAsync(cancellationToken);
 
     [RelayCommand]
     private async Task DiscardRecoveredAsync(CancellationToken cancellationToken)
     {
-        await EnsureInitializedAsync(cancellationToken);
-        await FlushPersistenceAsync(cancellationToken);
-        await persistence.DiscardAsync(state!.WorkoutSessionId, cancellationToken);
+        await InitializeAsync(cancellationToken);
+        if (!await session.DiscardAsync(cancellationToken))
+        {
+            return;
+        }
+
         initializationTask = null;
-        state = null;
         HasRecoverableSession = false;
         IsStaleRecovery = false;
         RecoveryMessage = string.Empty;
         await InitializeAsync(cancellationToken);
     }
 
+    private Guid? EditingSetId { get; set; }
+
     private async Task InitializeCoreAsync(CancellationToken cancellationToken)
     {
         IsBusy = true;
         try
         {
-            var result = await persistence.LoadOrStartAsync(BuildExerciseCatalogue(), clock.UtcNow, cancellationToken);
-            state = result.State;
+            var result = await session.LoadAsync(BuildExerciseCatalogue(), cancellationToken);
+            var state = result.State;
+
             HasRecoverableSession = result.RecoveryKind != WorkoutRecoveryKind.None;
             IsStaleRecovery = result.RecoveryKind == WorkoutRecoveryKind.Stale;
             CanEditWorkout = !IsStaleRecovery;
@@ -364,10 +798,23 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
                 _ => string.Empty
             };
 
+            IsRepCountingAvailable = repCounting.IsAvailable;
+            ApplyRepSuggestion(repCounting.Current);
+
             ApplyCurrentExerciseDefaults();
             RefreshSets();
             RefreshExerciseQueue();
             ReconcileRest();
+        }
+        catch (Exception ex)
+        {
+            // Deliberately broad. If the database cannot be opened, the screen must still render
+            // and say why; caching the failure would make every later retry throw the same fault
+            // forever, so the attempt is cleared and the user can try again.
+            initializationTask = null;
+            CanEditWorkout = false;
+            HasRecoverableSession = true;
+            RecoveryMessage = $"Forge could not open your workout: {ex.Message}";
         }
         finally
         {
@@ -375,117 +822,195 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
         }
     }
 
-    private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
-    {
-        await InitializeAsync(cancellationToken);
-    }
-
-    private Task EnqueuePersistence(Func<CancellationToken, Task> operation)
-    {
-        lock (persistenceGate)
-        {
-            persistenceTail = persistenceTail.ContinueWith(
-                antecedent =>
-                {
-                    if (antecedent.IsFaulted)
-                    {
-                        return Task.FromException(antecedent.Exception!);
-                    }
-
-                    return operation(CancellationToken.None);
-                },
-                CancellationToken.None,
-                TaskContinuationOptions.None,
-                TaskScheduler.Default).Unwrap();
-            return persistenceTail;
-        }
-    }
-
-    private async Task FlushPersistenceAsync(CancellationToken cancellationToken)
-    {
-        Task pending;
-        lock (persistenceGate)
-        {
-            pending = persistenceTail;
-        }
-
-        await pending.WaitAsync(cancellationToken);
-    }
-
-    private async Task ReportPersistenceFaultAsync(Task write)
-    {
-        try
-        {
-            await write;
-        }
-        catch (Exception ex)
-        {
-            RecoveryMessage = $"Workout save failed: {ex.Message}";
-            HasRecoverableSession = true;
-        }
-    }
-
     private ActiveWorkoutExercise[] BuildExerciseCatalogue()
         => catalogue.Count == 0
-            ? [new ActiveWorkoutExercise(Guid.CreateVersion7(), "Back squat", "Quads", 60m, 8)]
-            : catalogue.Select(e => new ActiveWorkoutExercise(e.Id, e.Name, e.PrimaryMuscle, 60m, 8)).ToArray();
+            ? [new ActiveWorkoutExercise(Guid.CreateVersion7(), "Back squat", "Quads", 60m, 8, Rest: restPreferences.AppDefault)]
+            : [.. catalogue.Select(BuildQueueEntry)];
+
+    private ActiveWorkoutExercise BuildQueueEntry(Exercise exercise)
+        => new(exercise.Id, exercise.Name, exercise.PrimaryMuscle, 60m, 8, Rest: restPreferences.Resolve(exercise.Id));
 
     private void ApplyCurrentExerciseDefaults()
     {
-        if (state is null)
+        if (session.State is not { } state)
         {
             return;
         }
 
         CurrentExerciseName = state.CurrentExerciseName;
-        var current = state.ExerciseQueue.FirstOrDefault(e => e.ExerciseId == state.CurrentExerciseId);
+        var current = state.CurrentExercise();
         TargetWeightKilograms = current?.TargetLoadKilograms ?? 20m;
         ActualWeightKilograms = TargetWeightKilograms;
         Repetitions = current?.TargetRepetitions ?? 8;
+
+        var members = state.CurrentSupersetMembers();
+        IsInSuperset = members.Count >= 2;
+        SupersetLabel = IsInSuperset
+            ? $"{SupersetCycle.StationLabel(SupersetCycle.IndexOf(members, state.CurrentExerciseId ?? Guid.Empty), members.Count)} · round {SupersetCycle.CompletedRounds(members, state.CompletedSets) + 1}"
+            : string.Empty;
+
+        RefreshRestSetting();
         CalculatePlates();
     }
 
-    private Exercise? CurrentExercise() => state is null ? null : catalogue.FirstOrDefault(e => e.Id == state.CurrentExerciseId);
+    private void RefreshRestSetting()
+    {
+        if (session.State?.CurrentExerciseId is not Guid exerciseId)
+        {
+            RestSettingText = string.Empty;
+            return;
+        }
+
+        var prescription = session.State.CurrentExercise()?.Rest ?? restPreferences.Resolve(exerciseId);
+        RestSettingText = restPreferences.HasOverride(exerciseId)
+            ? $"Rest {FormatRest(prescription.WorkingSetRest)} for this exercise"
+            : $"Rest {FormatRest(prescription.WorkingSetRest)} (app default)";
+    }
+
+    private Exercise? CurrentCatalogueExercise()
+        => session.State is null ? null : catalogue.FirstOrDefault(e => e.Id == session.State.CurrentExerciseId);
 
     private void RefreshSets()
     {
         SetRows.Clear();
-        if (state is null)
+        if (session.State is not { } state)
         {
+            OnPropertyChanged(nameof(HasEditableSets));
             return;
         }
 
         foreach (var set in state.CompletedSets.OrderBy(s => s.CompletedUtc))
         {
-            var flags = string.Join(" · ", new[] { set.IsWarmUp ? "Warm-up" : null, set.ToFailure ? "Failure" : null, set.RepsInReserve is int rir ? $"{rir} RIR" : null }.Where(static f => f is not null));
-            var summary = $"{set.Ordinal}. {set.LoadKilograms:0.##} kg × {set.Repetitions}";
-            SetRows.Add(new WorkoutSetRow(set.ExerciseName, summary, flags, $"{set.ExerciseName}, set {set.Ordinal}, {set.Repetitions} reps at {set.LoadKilograms:0.##} kilograms"));
+            var flags = string.Join(
+                " · ",
+                new[]
+                {
+                    set.IsWarmUp ? "Warm-up" : null,
+                    set.ToFailure ? "Failure" : null,
+                    set.RepsInReserve is int rir ? $"{rir} RIR" : null
+                }.Where(static f => f is not null));
+
+            SetRows.Add(new WorkoutSetRow(
+                set.SetEntryId,
+                set.ExerciseName,
+                $"{set.Ordinal}. {set.LoadKilograms:0.##} kg × {set.Repetitions}",
+                flags,
+                $"{set.ExerciseName}, set {set.Ordinal}, {set.Repetitions} reps at {set.LoadKilograms:0.##} kilograms"));
         }
+
+        OnPropertyChanged(nameof(HasEditableSets));
     }
 
     private void RefreshExerciseQueue()
     {
         ExerciseRows.Clear();
-        foreach (var exercise in catalogue.Take(6))
+        if (session.State is not { } state)
         {
-            ExerciseRows.Add(new WorkoutExerciseRow(exercise.Id, exercise.Name, exercise.PrimaryMuscle ?? exercise.Pattern.ToString()));
+            return;
+        }
+
+        var queued = state.ExerciseQueue.ToDictionary(item => item.ExerciseId);
+        var shown = state.ExerciseQueue
+            .Select(item => item.ExerciseId)
+            .Concat(catalogue.Select(item => item.Id))
+            .Distinct()
+            .Take(10);
+
+        foreach (var exerciseId in shown)
+        {
+            var name = queued.TryGetValue(exerciseId, out var queuedExercise)
+                ? queuedExercise.Name
+                : catalogue.FirstOrDefault(e => e.Id == exerciseId)?.Name;
+            if (name is null)
+            {
+                continue;
+            }
+
+            var detail = queuedExercise?.PrimaryMuscle
+                ?? catalogue.FirstOrDefault(e => e.Id == exerciseId)?.PrimaryMuscle
+                ?? "Accessory";
+            var groupLabel = BuildGroupLabel(state, queuedExercise);
+            var selected = supersetSelection.Contains(exerciseId);
+
+            ExerciseRows.Add(new WorkoutExerciseRow(
+                exerciseId,
+                name,
+                selected ? $"{detail} · selected" : detail,
+                queuedExercise is not null,
+                groupLabel,
+                queuedExercise?.SupersetGroupId is not null));
         }
     }
 
-    private static string FormatDuration(TimeSpan duration) => duration.TotalHours >= 1d ? $"{(int)duration.TotalHours}:{duration.Minutes:00}" : $"{duration.Minutes}:{duration.Seconds:00}";
+    private static string BuildGroupLabel(ActiveWorkoutState state, ActiveWorkoutExercise? exercise)
+    {
+        if (exercise?.SupersetGroupId is not Guid groupId)
+        {
+            return string.Empty;
+        }
+
+        var members = SupersetCycle.Members(state.ExerciseQueue, groupId);
+        return SupersetCycle.StationLabel(SupersetCycle.IndexOf(members, exercise.ExerciseId), members.Count);
+    }
+
+    private void OnRepSuggestionChanged(object? sender, RepCountSuggestion suggestion)
+    {
+        if (MainThread.IsMainThread)
+        {
+            ApplyRepSuggestion(suggestion);
+            return;
+        }
+
+        MainThread.BeginInvokeOnMainThread(() => ApplyRepSuggestion(suggestion));
+    }
+
+    private void ApplyRepSuggestion(RepCountSuggestion suggestion)
+    {
+        RepCountText = suggestion.HasCount ? suggestion.RepetitionCount.ToString(CultureInfo.CurrentCulture) : "—";
+        RepCountExplanation = suggestion.Explanation;
+        RepCountConfidence = suggestion.Confidence;
+        RepCountConfidenceText = suggestion.Trust switch
+        {
+            RepCountTrust.Trusted => $"Confidence {suggestion.Confidence:P0}",
+            RepCountTrust.NeedsConfirmation => $"Low confidence {suggestion.Confidence:P0} — confirm before logging",
+            RepCountTrust.Rejected => "Signal not usable",
+            _ => string.Empty
+        };
+
+        // Even a trusted count only becomes an offer. The user taps to accept it, so nothing the
+        // counter is unsure about can ever reach the log unnoticed.
+        CanApplyRepCount = suggestion.HasCount;
+        IsRepCountUncertain = suggestion.Trust is RepCountTrust.NeedsConfirmation or RepCountTrust.Rejected;
+    }
+
+    private void OnPersistenceFailed(object? sender, Exception exception)
+    {
+        RecoveryMessage = $"Workout save failed: {exception.Message}";
+        HasRecoverableSession = true;
+    }
+
+    private void Announce(string message) => LiveAnnouncementRequested?.Invoke(this, message);
+
+    private static string DescribeRestReason(RestReason reason) => reason switch
+    {
+        RestReason.WarmUpSet => "Warm-up rest",
+        RestReason.SupersetRound => "Round complete — full rest",
+        _ => "Working set rest"
+    };
+
+    private static string DescribePlateResult(PlateLoadingResult result)
+    {
+        if (result.IsExact)
+        {
+            return $"{result.AchievableLoad.Kilograms:0.##} kg exact on a {result.BarbellWeight.Kilograms:0.##} kg bar";
+        }
+
+        var direction = result.IsHeavierThanTarget ? "over" : "under";
+        return $"Closest you can load is {result.AchievableLoad.Kilograms:0.##} kg — {result.Difference.Kilograms:0.##} kg {direction}";
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+        => duration.TotalHours >= 1d ? $"{(int)duration.TotalHours}:{duration.Minutes:00}" : $"{duration.Minutes}:{duration.Seconds:00}";
 
     private static string FormatRest(TimeSpan remaining) => $"{(int)remaining.TotalMinutes}:{remaining.Seconds:00}";
-
-    private static int CreateNotificationId() => unchecked((int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % int.MaxValue));
-
-    private static IEnumerable<AvailablePlate> StandardPlates()
-    {
-        yield return new AvailablePlate(Mass.FromKilograms(20m), 4);
-        yield return new AvailablePlate(Mass.FromKilograms(15m), 2);
-        yield return new AvailablePlate(Mass.FromKilograms(10m), 2);
-        yield return new AvailablePlate(Mass.FromKilograms(5m), 2);
-        yield return new AvailablePlate(Mass.FromKilograms(2.5m), 2);
-        yield return new AvailablePlate(Mass.FromKilograms(1.25m), 2);
-        yield return new AvailablePlate(Mass.FromKilograms(0.5m), 1);
-    }
 }

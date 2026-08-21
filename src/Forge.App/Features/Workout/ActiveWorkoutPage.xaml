@@ -15,20 +15,28 @@
                     <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}" RowSpacing="{StaticResource SpaceS}">
                         <Label Text="Recovered active workout" Style="{StaticResource TitleText}" />
                         <dx:DXButton Grid.Column="1" Content="Dismiss"
-    SemanticProperties.Description="Dismiss" Style="{StaticResource TextButton}" Command="{Binding DismissRecoveryCommand}" />
+                                     SemanticProperties.Description="Dismiss the recovery notice"
+                                     Style="{StaticResource TextButton}" Command="{Binding DismissRecoveryCommand}" />
                         <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding RecoveryMessage}" Style="{StaticResource SecondaryText}" />
                         <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceS}" IsVisible="{Binding IsStaleRecovery}">
                             <dx:DXButton Content="Finish"
-    SemanticProperties.Description="Finish" Style="{StaticResource SecondaryButton}" Command="{Binding FinishRecoveredCommand}" />
+                                         SemanticProperties.Description="Finish the recovered workout"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding FinishRecoveredCommand}" />
                             <dx:DXButton Grid.Column="1" Content="Discard"
-    SemanticProperties.Description="Discard" Style="{StaticResource TextButton}" Command="{Binding DiscardRecoveredCommand}" />
+                                         SemanticProperties.Description="Discard the recovered workout"
+                                         Style="{StaticResource TextButton}" Command="{Binding DiscardRecoveredCommand}" />
                         </Grid>
                     </Grid>
                 </dx:DXBorder>
 
-                <Label Text="{Binding CurrentExerciseName}"
-                       Style="{StaticResource HeadlineText}"
-                       SemanticProperties.HeadingLevel="Level1" />
+                <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                    <Label Text="{Binding CurrentExerciseName}"
+                           Style="{StaticResource HeadlineText}"
+                           SemanticProperties.HeadingLevel="Level1" />
+                    <Label Text="{Binding SupersetLabel}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding IsInSuperset}" />
+                </VerticalStackLayout>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
                     <controls:MetricTile Value="{Binding TargetWeightKilograms, StringFormat='{0:0.##}'}" Unit="kg" Caption="Target" />
@@ -38,23 +46,40 @@
                 <dx:DXBorder Style="{StaticResource Card}">
                     <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{StaticResource SpaceS}">
-                            <dx:NumericEdit Value="{Binding ActualWeightKilograms}" Style="{StaticResource ForgeNumericEdit}" PlaceholderText="kg" />
+                            <dx:NumericEdit Value="{Binding ActualWeightKilograms}" Style="{StaticResource ForgeNumericEdit}" PlaceholderText="kg"
+                                            SemanticProperties.Description="Weight in kilograms for this set" />
                             <dx:DXButton Grid.Column="1" Content="−"
-    SemanticProperties.Description="−" Style="{StaticResource SecondaryButton}" Command="{Binding DecrementWeightCommand}" MinimumWidthRequest="{StaticResource TouchTargetPrimary}" />
+                                         SemanticProperties.Description="Decrease weight by 2.5 kilograms"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding DecrementWeightCommand}"
+                                         MinimumWidthRequest="{StaticResource TouchTargetPrimary}"
+                                         MinimumHeightRequest="{StaticResource TouchTargetPrimary}" />
                             <dx:DXButton Grid.Column="2" Content="+"
-    SemanticProperties.Description="+" Style="{StaticResource SecondaryButton}" Command="{Binding IncrementWeightCommand}" MinimumWidthRequest="{StaticResource TouchTargetPrimary}" />
+                                         SemanticProperties.Description="Increase weight by 2.5 kilograms"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding IncrementWeightCommand}"
+                                         MinimumWidthRequest="{StaticResource TouchTargetPrimary}"
+                                         MinimumHeightRequest="{StaticResource TouchTargetPrimary}" />
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{StaticResource SpaceS}">
-                            <dx:NumericEdit Value="{Binding Repetitions}" Style="{StaticResource ForgeNumericEdit}" PlaceholderText="reps" />
+                            <dx:NumericEdit Value="{Binding Repetitions}" Style="{StaticResource ForgeNumericEdit}" PlaceholderText="reps"
+                                            SemanticProperties.Description="Repetitions for this set" />
                             <dx:DXButton Grid.Column="1" Content="−"
-    SemanticProperties.Description="−" Style="{StaticResource SecondaryButton}" Command="{Binding DecrementRepsCommand}" MinimumWidthRequest="{StaticResource TouchTargetPrimary}" />
+                                         SemanticProperties.Description="One rep fewer"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding DecrementRepsCommand}"
+                                         MinimumWidthRequest="{StaticResource TouchTargetPrimary}"
+                                         MinimumHeightRequest="{StaticResource TouchTargetPrimary}" />
                             <dx:DXButton Grid.Column="2" Content="+"
-    SemanticProperties.Description="+" Style="{StaticResource SecondaryButton}" Command="{Binding IncrementRepsCommand}" MinimumWidthRequest="{StaticResource TouchTargetPrimary}" />
+                                         SemanticProperties.Description="One rep more"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding IncrementRepsCommand}"
+                                         MinimumWidthRequest="{StaticResource TouchTargetPrimary}"
+                                         MinimumHeightRequest="{StaticResource TouchTargetPrimary}" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
-                            <dx:CheckEdit Label="Warm-up" IsChecked="{Binding IsWarmUp}" MinimumHeightRequest="{StaticResource TouchTargetMin}" />
-                            <dx:CheckEdit Grid.Column="1" Label="Failure" IsChecked="{Binding ToFailure}" MinimumHeightRequest="{StaticResource TouchTargetMin}" />
-                            <dx:NumericEdit Grid.Column="2" Value="{Binding RepsInReserve}" Style="{StaticResource ForgeNumericEdit}" PlaceholderText="RIR" />
+                            <dx:CheckEdit Label="Warm-up" IsChecked="{Binding IsWarmUp}" MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                          SemanticProperties.Description="Mark this set as a warm-up" />
+                            <dx:CheckEdit Grid.Column="1" Label="Failure" IsChecked="{Binding ToFailure}" MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                          SemanticProperties.Description="Mark this set as taken to failure" />
+                            <dx:NumericEdit Grid.Column="2" Value="{Binding RepsInReserve}" Style="{StaticResource ForgeNumericEdit}" PlaceholderText="RIR"
+                                            SemanticProperties.Description="Reps left in reserve" />
                         </Grid>
                     </VerticalStackLayout>
                 </dx:DXBorder>
@@ -69,57 +94,196 @@
                                               SemanticProperties.Description="Rest countdown progress" />
                         <VerticalStackLayout Grid.Column="1" Spacing="{StaticResource SpaceS}" VerticalOptions="Center">
                             <Label Text="{Binding RestRemainingText}" Style="{StaticResource MetricText}" />
+                            <Label Text="{Binding RestReasonText}" Style="{StaticResource CaptionText}" HorizontalTextAlignment="Center" />
                             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
                                 <dx:DXButton Content="+15"
-    SemanticProperties.Description="+15" Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="15" />
+                                             SemanticProperties.Description="Add fifteen seconds of rest"
+                                             Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="15" />
                                 <dx:DXButton Grid.Column="1" Content="+30"
-    SemanticProperties.Description="+30" Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="30" />
+                                             SemanticProperties.Description="Add thirty seconds of rest"
+                                             Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="30" />
                                 <dx:DXButton Grid.Column="2" Content="+60"
-    SemanticProperties.Description="+60" Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="60" />
+                                             SemanticProperties.Description="Add sixty seconds of rest"
+                                             Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="60" />
                             </Grid>
                             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
                                 <dx:DXButton Content="−15"
-    SemanticProperties.Description="−15" Style="{StaticResource TextButton}" Command="{Binding AdjustRestCommand}" CommandParameter="-15" />
-                                <dx:DXButton Grid.Column="1" Content="−30"
-    SemanticProperties.Description="−30" Style="{StaticResource TextButton}" Command="{Binding AdjustRestCommand}" CommandParameter="-30" />
-                                <dx:DXButton Grid.Column="2" Content="Skip"
-    SemanticProperties.Description="Skip" Style="{StaticResource TextButton}" Command="{Binding SkipRestCommand}" />
+                                             SemanticProperties.Description="Take fifteen seconds off the rest"
+                                             Style="{StaticResource TextButton}" Command="{Binding AdjustRestCommand}" CommandParameter="-15" />
+                                <dx:DXButton Grid.Column="1" Content="Skip"
+                                             SemanticProperties.Description="Skip the rest"
+                                             Style="{StaticResource TextButton}" Command="{Binding SkipRestCommand}" />
+                                <dx:DXButton Grid.Column="2" Content="Full screen"
+                                             SemanticProperties.Description="Open the full-screen rest timer"
+                                             Style="{StaticResource TextButton}" Command="{Binding OpenRestTimerCommand}" />
                             </Grid>
                         </VerticalStackLayout>
                     </Grid>
                 </dx:DXBorder>
 
-                <controls:SectionHeader Title="Completed sets" />
-                <dx:DXCollectionView ItemsSource="{Binding SetRows}" HeightRequest="220">
+                <dx:DXBorder Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                        <Label Text="{Binding RestSettingText}" Style="{StaticResource BodyText}" />
+                        <Label Text="Rest length is remembered per exercise, so heavy squats and cable curls do not share a timer."
+                               Style="{StaticResource CaptionText}" />
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
+                            <dx:DXButton Content="−30 s"
+                                         SemanticProperties.Description="Shorten this exercise's rest by thirty seconds"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding AdjustExerciseRestCommand}" CommandParameter="-30" />
+                            <dx:DXButton Grid.Column="1" Content="+30 s"
+                                         SemanticProperties.Description="Lengthen this exercise's rest by thirty seconds"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding AdjustExerciseRestCommand}" CommandParameter="30" />
+                            <dx:DXButton Grid.Column="2" Content="+60 s"
+                                         SemanticProperties.Description="Lengthen this exercise's rest by sixty seconds"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding AdjustExerciseRestCommand}" CommandParameter="60" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </dx:DXBorder>
+
+                <dx:DXBorder Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                            <VerticalStackLayout>
+                                <Label Text="Count reps from motion" Style="{StaticResource BodyText}" />
+                                <Label Text="Off by default. Works best for rhythmic movements with the phone on your body."
+                                       Style="{StaticResource CaptionText}" />
+                            </VerticalStackLayout>
+                            <dx:DXButton Grid.Column="1" Content="Toggle"
+                                         SemanticProperties.Description="Turn motion rep counting on or off"
+                                         SemanticProperties.Hint="Suggestions still need your confirmation before they are logged"
+                                         Style="{StaticResource SecondaryButton}"
+                                         IsEnabled="{Binding IsRepCountingAvailable}"
+                                         Command="{Binding ToggleRepCountingCommand}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{StaticResource SpaceM}" IsVisible="{Binding IsRepCountingEnabled}">
+                            <Label Text="{Binding RepCountText}" Style="{StaticResource MetricText}" />
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                                <Label Text="{Binding RepCountConfidenceText}" Style="{StaticResource CaptionText}" />
+                                <Label Text="{Binding RepCountExplanation}" Style="{StaticResource CaptionText}" />
+                            </VerticalStackLayout>
+                            <dx:DXButton Grid.Column="2" Content="Use count"
+                                         SemanticProperties.Description="Use the counted reps for this set"
+                                         SemanticProperties.Hint="Fills in the rep field so you can check it before logging"
+                                         Style="{StaticResource SecondaryButton}"
+                                         IsEnabled="{Binding CanApplyRepCount}"
+                                         Command="{Binding ApplyRepCountCommand}" />
+                        </Grid>
+                        <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding IsRepCountUncertain}">
+                            <Label Text="Forge is not confident in this count. Nothing is logged until you confirm it."
+                                   Style="{StaticResource BodyText}" />
+                        </dx:DXBorder>
+                    </VerticalStackLayout>
+                </dx:DXBorder>
+
+                <controls:SectionHeader Title="Completed sets" ActionText="Undo last" ActionCommand="{Binding UndoLastSetCommand}" />
+                <dx:DXCollectionView ItemsSource="{Binding SetRows}" HeightRequest="240">
                     <dx:DXCollectionView.ItemTemplate>
                         <DataTemplate>
                             <dx:DXBorder Style="{StaticResource ListRow}" SemanticProperties.Description="{Binding AccessibilityDescription}">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="{StaticResource SpaceS}">
                                     <VerticalStackLayout>
                                         <Label Text="{Binding ExerciseName}" Style="{StaticResource BodyText}" />
                                         <Label Text="{Binding Flags}" Style="{StaticResource CaptionText}" />
                                     </VerticalStackLayout>
                                     <Label Grid.Column="1" Text="{Binding Summary}" Style="{StaticResource StatRowValueText}" />
+                                    <dx:DXButton Grid.Column="2" Content="Edit"
+                                                 SemanticProperties.Description="Correct this set"
+                                                 Style="{StaticResource TextButton}"
+                                                 MinimumWidthRequest="{StaticResource TouchTargetMin}"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.BeginEditSetCommand}"
+                                                 CommandParameter="{Binding .}" />
+                                    <dx:DXButton Grid.Column="3" Content="✕"
+                                                 SemanticProperties.Description="Delete this set"
+                                                 Style="{StaticResource TextButton}"
+                                                 MinimumWidthRequest="{StaticResource TouchTargetMin}"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteSetCommand}"
+                                                 CommandParameter="{Binding .}" />
                                 </Grid>
                             </dx:DXBorder>
                         </DataTemplate>
                     </dx:DXCollectionView.ItemTemplate>
                 </dx:DXCollectionView>
 
+                <dx:DXBorder Style="{StaticResource ElevatedCard}" IsVisible="{Binding IsEditingSet}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <Label Text="{Binding EditingSetTitle}" Style="{StaticResource TitleText}" SemanticProperties.HeadingLevel="Level2" />
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
+                            <dx:NumericEdit Value="{Binding EditWeightKilograms}" Style="{StaticResource ForgeNumericEdit}" PlaceholderText="kg"
+                                            SemanticProperties.Description="Corrected weight in kilograms" />
+                            <dx:NumericEdit Grid.Column="1" Value="{Binding EditRepetitions}" Style="{StaticResource ForgeNumericEdit}" PlaceholderText="reps"
+                                            SemanticProperties.Description="Corrected repetitions" />
+                            <dx:NumericEdit Grid.Column="2" Value="{Binding EditRepsInReserve}" Style="{StaticResource ForgeNumericEdit}" PlaceholderText="RIR"
+                                            SemanticProperties.Description="Corrected reps in reserve" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceS}">
+                            <dx:CheckEdit Label="Warm-up" IsChecked="{Binding EditIsWarmUp}" MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                          SemanticProperties.Description="Mark the corrected set as a warm-up" />
+                            <dx:CheckEdit Grid.Column="1" Label="Failure" IsChecked="{Binding EditToFailure}" MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                          SemanticProperties.Description="Mark the corrected set as taken to failure" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceS}">
+                            <dx:DXButton Content="Save correction"
+                                         SemanticProperties.Description="Save the corrected set"
+                                         Style="{StaticResource WorkoutActionButton}" Command="{Binding SaveEditedSetCommand}" />
+                            <dx:DXButton Grid.Column="1" Content="Cancel"
+                                         SemanticProperties.Description="Cancel the correction"
+                                         Style="{StaticResource TextButton}" Command="{Binding CancelEditSetCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </dx:DXBorder>
+
+                <controls:SectionHeader Title="Supersets and circuits" />
+                <dx:DXBorder Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                        <Label Text="Pick two or more exercises below, then group them. Forge will cycle between stations and only give you full rest at the end of a round."
+                               Style="{StaticResource CaptionText}" />
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
+                            <dx:DXButton Content="Group"
+                                         SemanticProperties.Description="Group the selected exercises into a superset"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding CreateSupersetCommand}" />
+                            <dx:DXButton Grid.Column="1" Content="Next station"
+                                         SemanticProperties.Description="Move to the next station of the superset"
+                                         Style="{StaticResource SecondaryButton}"
+                                         IsEnabled="{Binding IsInSuperset}"
+                                         Command="{Binding NextStationCommand}" />
+                            <dx:DXButton Grid.Column="2" Content="Break"
+                                         SemanticProperties.Description="Break the current superset"
+                                         Style="{StaticResource TextButton}"
+                                         IsEnabled="{Binding IsInSuperset}"
+                                         Command="{Binding BreakSupersetCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </dx:DXBorder>
+
                 <controls:SectionHeader Title="Mid-workout changes" ActionText="Add" ActionCommand="{Binding AddUnplannedExerciseCommand}" />
-                <dx:DXCollectionView ItemsSource="{Binding ExerciseRows}" HeightRequest="240">
+                <dx:DXCollectionView ItemsSource="{Binding ExerciseRows}" HeightRequest="280">
                     <dx:DXCollectionView.ItemTemplate>
                         <DataTemplate>
                             <dx:DXBorder Style="{StaticResource ListRow}">
-                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{StaticResource SpaceS}">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="{StaticResource SpaceS}">
                                     <VerticalStackLayout>
                                         <Label Text="{Binding Name}" Style="{StaticResource BodyText}" />
                                         <Label Text="{Binding Detail}" Style="{StaticResource CaptionText}" />
+                                        <Label Text="{Binding GroupLabel}" Style="{StaticResource CaptionText}" IsVisible="{Binding IsGrouped}" />
                                     </VerticalStackLayout>
-                                    <dx:DXButton Grid.Column="1" Content="Swap"
-    SemanticProperties.Description="Swap" Style="{StaticResource TextButton}" Command="{Binding Source={x:Reference Page}, Path=BindingContext.SwapExerciseCommand}" CommandParameter="{Binding .}" />
-                                    <dx:DXButton Grid.Column="2" Content="↑"
-    SemanticProperties.Description="↑" Style="{StaticResource TextButton}" Command="{Binding Source={x:Reference Page}, Path=BindingContext.MoveExerciseEarlierCommand}" CommandParameter="{Binding .}" />
+                                    <dx:DXButton Grid.Column="1" Content="Pick"
+                                                 SemanticProperties.Description="Select this exercise for a superset"
+                                                 Style="{StaticResource TextButton}"
+                                                 MinimumWidthRequest="{StaticResource TouchTargetMin}"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleSupersetSelectionCommand}"
+                                                 CommandParameter="{Binding .}" />
+                                    <dx:DXButton Grid.Column="2" Content="Swap"
+                                                 SemanticProperties.Description="Switch to this exercise now"
+                                                 Style="{StaticResource TextButton}"
+                                                 MinimumWidthRequest="{StaticResource TouchTargetMin}"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.SwapExerciseCommand}"
+                                                 CommandParameter="{Binding .}" />
+                                    <dx:DXButton Grid.Column="3" Content="↑"
+                                                 SemanticProperties.Description="Move this exercise earlier"
+                                                 Style="{StaticResource TextButton}"
+                                                 MinimumWidthRequest="{StaticResource TouchTargetMin}"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.MoveExerciseEarlierCommand}"
+                                                 CommandParameter="{Binding .}" />
                                 </Grid>
                             </dx:DXBorder>
                         </DataTemplate>
@@ -131,17 +295,27 @@
         <Grid Grid.Row="1" RowDefinitions="Auto,Auto" RowSpacing="{StaticResource SpaceS}" IsEnabled="{Binding CanEditWorkout}">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
                 <dx:DXButton Content="Repeat last"
-    SemanticProperties.Description="Repeat last" Style="{StaticResource WorkoutActionButton}" Command="{Binding RepeatLastSetCommand}" SemanticProperties.Hint="Logs the same set as last time in one tap" />
+                             SemanticProperties.Description="Repeat the last set"
+                             Style="{StaticResource WorkoutActionButton}" Command="{Binding RepeatLastSetCommand}"
+                             SemanticProperties.Hint="Logs the same set as last time in one tap" />
                 <dx:DXButton Grid.Column="1" Content="Log set"
-    SemanticProperties.Description="Log set" Style="{StaticResource WorkoutActionButton}" Command="{Binding LogSetCommand}" SemanticProperties.Hint="Saves this set immediately" />
+                             SemanticProperties.Description="Log this set"
+                             Style="{StaticResource WorkoutActionButton}" Command="{Binding LogSetCommand}"
+                             SemanticProperties.Hint="Saves this set immediately" />
             </Grid>
-            <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
+            <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*" ColumnSpacing="{StaticResource SpaceS}">
                 <dx:DXButton Content="Plates"
-    SemanticProperties.Description="Plates" Style="{StaticResource SecondaryButton}" Clicked="ShowPlateCalculator" />
-                <dx:DXButton Grid.Column="1" Content="Skip move"
-    SemanticProperties.Description="Skip move" Style="{StaticResource SecondaryButton}" Command="{Binding SkipExerciseCommand}" />
-                <dx:DXButton Grid.Column="2" Content="Finish"
-    SemanticProperties.Description="Finish" Style="{StaticResource SecondaryButton}" Command="{Binding CompleteWorkoutCommand}" />
+                             SemanticProperties.Description="Open the plate calculator"
+                             Style="{StaticResource SecondaryButton}" Clicked="ShowPlateCalculator" />
+                <dx:DXButton Grid.Column="1" Content="History"
+                             SemanticProperties.Description="Open workout history"
+                             Style="{StaticResource SecondaryButton}" Command="{Binding OpenWorkoutHistoryCommand}" />
+                <dx:DXButton Grid.Column="2" Content="Skip move"
+                             SemanticProperties.Description="Skip this exercise"
+                             Style="{StaticResource SecondaryButton}" Command="{Binding SkipExerciseCommand}" />
+                <dx:DXButton Grid.Column="3" Content="Finish"
+                             SemanticProperties.Description="Finish the workout"
+                             Style="{StaticResource SecondaryButton}" Command="{Binding CompleteWorkoutCommand}" />
             </Grid>
         </Grid>
 
@@ -156,7 +330,7 @@
             <VerticalStackLayout Padding="{StaticResource CardPadding}" Spacing="{StaticResource SpaceM}">
                 <Label Text="Plate calculator" Style="{StaticResource TitleText}" SemanticProperties.HeadingLevel="Level2" />
                 <Label Text="{Binding PlateSummary}" Style="{StaticResource SecondaryText}" />
-                <dx:DXCollectionView ItemsSource="{Binding PlateRows}" HeightRequest="220">
+                <dx:DXCollectionView ItemsSource="{Binding PlateRows}" HeightRequest="200">
                     <dx:DXCollectionView.ItemTemplate>
                         <DataTemplate>
                             <dx:DXBorder Style="{StaticResource ListRow}">
@@ -168,6 +342,10 @@
                         </DataTemplate>
                     </dx:DXCollectionView.ItemTemplate>
                 </dx:DXCollectionView>
+                <dx:DXButton Content="Change my bar and plates"
+                             SemanticProperties.Description="Open the full plate calculator to edit equipment"
+                             Style="{StaticResource SecondaryButton}"
+                             Command="{Binding OpenPlateCalculatorCommand}" />
             </VerticalStackLayout>
         </dx:BottomSheet>
     </Grid>
