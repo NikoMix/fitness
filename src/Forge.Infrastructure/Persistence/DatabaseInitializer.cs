@@ -1,5 +1,9 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Forge.Infrastructure.Persistence;
@@ -16,15 +20,19 @@ public sealed class DatabaseInitializer(ForgeDbContext dbContext, ILogger<Databa
     private static readonly Action<ILogger, Exception?> IntegrityCheckCouldNotComplete =
         LoggerMessage.Define(LogLevel.Error, new EventId(3, nameof(IntegrityCheckCouldNotComplete)), "SQLite integrity check could not complete.");
 
+    private static readonly Action<ILogger, string, Exception?> BaselineAdopted =
+        LoggerMessage.Define<string>(LogLevel.Information, new EventId(4, nameof(BaselineAdopted)), "Adopted an existing pre-migration database by recording {Migration} as already applied.");
+
     /// <summary>Applies schema changes and verifies database integrity.</summary>
     public async Task<DatabaseInitializationResult> InitializeAsync(CancellationToken cancellationToken)
     {
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var migrations = dbContext.Database.GetMigrations();
-            if (migrations.Any())
+            var migrations = dbContext.Database.GetMigrations().ToList();
+            if (migrations.Count > 0)
             {
+                await AdoptPreMigrationDatabaseAsync(migrations[0], cancellationToken);
                 await dbContext.Database.MigrateAsync(cancellationToken);
             }
             else
@@ -74,6 +82,54 @@ public sealed class DatabaseInitializer(ForgeDbContext dbContext, ILogger<Databa
                 DatabaseInitializationStatus.Corrupt,
                 "SQLite integrity check could not complete.",
                 ex);
+        }
+    }
+
+    /// <summary>
+    /// Records the baseline migration against a database that already has the schema but no
+    /// migrations history, so that <c>MigrateAsync</c> does not try to create tables that exist.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every database created before Forge had any migrations was built by
+    /// <c>EnsureCreatedAsync</c>, which writes no <c>__EFMigrationsHistory</c> table. To EF that is
+    /// indistinguishable from a database where nothing has ever been applied, so it would replay
+    /// the baseline - whose first statement is a <c>CREATE TABLE</c> against a table that is
+    /// already there. Startup would fail into recovery mode and the user would see an app that had
+    /// apparently lost their training history.
+    /// </para>
+    /// <para>
+    /// Adoption is safe because the baseline was scaffolded from the same model
+    /// <c>EnsureCreatedAsync</c> builds from, so the two produce the same schema.
+    /// <c>DatabaseSchemaParityTests</c> asserts that equivalence directly rather than trusting it,
+    /// because this method's whole correctness rests on it.
+    /// </para>
+    /// </remarks>
+    private async Task AdoptPreMigrationDatabaseAsync(string baselineMigrationId, CancellationToken cancellationToken)
+    {
+        var creator = dbContext.Database.GetService<IRelationalDatabaseCreator>();
+
+        // A fresh install has no database, and an empty one has no schema to adopt. Both must take
+        // the ordinary path so the baseline genuinely runs.
+        if (!await creator.ExistsAsync(cancellationToken) || !await creator.HasTablesAsync(cancellationToken))
+        {
+            return;
+        }
+
+        var history = dbContext.Database.GetService<IHistoryRepository>();
+        if (await history.ExistsAsync(cancellationToken))
+        {
+            return;
+        }
+
+        await dbContext.Database.ExecuteSqlRawAsync(history.GetCreateScript(), cancellationToken);
+        await dbContext.Database.ExecuteSqlRawAsync(
+            history.GetInsertScript(new HistoryRow(baselineMigrationId, ProductInfo.GetVersion())),
+            cancellationToken);
+
+        if (logger is not null)
+        {
+            BaselineAdopted(logger, baselineMigrationId, null);
         }
     }
 

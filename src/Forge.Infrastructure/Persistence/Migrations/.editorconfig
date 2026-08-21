@@ -1,0 +1,12 @@
+# EF Core writes everything in this folder. Nobody hand-authors or style-reviews it, and its
+# shape changes wholesale every time a migration is scaffolded - so holding it to the repository's
+# analyzer rules means `dotnet ef migrations add` can fail the CI build on code no human chose to
+# write. The last scaffold produced six CA1861 warnings, and CI turns warnings into errors.
+#
+# `generated_code` is the Roslyn-recognised lever for exactly this: analyzers skip files marked
+# generated instead of each rule being suppressed by hand, so a future migration cannot introduce a
+# new rule violation that blocks a release.
+#
+# This is deliberately scoped to this folder alone. It is not a licence to hide warnings elsewhere.
+[*.cs]
+generated_code = true
