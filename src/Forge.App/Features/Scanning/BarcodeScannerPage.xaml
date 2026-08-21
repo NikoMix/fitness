@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Barcode scanner.
+
+    A standalone destination that hands a result back through IBarcodeScanCoordinator rather than
+    logging anything itself, so food logging can adopt it without either feature editing the other.
+
+    Bound content sits directly in dx:DXBorder rather than in controls:ForgeCard. ForgeCard is now
+    safe, but a plain border is what every other bound screen here uses and it keeps one less
+    layer between a binding and its context.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Features.Scanning.BarcodeScannerPage"
+             Title="Scan barcode"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+
+            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                <Label Text="Scan a barcode"
+                       Style="{StaticResource HeadlineText}"
+                       SemanticProperties.HeadingLevel="Level1" />
+                <Label Text="Forge matches barcodes against the foods stored on this phone. Nothing is looked up online and nothing leaves the device."
+                       Style="{StaticResource SecondaryText}" />
+            </VerticalStackLayout>
+
+            <!-- Viewfinder. Only shown once a camera is actually running. -->
+            <dx:DXBorder Style="{StaticResource ElevatedCard}" IsVisible="{Binding IsCameraLive}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <ContentView x:Name="PreviewHost" />
+                    <Label Text="{Binding StatusMessage}"
+                           Style="{StaticResource SecondaryText}"
+                           HorizontalTextAlignment="Center" />
+                    <dx:DXButton Content="{Binding TorchButtonText}"
+                                 Command="{Binding ToggleTorchCommand}"
+                                 IsVisible="{Binding IsTorchAvailable}"
+                                 Style="{StaticResource SecondaryButton}"
+                                 SemanticProperties.Description="Toggle the camera torch"
+                                 SemanticProperties.Hint="Lights the barcode in a dark aisle" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <!-- Why there is no viewfinder, and what to do about it. -->
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding ShowsCameraNotice}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{Binding CameraNoticeHeadline}"
+                           Style="{StaticResource TitleText}"
+                           LineBreakMode="WordWrap"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="{Binding CameraNoticeMessage}"
+                           Style="{StaticResource SecondaryText}"
+                           LineBreakMode="WordWrap" />
+                    <dx:DXButton Content="Allow camera access"
+                                 Command="{Binding RequestPermissionCommand}"
+                                 IsVisible="{Binding CanRequestPermission}"
+                                 Style="{StaticResource SecondaryButton}"
+                                 SemanticProperties.Description="Allow camera access"
+                                 SemanticProperties.Hint="Asks the system for permission to use the camera" />
+                    <dx:DXButton Content="Open system settings"
+                                 Command="{Binding OpenSettingsCommand}"
+                                 IsVisible="{Binding CanOpenSettings}"
+                                 Style="{StaticResource TextButton}"
+                                 SemanticProperties.Description="Open system settings"
+                                 SemanticProperties.Hint="Opens the Forge entry in your device settings" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <!--
+                Manual entry is always present, never a fallback that appears only after something
+                fails. A damaged barcode, a dark shelf or a declined camera all end up here.
+            -->
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Type the barcode"
+                           Style="{StaticResource TitleText}"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="The digits printed under the bars. Spaces and dashes are fine."
+                           Style="{StaticResource CaptionText}" />
+                    <dx:TextEdit Text="{Binding ManualBarcode}"
+                                 PlaceholderText="For example 4006381333931"
+                                 Keyboard="Numeric"
+                                 Style="{StaticResource ForgeTextEdit}"
+                                 SemanticProperties.Description="Barcode digits"
+                                 SemanticProperties.Hint="The number printed underneath the barcode" />
+                    <Label Text="{Binding ManualMessage}"
+                           IsVisible="{Binding HasManualMessage}"
+                           Style="{StaticResource SecondaryText}"
+                           TextColor="{dx:ThemeColor Error}"
+                           LineBreakMode="WordWrap" />
+                    <dx:DXButton Content="Look up"
+                                 Command="{Binding LookUpManualCommand}"
+                                 IsEnabled="{Binding IsIdle}"
+                                 Style="{StaticResource PrimaryButton}"
+                                 SemanticProperties.Description="Look up the typed barcode" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <!-- A remembered barcode. The nutrition line is shown so a wrong match is obvious. -->
+            <dx:DXBorder Style="{StaticResource ElevatedCard}" IsVisible="{Binding ShowsMatch}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Forge knows this one"
+                           Style="{StaticResource TitleText}"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="{Binding MatchedFoodName}" Style="{StaticResource BodyText}" FontAttributes="Bold" />
+                    <Label Text="{Binding MatchedFoodBrand}" Style="{StaticResource CaptionText}" />
+                    <Label Text="{Binding MatchedNutrition}" Style="{StaticResource SecondaryText}" LineBreakMode="WordWrap" />
+                    <dx:DXButton Content="Use this food"
+                                 Command="{Binding UseMatchedFoodCommand}"
+                                 Style="{StaticResource PrimaryButton}"
+                                 SemanticProperties.Description="Use this food" />
+                    <dx:DXButton Content="Scan another"
+                                 Command="{Binding ScanAnotherCommand}"
+                                 Style="{StaticResource TextButton}"
+                                 SemanticProperties.Description="Scan another barcode" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <!--
+                The common path, not an error state. Most barcodes will be new, because Forge holds
+                only the foods on this phone and never queries an online food database.
+            -->
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding ShowsUnknown}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="New barcode"
+                           Style="{StaticResource TitleText}"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="{Binding UnknownBarcodeText}" Style="{StaticResource BodyText}" FontAttributes="Bold" />
+                    <Label Text="Copy the label once and Forge recognises this packet from now on. Only the name is required."
+                           Style="{StaticResource CaptionText}"
+                           LineBreakMode="WordWrap" />
+
+                    <dx:TextEdit Text="{Binding NewFoodName}"
+                                 LabelText="Food name"
+                                 PlaceholderText="As printed on the packet"
+                                 Style="{StaticResource ForgeTextEdit}"
+                                 SemanticProperties.Description="Food name" />
+                    <dx:TextEdit Text="{Binding NewFoodBrand}"
+                                 LabelText="Brand (optional)"
+                                 Style="{StaticResource ForgeTextEdit}"
+                                 SemanticProperties.Description="Brand, optional" />
+
+                    <Label Text="Per 100 g, from the nutrition table" Style="{StaticResource CaptionText}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}" RowSpacing="{StaticResource SpaceM}" RowDefinitions="Auto,Auto">
+                        <dx:NumericEdit Value="{Binding NewFoodEnergyKilocalories}"
+                                        LabelText="Energy (kcal)"
+                                        Style="{StaticResource ForgeNumericEdit}"
+                                        SemanticProperties.Description="Energy in kilocalories per 100 grams" />
+                        <dx:NumericEdit Grid.Column="1"
+                                        Value="{Binding NewFoodProteinGrams}"
+                                        LabelText="Protein (g)"
+                                        Style="{StaticResource ForgeNumericEdit}"
+                                        SemanticProperties.Description="Protein in grams per 100 grams" />
+                        <dx:NumericEdit Grid.Row="1"
+                                        Value="{Binding NewFoodCarbohydrateGrams}"
+                                        LabelText="Carbs (g)"
+                                        Style="{StaticResource ForgeNumericEdit}"
+                                        SemanticProperties.Description="Carbohydrate in grams per 100 grams" />
+                        <dx:NumericEdit Grid.Row="1"
+                                        Grid.Column="1"
+                                        Value="{Binding NewFoodFatGrams}"
+                                        LabelText="Fat (g)"
+                                        Style="{StaticResource ForgeNumericEdit}"
+                                        SemanticProperties.Description="Fat in grams per 100 grams" />
+                    </Grid>
+
+                    <dx:NumericEdit Value="{Binding NewFoodServingGrams}"
+                                    LabelText="One serving (g, optional)"
+                                    Style="{StaticResource ForgeNumericEdit}"
+                                    SemanticProperties.Description="Grams in one serving, optional" />
+
+                    <Label Text="{Binding NewFoodMessage}"
+                           IsVisible="{Binding HasNewFoodMessage}"
+                           Style="{StaticResource SecondaryText}"
+                           TextColor="{dx:ThemeColor Error}"
+                           LineBreakMode="WordWrap" />
+
+                    <dx:DXButton Content="Remember this barcode"
+                                 Command="{Binding RememberBarcodeCommand}"
+                                 IsEnabled="{Binding CanRememberBarcode}"
+                                 Style="{StaticResource PrimaryButton}"
+                                 SemanticProperties.Description="Remember this barcode"
+                                 SemanticProperties.Hint="Saves the food on this device and links the barcode to it" />
+                    <dx:DXButton Content="Scan another"
+                                 Command="{Binding ScanAnotherCommand}"
+                                 Style="{StaticResource TextButton}"
+                                 SemanticProperties.Description="Scan another barcode" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXButton Content="Close"
+                         Command="{Binding CancelCommand}"
+                         Style="{StaticResource TextButton}"
+                         SemanticProperties.Description="Close the scanner without choosing a food" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
