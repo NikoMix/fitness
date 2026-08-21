@@ -6,6 +6,7 @@
              x:Class="Forge.App.Features.Onboarding.WelcomePage"
              Title="Welcome"
              Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
              BackgroundColor="{dx:ThemeColor Surface}">
     <!--
         The Shell navigation bar is hidden, so this page has exactly one title: the display heading
@@ -13,6 +14,11 @@
         this screen would drop the user into the tabs with no profile at all, which is precisely the
         state onboarding exists to resolve. Skipping remains available as an explicit, described
         choice that records a minimal profile.
+
+        The tab bar is hidden for the same reason. While it was visible a first-run user could tap
+        straight into Train and bypass setup entirely, ending up with no profile at all - the exact
+        outcome the skip path exists to make deliberate and recorded. Focused modes elsewhere
+        (ActiveWorkout, RestTimer) already use this pattern.
     -->
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceXl}">
