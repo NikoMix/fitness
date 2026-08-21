@@ -3,6 +3,7 @@
   "provenance": "Original Forge seed content written from scratch for offline distribution; do not copy third-party exercise databases.",
   "exercises": [
     {
+      "id": "c3047d3d-f323-5e6e-b080-9f3ef5bfd70b",
       "name": "Bodyweight Squat",
       "pattern": "Squat",
       "primaryMuscle": "Quadriceps",
@@ -36,6 +37,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "499bc701-2d86-5582-864b-d6a2d331c634",
       "name": "Goblet Squat",
       "pattern": "Squat",
       "primaryMuscle": "Quadriceps",
@@ -69,6 +71,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "02ba5f7d-cfca-5d4b-a36e-0b01339e7a15",
       "name": "Front Squat",
       "pattern": "Squat",
       "primaryMuscle": "Quadriceps",
@@ -103,6 +106,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "e324193b-9249-5f9f-ae12-05d8a2e60696",
       "name": "Box Squat",
       "pattern": "Squat",
       "primaryMuscle": "Glutes",
@@ -136,6 +140,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "d7c7103e-21f3-57fe-846b-db15b43cab6b",
       "name": "Leg Press",
       "pattern": "Squat",
       "primaryMuscle": "Quadriceps",
@@ -169,6 +174,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "c1b4e5ce-da1d-5967-8e86-5508c0090353",
       "name": "Wall Sit",
       "pattern": "Squat",
       "primaryMuscle": "Quadriceps",
@@ -202,6 +208,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "a7ab8004-2f96-5037-b04c-0cd6c63dd649",
       "name": "Hip Hinge Drill",
       "pattern": "Hinge",
       "primaryMuscle": "Hamstrings",
@@ -235,6 +242,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "c418d9de-fd43-5cf9-8ea8-a0b4584179fb",
       "name": "Romanian Deadlift",
       "pattern": "Hinge",
       "primaryMuscle": "Hamstrings",
@@ -268,6 +276,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "5b00a4a4-9249-5dc0-bec1-79359a5d5187",
       "name": "Dumbbell Romanian Deadlift",
       "pattern": "Hinge",
       "primaryMuscle": "Hamstrings",
@@ -301,6 +310,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "97400496-4dc5-5bd7-896c-275de48e9ad2",
       "name": "Kettlebell Swing",
       "pattern": "Hinge",
       "primaryMuscle": "Glutes",
@@ -334,6 +344,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "69c68e4d-6351-5187-b732-a910eb2e0069",
       "name": "Cable Pull Through",
       "pattern": "Hinge",
       "primaryMuscle": "Glutes",
@@ -367,6 +378,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "2a473393-89d6-5431-874a-6b2c5f14d6f8",
       "name": "Trap Bar Deadlift",
       "pattern": "Hinge",
       "primaryMuscle": "Glutes",
@@ -401,6 +413,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "f5b58e72-7a68-527e-9c68-861de46523e7",
       "name": "Push Up",
       "pattern": "Push",
       "primaryMuscle": "Chest",
@@ -435,6 +448,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "68036ade-1019-592f-8c5e-c2eda187549c",
       "name": "Incline Push Up",
       "pattern": "Push",
       "primaryMuscle": "Chest",
@@ -468,6 +482,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "24404c93-2ea7-51bc-9b0f-fc2dbb3aa8a8",
       "name": "Dumbbell Bench Press",
       "pattern": "Push",
       "primaryMuscle": "Chest",
@@ -501,6 +516,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "7795c908-0fef-54f0-8695-863487640e0c",
       "name": "Barbell Bench Press",
       "pattern": "Push",
       "primaryMuscle": "Chest",
@@ -534,6 +550,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "e82ea39d-69c6-56d9-b026-8cd26cda2ccb",
       "name": "Seated Dumbbell Shoulder Press",
       "pattern": "Push",
       "primaryMuscle": "Shoulders",
@@ -567,6 +584,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "c087ca16-a8f5-5283-add1-e4a5cca611f4",
       "name": "Cable Chest Press",
       "pattern": "Push",
       "primaryMuscle": "Chest",
@@ -600,6 +618,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "54a4c407-fdce-5c9f-86a7-1f722596e825",
       "name": "Band Row",
       "pattern": "Pull",
       "primaryMuscle": "Upper back",
@@ -633,6 +652,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "95ea171b-b2b9-5f91-85d7-6f1646fb3aad",
       "name": "One Arm Dumbbell Row",
       "pattern": "Pull",
       "primaryMuscle": "Lats",
@@ -667,6 +687,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "af3b9016-d44f-530c-acde-836546c4b818",
       "name": "Lat Pulldown",
       "pattern": "Pull",
       "primaryMuscle": "Lats",
@@ -700,6 +721,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "ae50f90c-8638-547a-8364-3c37572b0de9",
       "name": "Pull Up",
       "pattern": "Pull",
       "primaryMuscle": "Lats",
@@ -734,6 +756,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "a2013bea-11b3-5003-bcdf-c8bcb47d06a1",
       "name": "Seated Cable Row",
       "pattern": "Pull",
       "primaryMuscle": "Upper back",
@@ -767,6 +790,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "fd55601c-790b-5f9f-9b7f-b8f542d2146d",
       "name": "Face Pull",
       "pattern": "Pull",
       "primaryMuscle": "Rear delts",
@@ -800,6 +824,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "23d8aa12-3b0d-5bf4-83db-45c4811fa3e8",
       "name": "Farmer Carry",
       "pattern": "Carry",
       "primaryMuscle": "Grip",
@@ -834,6 +859,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "f072be98-0a06-59d5-b84b-7ff08be14756",
       "name": "Suitcase Carry",
       "pattern": "Carry",
       "primaryMuscle": "Core",
@@ -868,6 +894,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "cb58c89a-80a1-5b56-9be5-df30875718e2",
       "name": "Front Rack Carry",
       "pattern": "Carry",
       "primaryMuscle": "Core",
@@ -902,6 +929,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "293776e4-03d5-5e57-9d58-72ca4d3e94db",
       "name": "Overhead Carry",
       "pattern": "Carry",
       "primaryMuscle": "Shoulders",
@@ -936,6 +964,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "74d95413-d44d-5191-9902-d8f50873829a",
       "name": "Sandbag Bear Hug Carry",
       "pattern": "Carry",
       "primaryMuscle": "Upper back",
@@ -970,6 +999,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "5fe09a99-80a4-5079-83d8-7af4567520f4",
       "name": "Plate Pinch Carry",
       "pattern": "Carry",
       "primaryMuscle": "Grip",
@@ -1003,6 +1033,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "367010b6-0bd2-543f-8cf8-68602e160ccc",
       "name": "Pallof Press",
       "pattern": "Rotation",
       "primaryMuscle": "Obliques",
@@ -1036,6 +1067,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "15cf86ad-de62-5d8d-b4ea-b6429fad69ba",
       "name": "Band Anti Rotation Hold",
       "pattern": "Rotation",
       "primaryMuscle": "Obliques",
@@ -1069,6 +1101,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "5a932494-8434-5d51-93b0-74e16da869cd",
       "name": "Cable Wood Chop",
       "pattern": "Rotation",
       "primaryMuscle": "Obliques",
@@ -1103,6 +1136,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "c2b6d5d1-17f2-5305-b596-ab70244f6142",
       "name": "Medicine Ball Rotational Throw",
       "pattern": "Rotation",
       "primaryMuscle": "Obliques",
@@ -1137,6 +1171,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "ba5775e9-12f8-5a21-a421-d6343de544e6",
       "name": "Half Kneeling Cable Lift",
       "pattern": "Rotation",
       "primaryMuscle": "Core",
@@ -1171,6 +1206,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "0c42c9ba-30f7-5aae-a27c-0e7e96f02f1f",
       "name": "Dead Bug With Reach",
       "pattern": "Rotation",
       "primaryMuscle": "Core",
@@ -1204,6 +1240,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "fcde4cd8-f715-5cbf-abe8-4e62d24fcc9a",
       "name": "Reverse Lunge",
       "pattern": "Lunge",
       "primaryMuscle": "Glutes",
@@ -1238,6 +1275,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "8e57918c-c2da-5183-84d0-ac8d4ea9248f",
       "name": "Dumbbell Walking Lunge",
       "pattern": "Lunge",
       "primaryMuscle": "Quadriceps",
@@ -1272,6 +1310,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "92e28774-faad-58e9-90fc-f8aab3ae103e",
       "name": "Split Squat",
       "pattern": "Lunge",
       "primaryMuscle": "Quadriceps",
@@ -1305,6 +1344,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "8b0c7f5a-eece-5fde-8e7a-9339eeb5c8dd",
       "name": "Bulgarian Split Squat",
       "pattern": "Lunge",
       "primaryMuscle": "Glutes",
@@ -1339,6 +1379,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "554a0da3-4d1c-5fb0-93f0-224ed6f673fd",
       "name": "Step Up",
       "pattern": "Lunge",
       "primaryMuscle": "Glutes",
@@ -1372,6 +1413,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "6b73b9e1-c634-5faa-8e04-2823df7bf875",
       "name": "Lateral Lunge",
       "pattern": "Lunge",
       "primaryMuscle": "Adductors",
@@ -1405,6 +1447,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "5e8a99a2-a238-558f-9bea-86e126d58a01",
       "name": "Forearm Plank",
       "pattern": "Core",
       "primaryMuscle": "Core",
@@ -1438,6 +1481,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "12416f15-1ef4-5c5a-b8c2-4afa68012e02",
       "name": "Side Plank",
       "pattern": "Core",
       "primaryMuscle": "Obliques",
@@ -1472,6 +1516,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "d34536de-f30b-5ee2-86db-fa59d2b1f50c",
       "name": "Hollow Body Hold",
       "pattern": "Core",
       "primaryMuscle": "Core",
@@ -1505,6 +1550,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "c7a625af-3467-5ef0-b990-7d0d69c173a4",
       "name": "Stability Ball Stir The Pot",
       "pattern": "Core",
       "primaryMuscle": "Core",
@@ -1538,6 +1584,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "d92e6d10-67a2-591b-846f-9135e0d46491",
       "name": "Cable Crunch",
       "pattern": "Core",
       "primaryMuscle": "Abs",
@@ -1570,6 +1617,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "a427114c-9cd2-51e0-8016-7eba0707f595",
       "name": "Hanging Knee Raise",
       "pattern": "Core",
       "primaryMuscle": "Abs",
@@ -1603,6 +1651,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "f83a38e6-a507-5199-8d22-ef8c014941ac",
       "name": "Brisk Walk",
       "pattern": "Cardio",
       "primaryMuscle": "Cardiorespiratory system",
@@ -1636,6 +1685,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "5158251e-5093-586f-aa10-6f32b13e0647",
       "name": "Treadmill Run",
       "pattern": "Cardio",
       "primaryMuscle": "Cardiorespiratory system",
@@ -1670,6 +1720,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "07f25e6e-41a1-5e95-add7-21b0e3f291ed",
       "name": "Stationary Bike",
       "pattern": "Cardio",
       "primaryMuscle": "Cardiorespiratory system",
@@ -1704,6 +1755,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "0db626d6-f854-5e75-a6a3-5f8792a26cd0",
       "name": "Row Ergometer",
       "pattern": "Cardio",
       "primaryMuscle": "Cardiorespiratory system",
@@ -1738,6 +1790,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "128e2e77-41ef-5d60-8613-b696d2885888",
       "name": "Jump Rope",
       "pattern": "Cardio",
       "primaryMuscle": "Calves",
@@ -1771,6 +1824,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "aa9899a8-7322-5f08-8a33-659187c1e2dc",
       "name": "Low Impact Step March",
       "pattern": "Cardio",
       "primaryMuscle": "Cardiorespiratory system",
@@ -1804,6 +1858,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "ffe0e9b7-b136-5bcf-97a7-6491f8214974",
       "name": "World's Greatest Stretch",
       "pattern": "Mobility",
       "primaryMuscle": "Hips",
@@ -1838,6 +1893,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "4454b16f-0116-549b-b6bb-1b27313c45f6",
       "name": "Cat Cow",
       "pattern": "Mobility",
       "primaryMuscle": "Spine",
@@ -1871,6 +1927,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "f2eb570a-e716-5329-8950-7995362cf576",
       "name": "Half Kneeling Hip Flexor Stretch",
       "pattern": "Mobility",
       "primaryMuscle": "Hip flexors",
@@ -1904,6 +1961,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "1bd63cbc-801e-5633-a119-4a714ed52e14",
       "name": "Thoracic Open Book",
       "pattern": "Mobility",
       "primaryMuscle": "Thoracic spine",
@@ -1937,6 +1995,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "91439ccd-b545-5699-bc79-dba0093f1312",
       "name": "Banded Ankle Mobilization",
       "pattern": "Mobility",
       "primaryMuscle": "Ankles",
@@ -1969,6 +2028,7 @@
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
     },
     {
+      "id": "b599ecc6-3556-5f79-8a6d-a22eeec46e09",
       "name": "Shoulder Wall Slide",
       "pattern": "Mobility",
       "primaryMuscle": "Shoulders",

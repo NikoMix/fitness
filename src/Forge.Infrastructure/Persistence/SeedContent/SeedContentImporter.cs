@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Forge.Domain.Training;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,9 +10,13 @@ public sealed class SeedContentImporter(ForgeDbContext dbContext)
 {
     private const string ExerciseCatalogueName = "exercise-catalogue";
 
+    // The shipped catalogue writes enums as names ("pattern": "Squat"), which System.Text.Json
+    // will not bind to an enum without this converter. Omitting it fails the whole import, and
+    // because seeding runs during startup that leaves every data-backed screen empty.
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
     };
 
     /// <summary>Imports a versioned JSON exercise catalogue.</summary>
