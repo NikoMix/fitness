@@ -12,6 +12,7 @@ namespace Forge.App.Features.Shop.ViewModels;
 public sealed partial class ShopPageViewModel(IBillingService billingService) : ObservableObject
 {
     private bool hasLoaded;
+    private static readonly string[] ActiveProductIds = [ProductCatalogue.ForgeProLifetimeProductId];
 
     public ObservableCollection<ShopProductViewModel> Products { get; } = [];
 
@@ -61,7 +62,7 @@ public sealed partial class ShopPageViewModel(IBillingService billingService) : 
             {
                 BillingResultStatus.Succeeded => "Purchase complete. Forge Pro features are now unlocked on this device.",
                 BillingResultStatus.Pending => "Purchase pending. Forge will unlock it after the store approves it.",
-                BillingResultStatus.AlreadyOwned => "This purchase is already active.",
+                BillingResultStatus.AlreadyOwned => result.Message ?? "The store says this purchase is already owned. Use Restore purchases to refresh this device.",
                 BillingResultStatus.UserCancelled => "Purchase cancelled.",
                 BillingResultStatus.PaymentDeclined => "The payment was declined or could not be completed.",
                 BillingResultStatus.StoreUnavailable => "The store is unavailable. Check your connection and store account.",
@@ -106,7 +107,9 @@ public sealed partial class ShopPageViewModel(IBillingService billingService) : 
 
             if (result.IsSuccess)
             {
-                foreach (var product in result.Products.OrderBy(product => product.Kind))
+                foreach (var product in result.Products
+                    .Where(product => ActiveProductIds.Contains(product.ProductId, StringComparer.Ordinal))
+                    .OrderBy(product => product.Kind))
                 {
                     Products.Add(new ShopProductViewModel(
                         product.ProductId,
@@ -144,7 +147,7 @@ public sealed partial class ShopPageViewModel(IBillingService billingService) : 
     private void AddUnavailableCatalogue()
     {
         Products.Clear();
-        foreach (var product in ProductCatalogue.All)
+        foreach (var product in ProductCatalogue.All.Where(product => ActiveProductIds.Contains(product.ProductId, StringComparer.Ordinal)))
         {
             Products.Add(new ShopProductViewModel(
                 product.ProductId,

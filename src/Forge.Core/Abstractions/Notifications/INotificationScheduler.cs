@@ -3,6 +3,9 @@ namespace Forge.Core.Abstractions.Notifications;
 /// <summary>Schedules and manages local notifications without leaking platform-specific types.</summary>
 public interface INotificationScheduler
 {
+    /// <summary>Gets the current notification permission state without showing a system prompt.</summary>
+    Task<ForgeNotificationPermissionState> GetPermissionStateAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Requests notification permission only after the user has seen clear value.</summary>
     Task<bool> RequestPermissionForDemonstratedValueAsync(
         NotificationPermissionPromptReason reason,

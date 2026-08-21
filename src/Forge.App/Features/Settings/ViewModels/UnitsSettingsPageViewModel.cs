@@ -1,57 +1,87 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Forge.Core.Abstractions.Media;
 using Forge.Core.Abstractions.Preferences;
 
 namespace Forge.App.Features.Settings.ViewModels;
 
-public sealed class UnitsSettingsPageViewModel(IUnitPreferences preferences, IUnitFormatter formatter) : ObservableObject
+public sealed class UnitsSettingsPageViewModel(IForgePreferences preferences, IUnitFormatter formatter) : ObservableObject
 {
-    public IReadOnlyList<string> MassUnitOptions { get; } = ["Kilograms (kg)", "Pounds (lb)"];
+    public IReadOnlyList<string> UnitSystemOptions { get; } = ["Metric", "Imperial"];
 
-    public IReadOnlyList<string> LengthUnitOptions { get; } = ["Centimetres (cm)", "Feet and inches"];
+    public IReadOnlyList<string> ThemeOptions { get; } = ["System", "Light", "Dark"];
 
-    public IReadOnlyList<string> VolumeUnitOptions { get; } = ["Millilitres (ml)", "Fluid ounces (fl oz)"];
+    public IReadOnlyList<string> VideoQualityOptions { get; } = ["Standard", "High", "Max"];
 
-    public IReadOnlyList<string> EnergyUnitOptions { get; } = ["Kilocalories (kcal)", "Kilojoules (kJ)"];
+    public IReadOnlyList<string> RestTimerOptions { get; } = ["60 seconds", "90 seconds", "120 seconds", "180 seconds"];
 
     public IReadOnlyList<string> FirstDayOptions { get; } =
         ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-    public string SelectedMassUnit
+    public string SelectedUnitSystem
     {
-        get => preferences.MassUnit == MassUnitPreference.Pounds ? MassUnitOptions[1] : MassUnitOptions[0];
+        get => preferences.UnitSystem == MeasurementSystemPreference.Imperial ? UnitSystemOptions[1] : UnitSystemOptions[0];
         set
         {
-            preferences.MassUnit = value == MassUnitOptions[1] ? MassUnitPreference.Pounds : MassUnitPreference.Kilograms;
+            preferences.UnitSystem = value == UnitSystemOptions[1]
+                ? MeasurementSystemPreference.Imperial
+                : MeasurementSystemPreference.Metric;
             Refresh();
         }
     }
 
-    public string SelectedLengthUnit
+    public string SelectedTheme
     {
-        get => preferences.LengthUnit == LengthUnitPreference.FeetInches ? LengthUnitOptions[1] : LengthUnitOptions[0];
+        get => preferences.ThemeMode.ToString();
         set
         {
-            preferences.LengthUnit = value == LengthUnitOptions[1] ? LengthUnitPreference.FeetInches : LengthUnitPreference.Centimeters;
+            preferences.ThemeMode = Enum.TryParse<ThemeModePreference>(value, out var mode)
+                ? mode
+                : ThemeModePreference.System;
             Refresh();
         }
     }
 
-    public string SelectedVolumeUnit
+    public string SelectedVideoQuality
     {
-        get => preferences.VolumeUnit == VolumeUnitPreference.FluidOunces ? VolumeUnitOptions[1] : VolumeUnitOptions[0];
+        get => preferences.PreferredVideoQuality.ToString();
         set
         {
-            preferences.VolumeUnit = value == VolumeUnitOptions[1] ? VolumeUnitPreference.FluidOunces : VolumeUnitPreference.Milliliters;
+            preferences.PreferredVideoQuality = Enum.TryParse<MediaQuality>(value, out var quality)
+                ? quality
+                : MediaQuality.High;
             Refresh();
         }
     }
 
-    public string SelectedEnergyUnit
+    public bool DownloadOverUnmeteredOnly
     {
-        get => preferences.EnergyUnit == EnergyUnitPreference.Kilojoules ? EnergyUnitOptions[1] : EnergyUnitOptions[0];
+        get => preferences.DownloadMediaOverUnmeteredNetworksOnly;
         set
         {
-            preferences.EnergyUnit = value == EnergyUnitOptions[1] ? EnergyUnitPreference.Kilojoules : EnergyUnitPreference.Kilocalories;
+            preferences.DownloadMediaOverUnmeteredNetworksOnly = value;
+            Refresh();
+        }
+    }
+
+    public string SelectedRestTimer
+    {
+        get => $"{(int)preferences.RestTimerDefaultDuration.TotalSeconds} seconds";
+        set
+        {
+            var secondsText = value.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            preferences.RestTimerDefaultDuration = int.TryParse(secondsText, out var seconds)
+                ? TimeSpan.FromSeconds(seconds)
+                : TimeSpan.FromSeconds(120);
+            Refresh();
+        }
+    }
+
+    public bool HapticFeedbackEnabled
+    {
+        get => preferences.HapticFeedbackEnabled;
+        set
+        {
+            preferences.HapticFeedbackEnabled = value;
             Refresh();
         }
     }
@@ -76,17 +106,26 @@ public sealed class UnitsSettingsPageViewModel(IUnitPreferences preferences, IUn
 
     public string PreviewWeek => formatter.FormatFirstDayOfWeek();
 
+    public string VideoPreferenceSummary => $"{preferences.PreferredVideoQuality} quality · "
+        + (preferences.DownloadMediaOverUnmeteredNetworksOnly ? "unmetered networks only" : "metered networks allowed");
+
+    public string RestTimerSummary => $"New rest timers default to {(int)preferences.RestTimerDefaultDuration.TotalSeconds} seconds.";
+
     private void Refresh()
     {
-        OnPropertyChanged(nameof(SelectedMassUnit));
-        OnPropertyChanged(nameof(SelectedLengthUnit));
-        OnPropertyChanged(nameof(SelectedVolumeUnit));
-        OnPropertyChanged(nameof(SelectedEnergyUnit));
+        OnPropertyChanged(nameof(SelectedUnitSystem));
+        OnPropertyChanged(nameof(SelectedTheme));
+        OnPropertyChanged(nameof(SelectedVideoQuality));
+        OnPropertyChanged(nameof(DownloadOverUnmeteredOnly));
+        OnPropertyChanged(nameof(SelectedRestTimer));
+        OnPropertyChanged(nameof(HapticFeedbackEnabled));
         OnPropertyChanged(nameof(SelectedFirstDay));
         OnPropertyChanged(nameof(PreviewMass));
         OnPropertyChanged(nameof(PreviewLength));
         OnPropertyChanged(nameof(PreviewVolume));
         OnPropertyChanged(nameof(PreviewEnergy));
         OnPropertyChanged(nameof(PreviewWeek));
+        OnPropertyChanged(nameof(VideoPreferenceSummary));
+        OnPropertyChanged(nameof(RestTimerSummary));
     }
 }

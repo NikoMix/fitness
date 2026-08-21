@@ -34,6 +34,15 @@ public sealed record RestorePurchasesResult(
     public bool IsSuccess => Status == BillingResultStatus.Succeeded;
 }
 
+/// <summary>
+/// A successful store-owned transaction that can grant one or more local entitlements.
+/// </summary>
+/// <param name="ProductIds">Store product identifiers included in the transaction.</param>
+/// <param name="GrantedAtUtc">Store transaction time, or <see langword="null" /> to use the device clock.</param>
+public sealed record StorePurchaseGrant(
+    IReadOnlyList<string> ProductIds,
+    DateTimeOffset? GrantedAtUtc = null);
+
 public enum BillingResultStatus
 {
     Succeeded,

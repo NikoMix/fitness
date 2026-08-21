@@ -14,12 +14,12 @@
                 <Label Text="Forge Pro"
                        Style="{StaticResource DisplayText}"
                        SemanticProperties.HeadingLevel="Level1" />
-                <Label Text="The core training loop stays free: log workouts, use the exercise library and keep your data local. Pro unlocks additive analysis and planning tools."
+                <Label Text="The core training loop stays free: log workouts, use the exercise library and keep your data local. Pro is a one-off unlock for additive analysis and planning tools."
                        Style="{StaticResource BodyText}" />
             </VerticalStackLayout>
 
-            <controls:ForgeCard Title="No pressure pricing"
-                                Subtitle="No countdowns, no fake scarcity, no hard-coded prices. Your store supplies the local price and currency.">
+            <controls:ForgeCard Title="One-off pricing"
+                                Subtitle="No subscriptions for v1, no countdowns, no fake scarcity and no hard-coded prices. Your store supplies the local price and currency.">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="{Binding StatusMessage}"
                            Style="{StaticResource SecondaryText}" />
@@ -33,8 +33,7 @@
                                  IsVisible="{Binding HasProducts}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
-                        <dx:DXBorder Style="{StaticResource ElevatedCard}"
-                                     Margin="0,0,0,12">
+                        <dx:DXBorder Style="{StaticResource ElevatedCard}">
                             <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                                 <Grid ColumnDefinitions="*,Auto"
                                       ColumnSpacing="{StaticResource SpaceM}">

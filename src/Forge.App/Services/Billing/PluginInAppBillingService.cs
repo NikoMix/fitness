@@ -6,6 +6,14 @@ namespace Forge.App.Services.Billing;
 
 public sealed class PluginInAppBillingService(IEntitlementStore entitlementStore) : IBillingService
 {
+    private static readonly ProductDefinition[] ActiveProducts =
+    [
+        ProductCatalogue.Find(ProductCatalogue.ForgeProLifetimeProductId)
+            ?? throw new InvalidOperationException("Forge Pro lifetime product is missing from the catalogue.")
+    ];
+
+    private readonly LocalEntitlementResolver entitlementResolver = new(entitlementStore);
+
     public async Task<BillingProductsResult> GetProductsAsync(CancellationToken cancellationToken)
     {
         if (!CrossInAppBilling.IsSupported)
@@ -22,7 +30,7 @@ public sealed class PluginInAppBillingService(IEntitlementStore entitlementStore
             }
 
             var products = new List<BillingProduct>();
-            foreach (var group in ProductCatalogue.All.GroupBy(product => product.Kind))
+            foreach (var group in ActiveProducts.GroupBy(product => product.Kind))
             {
                 var storeProducts = await billing.GetProductInfoAsync(ToItemType(group.Key), group.Select(product => product.ProductId).ToArray(), cancellationToken);
                 products.AddRange(storeProducts.Select(ToBillingProduct));
@@ -45,7 +53,7 @@ public sealed class PluginInAppBillingService(IEntitlementStore entitlementStore
         ArgumentException.ThrowIfNullOrWhiteSpace(productId);
 
         var definition = ProductCatalogue.Find(productId);
-        if (definition is null)
+        if (definition is null || !ActiveProducts.Any(product => product.ProductId == productId))
         {
             return new PurchaseResult(BillingResultStatus.ProductUnavailable, Message: "This product is not part of the Forge catalogue.");
         }
@@ -84,7 +92,11 @@ public sealed class PluginInAppBillingService(IEntitlementStore entitlementStore
         }
         catch (InAppBillingPurchaseException ex)
         {
-            return new PurchaseResult(MapPurchaseError(ex.PurchaseError), Message: ex.Message);
+            var status = MapPurchaseError(ex.PurchaseError);
+            var message = status == BillingResultStatus.AlreadyOwned
+                ? "The store says Forge Pro is already owned. Use Restore purchases to refresh this device."
+                : ex.Message;
+            return new PurchaseResult(status, Message: message);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -107,22 +119,16 @@ public sealed class PluginInAppBillingService(IEntitlementStore entitlementStore
                 return new RestorePurchasesResult(BillingResultStatus.StoreUnavailable, [], "The store is unavailable.");
             }
 
-            var restored = new List<Entitlement>();
-            foreach (var group in ProductCatalogue.All.GroupBy(product => product.Kind))
+            var restoredPurchases = new List<StorePurchaseGrant>();
+            foreach (var group in ActiveProducts.GroupBy(product => product.Kind))
             {
                 var purchases = await billing.GetPurchasesAsync(ToItemType(group.Key), cancellationToken);
-                restored.AddRange(purchases
+                restoredPurchases.AddRange(purchases
                     .Where(IsSuccessfulPurchase)
-                    .SelectMany(ToEntitlements));
+                    .Select(ToStorePurchaseGrant));
             }
 
-            var merged = Merge(await entitlementStore.GetEntitlementsAsync(cancellationToken), restored);
-            await entitlementStore.SaveEntitlementsAsync(merged, cancellationToken);
-
-            return new RestorePurchasesResult(
-                BillingResultStatus.Succeeded,
-                restored,
-                restored.Count == 0 ? "No previous purchases were found for this store account." : "Purchases restored.");
+            return await entitlementResolver.RestorePurchasesAsync(restoredPurchases, cancellationToken);
         }
         catch (InAppBillingPurchaseException ex)
         {
@@ -163,10 +169,10 @@ public sealed class PluginInAppBillingService(IEntitlementStore entitlementStore
         return purchase.State switch
         {
             PurchaseState.Purchased or PurchaseState.Restored => await PersistSuccessfulPurchaseAsync(purchase, existingEntitlements, definition, cancellationToken),
-            PurchaseState.Deferred or PurchaseState.PaymentPending or PurchaseState.Purchasing => new PurchaseResult(BillingResultStatus.Pending, Message: "The purchase is pending store approval."),
-            PurchaseState.Canceled => new PurchaseResult(BillingResultStatus.UserCancelled, Message: "The purchase was cancelled."),
-            PurchaseState.Failed => new PurchaseResult(BillingResultStatus.PaymentDeclined, Message: "The payment could not be completed."),
-            _ => new PurchaseResult(BillingResultStatus.Failed, Message: "The store returned an unknown purchase state.")
+            PurchaseState.Deferred or PurchaseState.PaymentPending or PurchaseState.Purchasing => await entitlementResolver.ApplyPurchaseOutcomeAsync(definition, BillingResultStatus.Pending, null, "The purchase is pending store approval.", cancellationToken),
+            PurchaseState.Canceled => await entitlementResolver.ApplyPurchaseOutcomeAsync(definition, BillingResultStatus.UserCancelled, null, "The purchase was cancelled.", cancellationToken),
+            PurchaseState.Failed => await entitlementResolver.ApplyPurchaseOutcomeAsync(definition, BillingResultStatus.PaymentDeclined, null, "The payment could not be completed.", cancellationToken),
+            _ => await entitlementResolver.ApplyPurchaseOutcomeAsync(definition, BillingResultStatus.Failed, null, "The store returned an unknown purchase state.", cancellationToken)
         };
     }
 
@@ -176,12 +182,15 @@ public sealed class PluginInAppBillingService(IEntitlementStore entitlementStore
         ProductDefinition definition,
         CancellationToken cancellationToken)
     {
-        var entitlement = ToEntitlement(purchase, definition);
-        var merged = Merge(existingEntitlements, [entitlement]);
-        await entitlementStore.SaveEntitlementsAsync(merged, cancellationToken);
+        if (existingEntitlements.Any(entitlement => entitlement.ProductId == definition.ProductId && entitlement.IsActive(DateTimeOffset.UtcNow)))
+        {
+            return new PurchaseResult(BillingResultStatus.AlreadyOwned, Message: "This purchase is already active on this device.");
+        }
+
+        var result = await entitlementResolver.ApplyPurchaseOutcomeAsync(definition, BillingResultStatus.Succeeded, TransactionDate(purchase), "Purchase complete.", cancellationToken);
         await TryFinalizePurchaseAsync(purchase, cancellationToken);
 
-        return new PurchaseResult(BillingResultStatus.Succeeded, entitlement, "Purchase complete.");
+        return result;
     }
 
     private static async Task TryFinalizePurchaseAsync(InAppBillingPurchase purchase, CancellationToken cancellationToken)
@@ -235,42 +244,17 @@ public sealed class PluginInAppBillingService(IEntitlementStore entitlementStore
         return androidPhase?.BillingPeriod;
     }
 
-    private static IEnumerable<Entitlement> ToEntitlements(InAppBillingPurchase purchase)
+    private static StorePurchaseGrant ToStorePurchaseGrant(InAppBillingPurchase purchase)
     {
         var productIds = purchase.ProductIds.Count > 0 ? purchase.ProductIds : [purchase.ProductId];
-        foreach (var productId in productIds.Where(id => !string.IsNullOrWhiteSpace(id)))
-        {
-            var definition = ProductCatalogue.Find(productId);
-            if (definition is not null)
-            {
-                yield return ToEntitlement(purchase, definition);
-            }
-        }
+        return new StorePurchaseGrant(productIds.Where(id => !string.IsNullOrWhiteSpace(id)).ToArray(), TransactionDate(purchase));
     }
 
-    private static Entitlement ToEntitlement(InAppBillingPurchase purchase, ProductDefinition definition)
+    private static DateTimeOffset? TransactionDate(InAppBillingPurchase purchase)
     {
-        var grantedAt = purchase.TransactionDateUtc == default
-            ? DateTimeOffset.UtcNow
+        return purchase.TransactionDateUtc == default
+            ? null
             : new DateTimeOffset(DateTime.SpecifyKind(purchase.TransactionDateUtc, DateTimeKind.Utc));
-
-        return new Entitlement(
-            definition.EntitlementKind,
-            definition.ProductId,
-            grantedAt,
-            definition.Kind == ProductKind.Subscription ? null : null);
-    }
-
-    private static Entitlement[] Merge(IEnumerable<Entitlement> existing, IEnumerable<Entitlement> incoming)
-    {
-        return existing
-            .Concat(incoming)
-            .GroupBy(entitlement => $"{entitlement.Kind}:{entitlement.ProductId}", StringComparer.Ordinal)
-            .Select(group => group
-                .OrderByDescending(entitlement => entitlement.ExpiresAtUtc ?? DateTimeOffset.MaxValue)
-                .ThenByDescending(entitlement => entitlement.GrantedAtUtc)
-                .First())
-            .ToArray();
     }
 
     private static bool IsSuccessfulPurchase(InAppBillingPurchase purchase)

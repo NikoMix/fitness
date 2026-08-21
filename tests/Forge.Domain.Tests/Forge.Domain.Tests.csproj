@@ -25,6 +25,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Forge.Domain\Forge.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Forge.Infrastructure\Forge.Infrastructure.csproj" />
   </ItemGroup>
-
 </Project>

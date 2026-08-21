@@ -19,8 +19,10 @@
   <ItemGroup>
     <None Remove="Content\exercise-catalogue.json" />
     <None Remove="Content\food-catalogue.json" />
+    <None Remove="Content\recipe-catalogue.json" />
     <EmbeddedResource Include="Content\exercise-catalogue.json" />
     <EmbeddedResource Include="Content\food-catalogue.json" />
+    <EmbeddedResource Include="Content\recipe-catalogue.json" />
   </ItemGroup>
 
 </Project>

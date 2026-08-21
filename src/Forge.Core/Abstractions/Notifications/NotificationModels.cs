@@ -3,11 +3,25 @@ namespace Forge.Core.Abstractions.Notifications;
 /// <summary>Notification categories users can control independently.</summary>
 public enum ForgeNotificationCategory
 {
+    /// <summary>Reminder for a scheduled workout.</summary>
     WorkoutReminder,
+
+    /// <summary>Reminder to drink enough fluid.</summary>
     HydrationReminder,
+
+    /// <summary>Reminder related to meal logging.</summary>
     MealReminder,
+
+    /// <summary>Foreground workout rest timer completion.</summary>
     RestTimer,
+
+    /// <summary>Achievement notification.</summary>
     Achievement,
+
+    /// <summary>Daily recovery check-in notification.</summary>
+    DailyCheckIn,
+
+    /// <summary>Streak protection notification.</summary>
     Streak
 }
 

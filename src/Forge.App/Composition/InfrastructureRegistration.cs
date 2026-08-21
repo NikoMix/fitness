@@ -1,5 +1,9 @@
+using Forge.App.Services.Health;
+using Forge.App.Services.Sensors;
 using Forge.App.Services.Storage;
 using Forge.Core.Abstractions.Data;
+using Forge.Core.Abstractions.Health;
+using Forge.Core.Abstractions.Sensors;
 using Forge.Infrastructure.Persistence;
 using Forge.Infrastructure.Persistence.Repositories;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,6 +59,24 @@ internal static class InfrastructureRegistration
             var options = provider.GetRequiredService<ForgeDatabaseOptions>();
             return ForgeDbContextFactory.CreateDbContext(options.DatabasePath, options.EncryptionKey);
         }));
+
+        // Device capabilities.
+        //
+        // These were previously implemented but never registered, so CoachingDataService's
+        // GetService<IHealthDataService>() quietly returned null and readiness scoring ran
+        // without any sleep data. Because that call is optional-by-design, nothing failed and
+        // nothing logged - the feature was simply inert. Registering the platform
+        // implementation, with an honest fallback where the platform cannot supply one, is what
+        // makes the capability real.
+#if ANDROID || IOS
+        services.AddSingleton<IHealthDataService, PlatformHealthDataService>();
+        services.AddSingleton<IAccelerometerSensor>(_ => Accelerometer.Default.IsSupported
+            ? new PlatformAccelerometerSensor()
+            : new UnavailableAccelerometerSensor());
+#else
+        services.AddSingleton<IHealthDataService, UnavailableHealthDataService>();
+        services.AddSingleton<IAccelerometerSensor, UnavailableAccelerometerSensor>();
+#endif
 
         return services;
     }

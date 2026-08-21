@@ -7,51 +7,59 @@
              BackgroundColor="{dx:ThemeColor Surface}">
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
-            <Label Text="Units and formats"
+            <Label Text="Preferences"
                    Style="{StaticResource HeadlineText}"
                    SemanticProperties.HeadingLevel="Level1" />
-            <Label Text="Forge stores canonical metric values locally and formats every display through this preference layer."
+            <Label Text="Forge stores canonical metric values locally and applies these preferences whenever values are formatted for display."
                    Style="{StaticResource SecondaryText}" />
 
             <dx:DXBorder Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="Mass" Style="{StaticResource TitleText}" />
-                    <dx:ComboBoxEdit ItemsSource="{Binding MassUnitOptions}"
-                                     SelectedItem="{Binding SelectedMassUnit, Mode=TwoWay}" />
+                   <Label Text="Units" Style="{StaticResource TitleText}" />
+                   <dx:ComboBoxEdit ItemsSource="{Binding UnitSystemOptions}"
+                                    SelectedItem="{Binding SelectedUnitSystem, Mode=TwoWay}" />
                     <Label Text="{Binding PreviewMass}" Style="{StaticResource SecondaryText}" />
+                   <Label Text="{Binding PreviewLength}" Style="{StaticResource SecondaryText}" />
+                   <Label Text="{Binding PreviewVolume}" Style="{StaticResource SecondaryText}" />
+                   <Label Text="{Binding PreviewEnergy}" Style="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
 
             <dx:DXBorder Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="Length" Style="{StaticResource TitleText}" />
-                    <dx:ComboBoxEdit ItemsSource="{Binding LengthUnitOptions}"
-                                     SelectedItem="{Binding SelectedLengthUnit, Mode=TwoWay}" />
-                    <Label Text="{Binding PreviewLength}" Style="{StaticResource SecondaryText}" />
+                   <Label Text="Theme" Style="{StaticResource TitleText}" />
+                   <dx:ComboBoxEdit ItemsSource="{Binding ThemeOptions}"
+                                    SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" />
+                   <Label Text="System follows the device setting; light and dark override it locally."
+                          Style="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
 
             <dx:DXBorder Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="Volume" Style="{StaticResource TitleText}" />
-                    <dx:ComboBoxEdit ItemsSource="{Binding VolumeUnitOptions}"
-                                     SelectedItem="{Binding SelectedVolumeUnit, Mode=TwoWay}" />
-                    <Label Text="{Binding PreviewVolume}" Style="{StaticResource SecondaryText}" />
+                   <Label Text="Video downloads" Style="{StaticResource TitleText}" />
+                   <dx:ComboBoxEdit ItemsSource="{Binding VideoQualityOptions}"
+                                    SelectedItem="{Binding SelectedVideoQuality, Mode=TwoWay}" />
+                   <dx:CheckEdit Label="Download over unmetered networks only"
+                                 IsChecked="{Binding DownloadOverUnmeteredOnly, Mode=TwoWay}" />
+                   <Label Text="{Binding VideoPreferenceSummary}" Style="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
 
             <dx:DXBorder Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="Energy" Style="{StaticResource TitleText}" />
-                    <dx:ComboBoxEdit ItemsSource="{Binding EnergyUnitOptions}"
-                                     SelectedItem="{Binding SelectedEnergyUnit, Mode=TwoWay}" />
-                    <Label Text="{Binding PreviewEnergy}" Style="{StaticResource SecondaryText}" />
+                   <Label Text="Workout feedback" Style="{StaticResource TitleText}" />
+                   <dx:ComboBoxEdit ItemsSource="{Binding RestTimerOptions}"
+                                    SelectedItem="{Binding SelectedRestTimer, Mode=TwoWay}" />
+                   <dx:CheckEdit Label="Haptic feedback"
+                                 IsChecked="{Binding HapticFeedbackEnabled, Mode=TwoWay}" />
+                   <Label Text="{Binding RestTimerSummary}" Style="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
 
             <dx:DXBorder Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="First day of week" Style="{StaticResource TitleText}" />
+                   <Label Text="First day of week" Style="{StaticResource TitleText}" />
                     <dx:ComboBoxEdit ItemsSource="{Binding FirstDayOptions}"
                                      SelectedItem="{Binding SelectedFirstDay, Mode=TwoWay}" />
                     <Label Text="{Binding PreviewWeek}" Style="{StaticResource SecondaryText}" />

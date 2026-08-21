@@ -13,7 +13,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject
     {
         allItems =
         [
-            Create("Preferences", "Units", "Mass, length, volume, energy and calendar week.", "kg lb cm feet inches ml fl oz kcal kj week", ForgeRoutes.UnitsSettings),
+            Create("Preferences", "Preferences", "Units, theme, video downloads, haptics, rest timer and calendar week.", "kg lb cm feet inches ml fl oz theme dark light video quality haptics rest timer week", ForgeRoutes.UnitsSettings),
             Create("Preferences", "Notifications", "Workout reminders, quiet hours and local nudges.", "reminders quiet hours notifications", ForgeRoutes.NotificationSettings),
             Create("Data", "Data management", "Storage use, backup, export and deletion.", "storage backup restore export delete data", ForgeRoutes.DataManagement),
             Create("Legal", "Privacy policy", "How Forge protects local health data.", "privacy health data local gdpr", ForgeRoutes.PrivacyPolicy),

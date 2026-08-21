@@ -1,0 +1,1548 @@
+{
+  "version": 1,
+  "provenance": "Original Forge seed content written from scratch for offline distribution; do not copy third-party recipe databases, websites or cookbooks.",
+  "recipes": [
+    {
+      "id": "6165a25c-45ff-5e30-9eca-de396cace110",
+      "name": "Citrus Yogurt Power Bowl",
+      "description": "Creamy yogurt, fruit and seeds for a fast high-protein breakfast.",
+      "baseServings": 1,
+      "prepMinutes": 8,
+      "cookMinutes": 0,
+      "tags": [
+        "HighProtein",
+        "Quick",
+        "Vegetarian",
+        "Recovery"
+      ],
+      "ingredients": [
+        {
+          "name": "Greek yogurt",
+          "quantity": 250,
+          "unit": "Grams",
+          "edibleMassGrams": 250,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 59,
+            "proteinGrams": 10.3,
+            "carbohydrateGrams": 3.6,
+            "fatGrams": 0.4,
+            "fibreGrams": 0,
+            "sugarGrams": 3.2,
+            "sodiumMilligrams": 36
+          },
+          "preparationNote": "plain 0%"
+        },
+        {
+          "name": "Rolled oats",
+          "quantity": 30,
+          "unit": "Grams",
+          "edibleMassGrams": 30,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 389,
+            "proteinGrams": 16.9,
+            "carbohydrateGrams": 66.3,
+            "fatGrams": 6.9,
+            "fibreGrams": 10.6,
+            "sugarGrams": 0.9,
+            "sodiumMilligrams": 2
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Orange segments",
+          "quantity": 120,
+          "unit": "Grams",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 47,
+            "proteinGrams": 0.9,
+            "carbohydrateGrams": 11.8,
+            "fatGrams": 0.1,
+            "fibreGrams": 2.4,
+            "sugarGrams": 9.4,
+            "sodiumMilligrams": 0
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Pumpkin seeds",
+          "quantity": 15,
+          "unit": "Grams",
+          "edibleMassGrams": 15,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 559,
+            "proteinGrams": 30.2,
+            "carbohydrateGrams": 10.7,
+            "fatGrams": 49,
+            "fibreGrams": 6,
+            "sugarGrams": 1.4,
+            "sodiumMilligrams": 7
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Honey",
+          "quantity": 10,
+          "unit": "Grams",
+          "edibleMassGrams": 10,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 304,
+            "proteinGrams": 0.3,
+            "carbohydrateGrams": 82.4,
+            "fatGrams": 0,
+            "fibreGrams": 0.2,
+            "sugarGrams": 82.1,
+            "sodiumMilligrams": 4
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Spoon the yogurt into a bowl and loosen it with a small splash of water if needed.",
+        "Scatter the oats and orange over the yogurt.",
+        "Finish with pumpkin seeds and honey, then eat immediately or chill briefly."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "e208f620-8be1-532c-83dc-f2237158fefc",
+      "name": "Smoky Bean Protein Tacos",
+      "description": "Black bean and skyr tacos with crisp cabbage and smoky seasoning.",
+      "baseServings": 2,
+      "prepMinutes": 12,
+      "cookMinutes": 8,
+      "tags": [
+        "HighProtein",
+        "Vegetarian",
+        "HighFibre",
+        "Quick"
+      ],
+      "ingredients": [
+        {
+          "name": "Black beans",
+          "quantity": 240,
+          "unit": "Grams",
+          "edibleMassGrams": 240,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 132,
+            "proteinGrams": 8.9,
+            "carbohydrateGrams": 23.7,
+            "fatGrams": 0.5,
+            "fibreGrams": 8.7,
+            "sugarGrams": 0.3,
+            "sodiumMilligrams": 1
+          },
+          "preparationNote": "drained"
+        },
+        {
+          "name": "Corn tortillas",
+          "quantity": 4,
+          "unit": "Each",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 218,
+            "proteinGrams": 5.7,
+            "carbohydrateGrams": 44.6,
+            "fatGrams": 2.9,
+            "fibreGrams": 6.3,
+            "sugarGrams": 1.0,
+            "sodiumMilligrams": 45
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Skyr",
+          "quantity": 120,
+          "unit": "Grams",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 63,
+            "proteinGrams": 11,
+            "carbohydrateGrams": 3.8,
+            "fatGrams": 0.2,
+            "fibreGrams": 0,
+            "sugarGrams": 3.5,
+            "sodiumMilligrams": 36
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Red cabbage",
+          "quantity": 120,
+          "unit": "Grams",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 31,
+            "proteinGrams": 1.4,
+            "carbohydrateGrams": 7.4,
+            "fatGrams": 0.2,
+            "fibreGrams": 2.1,
+            "sugarGrams": 3.8,
+            "sodiumMilligrams": 27
+          },
+          "preparationNote": "shredded"
+        },
+        {
+          "name": "Avocado",
+          "quantity": 80,
+          "unit": "Grams",
+          "edibleMassGrams": 80,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 160,
+            "proteinGrams": 2,
+            "carbohydrateGrams": 8.5,
+            "fatGrams": 14.7,
+            "fibreGrams": 6.7,
+            "sugarGrams": 0.7,
+            "sodiumMilligrams": 7
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Lime juice",
+          "quantity": 20,
+          "unit": "Millilitres",
+          "edibleMassGrams": 20,
+          "volumeMillilitres": 20,
+          "per100Grams": {
+            "energyKilocalories": 25,
+            "proteinGrams": 0.4,
+            "carbohydrateGrams": 8.4,
+            "fatGrams": 0.1,
+            "fibreGrams": 0.4,
+            "sugarGrams": 1.7,
+            "sodiumMilligrams": 1
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Warm the beans with a pinch of smoked paprika and a spoon of water until glossy.",
+        "Warm the tortillas in a dry pan so they bend without cracking.",
+        "Fill tortillas with beans, cabbage, avocado and skyr, then squeeze lime over the top."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "d835342a-745b-507f-a99f-845303aca609",
+      "name": "Lemon Herb Chicken Rice Box",
+      "description": "Lean chicken, rice and vegetables for a simple meal-prep lunch.",
+      "baseServings": 3,
+      "prepMinutes": 15,
+      "cookMinutes": 20,
+      "tags": [
+        "HighProtein",
+        "MealPrep",
+        "Recovery"
+      ],
+      "ingredients": [
+        {
+          "name": "Chicken breast",
+          "quantity": 450,
+          "unit": "Grams",
+          "edibleMassGrams": 450,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 120,
+            "proteinGrams": 22.5,
+            "carbohydrateGrams": 0,
+            "fatGrams": 2.6,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 45
+          },
+          "preparationNote": "raw weight"
+        },
+        {
+          "name": "Cooked brown rice",
+          "quantity": 450,
+          "unit": "Grams",
+          "edibleMassGrams": 450,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 123,
+            "proteinGrams": 2.7,
+            "carbohydrateGrams": 25.6,
+            "fatGrams": 1,
+            "fibreGrams": 1.8,
+            "sugarGrams": 0.2,
+            "sodiumMilligrams": 4
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Broccoli",
+          "quantity": 300,
+          "unit": "Grams",
+          "edibleMassGrams": 300,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 34,
+            "proteinGrams": 2.8,
+            "carbohydrateGrams": 6.6,
+            "fatGrams": 0.4,
+            "fibreGrams": 2.6,
+            "sugarGrams": 1.7,
+            "sodiumMilligrams": 33
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Olive oil",
+          "quantity": 20,
+          "unit": "Grams",
+          "edibleMassGrams": 20,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 884,
+            "proteinGrams": 0,
+            "carbohydrateGrams": 0,
+            "fatGrams": 100,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 2
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Lemon juice",
+          "quantity": 45,
+          "unit": "Millilitres",
+          "edibleMassGrams": 45,
+          "volumeMillilitres": 45,
+          "per100Grams": {
+            "energyKilocalories": 25,
+            "proteinGrams": 0.4,
+            "carbohydrateGrams": 8.4,
+            "fatGrams": 0.1,
+            "fibreGrams": 0.4,
+            "sugarGrams": 1.7,
+            "sodiumMilligrams": 1
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Season chicken with lemon, herbs and a little salt.",
+        "Cook chicken in a covered pan until no pink remains, then rest and slice.",
+        "Steam broccoli until bright, then portion chicken, rice and broccoli into boxes with the pan juices."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "13609cf5-9dff-58c5-aa1c-28b0854471b1",
+      "name": "Green Lentil Recovery Stew",
+      "description": "A fibre-rich lentil stew with potatoes, spinach and yogurt.",
+      "baseServings": 4,
+      "prepMinutes": 15,
+      "cookMinutes": 35,
+      "tags": [
+        "Vegetarian",
+        "HighFibre",
+        "MealPrep",
+        "Recovery"
+      ],
+      "ingredients": [
+        {
+          "name": "Cooked green lentils",
+          "quantity": 600,
+          "unit": "Grams",
+          "edibleMassGrams": 600,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 116,
+            "proteinGrams": 9,
+            "carbohydrateGrams": 20.1,
+            "fatGrams": 0.4,
+            "fibreGrams": 7.9,
+            "sugarGrams": 1.8,
+            "sodiumMilligrams": 2
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Potato",
+          "quantity": 400,
+          "unit": "Grams",
+          "edibleMassGrams": 400,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 77,
+            "proteinGrams": 2,
+            "carbohydrateGrams": 17,
+            "fatGrams": 0.1,
+            "fibreGrams": 2.2,
+            "sugarGrams": 0.8,
+            "sodiumMilligrams": 6
+          },
+          "preparationNote": "diced"
+        },
+        {
+          "name": "Spinach",
+          "quantity": 160,
+          "unit": "Grams",
+          "edibleMassGrams": 160,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 23,
+            "proteinGrams": 2.9,
+            "carbohydrateGrams": 3.6,
+            "fatGrams": 0.4,
+            "fibreGrams": 2.2,
+            "sugarGrams": 0.4,
+            "sodiumMilligrams": 79
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Carrot",
+          "quantity": 200,
+          "unit": "Grams",
+          "edibleMassGrams": 200,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 41,
+            "proteinGrams": 0.9,
+            "carbohydrateGrams": 9.6,
+            "fatGrams": 0.2,
+            "fibreGrams": 2.8,
+            "sugarGrams": 4.7,
+            "sodiumMilligrams": 69
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Greek yogurt",
+          "quantity": 200,
+          "unit": "Grams",
+          "edibleMassGrams": 200,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 59,
+            "proteinGrams": 10.3,
+            "carbohydrateGrams": 3.6,
+            "fatGrams": 0.4,
+            "fibreGrams": 0,
+            "sugarGrams": 3.2,
+            "sodiumMilligrams": 36
+          },
+          "preparationNote": "for serving"
+        },
+        {
+          "name": "Olive oil",
+          "quantity": 15,
+          "unit": "Grams",
+          "edibleMassGrams": 15,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 884,
+            "proteinGrams": 0,
+            "carbohydrateGrams": 0,
+            "fatGrams": 100,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 2
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Soften carrot in olive oil with cumin and black pepper.",
+        "Add potato and enough water to cover, then simmer until the potato is tender.",
+        "Stir in lentils and spinach until hot, then serve each bowl with yogurt."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "52560d68-f922-5b7b-9c8f-2fe202d7c430",
+      "name": "Tofu Peanut Crunch Noodles",
+      "description": "Cold tofu noodles with peanut-lime dressing and crisp vegetables.",
+      "baseServings": 2,
+      "prepMinutes": 18,
+      "cookMinutes": 6,
+      "tags": [
+        "Vegan",
+        "HighProtein",
+        "Quick",
+        "MealPrep"
+      ],
+      "ingredients": [
+        {
+          "name": "Firm tofu",
+          "quantity": 300,
+          "unit": "Grams",
+          "edibleMassGrams": 300,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 144,
+            "proteinGrams": 15.7,
+            "carbohydrateGrams": 3.4,
+            "fatGrams": 8.7,
+            "fibreGrams": 2.3,
+            "sugarGrams": 0.6,
+            "sodiumMilligrams": 14
+          },
+          "preparationNote": "pressed"
+        },
+        {
+          "name": "Cooked soba noodles",
+          "quantity": 280,
+          "unit": "Grams",
+          "edibleMassGrams": 280,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 99,
+            "proteinGrams": 5.1,
+            "carbohydrateGrams": 21.4,
+            "fatGrams": 0.1,
+            "fibreGrams": 1.8,
+            "sugarGrams": 0.5,
+            "sodiumMilligrams": 60
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Peanut butter",
+          "quantity": 40,
+          "unit": "Grams",
+          "edibleMassGrams": 40,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 588,
+            "proteinGrams": 25.1,
+            "carbohydrateGrams": 20,
+            "fatGrams": 50,
+            "fibreGrams": 6,
+            "sugarGrams": 9.2,
+            "sodiumMilligrams": 17
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Cucumber",
+          "quantity": 180,
+          "unit": "Grams",
+          "edibleMassGrams": 180,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 15,
+            "proteinGrams": 0.7,
+            "carbohydrateGrams": 3.6,
+            "fatGrams": 0.1,
+            "fibreGrams": 0.5,
+            "sugarGrams": 1.7,
+            "sodiumMilligrams": 2
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Carrot",
+          "quantity": 120,
+          "unit": "Grams",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 41,
+            "proteinGrams": 0.9,
+            "carbohydrateGrams": 9.6,
+            "fatGrams": 0.2,
+            "fibreGrams": 2.8,
+            "sugarGrams": 4.7,
+            "sodiumMilligrams": 69
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Lime juice",
+          "quantity": 30,
+          "unit": "Millilitres",
+          "edibleMassGrams": 30,
+          "volumeMillilitres": 30,
+          "per100Grams": {
+            "energyKilocalories": 25,
+            "proteinGrams": 0.4,
+            "carbohydrateGrams": 8.4,
+            "fatGrams": 0.1,
+            "fibreGrams": 0.4,
+            "sugarGrams": 1.7,
+            "sodiumMilligrams": 1
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Whisk peanut butter with lime juice and enough warm water to make a loose dressing.",
+        "Cube the tofu and slice the cucumber and carrot thinly.",
+        "Toss noodles, tofu, vegetables and dressing until evenly coated."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "8bdd2f71-56d7-5dad-a4ff-9c77fec6474c",
+      "name": "Turkey Spinach Egg Muffins",
+      "description": "Portable egg muffins with turkey, spinach and peppers.",
+      "baseServings": 6,
+      "prepMinutes": 12,
+      "cookMinutes": 18,
+      "tags": [
+        "HighProtein",
+        "MealPrep",
+        "Light"
+      ],
+      "ingredients": [
+        {
+          "name": "Eggs",
+          "quantity": 6,
+          "unit": "Each",
+          "edibleMassGrams": 300,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 143,
+            "proteinGrams": 12.6,
+            "carbohydrateGrams": 0.7,
+            "fatGrams": 9.5,
+            "fibreGrams": 0,
+            "sugarGrams": 0.4,
+            "sodiumMilligrams": 142
+          },
+          "preparationNote": "beaten"
+        },
+        {
+          "name": "Cooked turkey mince",
+          "quantity": 240,
+          "unit": "Grams",
+          "edibleMassGrams": 240,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 149,
+            "proteinGrams": 27,
+            "carbohydrateGrams": 0,
+            "fatGrams": 3.8,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 70
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Spinach",
+          "quantity": 100,
+          "unit": "Grams",
+          "edibleMassGrams": 100,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 23,
+            "proteinGrams": 2.9,
+            "carbohydrateGrams": 3.6,
+            "fatGrams": 0.4,
+            "fibreGrams": 2.2,
+            "sugarGrams": 0.4,
+            "sodiumMilligrams": 79
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Red pepper",
+          "quantity": 120,
+          "unit": "Grams",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 31,
+            "proteinGrams": 1,
+            "carbohydrateGrams": 6,
+            "fatGrams": 0.3,
+            "fibreGrams": 2.1,
+            "sugarGrams": 4.2,
+            "sodiumMilligrams": 4
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Feta",
+          "quantity": 60,
+          "unit": "Grams",
+          "edibleMassGrams": 60,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 264,
+            "proteinGrams": 14.2,
+            "carbohydrateGrams": 4.1,
+            "fatGrams": 21.3,
+            "fibreGrams": 0,
+            "sugarGrams": 4.1,
+            "sodiumMilligrams": 917
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Mix beaten eggs with turkey, spinach, pepper and crumbled feta.",
+        "Divide the mixture between lined muffin cups.",
+        "Bake until the centres are set, then cool before storing."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "94cdfa1a-184e-5add-add2-8435c0566dcd",
+      "name": "Salmon Potato Tray Plate",
+      "description": "One-tray salmon, potatoes and green beans with mustard yogurt.",
+      "baseServings": 2,
+      "prepMinutes": 10,
+      "cookMinutes": 25,
+      "tags": [
+        "HighProtein",
+        "Seafood",
+        "Recovery"
+      ],
+      "ingredients": [
+        {
+          "name": "Salmon fillet",
+          "quantity": 300,
+          "unit": "Grams",
+          "edibleMassGrams": 300,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 208,
+            "proteinGrams": 20.4,
+            "carbohydrateGrams": 0,
+            "fatGrams": 13.4,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 59
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Potato",
+          "quantity": 400,
+          "unit": "Grams",
+          "edibleMassGrams": 400,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 77,
+            "proteinGrams": 2,
+            "carbohydrateGrams": 17,
+            "fatGrams": 0.1,
+            "fibreGrams": 2.2,
+            "sugarGrams": 0.8,
+            "sodiumMilligrams": 6
+          },
+          "preparationNote": "wedges"
+        },
+        {
+          "name": "Green beans",
+          "quantity": 220,
+          "unit": "Grams",
+          "edibleMassGrams": 220,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 31,
+            "proteinGrams": 1.8,
+            "carbohydrateGrams": 7,
+            "fatGrams": 0.1,
+            "fibreGrams": 3.4,
+            "sugarGrams": 3.3,
+            "sodiumMilligrams": 6
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Greek yogurt",
+          "quantity": 120,
+          "unit": "Grams",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 59,
+            "proteinGrams": 10.3,
+            "carbohydrateGrams": 3.6,
+            "fatGrams": 0.4,
+            "fibreGrams": 0,
+            "sugarGrams": 3.2,
+            "sodiumMilligrams": 36
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Olive oil",
+          "quantity": 15,
+          "unit": "Grams",
+          "edibleMassGrams": 15,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 884,
+            "proteinGrams": 0,
+            "carbohydrateGrams": 0,
+            "fatGrams": 100,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 2
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Roast potato wedges with olive oil until almost tender.",
+        "Add salmon and green beans to the tray and cook until the fish flakes.",
+        "Stir mustard into yogurt and spoon it over the hot plate."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "2896696e-e13b-5777-b493-f9c6cf346ea0",
+      "name": "Chickpea Cottage Salad Wrap",
+      "description": "A high-fibre wrap with chickpeas, cottage cheese and crunchy salad.",
+      "baseServings": 2,
+      "prepMinutes": 12,
+      "cookMinutes": 0,
+      "tags": [
+        "Vegetarian",
+        "HighProtein",
+        "HighFibre",
+        "Quick"
+      ],
+      "ingredients": [
+        {
+          "name": "Whole wheat wraps",
+          "quantity": 2,
+          "unit": "Each",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 310,
+            "proteinGrams": 9.8,
+            "carbohydrateGrams": 50,
+            "fatGrams": 8,
+            "fibreGrams": 6,
+            "sugarGrams": 3,
+            "sodiumMilligrams": 520
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Chickpeas",
+          "quantity": 220,
+          "unit": "Grams",
+          "edibleMassGrams": 220,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 164,
+            "proteinGrams": 8.9,
+            "carbohydrateGrams": 27.4,
+            "fatGrams": 2.6,
+            "fibreGrams": 7.6,
+            "sugarGrams": 4.8,
+            "sodiumMilligrams": 7
+          },
+          "preparationNote": "drained"
+        },
+        {
+          "name": "Cottage cheese",
+          "quantity": 200,
+          "unit": "Grams",
+          "edibleMassGrams": 200,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 98,
+            "proteinGrams": 11.1,
+            "carbohydrateGrams": 3.4,
+            "fatGrams": 4.3,
+            "fibreGrams": 0,
+            "sugarGrams": 2.7,
+            "sodiumMilligrams": 364
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Romaine lettuce",
+          "quantity": 100,
+          "unit": "Grams",
+          "edibleMassGrams": 100,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 17,
+            "proteinGrams": 1.2,
+            "carbohydrateGrams": 3.3,
+            "fatGrams": 0.3,
+            "fibreGrams": 2.1,
+            "sugarGrams": 1.2,
+            "sodiumMilligrams": 8
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Tomato",
+          "quantity": 160,
+          "unit": "Grams",
+          "edibleMassGrams": 160,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 18,
+            "proteinGrams": 0.9,
+            "carbohydrateGrams": 3.9,
+            "fatGrams": 0.2,
+            "fibreGrams": 1.2,
+            "sugarGrams": 2.6,
+            "sodiumMilligrams": 5
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Mash half the chickpeas with cottage cheese to make a chunky filling.",
+        "Fold in the remaining chickpeas, tomato and lettuce.",
+        "Load the wraps, roll tightly and slice in half."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "4468e93b-1fc5-55f4-9c8b-d5b2c8611ac1",
+      "name": "Beef Tomato Couscous Skillet",
+      "description": "Lean beef and couscous cooked in one skillet with tomatoes.",
+      "baseServings": 3,
+      "prepMinutes": 10,
+      "cookMinutes": 18,
+      "tags": [
+        "HighProtein",
+        "MealPrep",
+        "Quick"
+      ],
+      "ingredients": [
+        {
+          "name": "Lean beef mince",
+          "quantity": 360,
+          "unit": "Grams",
+          "edibleMassGrams": 360,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 176,
+            "proteinGrams": 20,
+            "carbohydrateGrams": 0,
+            "fatGrams": 10,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 66
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Dry couscous",
+          "quantity": 210,
+          "unit": "Grams",
+          "edibleMassGrams": 210,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 376,
+            "proteinGrams": 12.8,
+            "carbohydrateGrams": 77.4,
+            "fatGrams": 0.6,
+            "fibreGrams": 5,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 10
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Chopped tomatoes",
+          "quantity": 400,
+          "unit": "Grams",
+          "edibleMassGrams": 400,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 24,
+            "proteinGrams": 1.2,
+            "carbohydrateGrams": 4.2,
+            "fatGrams": 0.3,
+            "fibreGrams": 1.2,
+            "sugarGrams": 3,
+            "sodiumMilligrams": 120
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Courgette",
+          "quantity": 240,
+          "unit": "Grams",
+          "edibleMassGrams": 240,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 17,
+            "proteinGrams": 1.2,
+            "carbohydrateGrams": 3.1,
+            "fatGrams": 0.3,
+            "fibreGrams": 1,
+            "sugarGrams": 2.5,
+            "sodiumMilligrams": 8
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Olive oil",
+          "quantity": 15,
+          "unit": "Grams",
+          "edibleMassGrams": 15,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 884,
+            "proteinGrams": 0,
+            "carbohydrateGrams": 0,
+            "fatGrams": 100,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 2
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Brown the beef in olive oil and break it into small pieces.",
+        "Add courgette and tomatoes, then simmer until the sauce thickens slightly.",
+        "Stir in couscous and hot water, cover, and rest until fluffy."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "6c893be7-3ffa-5494-82d7-695174814db1",
+      "name": "Berry Oat Protein Bake",
+      "description": "A soft baked oat tray with berries, eggs and yogurt.",
+      "baseServings": 4,
+      "prepMinutes": 10,
+      "cookMinutes": 28,
+      "tags": [
+        "Vegetarian",
+        "MealPrep",
+        "Recovery"
+      ],
+      "ingredients": [
+        {
+          "name": "Rolled oats",
+          "quantity": 180,
+          "unit": "Grams",
+          "edibleMassGrams": 180,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 389,
+            "proteinGrams": 16.9,
+            "carbohydrateGrams": 66.3,
+            "fatGrams": 6.9,
+            "fibreGrams": 10.6,
+            "sugarGrams": 0.9,
+            "sodiumMilligrams": 2
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Eggs",
+          "quantity": 2,
+          "unit": "Each",
+          "edibleMassGrams": 100,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 143,
+            "proteinGrams": 12.6,
+            "carbohydrateGrams": 0.7,
+            "fatGrams": 9.5,
+            "fibreGrams": 0,
+            "sugarGrams": 0.4,
+            "sodiumMilligrams": 142
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Greek yogurt",
+          "quantity": 250,
+          "unit": "Grams",
+          "edibleMassGrams": 250,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 59,
+            "proteinGrams": 10.3,
+            "carbohydrateGrams": 3.6,
+            "fatGrams": 0.4,
+            "fibreGrams": 0,
+            "sugarGrams": 3.2,
+            "sodiumMilligrams": 36
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Blueberries",
+          "quantity": 200,
+          "unit": "Grams",
+          "edibleMassGrams": 200,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 57,
+            "proteinGrams": 0.7,
+            "carbohydrateGrams": 14.5,
+            "fatGrams": 0.3,
+            "fibreGrams": 2.4,
+            "sugarGrams": 10,
+            "sodiumMilligrams": 1
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Milk",
+          "quantity": 250,
+          "unit": "Millilitres",
+          "edibleMassGrams": 258,
+          "volumeMillilitres": 250,
+          "per100Grams": {
+            "energyKilocalories": 50,
+            "proteinGrams": 3.4,
+            "carbohydrateGrams": 4.8,
+            "fatGrams": 1.9,
+            "fibreGrams": 0,
+            "sugarGrams": 5,
+            "sodiumMilligrams": 44
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Mix oats, eggs, yogurt and milk until the oats are fully moistened.",
+        "Fold through berries and spread the mixture in a lined baking dish.",
+        "Bake until the centre is set and the top is lightly browned."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "cbe21448-789a-5849-8c4a-a13a76aed4d7",
+      "name": "Mushroom Tempeh Grain Bowl",
+      "description": "Savoury tempeh, mushrooms and barley with a ginger dressing.",
+      "baseServings": 2,
+      "prepMinutes": 12,
+      "cookMinutes": 20,
+      "tags": [
+        "Vegan",
+        "HighProtein",
+        "HighFibre",
+        "MealPrep"
+      ],
+      "ingredients": [
+        {
+          "name": "Tempeh",
+          "quantity": 240,
+          "unit": "Grams",
+          "edibleMassGrams": 240,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 193,
+            "proteinGrams": 20.3,
+            "carbohydrateGrams": 7.6,
+            "fatGrams": 10.8,
+            "fibreGrams": 1.4,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 9
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Cooked barley",
+          "quantity": 300,
+          "unit": "Grams",
+          "edibleMassGrams": 300,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 123,
+            "proteinGrams": 2.3,
+            "carbohydrateGrams": 28.2,
+            "fatGrams": 0.4,
+            "fibreGrams": 3.8,
+            "sugarGrams": 0.3,
+            "sodiumMilligrams": 3
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Mushrooms",
+          "quantity": 250,
+          "unit": "Grams",
+          "edibleMassGrams": 250,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 22,
+            "proteinGrams": 3.1,
+            "carbohydrateGrams": 3.3,
+            "fatGrams": 0.3,
+            "fibreGrams": 1,
+            "sugarGrams": 2,
+            "sodiumMilligrams": 5
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Kale",
+          "quantity": 140,
+          "unit": "Grams",
+          "edibleMassGrams": 140,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 35,
+            "proteinGrams": 2.9,
+            "carbohydrateGrams": 4.4,
+            "fatGrams": 1.5,
+            "fibreGrams": 4.1,
+            "sugarGrams": 0.8,
+            "sodiumMilligrams": 53
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Sesame oil",
+          "quantity": 12,
+          "unit": "Grams",
+          "edibleMassGrams": 12,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 884,
+            "proteinGrams": 0,
+            "carbohydrateGrams": 0,
+            "fatGrams": 100,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 0
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Sear tempeh cubes in sesame oil until the edges are browned.",
+        "Add mushrooms and cook until their moisture has reduced.",
+        "Serve over barley with wilted kale and a ginger-vinegar dressing."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "2e27732e-f2a5-5d13-ad5e-a0661c2434ce",
+      "name": "Shrimp Avocado Lime Bowl",
+      "description": "Shrimp, rice, avocado and salsa for a bright recovery bowl.",
+      "baseServings": 2,
+      "prepMinutes": 12,
+      "cookMinutes": 8,
+      "tags": [
+        "HighProtein",
+        "Seafood",
+        "Quick",
+        "Recovery"
+      ],
+      "ingredients": [
+        {
+          "name": "Shrimp",
+          "quantity": 300,
+          "unit": "Grams",
+          "edibleMassGrams": 300,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 99,
+            "proteinGrams": 24,
+            "carbohydrateGrams": 0.2,
+            "fatGrams": 0.3,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 111
+          },
+          "preparationNote": "peeled"
+        },
+        {
+          "name": "Cooked white rice",
+          "quantity": 320,
+          "unit": "Grams",
+          "edibleMassGrams": 320,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 130,
+            "proteinGrams": 2.7,
+            "carbohydrateGrams": 28.2,
+            "fatGrams": 0.3,
+            "fibreGrams": 0.4,
+            "sugarGrams": 0.1,
+            "sodiumMilligrams": 1
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Avocado",
+          "quantity": 120,
+          "unit": "Grams",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 160,
+            "proteinGrams": 2,
+            "carbohydrateGrams": 8.5,
+            "fatGrams": 14.7,
+            "fibreGrams": 6.7,
+            "sugarGrams": 0.7,
+            "sodiumMilligrams": 7
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Tomato salsa",
+          "quantity": 160,
+          "unit": "Grams",
+          "edibleMassGrams": 160,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 36,
+            "proteinGrams": 1.5,
+            "carbohydrateGrams": 7,
+            "fatGrams": 0.2,
+            "fibreGrams": 1.6,
+            "sugarGrams": 3.8,
+            "sodiumMilligrams": 420
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Lime juice",
+          "quantity": 25,
+          "unit": "Millilitres",
+          "edibleMassGrams": 25,
+          "volumeMillilitres": 25,
+          "per100Grams": {
+            "energyKilocalories": 25,
+            "proteinGrams": 0.4,
+            "carbohydrateGrams": 8.4,
+            "fatGrams": 0.1,
+            "fibreGrams": 0.4,
+            "sugarGrams": 1.7,
+            "sodiumMilligrams": 1
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Cook shrimp in a hot pan until pink and just firm.",
+        "Divide rice between bowls and top with shrimp, avocado and salsa.",
+        "Squeeze lime over each bowl and serve while the shrimp is warm."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "f94bb766-80c0-5b43-b6ad-0dc97a539557",
+      "name": "Red Pepper Tuna Pasta",
+      "description": "Tuna pasta with roasted pepper sauce and spinach.",
+      "baseServings": 3,
+      "prepMinutes": 10,
+      "cookMinutes": 14,
+      "tags": [
+        "HighProtein",
+        "Seafood",
+        "MealPrep"
+      ],
+      "ingredients": [
+        {
+          "name": "Dry whole wheat pasta",
+          "quantity": 240,
+          "unit": "Grams",
+          "edibleMassGrams": 240,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 348,
+            "proteinGrams": 14.6,
+            "carbohydrateGrams": 70.2,
+            "fatGrams": 2.3,
+            "fibreGrams": 10.7,
+            "sugarGrams": 2.5,
+            "sodiumMilligrams": 6
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Tuna in water",
+          "quantity": 240,
+          "unit": "Grams",
+          "edibleMassGrams": 240,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 116,
+            "proteinGrams": 25.5,
+            "carbohydrateGrams": 0,
+            "fatGrams": 0.8,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 338
+          },
+          "preparationNote": "drained"
+        },
+        {
+          "name": "Roasted red pepper",
+          "quantity": 220,
+          "unit": "Grams",
+          "edibleMassGrams": 220,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 35,
+            "proteinGrams": 1,
+            "carbohydrateGrams": 6,
+            "fatGrams": 0.3,
+            "fibreGrams": 2,
+            "sugarGrams": 4.5,
+            "sodiumMilligrams": 200
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Spinach",
+          "quantity": 120,
+          "unit": "Grams",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 23,
+            "proteinGrams": 2.9,
+            "carbohydrateGrams": 3.6,
+            "fatGrams": 0.4,
+            "fibreGrams": 2.2,
+            "sugarGrams": 0.4,
+            "sodiumMilligrams": 79
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Olive oil",
+          "quantity": 18,
+          "unit": "Grams",
+          "edibleMassGrams": 18,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 884,
+            "proteinGrams": 0,
+            "carbohydrateGrams": 0,
+            "fatGrams": 100,
+            "fibreGrams": 0,
+            "sugarGrams": 0,
+            "sodiumMilligrams": 2
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Cook pasta until just tender and reserve a little cooking water.",
+        "Blend roasted pepper with olive oil and a splash of pasta water.",
+        "Toss pasta with sauce, tuna and spinach until the spinach wilts."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    },
+    {
+      "id": "dc390939-58ef-513f-8b43-7d28930bf472",
+      "name": "Cocoa Banana Kefir Smoothie",
+      "description": "A drinkable post-training option with kefir, banana and cocoa.",
+      "baseServings": 1,
+      "prepMinutes": 5,
+      "cookMinutes": 0,
+      "tags": [
+        "Vegetarian",
+        "Quick",
+        "Recovery"
+      ],
+      "ingredients": [
+        {
+          "name": "Plain kefir",
+          "quantity": 300,
+          "unit": "Millilitres",
+          "edibleMassGrams": 309,
+          "volumeMillilitres": 300,
+          "per100Grams": {
+            "energyKilocalories": 41,
+            "proteinGrams": 3.8,
+            "carbohydrateGrams": 4.8,
+            "fatGrams": 1,
+            "fibreGrams": 0,
+            "sugarGrams": 4.8,
+            "sodiumMilligrams": 40
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Banana",
+          "quantity": 120,
+          "unit": "Grams",
+          "edibleMassGrams": 120,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 89,
+            "proteinGrams": 1.1,
+            "carbohydrateGrams": 22.8,
+            "fatGrams": 0.3,
+            "fibreGrams": 2.6,
+            "sugarGrams": 12.2,
+            "sodiumMilligrams": 1
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Whey protein",
+          "quantity": 25,
+          "unit": "Grams",
+          "edibleMassGrams": 25,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 400,
+            "proteinGrams": 80,
+            "carbohydrateGrams": 8,
+            "fatGrams": 6,
+            "fibreGrams": 0,
+            "sugarGrams": 5,
+            "sodiumMilligrams": 200
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Cocoa powder",
+          "quantity": 8,
+          "unit": "Grams",
+          "edibleMassGrams": 8,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 228,
+            "proteinGrams": 19.6,
+            "carbohydrateGrams": 57.9,
+            "fatGrams": 13.7,
+            "fibreGrams": 37,
+            "sugarGrams": 1.8,
+            "sodiumMilligrams": 21
+          },
+          "preparationNote": null
+        },
+        {
+          "name": "Peanut butter",
+          "quantity": 15,
+          "unit": "Grams",
+          "edibleMassGrams": 15,
+          "volumeMillilitres": null,
+          "per100Grams": {
+            "energyKilocalories": 588,
+            "proteinGrams": 25.1,
+            "carbohydrateGrams": 20,
+            "fatGrams": 50,
+            "fibreGrams": 6,
+            "sugarGrams": 9.2,
+            "sodiumMilligrams": 17
+          },
+          "preparationNote": null
+        }
+      ],
+      "steps": [
+        "Add kefir to the blender first so the blades move freely.",
+        "Add banana, whey, cocoa and peanut butter.",
+        "Blend until smooth and drink soon after training."
+      ],
+      "provenance": "Original Forge seed content written from scratch for the offline recipe catalogue."
+    }
+  ]
+}

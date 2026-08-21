@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Nutrition.Recipes.RecipesPage"
+             x:Name="Page"
+             Title="Recipes"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+            <Label Text="Recipes"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <dx:TextEdit Text="{Binding SearchText}"
+                         PlaceholderText="Search recipes or ingredients"
+                         Style="{StaticResource ForgeTextEdit}" />
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                <HorizontalStackLayout Spacing="{StaticResource SpaceS}"
+                                       BindableLayout.ItemsSource="{Binding TagChips}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <dx:DXButton Content="{Binding Label}"
+                                         ButtonType="Outlined"
+                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectTagCommand}"
+                                         CommandParameter="{Binding .}" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+            <Label Text="{Binding CountSummary}" Style="{StaticResource SecondaryText}" />
+        </VerticalStackLayout>
+
+        <Grid Grid.Row="1">
+            <VerticalStackLayout IsVisible="{Binding IsLoading}" Spacing="{StaticResource SpaceM}">
+                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" />
+                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" />
+                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" />
+            </VerticalStackLayout>
+
+            <controls:EmptyState IsVisible="{Binding HasError}"
+                                 Glyph="!"
+                                 Headline="Recipes unavailable"
+                                 Message="{Binding ErrorMessage}" />
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceL}" IsVisible="{Binding HasRecipes}">
+                <dx:DXCollectionView ItemsSource="{Binding RecipeCards}">
+                    <dx:DXCollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <dx:DXBorder Style="{StaticResource ListRow}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                    <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                        <Label Text="{Binding Name}" Style="{StaticResource TitleText}" />
+                                        <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
+                                        <Label Text="{Binding Macros}" Style="{StaticResource CaptionText}" />
+                                        <Label Text="{Binding Tags}" Style="{StaticResource CaptionText}" />
+                                    </VerticalStackLayout>
+                                    <dx:DXButton Grid.Column="1"
+                                                 Content="View"
+                                                 ButtonType="Text"
+                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenRecipeCommand}"
+                                                 CommandParameter="{Binding .}" />
+                                </Grid>
+                            </dx:DXBorder>
+                        </DataTemplate>
+                    </dx:DXCollectionView.ItemTemplate>
+                </dx:DXCollectionView>
+
+                <ScrollView Grid.Column="1" IsVisible="{Binding HasSelection}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <dx:DXBorder Style="{StaticResource ElevatedCard}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                    <Label Text="{Binding SelectedName}" Style="{StaticResource TitleText}" />
+                                    <dx:DXButton Grid.Column="1"
+                                                 Content="Close"
+                                                 ButtonType="Text"
+                                                 Command="{Binding ClearSelectionCommand}" />
+                                </Grid>
+                                <Label Text="{Binding SelectedDescription}" Style="{StaticResource SecondaryText}" />
+                                <Label Text="{Binding SelectedTime}" Style="{StaticResource CaptionText}" />
+                                <dx:ComboBoxEdit ItemsSource="{Binding ServingOptions}"
+                                                 SelectedItem="{Binding SelectedServings}"
+                                                 Style="{StaticResource ForgeTextEdit}" />
+                                <Label Text="{Binding SelectedMacros}" Style="{StaticResource SectionHeaderText}" />
+                                <dx:DXButton Content="Log this meal"
+                                             Style="{StaticResource PrimaryButton}"
+                                             Command="{Binding LogThisMealCommand}" />
+                                <Label Text="{Binding LogIntegrationHint}" Style="{StaticResource CaptionText}" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+
+                        <Label Text="Ingredients" Style="{StaticResource SectionHeaderText}" />
+                        <dx:DXCollectionView ItemsSource="{Binding Ingredients}">
+                            <dx:DXCollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <dx:DXBorder Style="{StaticResource ListRow}">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                                <Label Text="{Binding Name}" Style="{StaticResource BodyText}" />
+                                                <Label Text="{Binding Amount}" Style="{StaticResource CaptionText}" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="1" Text="{Binding Nutrition}" Style="{StaticResource CaptionText}" />
+                                        </Grid>
+                                    </dx:DXBorder>
+                                </DataTemplate>
+                            </dx:DXCollectionView.ItemTemplate>
+                        </dx:DXCollectionView>
+
+                        <Label Text="Steps" Style="{StaticResource SectionHeaderText}" />
+                        <dx:DXCollectionView ItemsSource="{Binding Steps}">
+                            <dx:DXCollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <dx:DXBorder Style="{StaticResource ListRow}">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource SpaceM}">
+                                            <Label Text="{Binding Number}" Style="{StaticResource CaptionText}" />
+                                            <Label Grid.Column="1" Text="{Binding Instruction}" Style="{StaticResource SecondaryText}" />
+                                        </Grid>
+                                    </dx:DXBorder>
+                                </DataTemplate>
+                            </dx:DXCollectionView.ItemTemplate>
+                        </dx:DXCollectionView>
+                    </VerticalStackLayout>
+                </ScrollView>
+
+                <controls:EmptyState Grid.Column="1"
+                                     IsVisible="{Binding HasNoSelection}"
+                                     Headline="Choose a recipe"
+                                     Message="Scale ingredients, review macros, then hand a meal snapshot to the food log." />
+            </Grid>
+        </Grid>
+    </Grid>
+</ContentPage>

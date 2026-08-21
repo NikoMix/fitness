@@ -115,6 +115,11 @@ public static class ForgeRoutes
     /// <summary>Daily subjective check-in that feeds the readiness score.</summary>
     public const string MorningCheckIn = "morning-check-in";
 
+    // ---- Optional video packs ----
+
+    /// <summary>Choose, download and remove optional exercise video packs.</summary>
+    public const string VideoLibrary = "video-library";
+
     // ---- Engagement ----
 
     /// <summary>Achievement and badge cabinet.</summary>

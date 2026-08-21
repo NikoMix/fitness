@@ -1,4 +1,6 @@
 using Forge.App.Navigation;
+using Forge.App.Services.Media;
+using Forge.App.Features.Media.Library;
 using Forge.Core.Abstractions.Media;
 using Forge.Infrastructure.Media;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,12 +35,24 @@ public static class MediaFeatureRegistration
             provider.GetRequiredService<HttpClient>()));
         services.AddSingleton<IMediaCatalogue, ExerciseMediaCatalogue>();
         services.AddSingleton<IMediaPlaybackPolicy, MauiMediaPlaybackPolicy>();
+
+        // Optional exercise video arrives through the store's own asset delivery, so the install
+        // stays small and the user picks the fidelity they want. Platforms without that facility
+        // fall back to a service that reports packs as unavailable instead of failing.
+#if ANDROID || IOS
+        services.AddSingleton<IMediaPackService, PlatformMediaPackService>();
+#else
+        services.AddSingleton<IMediaPackService, UnavailableMediaPackService>();
+#endif
+
         services.AddTransient<ExerciseVideoViewModel>();
         services.AddTransient<ExerciseVideoPage>();
+        services.AddTransient<VideoLibraryViewModel>();
+        services.AddTransient<VideoLibraryPage>();
 
         Routing.RegisterRoute(ForgeRoutes.ExerciseVideo, typeof(ExerciseVideoPage));
+        Routing.RegisterRoute(ForgeRoutes.VideoLibrary, typeof(VideoLibraryPage));
 
         return services;
     }
 }
-

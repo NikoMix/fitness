@@ -1,23 +1,30 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Forge.App.Features.Settings.Services;
 using Forge.App.Navigation;
-using Forge.Core.Abstractions.Preferences;
 
 namespace Forge.App.Features.Settings.ViewModels;
 
-public sealed partial class DataManagementPageViewModel(IDataErasureService dataErasureService) : ObservableObject
+public sealed partial class DataManagementPageViewModel(IStorageUsageService storageUsageService) : ObservableObject
 {
     [ObservableProperty]
     private string storageUsage = "Calculating…";
 
     [ObservableProperty]
-    private string backupStatus = "Backup and restore are owned by Epic E26. Export before deletion is exposed here as the wiring point.";
+    private string backupStatus = "Encrypted local backup can be exported and restored. Open-format export and competitor import are also available.";
 
     [RelayCommand]
     private async Task RefreshStorageAsync()
     {
-        var preview = await dataErasureService.GetPreviewAsync(CancellationToken.None);
-        StorageUsage = FormatBytes(preview.TotalBytes);
+        var usage = await storageUsageService.GetUsageAsync(CancellationToken.None);
+        StorageUsage = $"Database: {FormatBytes(usage.DatabaseBytes)} · Downloaded media: {FormatBytes(usage.DownloadedMediaBytes)} · Reclaimable: {FormatBytes(usage.ReclaimableMediaBytes)}";
+    }
+
+    [RelayCommand]
+    private async Task ReclaimMediaAsync()
+    {
+        var reclaimedBytes = await storageUsageService.ReclaimDownloadedMediaAsync(CancellationToken.None);
+        StorageUsage = $"Reclaimed {FormatBytes(reclaimedBytes)} from downloaded media.";
     }
 
     [RelayCommand]
@@ -26,8 +33,19 @@ public sealed partial class DataManagementPageViewModel(IDataErasureService data
         => Microsoft.Maui.Controls.Shell.Current.GoToAsync(ForgeRoutes.DeleteMyData);
 
     [RelayCommand]
-    private Task ExportBackupAsync()
-        => dataErasureService.ExportBackupBeforeErasureAsync(CancellationToken.None);
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "CommunityToolkit command generation binds instance commands from XAML.")]
+    private Task OpenBackupRestoreAsync()
+        => Microsoft.Maui.Controls.Shell.Current.GoToAsync(ForgeRoutes.BackupRestore);
+
+    [RelayCommand]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "CommunityToolkit command generation binds instance commands from XAML.")]
+    private Task OpenExportDataAsync()
+        => Microsoft.Maui.Controls.Shell.Current.GoToAsync(ForgeRoutes.ExportData);
+
+    [RelayCommand]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "CommunityToolkit command generation binds instance commands from XAML.")]
+    private Task OpenImportDataAsync()
+        => Microsoft.Maui.Controls.Shell.Current.GoToAsync(ForgeRoutes.ImportData);
 
     private static string FormatBytes(long bytes)
     {

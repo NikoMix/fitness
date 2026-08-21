@@ -26,6 +26,16 @@
                 </VerticalStackLayout>
             </controls:ForgeCard>
 
+            <controls:ForgeCard Title="Respectful reminders" Subtitle="Local, capped, and quiet-hours aware">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{Binding ReminderPermissionMessage}" Style="{StaticResource SecondaryText}" />
+                    <Label Text="{Binding ReminderRefreshStatus}" Style="{StaticResource CaptionText}" />
+                    <dx:DXButton Content="Enable respectful reminders"
+                                 Style="{StaticResource PrimaryButton}"
+                                 Command="{Binding EnableRespectfulRemindersCommand}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
             <Label Text="History" Style="{StaticResource SectionHeaderText}" />
             <dx:DXCollectionView ItemsSource="{Binding History}" HeightRequest="300">
                 <dx:DXCollectionView.ItemTemplate>

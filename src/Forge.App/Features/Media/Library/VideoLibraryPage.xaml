@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Features.Media.Library.VideoLibraryPage"
+             Title="Video library"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Video library"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Choose optional exercise video packs only when the storage trade-off is worth it. Text guidance remains the offline baseline for every exercise."
+                   Style="{StaticResource SecondaryText}" />
+
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding IsUnsupportedVisible}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Video packs are not available in this build"
+                           Style="{StaticResource TitleText}"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="Forge can still be used normally: exercise steps, cues and mistakes are available from text guidance. Optional videos are enrichment for supported Android and iOS store delivery builds."
+                           Style="{StaticResource BodyText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Quality and storage"
+                           Style="{StaticResource TitleText}"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="Pick one fidelity. Higher clarity costs more storage; removing a downloaded pack reclaims roughly the same amount."
+                           Style="{StaticResource SecondaryText}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding QualityTiers}" Spacing="{StaticResource SpaceS}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <dx:DXBorder Style="{StaticResource ListRow}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                        <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                            <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
+                                            <Label Text="{Binding Description}" Style="{StaticResource SecondaryText}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1"
+                                               Text="{Binding SizeText}"
+                                               Style="{StaticResource StatRowValueText}"
+                                               VerticalTextAlignment="Center" />
+                                    </Grid>
+                                </dx:DXBorder>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource EmptyStateCard}" IsVisible="{Binding IsEmptyVisible}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="No packs published"
+                           Style="{StaticResource TitleText}"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="This build has no downloadable video packs. Text guidance remains available offline."
+                           Style="{StaticResource BodyText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <Label Text="{Binding StorageMessage}" Style="{StaticResource SecondaryText}" />
+
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Packs}" Spacing="{StaticResource SpaceM}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource Card}"
+                                     SemanticProperties.Description="{Binding AccessibilityDescription}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                    <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                        <Label Text="{Binding DisplayName}" Style="{StaticResource TitleText}" />
+                                        <Label Text="{Binding ExerciseSummary}" Style="{StaticResource SecondaryText}" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1"
+                                           Text="{Binding EstimatedSizeText}"
+                                           Style="{StaticResource StatRowValueText}"
+                                           VerticalTextAlignment="Center" />
+                                </Grid>
+
+                                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                    <Label Text="{Binding StateLabel}" Style="{StaticResource SectionHeaderText}" />
+                                    <Label Text="{Binding StateDetail}" Style="{StaticResource BodyText}" />
+                                    <Label Text="{Binding OfflineAvailability}" Style="{StaticResource SecondaryText}" />
+                                    <ProgressBar Progress="{Binding Progress}"
+                                                 IsVisible="{Binding IsProgressVisible}"
+                                                 SemanticProperties.Description="{Binding ProgressText}" />
+                                    <Label Text="{Binding ProgressText}"
+                                           Style="{StaticResource CaptionText}"
+                                           IsVisible="{Binding IsProgressVisible}" />
+                                </VerticalStackLayout>
+
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceS}">
+                                    <dx:DXButton Content="Download"
+                                                 Style="{StaticResource PrimaryButton}"
+                                                 Command="{Binding DownloadCommand}"
+                                                 IsEnabled="{Binding CanDownload}"
+                                                 SemanticProperties.Hint="Requests this optional exercise video pack" />
+                                    <dx:DXButton Grid.Column="1"
+                                                 Content="Cancel"
+                                                 Style="{StaticResource SecondaryButton}"
+                                                 Command="{Binding CancelCommand}"
+                                                 IsEnabled="{Binding CanCancel}"
+                                                 SemanticProperties.Hint="Cancels a queued or active download" />
+                                </Grid>
+                                <dx:DXButton Content="Remove and reclaim storage"
+                                             Style="{StaticResource SecondaryButton}"
+                                             Command="{Binding RemoveCommand}"
+                                             IsEnabled="{Binding CanRemove}"
+                                             SemanticProperties.Hint="Deletes the downloaded pack from this device" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

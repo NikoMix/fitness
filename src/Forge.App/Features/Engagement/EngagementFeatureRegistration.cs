@@ -28,7 +28,9 @@ public static class EngagementFeatureRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.AddSingleton<ReminderSchedulingPolicy>();
         services.AddSingleton<INotificationScheduler, LocalNotificationScheduler>();
+        services.AddTransient<IReminderRefreshService, ReminderRefreshService>();
 
         services.AddTransient<AchievementsPageViewModel>();
         services.AddTransient<StreaksPageViewModel>();

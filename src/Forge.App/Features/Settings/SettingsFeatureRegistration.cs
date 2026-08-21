@@ -1,4 +1,5 @@
 using Forge.App.Features.Settings.Services;
+using Forge.App.Motion;
 using Forge.App.Features.Settings.ViewModels;
 using Forge.App.Navigation;
 using Forge.Core.Abstractions.Preferences;
@@ -26,9 +27,19 @@ public static class SettingsFeatureRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IUnitPreferences, MauiUnitPreferences>();
+        var preferenceStore = new MauiPreferenceStore();
+        var forgePreferences = new ForgePreferences(preferenceStore);
+        var themeApplier = new MauiThemePreferenceApplier(forgePreferences);
+        themeApplier.ApplyStoredTheme();
+        MotionPreferences.Current = new SettingsMotionPreferences(new PlatformMotionPreferences(), forgePreferences);
+
+        services.AddSingleton<IPreferenceStore>(preferenceStore);
+        services.AddSingleton<IForgePreferences>(forgePreferences);
+        services.AddSingleton<IUnitPreferences>(forgePreferences);
         services.AddSingleton<IUnitFormatter, UnitFormatter>();
         services.AddSingleton<IDataErasureService, PendingDataErasureService>();
+        services.AddSingleton(themeApplier);
+        services.AddSingleton<IStorageUsageService, StorageUsageService>();
 
         services.AddTransient<SettingsPageViewModel>();
         services.AddTransient<UnitsSettingsPageViewModel>();

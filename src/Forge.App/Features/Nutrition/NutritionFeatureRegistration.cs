@@ -1,4 +1,5 @@
 using Forge.App.Features.Nutrition.Services;
+using Forge.App.Features.Nutrition.Recipes;
 using Forge.App.Navigation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,13 +26,15 @@ public static class NutritionFeatureRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddTransient<INutritionPersistenceService, NutritionPersistenceService>();
+        services.AddTransient<IRecipeCatalogueService, RecipeCatalogueService>();
         services.AddTransient<NutritionPage>();
         services.AddTransient<FoodLogPage>();
-        services.AddTransient<RecipesPage>();
+        services.AddTransient<global::Forge.App.Features.Nutrition.Recipes.RecipesPage>();
         services.AddTransient<ViewModels.NutritionViewModel>();
         services.AddTransient<ViewModels.FoodLogViewModel>();
+        services.AddTransient<RecipesViewModel>();
         Routing.RegisterRoute(ForgeRoutes.FoodLog, typeof(FoodLogPage));
-        Routing.RegisterRoute(ForgeRoutes.Recipes, typeof(RecipesPage));
+        Routing.RegisterRoute(ForgeRoutes.Recipes, typeof(global::Forge.App.Features.Nutrition.Recipes.RecipesPage));
 
         return services;
     }

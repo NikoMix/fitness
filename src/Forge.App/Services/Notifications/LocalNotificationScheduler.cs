@@ -24,11 +24,32 @@ public sealed class LocalNotificationScheduler : INotificationScheduler
     private const string StoreKey = "forge.notifications.scheduled.v1";
     private const string CapPrefix = "forge.notifications.frequency.";
     private const string SettingsPrefix = "forge.notifications.";
+    private const string PermissionDeniedKey = SettingsPrefix + "PermissionDenied";
+    private const string PermissionPromptedKey = SettingsPrefix + "PermissionPrompted";
 
     /// <summary>Four non-urgent reminders a day is enough to help without feeling like surveillance.</summary>
     public const int MaxNonCriticalNotificationsPerLocalDay = 4;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public async Task<ForgeNotificationPermissionState> GetPermissionStateAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var permission = new NotificationPermission { AskPermission = false };
+        var enabled = await MainThread.InvokeOnMainThreadAsync(
+            () => LocalNotificationCenter.Current.AreNotificationsEnabled(permission));
+
+        if (enabled)
+        {
+            Preferences.Default.Set(PermissionDeniedKey, false);
+            return ForgeNotificationPermissionState.Authorized;
+        }
+
+        return Preferences.Default.Get(PermissionDeniedKey, false) || Preferences.Default.Get(PermissionPromptedKey, false)
+            ? ForgeNotificationPermissionState.Denied
+            : ForgeNotificationPermissionState.Unknown;
+    }
 
     public async Task<bool> RequestPermissionForDemonstratedValueAsync(
         NotificationPermissionPromptReason reason,
@@ -45,8 +66,11 @@ public sealed class LocalNotificationScheduler : INotificationScheduler
 
         // iOS offers a single system prompt and Android 13+ requires a runtime prompt. Keep this
         // behind explicit demonstrated-value moments so first launch never spends that chance.
-        return await MainThread.InvokeOnMainThreadAsync(
+        Preferences.Default.Set(PermissionPromptedKey, true);
+        var allowed = await MainThread.InvokeOnMainThreadAsync(
             () => LocalNotificationCenter.Current.RequestNotificationPermission(permission));
+        Preferences.Default.Set(PermissionDeniedKey, !allowed);
+        return allowed;
     }
 
     public async Task<bool> ScheduleAsync(ForgeNotificationRequest request, CancellationToken cancellationToken = default)
@@ -54,8 +78,19 @@ public sealed class LocalNotificationScheduler : INotificationScheduler
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (await GetPermissionStateAsync(cancellationToken) == ForgeNotificationPermissionState.Denied)
+        {
+            return false;
+        }
+
         var stored = LoadStore().Where(item => item.StableId != request.StableId).ToList();
-        var normalized = NormalizeForQuietHours(request);
+        if (IsSuppressedByQuietHours(request))
+        {
+            SaveStore(stored);
+            return false;
+        }
+
+        var normalized = request;
 
         if (!CanScheduleMore(normalized))
         {
@@ -170,25 +205,15 @@ public sealed class LocalNotificationScheduler : INotificationScheduler
         return await LocalNotificationCenter.Current.Show(request);
     }
 
-    private static ForgeNotificationRequest NormalizeForQuietHours(ForgeNotificationRequest request)
+    private static bool IsSuppressedByQuietHours(ForgeNotificationRequest request)
     {
+        if (request.Category == ForgeNotificationCategory.RestTimer)
+        {
+            return false;
+        }
+
         var policy = ReadQuietHours();
-        if (!policy.Enabled)
-        {
-            return request;
-        }
-
-        var localTime = TimeOnly.FromDateTime(request.DeliverAtLocal.LocalDateTime);
-        if (!IsQuiet(localTime, policy))
-        {
-            return request;
-        }
-
-        var localDate = DateOnly.FromDateTime(request.DeliverAtLocal.LocalDateTime);
-        var nextAllowedDate = localTime < policy.End && policy.Start > policy.End ? localDate : localDate.AddDays(1);
-        var nextAllowed = new DateTimeOffset(nextAllowedDate.ToDateTime(policy.End), request.DeliverAtLocal.Offset);
-
-        return request with { DeliverAtLocal = nextAllowed };
+        return ReminderSchedulingPolicy.IsInQuietHours(request.DeliverAtLocal, policy);
     }
 
     private static QuietHoursPolicy ReadQuietHours()
@@ -198,11 +223,6 @@ public sealed class LocalNotificationScheduler : INotificationScheduler
         var end = ParseTime(Preferences.Default.Get(SettingsPrefix + "QuietHoursEnd", "07:00"), new TimeOnly(7, 0));
         return new QuietHoursPolicy(enabled, start, end);
     }
-
-    private static bool IsQuiet(TimeOnly time, QuietHoursPolicy policy)
-        => policy.Start <= policy.End
-            ? time >= policy.Start && time < policy.End
-            : time >= policy.Start || time < policy.End;
 
     private static TimeOnly ParseTime(string value, TimeOnly fallback)
         => TimeOnly.TryParse(value, out var parsed) ? parsed : fallback;

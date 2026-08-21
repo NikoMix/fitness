@@ -100,6 +100,10 @@
     <PackageReference Include="Plugin.InAppBilling" />
   </ItemGroup>
 
+  <ItemGroup Label="Android Play Asset Delivery" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <PackageReference Include="Xamarin.Google.Android.Play.Asset.Delivery" />
+  </ItemGroup>
+
   <ItemGroup Label="DevExpress">
     <PackageReference Include="DevExpress.Maui.Core" />
     <PackageReference Include="DevExpress.Maui.Controls" />

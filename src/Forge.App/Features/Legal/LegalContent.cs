@@ -14,6 +14,10 @@ public static class LegalContent
             "When Forge requests Health Connect, HealthKit, notification, camera or file access, the permission is used only for the feature you chose. You can revoke platform permissions in system settings."),
         new("Deletion",
             "Delete my data is available in-app without contacting support. It is designed to erase the local database, encryption key, cached media, preferences and temporary export files. Because Forge has no cloud backup, deletion is irreversible unless you exported your own backup first."),
+        new("Purchases",
+            "If you buy Forge Pro, Apple or Google processes the payment. Forge stores only a local entitlement receipt on this device so paid features can remain unlocked without a Forge account server."),
+        new("Contact",
+            "Before store publication, the public privacy policy URL must include the current legal contact address for NikoMix and must match this in-app policy."),
     ];
 
     public static IReadOnlyList<LegalSection> TermsOfService { get; } =
@@ -23,7 +27,9 @@ public static class LegalContent
         new("No account recovery",
             "Forge v1 has no Forge-operated account system or cloud database. If you delete the app, erase your data or lose your device without an exported backup, Forge cannot recover your local data."),
         new("Purchases",
-            "If paid features are offered, purchases are handled by the app store. Any required restore-purchases flow must be available in-app before release."),
+            "Forge Pro is planned as a one-off, non-consumable app-store purchase. The store shows the final local price before purchase, handles taxes and payment, and provides the account used by Restore purchases."),
+        new("Entitlements",
+            "Forge stores purchase entitlements locally. Secure storage and signing make casual edits evident, but without a Forge backend a determined device owner may still tamper with local state. Forge does not promise server-grade DRM."),
         new("Acceptable use",
             "Do not use Forge in a way that violates law, infringes rights, attempts to bypass app-store purchase systems or endangers another person."),
         new("Changes",

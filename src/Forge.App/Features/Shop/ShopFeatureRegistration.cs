@@ -1,7 +1,9 @@
 using Forge.App.Features.Shop.ViewModels;
+using Forge.App.Features.Legal.Services;
 using Forge.App.Navigation;
 using Forge.App.Services.Billing;
 using Forge.Core.Abstractions.Billing;
+using Forge.Core.Abstractions.Preferences;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Forge.App.Features.Shop;
@@ -30,6 +32,7 @@ public static class ShopFeatureRegistration
 
         services.AddSingleton<IEntitlementStore, SecureStorageEntitlementStore>();
         services.AddSingleton<IBillingService, PluginInAppBillingService>();
+        services.AddSingleton<IDataErasureService, LocalDataErasureService>();
 
         services.AddTransient<ShopPageViewModel>();
         services.AddTransient<RestorePurchasesPageViewModel>();

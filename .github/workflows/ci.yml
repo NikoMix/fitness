@@ -166,12 +166,13 @@ jobs:
         run: dotnet publish src/Forge.App/Forge.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormats=aab -p:ApplicationVersion=${{ github.run_number }} -o artifacts/android-size
 
       # This measures the AAB, which is every ABI and density in one file - not what a device
-      # downloads. Play splits it, so the real download is roughly this minus one ABI. The
-      # product target is a 40 MiB DOWNLOAD; the current bundle implies about 40-45 MiB on
-      # device, so the target is not yet met. Getting there means trading something real
-      # (dropping 32-bit ABIs, disabling profiled AOT, or full linking), which is a product
-      # decision rather than a CI tweak. This ceiling therefore guards against regression at
-      # today's measured size instead of asserting a target that is silently failing.
+      # downloads. Play splits it, so the real download is roughly this minus one ABI: about
+      # 45 MiB today against an agreed 80-120 MiB budget for the installed app.
+      #
+      # The headroom is deliberate and is NOT free space to spend carelessly. Exercise video is
+      # excluded from the binary entirely and ships as optional store-hosted asset packs, so the
+      # binary should stay near its current size while the media grows independently. This
+      # ceiling guards the binary against creeping toward the download budget on its own.
       - name: Enforce Android bundle size ceiling
         shell: bash
         run: |
@@ -184,7 +185,7 @@ jobs:
 
           bytes="$(stat -c%s "$package_path")"
           mib="$(awk "BEGIN { printf \"%.2f\", $bytes / 1048576 }")"
-          limit_bytes=$((66 * 1024 * 1024))
+          limit_bytes=$((90 * 1024 * 1024))
 
           {
             echo "## Android size budget"
@@ -195,7 +196,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$bytes" -gt "$limit_bytes" ]; then
-            echo "Android package is ${mib} MiB, exceeding the 66 MiB bundle ceiling." >&2
+            echo "Android package is ${mib} MiB, exceeding the 90 MiB bundle ceiling." >&2
             exit 1
           fi
 

@@ -20,16 +20,25 @@
                     <dx:DXButton Content="Refresh storage usage"
                                  Style="{StaticResource SecondaryButton}"
                                  Command="{Binding RefreshStorageCommand}" />
+                    <dx:DXButton Content="Reclaim downloaded media"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Command="{Binding ReclaimMediaCommand}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
-
+ 
             <dx:DXBorder Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="Backup and export" Style="{StaticResource TitleText}" />
                     <Label Text="{Binding BackupStatus}" Style="{StaticResource SecondaryText}" />
-                    <dx:DXButton Content="Export backup first"
+                    <dx:DXButton Content="Backup and restore"
                                  Style="{StaticResource SecondaryButton}"
-                                 Command="{Binding ExportBackupCommand}" />
+                                 Command="{Binding OpenBackupRestoreCommand}" />
+                    <dx:DXButton Content="Export data"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Command="{Binding OpenExportDataCommand}" />
+                    <dx:DXButton Content="Import data"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Command="{Binding OpenImportDataCommand}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
 

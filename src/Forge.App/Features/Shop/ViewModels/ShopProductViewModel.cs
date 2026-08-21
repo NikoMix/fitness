@@ -41,5 +41,5 @@ public sealed partial class ShopProductViewModel : ObservableObject
 
     public string PurchaseLabel => CanPurchase ? $"Unlock {Title}" : "Store price unavailable";
 
-    public string KindLabel => IsSubscription ? "Optional subscription" : "One-off purchase";
+    public string KindLabel => IsSubscription ? "Optional subscription" : "One-off Pro unlock";
 }

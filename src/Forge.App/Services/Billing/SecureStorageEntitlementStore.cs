@@ -8,9 +8,10 @@ using Microsoft.Maui.Storage;
 namespace Forge.App.Services.Billing;
 
 /// <summary>
-/// Stores entitlements locally with a device-held signature. This is tamper-resistant against
-/// casual preference editing, not server-grade DRM: a determined attacker controlling the device
-/// can still patch app code or local storage.
+/// Stores entitlements locally with a device-held signature. This is tamper-evident against casual
+/// preference editing, not server-grade DRM: a determined attacker controlling the device can still
+/// patch app code, replace secure-storage values or alter local storage. Forge accepts that trade-off
+/// because v1 has no backend and never claims device-only entitlements are cryptographically secure.
 /// </summary>
 public sealed class SecureStorageEntitlementStore : IEntitlementStore
 {

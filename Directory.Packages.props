@@ -73,6 +73,7 @@
   <ItemGroup Label="Device capabilities">
     <PackageVersion Include="Plugin.LocalNotification" Version="14.1.1" />
     <PackageVersion Include="Plugin.InAppBilling" Version="10.0.0" />
+    <PackageVersion Include="Xamarin.Google.Android.Play.Asset.Delivery" Version="2.3.0.7" />
   </ItemGroup>
 
   <!--
