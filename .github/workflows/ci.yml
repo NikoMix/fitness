@@ -270,4 +270,14 @@ jobs:
       # No code signing here. This job proves the iOS head compiles; signed device builds and
       # TestFlight upload belong to the release workflow, where the signing secrets live.
       - name: Build
-        run: dotnet build src/Forge.App/Forge.App.csproj -f net10.0-ios -c Release
+        # Built for the simulator, deliberately.
+        #
+        # HealthKit is entitlement-gated, so Forge.App now sets CodesignEntitlements. That makes
+        # a device build require a provisioning profile and a signing identity, which CI has no
+        # credentials for and should not have - this job exists to prove the code compiles, not
+        # to produce a shippable artefact. The simulator runtime identifier compiles the same
+        # managed and native code without demanding a keychain.
+        #
+        # The real signed, entitled archive is produced by release.yml, which imports a
+        # certificate and profile from secrets and is gated on the launch checks.
+        run: dotnet build src/Forge.App/Forge.App.csproj -f net10.0-ios -c Release -p:RuntimeIdentifier=iossimulator-arm64
