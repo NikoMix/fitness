@@ -252,7 +252,8 @@ public sealed class OnboardingFlowTests
     }
 
     [Fact]
-    public void Validation_messages_explain_rather_than_scold()    {
+    public void Validation_messages_explain_rather_than_scold()
+    {
         var copy = string.Join(
             ' ',
             OnboardingFlow.Validate(OnboardingStep.Review, new OnboardingAnswers()).Issues.Select(issue => issue.Message));
