@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Profile.ProfileSwitcherPage"
+             Title="Profiles"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <!--
+        Pushed over the Profile tab, so the Shell navigation bar stays visible and provides back.
+        Cards are dx:DXBorder with the shared styles rather than controls:ForgeCard, matching
+        ProfilePage: bound content inside ForgeCard has a history of not rendering.
+    -->
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+
+            <controls:PageHeader Title="Profiles"
+                                 Subtitle="Several people can use Forge on this device. Everything stays local; nothing is sent anywhere." />
+
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}"
+                                          HeightRequest="120" />
+
+            <Label Text="{Binding Status}"
+                   IsVisible="{Binding HasStatus}"
+                   Style="{StaticResource SecondaryText}" />
+
+            <controls:EmptyState IsVisible="{Binding IsEmpty}"
+                                 Headline="No profile on this device yet"
+                                 Message="Finish setup to create the first profile. You can add more people afterwards."
+                                 ActionText="Finish setup"
+                                 ActionCommand="{Binding FinishSetupCommand}" />
+
+            <!--
+                The honest caveat sits above the list, not below it. Somebody switching profile acts
+                on the assumption that the app is now showing their data, and they have to be told
+                before they tap that most of Forge is still shared. The wording is derived from which
+                entities implement IProfileOwned, so it stops apologising by itself as features
+                adopt the seam.
+            -->
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding HasSharedData}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Profiles are not fully separated yet" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding SeparationSummary}" Style="{StaticResource BodyText}" />
+                    <Label Text="Switching changes who Forge thinks you are, and which measurements it shows. It does not yet hide anyone else's training, plans or food log."
+                           Style="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasProfiles}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="On this device" Style="{StaticResource TitleText}" />
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding Profiles}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <dx:DXBorder Style="{StaticResource ListRow}">
+                                    <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+
+                                        <Grid ColumnDefinitions="*,Auto"
+                                              ColumnSpacing="{StaticResource SpaceM}"
+                                              IsVisible="{Binding IsNotRenaming}">
+                                            <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                                                <Label Text="{Binding Name}" Style="{StaticResource BodyText}" />
+                                                <Label Text="{Binding Detail}" Style="{StaticResource CaptionText}" />
+                                                <Label Text="{Binding KindLabel}"
+                                                       Style="{StaticResource CaptionText}"
+                                                       IsVisible="{Binding IsGuest}" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding StateLabel}"
+                                                   Style="{StaticResource StatRowValueText}"
+                                                   VerticalTextAlignment="Center" />
+                                        </Grid>
+
+                                        <HorizontalStackLayout Spacing="{StaticResource SpaceS}"
+                                                               IsVisible="{Binding IsNotRenaming}">
+                                            <dx:DXButton Content="Switch"
+                                                         SemanticProperties.Description="{Binding SwitchDescription}"
+                                                         Command="{Binding SwitchCommand}"
+                                                         IsVisible="{Binding CanSwitch}"
+                                                         Style="{StaticResource SecondaryButton}" />
+                                            <dx:DXButton Content="Rename"
+                                                         SemanticProperties.Description="{Binding RenameDescription}"
+                                                         Command="{Binding BeginRenameCommand}"
+                                                         Style="{StaticResource TextButton}" />
+                                            <dx:DXButton Content="Delete"
+                                                         SemanticProperties.Description="{Binding DeleteDescription}"
+                                                         Command="{Binding DeleteCommand}"
+                                                         IsVisible="{Binding CanDelete}"
+                                                         Style="{StaticResource TextButton}" />
+                                        </HorizontalStackLayout>
+
+                                        <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                                             IsVisible="{Binding IsRenaming}">
+                                            <dx:TextEdit LabelText="Profile name"
+                                                         SemanticProperties.Description="{Binding RenameDescription}"
+                                                         Text="{Binding RenameText, Mode=TwoWay}"
+                                                         Style="{StaticResource ForgeTextEdit}" />
+                                            <Label Text="{Binding RenameProblem}"
+                                                   IsVisible="{Binding HasRenameProblem}"
+                                                   Style="{StaticResource CaptionText}"
+                                                   TextColor="{dx:ThemeColor Error}" />
+                                            <HorizontalStackLayout Spacing="{StaticResource SpaceS}">
+                                                <dx:DXButton Content="Save name"
+                                                             SemanticProperties.Description="Save the new profile name"
+                                                             Command="{Binding ConfirmRenameCommand}"
+                                                             Style="{StaticResource SecondaryButton}" />
+                                                <dx:DXButton Content="Cancel"
+                                                             SemanticProperties.Description="Cancel renaming this profile"
+                                                             Command="{Binding CancelRenameCommand}"
+                                                             Style="{StaticResource TextButton}" />
+                                            </HorizontalStackLayout>
+                                        </VerticalStackLayout>
+
+                                    </VerticalStackLayout>
+                                </dx:DXBorder>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding CanAddProfile}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Add someone" Style="{StaticResource TitleText}" />
+                    <Label Text="A new profile becomes active straight away, so the next thing you log belongs to it."
+                           Style="{StaticResource SecondaryText}" />
+                    <dx:TextEdit LabelText="Name"
+                                 SemanticProperties.Description="Name for the new profile"
+                                 Text="{Binding NewProfileName, Mode=TwoWay}"
+                                 Style="{StaticResource ForgeTextEdit}" />
+                    <Label Text="{Binding NewProfileProblem}"
+                           IsVisible="{Binding HasNewProfileProblem}"
+                           Style="{StaticResource CaptionText}"
+                           TextColor="{dx:ThemeColor Error}" />
+                    <dx:DXButton Content="Add profile"
+                                 SemanticProperties.Description="Add a personal profile with this name"
+                                 Command="{Binding AddProfileCommand}"
+                                 Style="{StaticResource PrimaryButton}" />
+                    <!--
+                        A guest is an ordinary profile that is labelled and never auto-selected on
+                        launch. It exists so a coach can demonstrate Forge without logging fake sets
+                        into their own history or handing over a phone showing their real body weight.
+                    -->
+                    <dx:DXButton Content="Add guest for a demo"
+                                 SemanticProperties.Description="Add a guest profile with this name for showing the app to someone"
+                                 Command="{Binding AddGuestProfileCommand}"
+                                 Style="{StaticResource TextButton}"
+                                 HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Kept separate per profile" Style="{StaticResource TitleText}" />
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding SeparatedAreas}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                                    <Label Text="{Binding Name}" Style="{StaticResource BodyText}" />
+                                    <Label Text="{Binding Detail}" Style="{StaticResource CaptionText}" />
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasSharedData}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Shared by every profile" Style="{StaticResource TitleText}" />
+                    <Label Text="These are visible to anyone using this device, whichever profile is active. Deleting a profile does not remove them, because Forge cannot tell whose they are."
+                           Style="{StaticResource SecondaryText}" />
+                    <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding SharedAreas}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                                    <Label Text="{Binding Name}" Style="{StaticResource BodyText}" />
+                                    <Label Text="{Binding Detail}" Style="{StaticResource CaptionText}" />
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
