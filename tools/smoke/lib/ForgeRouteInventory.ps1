@@ -179,7 +179,7 @@ function Get-ForgeRouteInventory {
     $registrationFiles = @(Get-ChildItem -LiteralPath $featuresRoot -Recurse -File -Filter '*FeatureRegistration.cs')
     foreach ($file in $registrationFiles) {
         $raw = Get-Content -LiteralPath $file.FullName -Raw
-        foreach ($m in [regex]::Matches($raw, 'RegisterRoute\(\s*ForgeRoutes\.(\w+)\s*,\s*typeof\(\s*(\w+)\s*\)\s*\)')) {
+        foreach ($m in [regex]::Matches($raw, 'RegisterRoute\(\s*ForgeRoutes\.(\w+)\s*,\s*typeof\(\s*(?:global::)?(?:[\w.]+\.)?(\w+)\s*\)\s*\)')) {
             $registrations[$m.Groups[1].Value] = [pscustomobject]@{
                 PageType = $m.Groups[2].Value
                 File     = $file.Name
@@ -187,7 +187,7 @@ function Get-ForgeRouteInventory {
         }
         # A literal route string is legal C# but bypasses the constants. Attribute it to the
         # constant carrying the same value so the harness still covers the destination.
-        foreach ($m in [regex]::Matches($raw, 'RegisterRoute\(\s*"([^"]+)"\s*,\s*typeof\(\s*(\w+)\s*\)\s*\)')) {
+        foreach ($m in [regex]::Matches($raw, 'RegisterRoute\(\s*"([^"]+)"\s*,\s*typeof\(\s*(?:global::)?(?:[\w.]+\.)?(\w+)\s*\)\s*\)')) {
             $literal = $m.Groups[1].Value
             foreach ($key in @($constants.Keys)) {
                 if ($constants[$key] -eq $literal) {

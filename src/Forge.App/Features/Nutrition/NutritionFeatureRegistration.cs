@@ -29,12 +29,12 @@ public static class NutritionFeatureRegistration
         services.AddTransient<IRecipeCatalogueService, RecipeCatalogueService>();
         services.AddTransient<NutritionPage>();
         services.AddTransient<FoodLogPage>();
-        services.AddTransient<global::Forge.App.Features.Nutrition.Recipes.RecipesPage>();
+        services.AddTransient<RecipesPage>();
         services.AddTransient<ViewModels.NutritionViewModel>();
         services.AddTransient<ViewModels.FoodLogViewModel>();
         services.AddTransient<RecipesViewModel>();
         Routing.RegisterRoute(ForgeRoutes.FoodLog, typeof(FoodLogPage));
-        Routing.RegisterRoute(ForgeRoutes.Recipes, typeof(global::Forge.App.Features.Nutrition.Recipes.RecipesPage));
+        Routing.RegisterRoute(ForgeRoutes.Recipes, typeof(RecipesPage));
 
         return services;
     }
