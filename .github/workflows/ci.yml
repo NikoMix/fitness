@@ -280,4 +280,4 @@ jobs:
         #
         # The real signed, entitled archive is produced by release.yml, which imports a
         # certificate and profile from secrets and is gated on the launch checks.
-        run: dotnet build src/Forge.App/Forge.App.csproj -f net10.0-ios -c Release -p:RuntimeIdentifier=iossimulator-arm64
+        run: dotnet build src/Forge.App/Forge.App.csproj -f net10.0-ios -c Release -p:RuntimeIdentifier=iossimulator-arm64 -p:CodesignEntitlements=

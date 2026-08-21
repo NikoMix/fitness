@@ -172,6 +172,15 @@
       and still runs, the authorization sheet silently never appears, and every read returns an
       empty array - which HealthKit also returns for a genuine refusal, so the misconfiguration is
       invisible from inside the app. See Platforms/iOS/Entitlements.plist.
+
+      Stated explicitly even though the iOS SDK also discovers this file at its conventional path,
+      so the dependency is visible to anyone reading the project rather than implied by a filename.
+
+      Note for anyone changing the build: entitlements are claims a provisioning profile has to
+      grant, so any build carrying them needs a signing identity. CI compile-checks iOS with
+      -p:CodesignEntitlements= to opt out, because it has no Apple credentials and the simulator
+      does not enforce entitlements. The signed device archive in release.yml is where they must
+      genuinely be present.
     -->
     <CodesignEntitlements>Platforms/iOS/Entitlements.plist</CodesignEntitlements>
   </PropertyGroup>
