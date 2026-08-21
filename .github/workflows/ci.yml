@@ -114,6 +114,12 @@ jobs:
         shell: pwsh
         run: ./tools/ci/Test-DataAccessPatterns.ps1
 
+      # In-app legal text and the published policy must say the same thing. They had already
+      # drifted once, and a store reviewer comparing the two is a realistic rejection path.
+      - name: Verify in-app legal copy matches the published documents
+        shell: pwsh
+        run: ./tools/legal/Test-LegalContentSync.ps1
+
       - name: Test with coverlet coverage
         run: |
           dotnet test tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --no-build -c Release -- --results-directory artifacts/coverage/Domain --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
@@ -126,7 +132,7 @@ jobs:
       # should be raised deliberately as Domain and Core tests grow.
       - name: Enforce domain logic coverage threshold
         shell: pwsh
-        run: ./tools/ci/Test-CoverageThreshold.ps1 -CoverageRoot artifacts/coverage -ThresholdPercent 25 -PathFilters 'src/Forge.Domain','src/Forge.Core'
+        run: ./tools/ci/Test-CoverageThreshold.ps1 -CoverageRoot artifacts/coverage -ThresholdPercent 30 -PathFilters 'src/Forge.Domain','src/Forge.Core'
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
