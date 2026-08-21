@@ -1,0 +1,114 @@
+name: Publish legal site
+
+# Publishes Forge's legal documents to GitHub Pages.
+#
+# This exists because of a hard launch dependency, not because a website is nice to have. Google
+# Play's Health Apps declaration cannot even be submitted without a publicly hosted privacy policy
+# URL, the review takes 4-8 weeks with no published SLA, and nothing else on the project blocks
+# release for anything like that long. GitHub Pages costs nothing and adds no infrastructure, which
+# is the only hosting choice consistent with ADR-0001's no-backend, no-running-cost decision.
+#
+# The site is generated from docs/legal/*.md, which is also the source the in-app screens consume.
+# One source, two renderings: the published policy and the in-app policy cannot contradict each
+# other, and a reviewer comparing them finds the same words.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/legal/**'
+      - 'docs/site/**'
+      - 'tools/legal/**'
+      - '.github/workflows/pages.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/legal/**'
+      - 'docs/site/**'
+      - 'tools/legal/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+    inputs:
+      allow_placeholders:
+        description: 'Publish even if TODO(owner) placeholders are unfilled. Normally leave this false.'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Never let two deployments race. A half-published privacy policy is worse than a stale one.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build legal site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Pull requests validate structure and report placeholders without failing, so drafting is
+      # not blocked. Publishing is the strict gate, below.
+      - name: Validate legal site
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: ./tools/legal/Build-LegalSite.ps1 -OutputPath _site
+
+      # A published privacy policy that literally reads "TODO" would fail store review and burn
+      # the multi-week Health Apps declaration window, so the build refuses to produce one.
+      - name: Build legal site
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $failOnTodo = '${{ github.event.inputs.allow_placeholders }}' -ne 'true'
+          if ($failOnTodo) {
+            ./tools/legal/Build-LegalSite.ps1 -OutputPath _site -FailOnTodo
+          }
+          else {
+            Write-Host '::warning::Publishing with unfilled TODO(owner) placeholders because allow_placeholders was set.'
+            ./tools/legal/Build-LegalSite.ps1 -OutputPath _site
+          }
+
+      # Cheap, deterministic guard against the one thing this site must never do. The privacy
+      # promise is that Forge sends nothing anywhere; a tracker on the privacy page would
+      # contradict the document it is serving.
+      - name: Assert no third-party requests
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $offenders = Get-ChildItem -Recurse _site -Include *.html, *.css |
+            Select-String -Pattern '<script|javascript:|<iframe|@import|src="https?://|url\(\s*https?://' -AllMatches
+
+          if ($offenders) {
+            $offenders | ForEach-Object { Write-Host "::error file=$($_.Path)::$($_.Line.Trim())" }
+            throw 'The legal site must contain no scripts and no third-party resources.'
+          }
+
+          Write-Host 'No scripts and no third-party resources found.'
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
