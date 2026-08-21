@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Pilot screen for Forge localization.
+
+    Every literal on this page comes from ForgeStrings.resx through {loc:Translate}, which binds
+    rather than resolves. That is what lets a language change repaint this page in place instead
+    of needing the app to restart.
+
+    This is the only screen converted so far, deliberately. Converting the rest touches every
+    XAML file in the app and must happen when no other stream is editing XAML - see
+    docs/localization/full-conversion-runbook.md.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:loc="clr-namespace:Forge.App.Services.Localization"
+             x:Class="Forge.App.Features.Settings.Localization.LanguageSettingsPage"
+             Title="{loc:Translate Key=settings.language.title}"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="{loc:Translate Key=settings.language.heading}"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="{loc:Translate Key=settings.language.description}"
+                   Style="{StaticResource SecondaryText}" />
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{loc:Translate Key=settings.language.available}"
+                           Style="{StaticResource TitleText}" />
+                    <dx:CheckEdit Label="{loc:Translate Key=settings.language.follow-system}"
+                                  IsChecked="{Binding FollowSystemLanguage, Mode=TwoWay}" />
+                    <Label Text="{loc:Translate Key=settings.language.follow-system.description}"
+                           Style="{StaticResource CaptionText}" />
+                    <dx:ComboBoxEdit ItemsSource="{Binding Languages}"
+                                     SelectedItem="{Binding SelectedLanguageName, Mode=TwoWay}"
+                                     IsEnabled="{Binding CanChooseLanguage}" />
+                    <Label Text="{Binding CurrentLanguageSummary}"
+                           Style="{StaticResource SecondaryText}" />
+                    <Label Text="{loc:Translate Key=settings.language.applies-immediately}"
+                           Style="{StaticResource CaptionText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <!--
+                Language and units are separate settings. The unit system is shown here read-only
+                so the separation is visible: switching to German changes every word on this card
+                and none of the units.
+            -->
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{loc:Translate Key=settings.language.preview.heading}"
+                           Style="{StaticResource TitleText}" />
+
+                    <Grid ColumnDefinitions="*,Auto" RowSpacing="{StaticResource SpaceS}" ColumnSpacing="{StaticResource SpaceM}"
+                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                        <Label Grid.Row="0" Grid.Column="0"
+                               Text="{loc:Translate Key=settings.language.preview.date}"
+                               Style="{StaticResource StatRowLabelText}" />
+                        <Label Grid.Row="0" Grid.Column="1"
+                               Text="{Binding PreviewDate}"
+                               Style="{StaticResource StatRowValueText}" />
+
+                        <Label Grid.Row="1" Grid.Column="0"
+                               Text="{loc:Translate Key=settings.language.preview.number}"
+                               Style="{StaticResource StatRowLabelText}" />
+                        <Label Grid.Row="1" Grid.Column="1"
+                               Text="{Binding PreviewNumber}"
+                               Style="{StaticResource StatRowValueText}" />
+
+                        <Label Grid.Row="2" Grid.Column="0"
+                               Text="{loc:Translate Key=settings.language.preview.percent}"
+                               Style="{StaticResource StatRowLabelText}" />
+                        <Label Grid.Row="2" Grid.Column="1"
+                               Text="{Binding PreviewPercent}"
+                               Style="{StaticResource StatRowValueText}" />
+
+                        <Label Grid.Row="3" Grid.Column="0"
+                               Text="{loc:Translate Key=settings.language.preview.duration}"
+                               Style="{StaticResource StatRowLabelText}" />
+                        <Label Grid.Row="3" Grid.Column="1"
+                               Text="{Binding PreviewDuration}"
+                               Style="{StaticResource StatRowValueText}" />
+
+                        <Label Grid.Row="4" Grid.Column="0"
+                               Text="{loc:Translate Key=settings.language.unit-system}"
+                               Style="{StaticResource StatRowLabelText}" />
+                        <Label Grid.Row="4" Grid.Column="1"
+                               Text="{Binding UnitSystemName}"
+                               Style="{StaticResource StatRowValueText}" />
+
+                        <Label Grid.Row="5" Grid.Column="0"
+                               Text="{loc:Translate Key=settings.language.preview.body-weight}"
+                               Style="{StaticResource StatRowLabelText}" />
+                        <Label Grid.Row="5" Grid.Column="1"
+                               Text="{Binding PreviewBodyWeight}"
+                               Style="{StaticResource StatRowValueText}" />
+
+                        <Label Grid.Row="6" Grid.Column="0"
+                               Text="{loc:Translate Key=settings.language.preview.energy}"
+                               Style="{StaticResource StatRowLabelText}" />
+                        <Label Grid.Row="6" Grid.Column="1"
+                               Text="{Binding PreviewEnergy}"
+                               Style="{StaticResource StatRowValueText}" />
+                    </Grid>
+
+                    <Label Text="{Binding UnitsNote}" Style="{StaticResource CaptionText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
