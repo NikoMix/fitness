@@ -1,31 +1,166 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Progress overview.
+
+    Volume and mean load get their own chart each rather than sharing one frame with twin axes.
+    A twin-axis chart lets the author choose, through the scaling alone, how strongly two
+    unrelated series appear to move together, and that choice is invisible to the reader.
+
+    Every chart is marked out of the accessible tree and paired with a visible sentence that
+    states the same numbers, because a ChartView is an unlabelled canvas to a screen reader.
+-->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:sys="clr-namespace:System;assembly=netstandard"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Progress.ProgressPage"
              x:Name="Page"
              Title="Progress"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <ContentPage.Resources>
+        <!-- Chart height is a layout constant for this section; ForgeTokens carries no chart scale. -->
+        <sys:Double x:Key="ChartHeight">240</sys:Double>
+    </ContentPage.Resources>
+
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
             <Label Text="Progress" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
-            <Label Text="Review trends, records and body metrics from your local training log." Style="{StaticResource SecondaryText}" />
+            <Label Text="Weekly volume, intensity and consistency, read from the sets you logged on this device."
+                   Style="{StaticResource SecondaryText}" />
 
-            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource ChartHeight}" />
 
-            <controls:ForgeCard Title="Start with one logged session" Subtitle="Empty charts are hidden until they can teach you something">
+            <controls:EmptyState IsVisible="{Binding IsEmpty}"
+                                 Glyph="◔"
+                                 Headline="One logged session starts this"
+                                 Message="Forge leaves these charts out until they can teach you something. No blank axes, no invented trends, and no records built from warm-up volume."
+                                 ActionText="Log training"
+                                 ActionCommand="{Binding StartLoggingCommand}" />
+
+            <controls:ForgeCard IsVisible="{Binding HasTraining}"
+                                Title="Consistency"
+                                Subtitle="{Binding ConsistencyHeadline}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="Forge will keep first-run progress screens purposeful: no blank axes, no fake trends, and no records from warm-up volume." Style="{StaticResource BodyText}" />
-                    <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
-                    <dx:DXButton Content="Log training"
-    SemanticProperties.Description="Log training" Style="{StaticResource PrimaryButton}" Command="{Binding StartLoggingCommand}" />
+                    <Label Text="{Binding ConsistencyDetail}" Style="{StaticResource BodyText}" />
+                    <Label Text="{Binding ConsistencyStats}"
+                           Style="{StaticResource SecondaryText}"
+                           IsVisible="{Binding HasConsistencyStats}" />
+
+                    <dx:ChartView IsVisible="{Binding ShowConsistencyChart}"
+                                  HeightRequest="{StaticResource ChartHeight}"
+                                  AutomationProperties.IsInAccessibleTree="False">
+                        <dx:ChartView.Series>
+                            <dx:BarSeries DisplayName="Sessions completed">
+                                <dx:BarSeries.Data>
+                                    <dx:SeriesDataAdapter DataSource="{Binding ConsistencyWeeks}" ArgumentDataMember="WeekLabel">
+                                        <dx:ValueDataMember Type="Value" Member="SessionsCompleted" />
+                                    </dx:SeriesDataAdapter>
+                                </dx:BarSeries.Data>
+                            </dx:BarSeries>
+                        </dx:ChartView.Series>
+                    </dx:ChartView>
+
+                    <Label Text="{Binding ConsistencySummary}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding ShowConsistencyChart}" />
+
+                    <VerticalStackLayout IsVisible="{Binding ShowConsistencyValues}"
+                                         Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding ConsistencyWeeks}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource SpaceM}">
+                                    <Label Text="{Binding WeekLabel}" Style="{StaticResource TitleText}" />
+                                    <Label Grid.Column="1" Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Text="{Binding ConsistencyNote}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding HasConsistencyNote}" />
                 </VerticalStackLayout>
             </controls:ForgeCard>
 
+            <controls:ForgeCard IsVisible="{Binding HasTraining}"
+                                Title="Weekly volume"
+                                Subtitle="Load multiplied by repetitions, warm-ups excluded">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <dx:ChartView IsVisible="{Binding ShowVolumeChart}"
+                                  HeightRequest="{StaticResource ChartHeight}"
+                                  AutomationProperties.IsInAccessibleTree="False">
+                        <dx:ChartView.Series>
+                            <dx:LineSeries DisplayName="Volume (kg)" MarkersVisible="True">
+                                <dx:LineSeries.Data>
+                                    <dx:SeriesDataAdapter DataSource="{Binding Weeks}" ArgumentDataMember="WeekLabel">
+                                        <dx:ValueDataMember Type="Value" Member="VolumeKilograms" />
+                                    </dx:SeriesDataAdapter>
+                                </dx:LineSeries.Data>
+                            </dx:LineSeries>
+                        </dx:ChartView.Series>
+                    </dx:ChartView>
+
+                    <Label Text="{Binding VolumeSummary}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding ShowVolumeChart}" />
+                    <Label Text="{Binding VolumeNote}"
+                           Style="{StaticResource SecondaryText}"
+                           IsVisible="{Binding ShowVolumeNote}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <controls:ForgeCard IsVisible="{Binding HasTraining}"
+                                Title="Weekly mean load"
+                                Subtitle="How heavy the work was, separate from how much of it there was">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <dx:ChartView IsVisible="{Binding ShowMeanLoadChart}"
+                                  HeightRequest="{StaticResource ChartHeight}"
+                                  AutomationProperties.IsInAccessibleTree="False">
+                        <dx:ChartView.Series>
+                            <dx:LineSeries DisplayName="Mean load (kg)" MarkersVisible="True">
+                                <dx:LineSeries.Data>
+                                    <dx:SeriesDataAdapter DataSource="{Binding Weeks}" ArgumentDataMember="WeekLabel">
+                                        <dx:ValueDataMember Type="Value" Member="MeanLoadKilograms" />
+                                    </dx:SeriesDataAdapter>
+                                </dx:LineSeries.Data>
+                            </dx:LineSeries>
+                        </dx:ChartView.Series>
+                    </dx:ChartView>
+
+                    <Label Text="{Binding MeanLoadSummary}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding ShowMeanLoadChart}" />
+                    <Label Text="{Binding MeanLoadNote}"
+                           Style="{StaticResource SecondaryText}"
+                           IsVisible="{Binding ShowMeanLoadNote}" />
+                    <Label Text="{Binding MeanLoadCaveat}" Style="{StaticResource CaptionText}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <controls:ForgeCard IsVisible="{Binding ShowWeeklyValues}"
+                                Title="Week by week"
+                                Subtitle="Every figure Forge holds, whether or not it can be charted yet">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                     BindableLayout.ItemsSource="{Binding Weeks}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                                <Label Text="{Binding WeekLabel}" Style="{StaticResource TitleText}" />
+                                <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
+
             <Label Text="Explore" Style="{StaticResource SectionHeaderText}" />
-            <dx:DXCollectionView ItemsSource="{Binding Destinations}" HeightRequest="420">
-                <dx:DXCollectionView.ItemTemplate>
+            <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                 BindableLayout.ItemsSource="{Binding Destinations}">
+                <BindableLayout.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ListRow}">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
@@ -35,15 +170,15 @@
                                 </VerticalStackLayout>
                                 <dx:DXButton Grid.Column="1"
                                              Content="Open"
-                                             SemanticProperties.Description="Open"
+                                             SemanticProperties.Description="{Binding Title, StringFormat='Open {0}'}"
                                              Style="{StaticResource TextButton}"
                                              Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenDestinationCommand}"
                                              CommandParameter="{Binding .}" />
                             </Grid>
                         </dx:DXBorder>
                     </DataTemplate>
-                </dx:DXCollectionView.ItemTemplate>
-            </dx:DXCollectionView>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

@@ -1,36 +1,184 @@
 using Forge.App.Composition;
 using Forge.Core.Abstractions.Data;
 using Forge.Domain.Analytics;
+using Forge.Domain.Common;
+using Forge.Domain.Measurement;
 using Forge.Domain.Nutrition;
 using Forge.Domain.Planning;
 using Forge.Domain.Profile;
+using Forge.Domain.Recovery;
 using Forge.Domain.Training;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Forge.App.Features.Insights.Services;
 
+/// <summary>
+/// Reads the local database for the Today, Progress and Insights screens.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Every method opens one session, reads only the tables its screen actually shows, and does all
+/// aggregation on a background thread. Reads are split per screen rather than shared behind one
+/// snapshot because a shared snapshot made every screen pay for every other screen: the body
+/// weight chart was running personal-record detection across the whole set history, on a phone,
+/// before it could draw a line.
+/// </para>
+/// <para>
+/// Nothing is cached. Someone who finishes a workout and opens Progress expects to see that
+/// workout, and a cache short-lived enough to guarantee that would be too short-lived to save any
+/// work. Reading less is the honest optimisation; serving stale numbers is not.
+/// </para>
+/// </remarks>
 public interface IInsightsDataService
 {
+    /// <summary>Loads the Today dashboard summary.</summary>
+    /// <param name="today">The user's local date.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Today's rings, focus action and recent activity.</returns>
     Task<InsightsDataSnapshot> LoadAsync(DateOnly today, CancellationToken cancellationToken);
+
+    /// <summary>Loads weekly volume, intensity and consistency for the Progress screen.</summary>
+    /// <param name="today">The user's local date.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The progress overview.</returns>
+    Task<ProgressOverview> LoadProgressAsync(DateOnly today, CancellationToken cancellationToken);
+
+    /// <summary>Loads muscle and pattern breakdowns plus the sleep association for the Insights screen.</summary>
+    /// <param name="today">The user's local date.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The insights overview.</returns>
+    Task<InsightsOverview> LoadInsightsAsync(DateOnly today, CancellationToken cancellationToken);
+
+    /// <summary>Loads estimated one-repetition-maximum progression for the most logged exercise.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The exercise progress view.</returns>
+    Task<ExerciseProgressView> LoadExerciseProgressAsync(CancellationToken cancellationToken);
+
+    /// <summary>Loads detected personal records.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The personal records view.</returns>
+    Task<PersonalRecordsView> LoadPersonalRecordsAsync(CancellationToken cancellationToken);
+
+    /// <summary>Loads the smoothed body weight trend.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The body metrics view.</returns>
+    Task<BodyMetricsView> LoadBodyMetricsAsync(CancellationToken cancellationToken);
 }
 
-public sealed record InsightsDataSnapshot(
-    IReadOnlyList<BodyMetricTrendPoint> BodyMetricPoints,
-    TrendResult BodyWeightTrend,
-    IReadOnlyList<ExerciseEstimatePoint> ExerciseEstimatePoints,
+/// <summary>What the Today dashboard needs from local storage.</summary>
+/// <param name="Today">Today's summary.</param>
+public sealed record InsightsDataSnapshot(TodaySummary Today);
+
+/// <summary>Headline counts shared by the Progress and Insights screens.</summary>
+/// <param name="CompletedSessions">Sessions marked complete.</param>
+/// <param name="WorkingSets">Working sets logged, warm-ups excluded.</param>
+/// <param name="TotalVolumeKilograms">Total working volume.</param>
+/// <param name="TrainingDays">Distinct local dates containing working sets.</param>
+public sealed record ProgressTotals(
+    int CompletedSessions,
+    int WorkingSets,
+    decimal TotalVolumeKilograms,
+    int TrainingDays)
+{
+    /// <summary>Whether anything at all has been logged.</summary>
+    public bool HasTraining => CompletedSessions > 0 || WorkingSets > 0;
+}
+
+/// <summary>Everything the Progress screen shows.</summary>
+/// <param name="Totals">Headline counts.</param>
+/// <param name="Consistency">Weekly sessions against the plan.</param>
+/// <param name="Weeks">Weekly volume and intensity, ascending.</param>
+/// <param name="VolumeReadiness">Whether the volume chart may be drawn.</param>
+/// <param name="MeanLoadReadiness">Whether the mean load chart may be drawn.</param>
+public sealed record ProgressOverview(
+    ProgressTotals Totals,
+    ConsistencySummary Consistency,
+    IReadOnlyList<TrainingWeek> Weeks,
+    SeriesReadinessResult VolumeReadiness,
+    SeriesReadinessResult MeanLoadReadiness);
+
+/// <summary>Everything the Insights screen shows.</summary>
+/// <param name="Totals">Headline counts.</param>
+/// <param name="Consistency">Weekly sessions against the plan.</param>
+/// <param name="MuscleGroups">Volume and intensity per muscle group, biggest first.</param>
+/// <param name="MovementPatterns">Volume and intensity per movement pattern, biggest first.</param>
+/// <param name="SleepAssociation">The association-only sleep result.</param>
+public sealed record InsightsOverview(
+    ProgressTotals Totals,
+    ConsistencySummary Consistency,
+    IReadOnlyList<TrainingTrendSlice> MuscleGroups,
+    IReadOnlyList<TrainingTrendSlice> MovementPatterns,
+    SleepPerformanceInsight SleepAssociation);
+
+/// <summary>Estimated one-repetition-maximum progression for a single exercise.</summary>
+/// <param name="ExerciseName">Name of the exercise being charted.</param>
+/// <param name="Formula">Which published fit produced the estimates.</param>
+/// <param name="EstimatePoints">One point per training day, ascending.</param>
+/// <param name="EstimateReadiness">Whether the estimate chart may be drawn.</param>
+/// <param name="ExcludedHighRepSets">Working sets left out because the repetition count exceeds the supported range.</param>
+public sealed record ExerciseProgressView(
     string ExerciseName,
-    IReadOnlyList<PersonalRecordDisplay> PersonalRecords,
-    ProgressSummary Progress,
-    TodaySummary Today);
+    OneRepMaxFormula Formula,
+    IReadOnlyList<ExerciseEstimatePoint> EstimatePoints,
+    SeriesReadinessResult EstimateReadiness,
+    int ExcludedHighRepSets);
 
-public sealed record BodyMetricTrendPoint(DateOnly Date, decimal RawKilograms, decimal SmoothedKilograms);
+/// <summary>Detected personal records, newest first.</summary>
+/// <param name="Records">The records to show.</param>
+/// <param name="Formula">Formula used for estimated records.</param>
+public sealed record PersonalRecordsView(IReadOnlyList<PersonalRecordDisplay> Records, OneRepMaxFormula Formula);
 
-public sealed record ExerciseEstimatePoint(DateOnly Date, decimal EstimatedOneRepMaxKilograms, OneRepMaxFormula Formula);
+/// <summary>The smoothed body weight series and what may be claimed about it.</summary>
+/// <param name="Points">Raw and smoothed values per day, ascending.</param>
+/// <param name="Trend">Smoothing, trend claim and charting verdict.</param>
+public sealed record BodyMetricsView(IReadOnlyList<BodyMetricTrendPoint> Points, SmoothedTrendResult Trend);
 
-public sealed record PersonalRecordDisplay(string Title, string ExerciseName, string Detail, DateTimeOffset AchievedUtc);
+/// <summary>One day of body weight, raw and smoothed.</summary>
+/// <param name="Date">Local date.</param>
+/// <param name="RawKilograms">The entry as recorded.</param>
+/// <param name="SmoothedKilograms">The trailing moving average at this date.</param>
+/// <param name="IsFullWindow">Whether the average covers a complete window rather than a partial one.</param>
+public sealed record BodyMetricTrendPoint(
+    DateOnly Date,
+    decimal RawKilograms,
+    decimal SmoothedKilograms,
+    bool IsFullWindow);
 
-public sealed record ProgressSummary(int CompletedSessions, int WorkingSets, decimal TotalVolumeKilograms, decimal BodyMetricSampleCount);
+/// <summary>One day's best estimated one-repetition maximum for an exercise.</summary>
+/// <param name="Date">Local date of the set.</param>
+/// <param name="EstimatedOneRepMaxKilograms">The estimate. Never a measured maximum.</param>
+/// <param name="Formula">Which published fit produced it.</param>
+/// <param name="SourceLoadKilograms">Load of the set the estimate came from.</param>
+/// <param name="SourceRepetitions">Repetitions of that set.</param>
+public sealed record ExerciseEstimatePoint(
+    DateOnly Date,
+    decimal EstimatedOneRepMaxKilograms,
+    OneRepMaxFormula Formula,
+    decimal SourceLoadKilograms,
+    int SourceRepetitions);
 
+/// <summary>One personal record, ready to display.</summary>
+/// <param name="Title">Record kind, for example "Heaviest load".</param>
+/// <param name="ExerciseName">Exercise the record belongs to.</param>
+/// <param name="Headline">The achievement, in the units it was achieved in.</param>
+/// <param name="Detail">The set that established it, and any caveat.</param>
+/// <param name="AchievedUtc">When it was achieved.</param>
+/// <param name="IsEstimate">Whether the headline figure is calculated rather than performed.</param>
+public sealed record PersonalRecordDisplay(
+    string Title,
+    string ExerciseName,
+    string Headline,
+    string Detail,
+    DateTimeOffset AchievedUtc,
+    bool IsEstimate);
+
+/// <summary>Today's dashboard summary.</summary>
+/// <param name="SessionTitle">Name of today's scheduled session, or a no-plan message.</param>
+/// <param name="SessionSubtitle">Supporting line for the session title.</param>
+/// <param name="HasScheduledSession">Whether a plan scheduled a session today.</param>
+/// <param name="Rings">Today's progress rings.</param>
+/// <param name="NextActionTitle">Label for the hero action.</param>
+/// <param name="NextActionDetail">Why that action was chosen.</param>
+/// <param name="RecentActivity">Recent entries, newest first.</param>
 public sealed record TodaySummary(
     string SessionTitle,
     string SessionSubtitle,
@@ -40,16 +188,109 @@ public sealed record TodaySummary(
     string NextActionDetail,
     IReadOnlyList<TodayActivityData> RecentActivity);
 
+/// <summary>One Today ring.</summary>
+/// <param name="Label">What the ring measures.</param>
+/// <param name="Progress">Completion from zero to one.</param>
+/// <param name="Detail">The real numbers behind the ring.</param>
 public sealed record TodayRingData(string Label, double Progress, string Detail);
 
+/// <summary>One recent activity entry.</summary>
+/// <param name="Title">What happened.</param>
+/// <param name="Detail">Supporting numbers.</param>
+/// <param name="WhenUtc">When it happened.</param>
 public sealed record TodayActivityData(string Title, string Detail, DateTimeOffset WhenUtc);
 
 internal sealed class InsightsDataService(ForgeStartupService startup, IDataSessionFactory sessions) : IInsightsDataService
 {
     private const int HydrationTargetMillilitres = 2000;
+    private const int MaximumRecordsShown = 30;
     private static readonly OneRepMaxFormula DefaultFormula = OneRepMaxFormula.Epley;
 
     public Task<InsightsDataSnapshot> LoadAsync(DateOnly today, CancellationToken cancellationToken)
+        => ReadAsync(async (session, token) =>
+        {
+            var sets = await LiveAsync<SetEntry>(session, token).ConfigureAwait(false);
+            var workouts = await LiveAsync<WorkoutSession>(session, token).ConfigureAwait(false);
+            var hydration = await LiveAsync<HydrationEntry>(session, token).ConfigureAwait(false);
+            var plans = await LiveAsync<TrainingPlan>(session, token).ConfigureAwait(false);
+
+            return new InsightsDataSnapshot(BuildTodaySummary(today, sets, workouts, hydration, plans));
+        }, cancellationToken);
+
+    public Task<ProgressOverview> LoadProgressAsync(DateOnly today, CancellationToken cancellationToken)
+        => ReadAsync(async (session, token) =>
+        {
+            var sets = await LiveAsync<SetEntry>(session, token).ConfigureAwait(false);
+            var workouts = await LiveAsync<WorkoutSession>(session, token).ConfigureAwait(false);
+            var plans = await LiveAsync<TrainingPlan>(session, token).ConfigureAwait(false);
+
+            var weeks = TrainingTrendAggregator.PerWeek(sets);
+            var loadedWeeks = weeks.Count(week => week.LoadedWorkingSets > 0);
+
+            return new ProgressOverview(
+                BuildTotals(sets, workouts),
+                BuildConsistency(today, workouts, plans),
+                weeks,
+                SparseDataPolicy.Evaluate(weeks.Count, "your weekly training volume"),
+                SparseDataPolicy.Evaluate(loadedWeeks, "your weekly mean load"));
+        }, cancellationToken);
+
+    public Task<InsightsOverview> LoadInsightsAsync(DateOnly today, CancellationToken cancellationToken)
+        => ReadAsync(async (session, token) =>
+        {
+            var sets = await LiveAsync<SetEntry>(session, token).ConfigureAwait(false);
+            var exercises = await LiveAsync<Exercise>(session, token).ConfigureAwait(false);
+            var workouts = await LiveAsync<WorkoutSession>(session, token).ConfigureAwait(false);
+            var plans = await LiveAsync<TrainingPlan>(session, token).ConfigureAwait(false);
+            var checkIns = await LiveAsync<MorningCheckIn>(session, token).ConfigureAwait(false);
+
+            var nights = checkIns
+                .Where(checkIn => checkIn.SleepHours is > 0m)
+                .Select(checkIn => new SleepNight(checkIn.Date, checkIn.SleepHours!.Value))
+                .ToList();
+
+            return new InsightsOverview(
+                BuildTotals(sets, workouts),
+                BuildConsistency(today, workouts, plans),
+                TrainingTrendAggregator.PerWeekByMuscleGroup(sets, exercises),
+                TrainingTrendAggregator.PerWeekByMovementPattern(sets, exercises),
+                SleepPerformancePairing.Analyze(nights, sets));
+        }, cancellationToken);
+
+    public Task<ExerciseProgressView> LoadExerciseProgressAsync(CancellationToken cancellationToken)
+        => ReadAsync(async (session, token) =>
+        {
+            var sets = await LiveAsync<SetEntry>(session, token).ConfigureAwait(false);
+            var exercises = await LiveAsync<Exercise>(session, token).ConfigureAwait(false);
+
+            return BuildExerciseProgress(sets, exercises);
+        }, cancellationToken);
+
+    public Task<PersonalRecordsView> LoadPersonalRecordsAsync(CancellationToken cancellationToken)
+        => ReadAsync(async (session, token) =>
+        {
+            var sets = await LiveAsync<SetEntry>(session, token).ConfigureAwait(false);
+            var exercises = await LiveAsync<Exercise>(session, token).ConfigureAwait(false);
+
+            return new PersonalRecordsView(BuildPersonalRecords(sets, exercises), DefaultFormula);
+        }, cancellationToken);
+
+    public Task<BodyMetricsView> LoadBodyMetricsAsync(CancellationToken cancellationToken)
+        => ReadAsync(async (session, token) =>
+        {
+            var metrics = await LiveAsync<BodyMetric>(session, token).ConfigureAwait(false);
+            return BuildBodyMetrics(metrics);
+        }, cancellationToken);
+
+    /// <summary>
+    /// Runs one read on a background thread over a single session.
+    /// </summary>
+    /// <remarks>
+    /// The <c>Task.Run</c> is deliberate. The SQLite read and the aggregation that follows it are
+    /// synchronous enough to stutter a scroll if they begin on the UI thread, which on a mid-range
+    /// Android device shows up as a dropped frame every time this section is opened.
+    /// </remarks>
+    private Task<T> ReadAsync<T>(Func<IDataSession, CancellationToken, Task<T>> read, CancellationToken cancellationToken)
         => Task.Run(async () =>
         {
             await startup.InitialiseAsync(cancellationToken).ConfigureAwait(false);
@@ -59,125 +300,227 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
             }
 
             // One session, one context, one connection. Resolving a repository per entity type
-            // from the container would open six separate connections for a single screen.
+            // from the container would open a separate connection for each of them.
             await using var session = sessions.Create();
-
-            var sets = (await session.Repository<SetEntry>().ListAsync(cancellationToken).ConfigureAwait(false))
-                .Where(set => !set.IsDeleted)
-                .ToList();
-            var workoutSessions = (await session.Repository<WorkoutSession>().ListAsync(cancellationToken).ConfigureAwait(false))
-                .Where(workout => !workout.IsDeleted)
-                .ToList();
-            var exercises = (await session.Repository<Exercise>().ListAsync(cancellationToken).ConfigureAwait(false))
-                .Where(exercise => !exercise.IsDeleted)
-                .ToList();
-            var bodyMetrics = (await session.Repository<BodyMetric>().ListAsync(cancellationToken).ConfigureAwait(false))
-                .Where(metric => !metric.IsDeleted)
-                .ToList();
-            var hydration = (await session.Repository<HydrationEntry>().ListAsync(cancellationToken).ConfigureAwait(false))
-                .Where(entry => !entry.IsDeleted)
-                .ToList();
-            var plans = (await session.Repository<TrainingPlan>().ListAsync(cancellationToken).ConfigureAwait(false))
-                .Where(plan => !plan.IsDeleted)
-                .ToList();
-
-            return BuildSnapshot(today, sets, workoutSessions, exercises, bodyMetrics, hydration, plans);
+            return await read(session, cancellationToken).ConfigureAwait(false);
         }, cancellationToken);
 
-    private static InsightsDataSnapshot BuildSnapshot(
+    private static async Task<List<T>> LiveAsync<T>(IDataSession session, CancellationToken cancellationToken)
+        where T : Entity
+    {
+        var all = await session.Repository<T>().ListAsync(cancellationToken).ConfigureAwait(false);
+        return all.Where(entity => !entity.IsDeleted).ToList();
+    }
+
+    private static ProgressTotals BuildTotals(IReadOnlyList<SetEntry> sets, IReadOnlyList<WorkoutSession> workouts)
+    {
+        var working = sets.Where(set => !set.IsWarmUp && set.Repetitions > 0).ToList();
+
+        return new ProgressTotals(
+            workouts.Count(workout => workout.CompletedUtc is not null),
+            working.Count,
+            working.Sum(set => set.Volume.Kilograms),
+            working.Select(set => DateOnly.FromDateTime(set.CompletedUtc.LocalDateTime)).Distinct().Count());
+    }
+
+    private static ConsistencySummary BuildConsistency(
         DateOnly today,
-        IReadOnlyList<SetEntry> sets,
-        IReadOnlyList<WorkoutSession> sessions,
-        IReadOnlyList<Exercise> exercises,
-        IReadOnlyList<BodyMetric> bodyMetrics,
-        IReadOnlyList<HydrationEntry> hydration,
+        IReadOnlyList<WorkoutSession> workouts,
         IReadOnlyList<TrainingPlan> plans)
     {
-        var bodyPoints = BuildBodyMetricPoints(bodyMetrics);
-        var bodyTrend = TrendAnalyzer.Analyze(bodyPoints.Select(point => new MeasurementPoint(point.Date, point.SmoothedKilograms)));
-        var estimatePoints = BuildExerciseEstimatePoints(sets, out var exerciseId);
-        var exerciseName = exercises.FirstOrDefault(exercise => exercise.Id == exerciseId)?.Name ?? "Most logged exercise";
-        var records = BuildPersonalRecords(sets, exercises);
-        var todaySummary = BuildTodaySummary(today, sets, sessions, hydration, plans);
+        var completedDates = workouts
+            .Where(workout => workout.CompletedUtc is not null)
+            .Select(workout => DateOnly.FromDateTime(workout.CompletedUtc!.Value.LocalDateTime))
+            .ToList();
 
-        return new InsightsDataSnapshot(
-            bodyPoints,
-            bodyTrend,
-            estimatePoints,
-            exerciseName,
-            records,
-            new ProgressSummary(
-                sessions.Count(session => session.CompletedUtc is not null),
-                sets.Count(set => !set.IsWarmUp && set.Repetitions > 0),
-                VolumeAggregator.PerWeek(sets).Sum(point => point.Volume.Kilograms),
-                bodyPoints.Count),
-            todaySummary);
+        return ConsistencyAnalyzer.Analyze(completedDates, today, WeeklySessionTarget(ActivePlan(plans)));
     }
 
-    private static List<BodyMetricTrendPoint> BuildBodyMetricPoints(IEnumerable<BodyMetric> bodyMetrics)
+    /// <summary>
+    /// Reads the weekly session target from the active plan, or zero when none is active.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Zero is a real answer rather than a missing one. Substituting a default target would let
+    /// the app report someone as behind a plan they never chose.
+    /// </para>
+    /// <para>
+    /// A flexible plan's target is its stated sessions per week, which is deliberately not clamped
+    /// to the number of distinct days it defines. Running one "Full Body A" day three times a week
+    /// is an ordinary programme, and clamping the target to the day count reported it as a
+    /// once-weekly plan - which then showed a week containing a single session as full adherence.
+    /// Flattering arithmetic is worse than none, because the reader has no way to see it happening.
+    /// </para>
+    /// </remarks>
+    private static int WeeklySessionTarget(TrainingPlan? plan) => plan switch
     {
-        var dailyPoints = bodyMetrics
-            .Where(metric => metric.Weight > Domain.Measurement.Mass.Zero)
+        null => 0,
+
+        // A fixed-day plan runs each of its days once per week, so the day count is the target.
+        { ScheduleMode: PlanScheduleMode.FixedDays } => plan.Days.Count,
+
+        _ => Math.Max(0, plan.TargetSessionsPerWeek)
+    };
+
+    private static TrainingPlan? ActivePlan(IEnumerable<TrainingPlan> plans)
+    {
+        var materialized = plans.ToList();
+
+        return materialized
+            .Where(plan => plan.IsActive && !plan.IsTemplate && plan.Days.Count > 0)
+            .OrderBy(plan => plan.CreatedUtc)
+            .FirstOrDefault()
+            ?? materialized
+                .Where(plan => plan.IsActive && plan.Days.Count > 0)
+                .OrderBy(plan => plan.CreatedUtc)
+                .FirstOrDefault();
+    }
+
+    private static BodyMetricsView BuildBodyMetrics(IEnumerable<BodyMetric> bodyMetrics)
+    {
+        var daily = bodyMetrics
+            .Where(metric => metric.Weight > Mass.Zero)
             .GroupBy(metric => DateOnly.FromDateTime(metric.RecordedUtc.LocalDateTime))
             .Select(group => new MeasurementPoint(group.Key, decimal.Round(group.Average(metric => metric.Weight.Kilograms), 2)))
-            .OrderBy(point => point.Date)
             .ToList();
 
-        return MovingAverage.Smooth(dailyPoints)
-            .Select(point => new BodyMetricTrendPoint(point.Date, point.RawValue, point.SmoothedValue))
+        var trend = SmoothedTrend.Build(daily, "your body weight");
+
+        var points = trend.Points
+            .Select(point => new BodyMetricTrendPoint(
+                point.Date,
+                point.RawValue,
+                point.SmoothedValue,
+                point.SampleCount >= trend.WindowSize))
             .ToList();
+
+        return new BodyMetricsView(points, trend);
     }
 
-    private static List<ExerciseEstimatePoint> BuildExerciseEstimatePoints(IReadOnlyList<SetEntry> sets, out Guid? exerciseId)
+    private static ExerciseProgressView BuildExerciseProgress(
+        IReadOnlyList<SetEntry> sets,
+        IReadOnlyList<Exercise> exercises)
     {
-        var estimates = sets
-            .Where(set => !set.IsWarmUp)
+        var working = sets.Where(set => !set.IsWarmUp && set.Repetitions > 0).ToList();
+
+        var estimable = working
             .Select(set => new { Set = set, Estimate = OneRepMaxEstimator.Estimate(set.Load, set.Repetitions, DefaultFormula) })
             .Where(item => item.Estimate is not null)
             .ToList();
 
-        exerciseId = estimates
+        var exerciseId = estimable
             .GroupBy(item => item.Set.ExerciseId)
             .OrderByDescending(group => group.Count())
             .ThenBy(group => group.Key)
             .FirstOrDefault()
             ?.Key;
 
-        if (exerciseId is not Guid selectedExerciseId)
+        if (exerciseId is not Guid selected)
         {
-            return [];
+            return new ExerciseProgressView(
+                "No exercise yet",
+                DefaultFormula,
+                [],
+                SparseDataPolicy.Evaluate(0, "your estimated one-rep max"),
+                0);
         }
 
-        return estimates
-            .Where(item => item.Set.ExerciseId == selectedExerciseId)
+        var name = exercises.FirstOrDefault(exercise => exercise.Id == selected)?.Name ?? "Most logged exercise";
+
+        var points = estimable
+            .Where(item => item.Set.ExerciseId == selected)
             .GroupBy(item => DateOnly.FromDateTime(item.Set.CompletedUtc.LocalDateTime))
-            .Select(group => new ExerciseEstimatePoint(
-                group.Key,
-                group.Max(item => item.Estimate!.Value.Kilograms),
-                DefaultFormula))
+            .Select(group =>
+            {
+                var best = group.OrderByDescending(item => item.Estimate!.Value.Kilograms).First();
+                return new ExerciseEstimatePoint(
+                    group.Key,
+                    best.Estimate!.Value.Kilograms,
+                    DefaultFormula,
+                    best.Set.Load.Kilograms,
+                    best.Set.Repetitions);
+            })
             .OrderBy(point => point.Date)
+            .ToList();
+
+        // Sets above the supported repetition range are dropped rather than estimated badly. The
+        // count travels with the view so the gap in the line has a stated reason.
+        var excluded = working.Count(set =>
+            set.ExerciseId == selected
+            && set.Repetitions > OneRepMaxEstimator.MaximumSupportedRepetitions);
+
+        return new ExerciseProgressView(
+            name,
+            DefaultFormula,
+            points,
+            SparseDataPolicy.Evaluate(points.Count, $"estimates for {name}"),
+            excluded);
+    }
+
+    private static List<PersonalRecordDisplay> BuildPersonalRecords(
+        IReadOnlyList<SetEntry> sets,
+        IReadOnlyList<Exercise> exercises)
+    {
+        var names = new Dictionary<Guid, string>();
+        foreach (var exercise in exercises)
+        {
+            names[exercise.Id] = exercise.Name;
+        }
+
+        return PersonalRecordDetector.DetectAll(sets, DefaultFormula)
+            .OrderByDescending(record => record.AchievedUtc)
+            .ThenBy(record => record.Type)
+            .Take(MaximumRecordsShown)
+            .Select(record => new PersonalRecordDisplay(
+                FormatRecordType(record.Type),
+                names.GetValueOrDefault(record.ExerciseId, "Exercise"),
+                FormatHeadline(record),
+                FormatDetail(record, DefaultFormula),
+                record.AchievedUtc,
+                record.Type == PersonalRecordType.EstimatedOneRepMax))
             .ToList();
     }
 
-    private static List<PersonalRecordDisplay> BuildPersonalRecords(IReadOnlyList<SetEntry> sets, IReadOnlyList<Exercise> exercises)
+    /// <summary>
+    /// Formats a record in the units it was actually achieved in.
+    /// </summary>
+    /// <remarks>
+    /// Every record carries its magnitude in a <see cref="Mass"/> so that records of one kind can
+    /// be compared, including "most repetitions", where the repetition count is stored in the
+    /// kilogram field. Rendering that field as kilograms turned a twelve-repetition record into
+    /// "12 kg", which is not a formatting slip but a different quantity.
+    /// </remarks>
+    private static string FormatHeadline(PersonalRecord record) => record.Type switch
     {
-        var exerciseNames = exercises.ToDictionary(exercise => exercise.Id, exercise => exercise.Name);
-        return PersonalRecordDetector.DetectAll(sets)
-            .OrderByDescending(record => record.AchievedUtc)
-            .ThenBy(record => record.Type)
-            .Take(30)
-            .Select(record => new PersonalRecordDisplay(
-                FormatRecordType(record.Type),
-                exerciseNames.GetValueOrDefault(record.ExerciseId, "Exercise"),
-                $"{record.Value.Kilograms:0.##} kg · {record.Load.Kilograms:0.##} kg × {record.Repetitions} · {record.Explanation}",
-                record.AchievedUtc))
-            .ToList();
-    }
+        PersonalRecordType.HeaviestLoad => $"{record.Load.Kilograms:0.##} kg",
+        PersonalRecordType.EstimatedOneRepMax => $"≈ {record.Value.Kilograms:0.##} kg",
+        PersonalRecordType.MostRepsAtLoad => $"{record.Repetitions} reps at {record.Load.Kilograms:0.##} kg",
+        PersonalRecordType.GreatestSessionVolume => $"{record.Value.Kilograms:0.##} kg total volume",
+        _ => $"{record.Value.Kilograms:0.##} kg"
+    };
+
+    private static string FormatDetail(PersonalRecord record, OneRepMaxFormula formula) => record.Type switch
+    {
+        PersonalRecordType.EstimatedOneRepMax =>
+            $"Calculated from {record.Load.Kilograms:0.##} kg × {record.Repetitions} with the {formula} formula. This is an estimate, not a lift you have performed.",
+        PersonalRecordType.GreatestSessionVolume =>
+            $"Summed across one session's working sets. The heaviest set that day was {record.Load.Kilograms:0.##} kg × {record.Repetitions}.",
+        _ => $"Measured from a working set of {record.Load.Kilograms:0.##} kg × {record.Repetitions}."
+    };
+
+    private static string FormatRecordType(PersonalRecordType type) => type switch
+    {
+        PersonalRecordType.HeaviestLoad => "Heaviest load",
+        PersonalRecordType.EstimatedOneRepMax => "Estimated 1RM",
+        PersonalRecordType.MostRepsAtLoad => "Most reps at load",
+        PersonalRecordType.GreatestSessionVolume => "Greatest session volume",
+        _ => "Personal record"
+    };
 
     private static TodaySummary BuildTodaySummary(
         DateOnly today,
         IReadOnlyList<SetEntry> sets,
-        IReadOnlyList<WorkoutSession> sessions,
+        IReadOnlyList<WorkoutSession> workouts,
         IReadOnlyList<HydrationEntry> hydration,
         IReadOnlyList<TrainingPlan> plans)
     {
@@ -191,7 +534,10 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
         var scheduled = FindScheduledSession(today, plans);
         var plannedWorkingSets = scheduled?.Day.Exercises.Sum(exercise => exercise.WorkingSetCount) ?? 3;
         var plannedWarmUps = Math.Max(1, scheduled?.Day.Exercises.Sum(exercise => exercise.Sets.Count(set => set.IsWarmUp)) ?? 1);
-        var inProgress = sessions.Where(session => session.CompletedUtc is null).OrderByDescending(session => session.StartedUtc).FirstOrDefault();
+        var inProgress = workouts
+            .Where(workout => workout.CompletedUtc is null)
+            .OrderByDescending(workout => workout.StartedUtc)
+            .FirstOrDefault();
 
         var rings = new[]
         {
@@ -226,20 +572,12 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
             rings,
             nextActionTitle,
             nextActionDetail,
-            BuildRecentActivity(sessions, sets, hydration));
+            BuildRecentActivity(workouts, sets, hydration));
     }
 
     private static ScheduledPlanSession? FindScheduledSession(DateOnly today, IEnumerable<TrainingPlan> plans)
     {
-        var activePlan = plans
-            .Where(plan => plan.IsActive && !plan.IsTemplate && plan.Days.Count > 0)
-            .OrderBy(plan => plan.CreatedUtc)
-            .FirstOrDefault()
-            ?? plans
-                .Where(plan => plan.IsActive && plan.Days.Count > 0)
-                .OrderBy(plan => plan.CreatedUtc)
-                .FirstOrDefault();
-
+        var activePlan = ActivePlan(plans);
         if (activePlan is null)
         {
             return null;
@@ -250,16 +588,16 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
     }
 
     private static List<TodayActivityData> BuildRecentActivity(
-        IReadOnlyList<WorkoutSession> sessions,
+        IReadOnlyList<WorkoutSession> workouts,
         IReadOnlyList<SetEntry> sets,
         IReadOnlyList<HydrationEntry> hydration)
     {
-        var sessionActivity = sessions
-            .Where(session => session.CompletedUtc is not null)
-            .Select(session => new TodayActivityData(
-                session.Title ?? "Workout",
-                $"{sets.Count(set => set.WorkoutSessionId == session.Id && !set.IsWarmUp)} working sets",
-                session.CompletedUtc!.Value));
+        var sessionActivity = workouts
+            .Where(workout => workout.CompletedUtc is not null)
+            .Select(workout => new TodayActivityData(
+                workout.Title ?? "Workout",
+                $"{sets.Count(set => set.WorkoutSessionId == workout.Id && !set.IsWarmUp)} working sets",
+                workout.CompletedUtc!.Value));
 
         var hydrationActivity = hydration
             .OrderByDescending(entry => entry.ConsumedUtc)
@@ -272,15 +610,6 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
             .Take(5)
             .ToList();
     }
-
-    private static string FormatRecordType(PersonalRecordType type) => type switch
-    {
-        PersonalRecordType.HeaviestLoad => "Heaviest load",
-        PersonalRecordType.EstimatedOneRepMax => "Estimated 1RM",
-        PersonalRecordType.MostRepsAtLoad => "Most reps at load",
-        PersonalRecordType.GreatestSessionVolume => "Greatest session volume",
-        _ => "Personal record"
-    };
 
     private static double Ratio(decimal value, decimal target)
         => target <= 0m ? 0d : Math.Clamp((double)(value / target), 0d, 1d);

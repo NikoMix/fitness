@@ -1,30 +1,48 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Exercise progress.
+
+    Every figure here is an estimate and is worded as one. The chart is a trend line, not a number
+    to load a bar with: the formula is a population fit, its error grows with repetition count, and
+    someone who reads the top of this line as a tested maximum picks a first working set that is
+    too heavy.
+-->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:sys="clr-namespace:System;assembly=netstandard"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Insights.ExerciseProgressPage"
              Title="Exercise progress"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <ContentPage.Resources>
+        <sys:Double x:Key="ChartHeight">240</sys:Double>
+    </ContentPage.Resources>
+
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
             <Label Text="Exercise progress" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
-            <Label Text="Strength trends appear after you log working sets for an exercise." Style="{StaticResource SecondaryText}" />
+            <Label Text="Strength trends appear once you have logged working sets for an exercise."
+                   Style="{StaticResource SecondaryText}" />
 
-            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="260" />
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource ChartHeight}" />
 
             <controls:EmptyState IsVisible="{Binding IsEmpty}"
-                                Glyph="↗"
-                                Headline="Log a few working sets"
-                                 Message="Forge will chart estimated 1RM only when the set is within the supported 1-10 rep range, and it will show the formula used."
+                                 Glyph="↗"
+                                 Headline="Log a few working sets"
+                                 Message="Forge charts an estimated one-rep max only from sets inside the supported one to ten repetition range, and it always shows which formula produced the number."
                                  ActionText="Go to training"
                                  ActionCommand="{Binding LogWorkoutCommand}" />
 
-            <controls:ForgeCard IsVisible="{Binding HasData}" Title="{Binding ExerciseName}" Subtitle="Estimated 1RM · formula-labelled and approximate">
+            <controls:ForgeCard IsVisible="{Binding HasData}"
+                                Title="{Binding ExerciseName}"
+                                Subtitle="Estimated one-rep max · calculated, not lifted">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <dx:ChartView HeightRequest="260">
+                    <dx:ChartView IsVisible="{Binding ShowChart}"
+                                  HeightRequest="{StaticResource ChartHeight}"
+                                  AutomationProperties.IsInAccessibleTree="False">
                         <dx:ChartView.Series>
-                            <dx:LineSeries DisplayName="Estimated 1RM">
+                            <dx:LineSeries DisplayName="Estimated 1RM (kg)" MarkersVisible="True">
                                 <dx:LineSeries.Data>
                                     <dx:SeriesDataAdapter DataSource="{Binding EstimatePoints}" ArgumentDataMember="DateLabel">
                                         <dx:ValueDataMember Type="Value" Member="EstimatedOneRepMaxKilograms" />
@@ -33,7 +51,32 @@
                             </dx:LineSeries>
                         </dx:ChartView.Series>
                     </dx:ChartView>
+
+                    <Label Text="{Binding ChartSummary}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding ShowChart}" />
+
+                    <Label Text="{Binding ReadinessNote}"
+                           Style="{StaticResource SecondaryText}"
+                           IsVisible="{Binding ShowValues}" />
+
+                    <VerticalStackLayout IsVisible="{Binding ShowValues}"
+                                         Spacing="{StaticResource SpaceS}"
+                                         BindableLayout.ItemsSource="{Binding EstimatePoints}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource SpaceM}">
+                                    <Label Text="{Binding DateLabel}" Style="{StaticResource TitleText}" />
+                                    <Label Grid.Column="1" Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
                     <Label Text="{Binding FormulaNote}" Style="{StaticResource CaptionText}" />
+                    <Label Text="{Binding ExclusionNote}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding HasExclusions}" />
                 </VerticalStackLayout>
             </controls:ForgeCard>
         </VerticalStackLayout>
