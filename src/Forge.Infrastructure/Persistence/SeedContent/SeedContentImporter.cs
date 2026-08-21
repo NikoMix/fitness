@@ -64,6 +64,7 @@ public sealed class SeedContentImporter(ForgeDbContext dbContext)
             existing.Equipment = item.Equipment;
             existing.IsUnilateral = item.IsUnilateral;
             existing.IsUserCreated = false;
+            item.ApplyGuidance(existing);
             updated++;
         }
 
@@ -99,19 +100,58 @@ public sealed class SeedContentImporter(ForgeDbContext dbContext)
 
         public string? PrimaryMuscle { get; init; }
 
+        public IReadOnlyList<string> SecondaryMuscles { get; init; } = [];
+
         public string? Equipment { get; init; }
+
+        public ExerciseDifficulty Difficulty { get; init; }
+
+        public ExerciseForceType ForceType { get; init; }
+
+        public IReadOnlyList<string> ExecutionSteps { get; init; } = [];
+
+        public IReadOnlyList<string> CommonMistakes { get; init; } = [];
+
+        public IReadOnlyList<string> CoachingCues { get; init; } = [];
+
+        public IReadOnlyList<string> SafetyNotes { get; init; } = [];
 
         public bool IsUnilateral { get; init; }
 
-        public Exercise ToExercise() => new()
+        public Exercise ToExercise()
         {
-            Id = Id,
-            Name = Name,
-            Pattern = Pattern,
-            PrimaryMuscle = PrimaryMuscle,
-            Equipment = Equipment,
-            IsUnilateral = IsUnilateral,
-            IsUserCreated = false
-        };
+            var exercise = new Exercise
+            {
+                Id = Id,
+                Name = Name,
+                Pattern = Pattern,
+                PrimaryMuscle = PrimaryMuscle,
+                Equipment = Equipment,
+                IsUnilateral = IsUnilateral,
+                IsUserCreated = false
+            };
+
+            ApplyGuidance(exercise);
+            return exercise;
+        }
+
+        /// <summary>
+        /// Copies the written form guidance onto an exercise row.
+        /// </summary>
+        /// <remarks>
+        /// Shared by the insert and update paths so a catalogue revision reaches existing
+        /// installs. Leaving these fields out of the update was what made every "how to perform
+        /// it" section render empty on a device that had already seeded once.
+        /// </remarks>
+        public void ApplyGuidance(Exercise exercise)
+        {
+            exercise.SecondaryMuscles = [.. SecondaryMuscles];
+            exercise.Difficulty = Difficulty;
+            exercise.ForceType = ForceType;
+            exercise.ExecutionSteps = [.. ExecutionSteps];
+            exercise.CommonMistakes = [.. CommonMistakes];
+            exercise.CoachingCues = [.. CoachingCues];
+            exercise.SafetyNotes = [.. SafetyNotes];
+        }
     }
 }

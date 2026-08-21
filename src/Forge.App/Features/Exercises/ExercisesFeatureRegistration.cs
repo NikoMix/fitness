@@ -24,6 +24,7 @@ public static class ExercisesFeatureRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddTransient<IExerciseDataStore, ExerciseDataStore>();
+        services.AddTransient<IExerciseVideoAvailability, ExerciseVideoAvailability>();
         services.AddTransient<ExerciseLibraryViewModel>();
         services.AddTransient<ExerciseLibraryPage>();
         services.AddTransient<ExerciseDetailViewModel>();

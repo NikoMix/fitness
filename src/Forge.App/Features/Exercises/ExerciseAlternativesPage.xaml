@@ -4,38 +4,81 @@
              xmlns:dx="http://schemas.devexpress.com/maui"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Exercises.ExerciseAlternativesPage"
+             x:Name="Page"
              Title="Alternatives"
              BackgroundColor="{dx:ThemeColor Surface}">
     <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+
         <VerticalStackLayout Spacing="{StaticResource SpaceS}">
-            <Label Text="{Binding Title}" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
-            <Label Text="{Binding Subtitle}" Style="{StaticResource SecondaryText}" />
+            <Label Text="{Binding Title}"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="What have you got right now?" Style="{StaticResource CaptionText}" />
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                <HorizontalStackLayout Spacing="{StaticResource SpaceS}"
+                                       BindableLayout.ItemsSource="{Binding EquipmentChips}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <dx:DXButton Content="{Binding DisplayText}"
+                                         SemanticProperties.Description="{Binding AccessibilityDescription}"
+                                         Style="{StaticResource SecondaryButton}"
+                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleEquipmentCommand}"
+                                         CommandParameter="{Binding .}" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+            <Label Text="{Binding Explanation}" Style="{StaticResource SecondaryText}" />
+            <Label Text="{Binding UnlockHint}"
+                   Style="{StaticResource CaptionText}"
+                   IsVisible="{Binding HasUnlockHint}" />
         </VerticalStackLayout>
-        <VerticalStackLayout Grid.Row="1" IsVisible="{Binding IsLoading}" Spacing="{StaticResource SpaceM}">
-            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
-            <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
-        </VerticalStackLayout>
-        <controls:EmptyState Grid.Row="1"
-                             IsVisible="{Binding HasError}"
-                             Glyph="!"
-                             Headline="Alternatives unavailable"
-                             Message="{Binding ErrorMessage}" />
-        <controls:EmptyState Grid.Row="1"
-                             IsVisible="{Binding IsEmpty}"
-                             Headline="No alternatives found"
-                             Message="Try making more equipment available or adding a custom exercise." />
-        <dx:DXCollectionView Grid.Row="1" ItemsSource="{Binding Alternatives}" IsVisible="{Binding HasAlternatives}">
-            <dx:DXCollectionView.ItemTemplate>
-                <DataTemplate>
-                    <dx:DXBorder Style="{StaticResource ListRow}">
-                        <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
-                            <Label Text="{Binding Name}" Style="{StaticResource TitleText}" />
-                            <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
-                            <Label Text="{Binding RankReason}" Style="{StaticResource CaptionText}" />
-                        </VerticalStackLayout>
-                    </dx:DXBorder>
-                </DataTemplate>
-            </dx:DXCollectionView.ItemTemplate>
-        </dx:DXCollectionView>
+
+        <Grid Grid.Row="1">
+            <VerticalStackLayout IsVisible="{Binding IsLoading}" Spacing="{StaticResource SpaceM}">
+                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+            </VerticalStackLayout>
+
+            <controls:EmptyState IsVisible="{Binding HasError}"
+                                 Glyph="!"
+                                 Headline="Alternatives unavailable"
+                                 Message="{Binding ErrorMessage}" />
+
+            <!--
+                An empty result is a real answer here, not a failure. The explanation says why
+                nothing qualified, which is more useful than a list padded with movements that
+                train something else.
+            -->
+            <controls:EmptyState IsVisible="{Binding IsEmpty}"
+                                 Headline="No suitable alternative"
+                                 Message="{Binding Explanation}" />
+
+            <dx:DXCollectionView ItemsSource="{Binding Alternatives}" IsVisible="{Binding HasAlternatives}">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                <VerticalStackLayout Spacing="{StaticResource SpaceXs}"
+                                                     SemanticProperties.Description="{Binding AccessibilityDescription}">
+                                    <Label Text="{Binding Name}" Style="{StaticResource TitleText}" />
+                                    <Label Text="{Binding QualityBadge}"
+                                           Style="{StaticResource CaptionText}"
+                                           TextColor="{dx:ThemeColor Primary}" />
+                                    <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
+                                    <Label Text="{Binding RankReason}" Style="{StaticResource CaptionText}" />
+                                </VerticalStackLayout>
+                                <dx:DXButton Grid.Column="1"
+                                             Content="View"
+                                             SemanticProperties.Description="View this alternative"
+                                             Style="{StaticResource TextButton}"
+                                             Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenAlternativeCommand}"
+                                             CommandParameter="{Binding .}" />
+                            </Grid>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+        </Grid>
     </Grid>
 </ContentPage>
