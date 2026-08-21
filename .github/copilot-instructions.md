@@ -12,3 +12,4 @@
 - Add `SemanticProperties.Description` to interactive controls. DevExpress buttons are otherwise exposed to Android's accessibility tree as non-focusable text with no description, so screen readers cannot reach them.
 - A clean build and a green test suite do not mean the app runs. Six shipped defects were visible only on a device: DI activation, theme init order, seed deserialization, a startup race, accessibility exposure, and the `ContentPresenter` binding trap. Verify UI work on an emulator.
 - Tests use xUnit v3 with Shouldly. Do not introduce FluentAssertions.
+- CI runs `dotnet format --verify-no-changes` over all six projects. A clean build does not mean a clean format gate, so run it before pushing or CI will fail on whitespace alone.
