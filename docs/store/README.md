@@ -1,5 +1,11 @@
 # Forge store readiness runbook
 
+> Release mechanics — tagging, signing, versioning, phased rollout and rollback — are in
+> [`docs/release/`](../release/README.md). Listing copy, categories, keywords, age rating
+> answers and screenshot specifications are in
+> [`docs/release/store-listing.md`](../release/store-listing.md). This page covers the
+> commercial model and the review risks that come with it.
+
 ## Commercial model
 
 Use one non-consumable in-app purchase for v1:

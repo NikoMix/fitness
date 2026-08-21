@@ -1,33 +1,21 @@
 # Release process
 
-Forge releases are produced by the manual `Release` GitHub Actions workflow.
+Moved to [`docs/release/`](../release/README.md).
 
-## Launch gate: Google Play Health Apps declaration
+This page described a manual `workflow_dispatch` release that took a hand-typed version and
+used `github.run_number` as the store build number. Both have been replaced: releases are now
+triggered by a git tag, and the build number is derived from that tag so it is reproducible
+and cannot go backwards. Keeping the old description here would have left two contradictory
+runbooks in the repository.
 
-Forge uses health data. Google Play requires a Health Apps declaration before publishing Health Connect permissions, and approval can take 4-8 weeks. Start this declaration early; it is a launch gate, not a final submission task.
+| You want | Read |
+| --- | --- |
+| To cut a release | [`docs/release/runbook.md`](../release/runbook.md) |
+| To choose a tag | [`docs/release/versioning.md`](../release/versioning.md) |
+| To set up or rotate signing credentials | [`docs/release/signing-and-secrets.md`](../release/signing-and-secrets.md) |
+| To fill in a store console | [`docs/release/store-listing.md`](../release/store-listing.md) |
+| To know what is blocking the launch | [`docs/release/launch-gates.yml`](../release/launch-gates.yml) |
 
-## Before running the workflow
-
-1. Confirm the release branch is green in CI.
-2. Confirm `.github` release secrets are configured as described in `docs/ops/secrets.md`.
-3. Confirm the Android upload key, Apple certificate, and provisioning profile are current.
-4. Choose the semantic display version, for example `1.0.0`.
-
-## Running the workflow
-
-1. Open GitHub Actions.
-2. Select `Release`.
-3. Run `workflow_dispatch` with the chosen version.
-4. Download the Android AAB and iOS IPA artifacts.
-
-The workflow stamps:
-
-- `ApplicationDisplayVersion` from the manual version input.
-- `ApplicationVersion` from `github.run_number`, which maps to Android `versionCode` and iOS `CFBundleVersion`. Run numbers are monotonically increasing for the workflow, so store build numbers always move forward.
-
-## Store upload TODOs
-
-- TODO: Upload the signed AAB to Google Play Console after adding Play Developer API credentials and selecting the target track.
-- TODO: Upload the signed IPA to TestFlight after adding App Store Connect API credentials and confirming the beta/release lane.
-
-These upload steps are documented but intentionally not automated until API credentials and release governance are in place.
+The launch gate has not changed: the Google Play Health Apps declaration takes four to eight
+weeks with no published SLA, requires a publicly hosted privacy policy first, and sets the
+launch date.

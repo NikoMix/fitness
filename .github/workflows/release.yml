@@ -1,15 +1,43 @@
 name: Release
 
+# Tag-triggered release pipeline.
+#
+# Tagging is the trigger because a tag is the only artefact-shaped thing in git: immutable,
+# reviewable, and identical every time it is used. The previous version of this workflow
+# took a hand-typed version string plus github.run_number as the store build number. Run
+# numbers move when somebody re-runs a failed job and reset to 1 if the workflow file is
+# renamed - and Google Play never forgets a versionCode it has already accepted, so that
+# scheme had a trap in it that springs exactly once, permanently, per package id.
+#
+# Everything version-shaped now comes from tools/release/Get-ReleaseVersion.ps1. See
+# docs/release/runbook.md for the human process and docs/release/signing-and-secrets.md for
+# the credentials this expects.
+#
+# Building is unconditional on a tag. PUBLISHING is not: it requires the repository
+# variable FORGE_STORE_UPLOAD to be 'enabled', it runs inside the 'store-release'
+# environment so an approval can be required on it, and it re-runs the preflight gate in
+# blocking mode - so an unapproved Play Health Apps declaration stops the upload rather
+# than being noticed after it.
+
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: Semantic display version, for example 1.0.0
+      tag:
+        description: Existing release tag to build, for example v1.0.0-rc.1
         required: true
         type: string
+      publish:
+        description: Upload to the stores as well as building
+        required: false
+        default: false
+        type: boolean
 
+# Releases are never cancelled mid-flight. A half-uploaded bundle is worse than a slow one.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -19,18 +47,89 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  RELEASE_VERSION: ${{ inputs.version }}
-  # MAUI maps ApplicationVersion to Android versionCode and iOS CFBundleVersion.
-  # GitHub run numbers are monotonically increasing per workflow, so every store
-  # submission gets a higher build number while the human version stays explicit.
-  STORE_BUILD_NUMBER: ${{ github.run_number }}
+  BUNDLETOOL_VERSION: '1.18.3'
 
 jobs:
-  android:
-    name: Signed Android AAB
+  version:
+    name: Resolve version from tag
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      display-version: ${{ steps.resolve.outputs.display-version }}
+      build-number: ${{ steps.resolve.outputs.build-number }}
+      channel: ${{ steps.resolve.outputs.channel }}
+      is-prerelease: ${{ steps.resolve.outputs.is-prerelease }}
+      play-track: ${{ steps.resolve.outputs.play-track }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      # A malformed tag fails here, in seconds, instead of after two platform builds.
+      - name: Resolve version
+        id: resolve
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: ./tools/release/Get-ReleaseVersion.ps1 -Tag $env:RELEASE_TAG -GitHubOutput
+
+      - name: Prove the build number scheme is still monotonic
+        shell: pwsh
+        run: ./tools/release/Get-ReleaseVersion.ps1 -SelfTest
+
+      - name: Summarise
+        shell: bash
+        run: |
+          {
+            echo "## Release ${{ steps.resolve.outputs.tag }}"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Display version | \`${{ steps.resolve.outputs.display-version }}\` |"
+            echo "| Build number | \`${{ steps.resolve.outputs.build-number }}\` |"
+            echo "| Channel | ${{ steps.resolve.outputs.channel }} |"
+            echo "| Play track | ${{ steps.resolve.outputs.play-track }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  preflight:
+    name: Preflight (advisory)
+    runs-on: ubuntu-latest
+    needs: [version]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      - name: Cache PowerShell modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/powershell/Modules
+          key: psmodules-powershell-yaml-v1
+
+      - name: Install powershell-yaml
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
+            Install-Module powershell-yaml -Scope CurrentUser -Force -AllowClobber
+          }
+
+      # Advisory on purpose. An unapproved launch gate must not stop engineering producing
+      # an artefact to test; it must stop the artefact reaching a store. The publish jobs
+      # run the same script without -Advisory.
+      - name: Report launch gates and listing metadata
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: ./tools/release/Invoke-ReleasePreflight.ps1 -Tag $env:RELEASE_TAG -Platform All -Advisory
+
+  android:
+    name: Signed Android App Bundle
+    runs-on: ubuntu-latest
+    needs: [version]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.tag }}
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -48,8 +147,32 @@ jobs:
           key: nuget-release-android-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
           restore-keys: nuget-release-android-
 
+      # maui-android, not android: this is a MAUI head and needs the MAUI packs as well.
+      # Same workload id as ci.yml, deliberately.
       - name: Install MAUI Android workload
-        run: dotnet workload install android --skip-sign-check
+        run: dotnet workload install maui-android --skip-sign-check
+
+      - name: Fail early if signing secrets are absent
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Missing Android signing secrets: ${missing[*]}" >&2
+            echo "See docs/release/signing-and-secrets.md." >&2
+            exit 1
+          fi
 
       - name: Decode Android signing keystore
         shell: bash
@@ -62,12 +185,17 @@ jobs:
           chmod 600 "$keystore_path"
           echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
 
+      # ApplicationVersion is the Android versionCode; ApplicationDisplayVersion is the
+      # versionName. Both come from the tag, so re-running this job reproduces the same
+      # bundle identity instead of inventing a new one.
       - name: Publish signed Android App Bundle
         shell: bash
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          DISPLAY_VERSION: ${{ needs.version.outputs.display-version }}
+          BUILD_NUMBER: ${{ needs.version.outputs.build-number }}
         run: |
           set -euo pipefail
           dotnet publish src/Forge.App/Forge.App.csproj \
@@ -79,31 +207,117 @@ jobs:
             -p:AndroidSigningStorePass="$ANDROID_KEYSTORE_PASSWORD" \
             -p:AndroidSigningKeyAlias="$ANDROID_KEY_ALIAS" \
             -p:AndroidSigningKeyPass="$ANDROID_KEY_PASSWORD" \
-            -p:ApplicationDisplayVersion="$RELEASE_VERSION" \
-            -p:ApplicationVersion="$STORE_BUILD_NUMBER" \
+            -p:ApplicationDisplayVersion="$DISPLAY_VERSION" \
+            -p:ApplicationVersion="$BUILD_NUMBER" \
             -o artifacts/android
 
+      # The keystore goes before anything else runs, including on failure.
       - name: Remove Android keystore
         if: always()
         shell: bash
-        run: rm -f "$ANDROID_KEYSTORE_PATH"
+        run: rm -f "${ANDROID_KEYSTORE_PATH:-/dev/null}"
 
-      - name: Upload Android artifact
+      # A signing publish writes BOTH com.nikomix.forge.aab and com.nikomix.forge-Signed.aab
+      # into the output directory. Verified locally: the unsigned one is 64.49 MiB, the
+      # signed one 64.69 MiB, and nothing in the file name ordering guarantees which a glob
+      # picks first. Staging exactly one file under a known name means the size check, the
+      # pack check, the artefact upload and the store upload cannot disagree about which
+      # bundle this release is - and an unsigned bundle can never reach a store.
+      - name: Stage the signed bundle
+        shell: bash
+        env:
+          DISPLAY_VERSION: ${{ needs.version.outputs.display-version }}
+          BUILD_NUMBER: ${{ needs.version.outputs.build-number }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/android-release
+          signed="$(find artifacts/android -name '*-Signed.aab' -print -quit)"
+          if [ -z "$signed" ]; then
+            echo "No *-Signed.aab was produced, so the bundle is not signed." >&2
+            echo "Bundles that were produced:" >&2
+            find artifacts/android -name '*.aab' -print >&2 || true
+            exit 1
+          fi
+
+          cp "$signed" "artifacts/android-release/forge-${DISPLAY_VERSION}-${BUILD_NUMBER}.aab"
+          echo "Staged $(basename "$signed") as forge-${DISPLAY_VERSION}-${BUILD_NUMBER}.aab"
+
+      - name: Download bundletool
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/bundletool.jar" \
+            "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
+
+      # The app requests three Play asset packs by name at runtime. A bundle without them
+      # installs cleanly and then fails the first time a user asks for a video - a failure
+      # no unit test and no store review will catch.
+      - name: Verify Play Asset Delivery packs
+        shell: pwsh
+        run: ./tools/release/Test-AndroidAssetPacks.ps1 -BundlePath artifacts/android-release -BundleToolPath "$env:RUNNER_TEMP/bundletool.jar"
+
+      - name: Enforce Android bundle size ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_path="$(find artifacts/android-release -name '*.aab' -print -quit)"
+          bytes="$(stat -c%s "$package_path")"
+          mib="$(awk "BEGIN { printf \"%.2f\", $bytes / 1048576 }")"
+          limit_bytes=$((90 * 1024 * 1024))
+
+          {
+            echo "## Android release bundle"
+            echo ""
+            echo "| Artifact | Size | Ceiling |"
+            echo "| --- | ---: | ---: |"
+            echo "| $(basename "$package_path") | ${mib} MiB | 90.00 MiB |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$bytes" -gt "$limit_bytes" ]; then
+            echo "Android bundle is ${mib} MiB, over the 90 MiB ceiling." >&2
+            exit 1
+          fi
+
+      # Play symbolicates shrunk stack traces from this file. Without it every production
+      # crash report is unreadable, and it cannot be produced after the fact because it is
+      # specific to this exact build.
+      - name: Collect R8 mapping file
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/android-symbols
+          mapping="$(find src/Forge.App/obj artifacts/obj -name 'mapping.txt' -print -quit 2>/dev/null || true)"
+          if [ -n "$mapping" ]; then
+            cp "$mapping" artifacts/android-symbols/mapping.txt
+            echo "Collected the R8 mapping from $mapping"
+          else
+            echo "::warning::No R8 mapping file was produced. Play crash reports for this build cannot be symbolicated."
+            echo "no mapping file was produced for this build" > artifacts/android-symbols/MISSING.txt
+          fi
+
+      - name: Upload Android App Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: forge-android-aab-${{ inputs.version }}-${{ github.run_number }}
-          path: artifacts/android/**/*.aab
+          name: forge-android-aab-${{ needs.version.outputs.tag }}
+          path: artifacts/android-release/*.aab
           if-no-files-found: error
 
-      - name: Play Console upload TODO
-        run: |
-          echo "TODO: Upload the signed AAB to Google Play Console once API credentials and release track policy are configured." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload Android symbols
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: forge-android-symbols-${{ needs.version.outputs.tag }}
+          path: artifacts/android-symbols
+          if-no-files-found: warn
 
   ios:
     name: Signed iOS archive
     runs-on: macos-latest
+    needs: [version]
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.tag }}
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -116,9 +330,43 @@ jobs:
           key: nuget-release-ios-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
           restore-keys: nuget-release-ios-
 
-      - name: Install MAUI iOS workload
-        run: dotnet workload install ios --skip-sign-check
+      # Restore from the project rather than installing a hand-kept workload list. On macOS
+      # Forge.App declares both net10.0-android and net10.0-ios, and restore evaluates every
+      # framework in that list even when the build targets one - so installing only the iOS
+      # workload fails during restore, before a single file is compiled. ci.yml learned this
+      # already; the previous release workflow had not.
+      - name: Install MAUI workloads
+        run: dotnet workload restore src/Forge.App/Forge.App.csproj --skip-sign-check
 
+      - name: Fail early if signing secrets are absent
+        shell: bash
+        env:
+          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_CODESIGN_KEY: ${{ secrets.IOS_CODESIGN_KEY }}
+          IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in IOS_CERTIFICATE_P12_BASE64 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE_BASE64 IOS_CODESIGN_KEY IOS_PROVISIONING_PROFILE_NAME; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Missing iOS signing secrets: ${missing[*]}" >&2
+            echo "See docs/release/signing-and-secrets.md." >&2
+            exit 1
+          fi
+
+      # Signing material goes into a dedicated, randomly-keyed keychain created for this job
+      # only, never the login keychain, so nothing outlives the runner.
+      #
+      # -A plus -T grants the signing tools access to the imported private key. Omitting -T
+      # imports the key successfully and then fails at use time with errSecInternalComponent,
+      # which reads like a signing configuration problem rather than a keychain ACL one.
       - name: Import iOS signing assets
         shell: bash
         env:
@@ -140,19 +388,24 @@ jobs:
           security create-keychain -p "$keychain_password" "$keychain_path"
           security set-keychain-settings -lut 21600 "$keychain_path"
           security unlock-keychain -p "$keychain_password" "$keychain_path"
-          security import "$cert_path" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+
+          security import "$cert_path" -k "$keychain_path" -P "$IOS_CERTIFICATE_PASSWORD" \
+            -A -T /usr/bin/codesign -T /usr/bin/security
+
           security list-keychains -d user -s "$keychain_path" $(security list-keychains -d user | sed 's/[ "]//g')
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path" > /dev/null
 
           echo "IOS_CERT_PATH=$cert_path" >> "$GITHUB_ENV"
           echo "IOS_PROFILE_PATH=$profile_path" >> "$GITHUB_ENV"
           echo "IOS_KEYCHAIN_PATH=$keychain_path" >> "$GITHUB_ENV"
 
-      - name: Publish signed iOS IPA
+      - name: Publish signed iOS archive
         shell: bash
         env:
           IOS_CODESIGN_KEY: ${{ secrets.IOS_CODESIGN_KEY }}
           IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+          DISPLAY_VERSION: ${{ needs.version.outputs.display-version }}
+          BUILD_NUMBER: ${{ needs.version.outputs.build-number }}
         run: |
           set -euo pipefail
           dotnet publish src/Forge.App/Forge.App.csproj \
@@ -163,26 +416,298 @@ jobs:
             -p:BuildIpa=true \
             -p:CodesignKey="$IOS_CODESIGN_KEY" \
             -p:CodesignProvision="$IOS_PROVISIONING_PROFILE_NAME" \
-            -p:ApplicationDisplayVersion="$RELEASE_VERSION" \
-            -p:ApplicationVersion="$STORE_BUILD_NUMBER" \
+            -p:ApplicationDisplayVersion="$DISPLAY_VERSION" \
+            -p:ApplicationVersion="$BUILD_NUMBER" \
             -o artifacts/ios
+
+      - name: Verify On-Demand Resource tags
+        shell: pwsh
+        run: ./tools/release/Test-IosOnDemandResources.ps1 -ArchiveRoot artifacts/ios
 
       - name: Remove iOS signing assets
         if: always()
         shell: bash
         run: |
-          rm -f "$IOS_CERT_PATH" "$IOS_PROFILE_PATH"
+          rm -f "${IOS_CERT_PATH:-/dev/null}" "${IOS_PROFILE_PATH:-/dev/null}"
           if [ -n "${IOS_KEYCHAIN_PATH:-}" ]; then
             security delete-keychain "$IOS_KEYCHAIN_PATH" || true
           fi
 
-      - name: Upload iOS artifact
+      - name: Upload iOS archive
         uses: actions/upload-artifact@v4
         with:
-          name: forge-ios-ipa-${{ inputs.version }}-${{ github.run_number }}
+          name: forge-ios-ipa-${{ needs.version.outputs.tag }}
           path: artifacts/ios/**/*.ipa
           if-no-files-found: error
 
-      - name: TestFlight upload TODO
+      # dSYMs are the only way to read a production iOS crash and, like the R8 mapping,
+      # cannot be regenerated afterwards.
+      - name: Upload iOS symbols
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: forge-ios-symbols-${{ needs.version.outputs.tag }}
+          path: artifacts/ios/**/*.dSYM/**
+          if-no-files-found: warn
+
+  publish-play:
+    name: Publish to Google Play
+    runs-on: ubuntu-latest
+    needs: [version, android]
+    # The approval requirement, the deployment history and the credentials all hang off
+    # this environment. Configure required reviewers on it before enabling uploads.
+    environment: store-release
+    if: ${{ vars.FORGE_STORE_UPLOAD == 'enabled' && (github.event_name == 'push' || inputs.publish) }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: forge-android-aab-${{ needs.version.outputs.tag }}
+          path: artifacts/android
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: forge-android-symbols-${{ needs.version.outputs.tag }}
+          path: artifacts/android-symbols
+
+      - name: Cache PowerShell modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/powershell/Modules
+          key: psmodules-powershell-yaml-v1
+
+      - name: Install powershell-yaml
+        shell: pwsh
         run: |
-          echo "TODO: Upload the IPA to TestFlight once App Store Connect API credentials and release policy are configured." >> "$GITHUB_STEP_SUMMARY"
+          if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
+            Install-Module powershell-yaml -Scope CurrentUser -Force -AllowClobber
+          }
+
+      # Secret NAMES only. The values never leave the shell that tests them for emptiness.
+      - name: Collect configured secret names
+        id: secrets
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          configured=""
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD PLAY_SERVICE_ACCOUNT_JSON; do
+            if [ -n "${!name:-}" ]; then
+              configured="${configured:+$configured,}$name"
+            fi
+          done
+          echo "names=$configured" >> "$GITHUB_OUTPUT"
+
+      # Blocking, unlike the advisory preflight job. This is where an unapproved Play Health
+      # Apps declaration stops a production upload.
+      - name: Preflight gate
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          CONFIGURED_SECRETS: ${{ steps.secrets.outputs.names }}
+        run: ./tools/release/Invoke-ReleasePreflight.ps1 -Tag $env:RELEASE_TAG -Platform Android -ConfiguredSecret $env:CONFIGURED_SECRETS
+
+      - name: Require asset packs for a production upload
+        if: ${{ needs.version.outputs.channel == 'production' }}
+        shell: pwsh
+        run: ./tools/release/Test-AndroidAssetPacks.ps1 -BundlePath artifacts/android -Require
+
+      # Google publishes no first-party CLI for the Play Developer API. fastlane supply is
+      # the de facto standard and also understands the fastlane/metadata layout this
+      # repository already uses, so binary and listing text ship together.
+      - name: Install fastlane
+        run: gem install fastlane --no-document
+
+      - name: Write Play service account key
+        shell: bash
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          key_path="$RUNNER_TEMP/play-service-account.json"
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > "$key_path"
+          chmod 600 "$key_path"
+          echo "PLAY_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      # Production starts at a fraction, not at 100%. A staged rollout that can be halted is
+      # the only rollback Google Play actually offers.
+      - name: Upload to Google Play
+        shell: pwsh
+        env:
+          RELEASE_CHANNEL: ${{ needs.version.outputs.channel }}
+          PLAY_TRACK: ${{ needs.version.outputs.play-track }}
+          FORGE_PLAY_ROLLOUT: ${{ vars.FORGE_PLAY_ROLLOUT }}
+        run: |
+          $rollout = 1.0
+          if ($env:RELEASE_CHANNEL -eq 'production') {
+            $rollout = 0.1
+            if (-not [string]::IsNullOrWhiteSpace($env:FORGE_PLAY_ROLLOUT)) {
+              $rollout = [double]::Parse($env:FORGE_PLAY_ROLLOUT, [cultureinfo]::InvariantCulture)
+            }
+          }
+
+          $mapping = 'artifacts/android-symbols/mapping.txt'
+          if (-not (Test-Path -LiteralPath $mapping)) {
+            $mapping = ''
+          }
+
+          ./tools/release/Publish-StoreRelease.ps1 `
+            -Platform Android `
+            -PackagePath artifacts/android `
+            -Track $env:PLAY_TRACK `
+            -RolloutFraction $rollout `
+            -MappingPath $mapping `
+            -MetadataPath fastlane/metadata/android `
+            -ServiceAccountJsonPath $env:PLAY_KEY_PATH `
+            -Confirm:$false
+
+      - name: Remove Play service account key
+        if: always()
+        shell: bash
+        run: rm -f "${PLAY_KEY_PATH:-/dev/null}"
+
+  publish-testflight:
+    name: Publish to App Store Connect
+    runs-on: macos-latest
+    needs: [version, ios]
+    environment: store-release
+    if: ${{ vars.FORGE_STORE_UPLOAD == 'enabled' && (github.event_name == 'push' || inputs.publish) }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: forge-ios-ipa-${{ needs.version.outputs.tag }}
+          path: artifacts/ios
+
+      - name: Install powershell-yaml
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
+            Install-Module powershell-yaml -Scope CurrentUser -Force -AllowClobber
+          }
+
+      - name: Collect configured secret names
+        id: secrets
+        shell: bash
+        env:
+          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_CODESIGN_KEY: ${{ secrets.IOS_CODESIGN_KEY }}
+          IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+          APPSTORE_CONNECT_KEY_ID: ${{ secrets.APPSTORE_CONNECT_KEY_ID }}
+          APPSTORE_CONNECT_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
+          APPSTORE_CONNECT_PRIVATE_KEY: ${{ secrets.APPSTORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          configured=""
+          for name in IOS_CERTIFICATE_P12_BASE64 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE_BASE64 IOS_CODESIGN_KEY IOS_PROVISIONING_PROFILE_NAME APPSTORE_CONNECT_KEY_ID APPSTORE_CONNECT_ISSUER_ID APPSTORE_CONNECT_PRIVATE_KEY; do
+            if [ -n "${!name:-}" ]; then
+              configured="${configured:+$configured,}$name"
+            fi
+          done
+          echo "names=$configured" >> "$GITHUB_OUTPUT"
+
+      - name: Preflight gate
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          CONFIGURED_SECRETS: ${{ steps.secrets.outputs.names }}
+        run: ./tools/release/Invoke-ReleasePreflight.ps1 -Tag $env:RELEASE_TAG -Platform IOS -ConfiguredSecret $env:CONFIGURED_SECRETS
+
+      - name: Write App Store Connect API key
+        shell: bash
+        env:
+          APPSTORE_CONNECT_KEY_ID: ${{ secrets.APPSTORE_CONNECT_KEY_ID }}
+          APPSTORE_CONNECT_PRIVATE_KEY: ${{ secrets.APPSTORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          key_path="$RUNNER_TEMP/AuthKey_${APPSTORE_CONNECT_KEY_ID}.p8"
+          printf '%s' "$APPSTORE_CONNECT_PRIVATE_KEY" > "$key_path"
+          chmod 600 "$key_path"
+          echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      # Every upload lands in TestFlight first. Promotion to the App Store stays a
+      # deliberate human act in App Store Connect: review is not reversible, and a phased
+      # release cannot be started twice.
+      - name: Upload to App Store Connect
+        shell: pwsh
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
+        run: |
+          ./tools/release/Publish-StoreRelease.ps1 `
+            -Platform IOS `
+            -PackagePath artifacts/ios `
+            -ApiKeyId $env:ASC_KEY_ID `
+            -ApiIssuerId $env:ASC_ISSUER_ID `
+            -ApiPrivateKeyPath $env:ASC_KEY_PATH `
+            -Confirm:$false
+
+      - name: Remove App Store Connect API key
+        if: always()
+        shell: bash
+        run: rm -f "${ASC_KEY_PATH:-/dev/null}"
+
+  github-release:
+    name: Draft GitHub release
+    runs-on: ubuntu-latest
+    needs: [version, android, ios]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: forge-*-${{ needs.version.outputs.tag }}
+
+      # Draft, not published. The GitHub release is the record of what was submitted, so it
+      # only becomes public once the stores have actually accepted the build.
+      - name: Create or update the draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+          DISPLAY_VERSION: ${{ needs.version.outputs.display-version }}
+          PRERELEASE: ${{ needs.version.outputs.is-prerelease }}
+        run: |
+          set -euo pipefail
+          notes_file=fastlane/metadata/android/en-US/changelogs/default.txt
+
+          assets=()
+          while IFS= read -r found; do
+            assets+=("$found")
+          done < <(find artifacts -type f \( -name '*.aab' -o -name '*.ipa' \) | sort)
+
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No .aab or .ipa was downloaded, so there is nothing to attach." >&2
+            exit 1
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            exit 0
+          fi
+
+          flags=(--draft --verify-tag --title "Forge $DISPLAY_VERSION" --notes-file "$notes_file")
+          if [ "$PRERELEASE" = "true" ]; then
+            flags+=(--prerelease)
+          fi
+
+          gh release create "$TAG" "${assets[@]}" "${flags[@]}"
