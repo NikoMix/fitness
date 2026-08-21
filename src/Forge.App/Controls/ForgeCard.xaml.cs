@@ -1,5 +1,14 @@
 namespace Forge.App.Controls;
 
+/// <summary>
+/// The standard Forge card surface: an optional title and subtitle above arbitrary content.
+/// </summary>
+/// <remarks>
+/// The content a caller writes between the tags is moved into an inner host so the card can draw
+/// its own header above it. The host is a plain <see cref="ContentView"/> rather than a
+/// <see cref="ContentPresenter"/> - see the comment in the XAML for why that distinction decides
+/// whether every binding inside a card works or silently resolves against nothing.
+/// </remarks>
 public partial class ForgeCard : ContentView
 {
     public static readonly BindableProperty TitleProperty = BindableProperty.Create(

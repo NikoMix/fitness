@@ -53,6 +53,16 @@ public sealed partial class TodayViewModel : ObservableObject
     /// <summary>Whether no ring has any progress at all today.</summary>
     public bool HasNoRingData => !HasRingData;
 
+    /// <summary>
+    /// Whether the hero action has a label to render.
+    /// </summary>
+    /// <remarks>
+    /// The button is hidden rather than rendered empty. A filled accent button with no text is a
+    /// blank slab that reads as a broken app, and it is worth failing visibly-absent rather than
+    /// visibly-wrong if a future change ever leaves this unset.
+    /// </remarks>
+    public bool HasFocusAction => !string.IsNullOrWhiteSpace(FocusActionText);
+
     [ObservableProperty]
     private bool hasRecentActivity;
 
@@ -108,6 +118,8 @@ public sealed partial class TodayViewModel : ObservableObject
 
     partial void OnHasRingDataChanged(bool value) => OnPropertyChanged(nameof(HasNoRingData));
 
+    partial void OnFocusActionTextChanged(string value) => OnPropertyChanged(nameof(HasFocusAction));
+
     /// <summary>Reads today's data and rebuilds the screen.</summary>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>A task that completes once the screen has been rebuilt.</returns>
@@ -161,8 +173,8 @@ public sealed partial class TodayViewModel : ObservableObject
                 FocusHeadline = focus.Headline;
                 FocusMessage = focus.Message;
                 FocusActionText = focus.PrimaryActionLabel;
-                HasSetupNudge = focus.ShowsSetupNudge;
                 SetupNudge = focus.SetupNudge;
+                HasSetupNudge = focus.ShowsSetupNudge && !string.IsNullOrWhiteSpace(focus.SetupNudge);
                 primaryAction = focus.PrimaryAction;
             }).ConfigureAwait(false);
         }

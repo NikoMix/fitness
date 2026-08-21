@@ -190,6 +190,12 @@ public enum TodayFocusAction
 /// <param name="PrimaryAction">Where the button leads.</param>
 /// <param name="ShowsSetupNudge">Whether a quiet secondary setup prompt should also be shown.</param>
 /// <param name="SetupNudge">The secondary prompt text, empty when none applies.</param>
+/// <remarks>
+/// The invariants are enforced at construction rather than trusted. Today's hero card is the first
+/// thing anyone sees, and an empty headline, message or button label renders as a blank slab that
+/// looks like a broken app rather than like missing data. Enforcing it here means no future branch
+/// can introduce that by omission.
+/// </remarks>
 public sealed record TodayFocus(
     TodayFocusKind Kind,
     string Headline,
@@ -197,4 +203,26 @@ public sealed record TodayFocus(
     string PrimaryActionLabel,
     TodayFocusAction PrimaryAction,
     bool ShowsSetupNudge,
-    string SetupNudge);
+    string SetupNudge)
+{
+    /// <summary>A short heading. Never empty.</summary>
+    public string Headline { get; } = Require(Headline, nameof(Headline));
+
+    /// <summary>The explanation shown under the heading. Never empty.</summary>
+    public string Message { get; } = Require(Message, nameof(Message));
+
+    /// <summary>The primary button label. Never empty.</summary>
+    public string PrimaryActionLabel { get; } = Require(PrimaryActionLabel, nameof(PrimaryActionLabel));
+
+    /// <summary>Whether a quiet secondary setup prompt should also be shown.</summary>
+    /// <remarks>
+    /// Forced to <see langword="false"/> when <see cref="SetupNudge"/> has nothing to say, because
+    /// a visible empty label reserves layout and leaves a gap that reads as a rendering fault.
+    /// </remarks>
+    public bool ShowsSetupNudge { get; } = ShowsSetupNudge && !string.IsNullOrWhiteSpace(SetupNudge);
+
+    private static string Require(string value, string name)
+        => string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException($"A Today focus must supply {name}; an empty value renders as a blank card.", name)
+            : value;
+}

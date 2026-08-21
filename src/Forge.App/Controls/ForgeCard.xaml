@@ -17,7 +17,22 @@
                        Text="{Binding Subtitle, Source={x:Reference Root}}"
                        Style="{StaticResource SecondaryText}" />
             </VerticalStackLayout>
-            <ContentPresenter x:Name="BodyPresenter" />
+            <!--
+                A plain ContentView, deliberately NOT a ContentPresenter.
+
+                ContentPresenter overrides SetChildInheritedBindingContext to a no-op - "we never
+                want to use the standard inheritance mechanism, we will get this set by our parent"
+                - because it is designed to be used inside a ControlTemplate, where the templated
+                parent pushes the binding context down. ForgeCard has no ControlTemplate, so
+                nothing ever pushed one: every {Binding} inside a card silently resolved against a
+                null context. Literal text still rendered, so the failure looked like nothing at
+                all until a card was given bound text, at which point it produced blank labels and
+                an unlabelled button. Worse, failed IsVisible bindings fall back to their default
+                of true, so hidden things appeared.
+
+                A ContentView propagates its binding context to its content normally.
+            -->
+            <ContentView x:Name="BodyPresenter" />
         </VerticalStackLayout>
     </dx:DXBorder>
 </ContentView>
