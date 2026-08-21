@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Features.Security.AppLockPage"
+             Title="Forge is locked"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Forge is locked"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="{Binding PromptDescription}"
+                   Style="{StaticResource SecondaryText}" />
+
+            <dx:DXButton Content="Unlock"
+                         SemanticProperties.Description="Unlock Forge with your fingerprint, face or device passcode"
+                         Style="{StaticResource PrimaryButton}"
+                         MinimumHeightRequest="{StaticResource TouchTargetPrimary}"
+                         Command="{Binding UnlockCommand}" />
+
+            <Label Text="{Binding StatusMessage}"
+                   Style="{StaticResource BodyText}"
+                   SemanticProperties.Description="Unlock status" />
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="What this lock does" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding HonestScopeText}" Style="{StaticResource BodyText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Your data is safe either way" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding NoDataLossText}" Style="{StaticResource BodyText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Features.Security.AppLockSettingsPage"
+             Title="App lock"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="App lock"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="{Binding ScopeText}" Style="{StaticResource SecondaryText}" />
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Require unlock" Style="{StaticResource TitleText}" />
+                    <dx:CheckEdit Label="Ask before showing my data"
+                                  SemanticProperties.Description="Require unlock before showing my data"
+                                  MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                  IsChecked="{Binding IsLockEnabled, Mode=TwoWay}" />
+                    <Label Text="{Binding CapabilitySummary}" Style="{StaticResource SecondaryText}" />
+                    <Label Text="{Binding StatusMessage}" Style="{StaticResource CaptionText}" />
+                    <dx:DXButton Content="Re-check this device"
+                                 SemanticProperties.Description="Re-check what this device can do"
+                                 Style="{StaticResource SecondaryButton}"
+                                 MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                 Command="{Binding RefreshCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Lock after leaving Forge" Style="{StaticResource TitleText}" />
+                    <dx:ComboBoxEdit ItemsSource="{Binding GraceOptions}"
+                                     SemanticProperties.Description="How long Forge may stay in the background before locking"
+                                     SelectedItem="{Binding SelectedGrace, Mode=TwoWay}" />
+                    <Label Text="Forge only ever checks this when it comes back to the foreground, so a lock screen can never appear over what you are reading."
+                           Style="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="During a workout" Style="{StaticResource TitleText}" />
+                    <dx:CheckEdit Label="Give me longer while I am training"
+                                  SemanticProperties.Description="Give me longer before locking while I am training"
+                                  MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                  IsChecked="{Binding RelaxDuringWorkout, Mode=TwoWay}" />
+                    <Label Text="{Binding WorkoutAllowanceText}" Style="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}"
+                         IsVisible="{Binding IsAppSwitcherSupported}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="App switcher" Style="{StaticResource TitleText}" />
+                    <dx:CheckEdit Label="Hide Forge's content in the app switcher"
+                                  SemanticProperties.Description="Hide Forge content in the app switcher"
+                                  MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                  IsChecked="{Binding HideInAppSwitcher, Mode=TwoWay}" />
+                    <Label Text="{Binding AppSwitcherText}" Style="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="What this does not protect against" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding LimitsText}" Style="{StaticResource BodyText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="You cannot be locked out" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding RecoveryText}" Style="{StaticResource BodyText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
