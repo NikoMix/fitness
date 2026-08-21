@@ -7,35 +7,114 @@
              x:Name="Page"
              Title="Exercise library"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <Grid RowDefinitions="Auto,Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
-        <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+    <ContentPage.Resources>
+        <!--
+            MultilineEdit is a sibling of TextEdit rather than a subclass, so the shared
+            ForgeTextEdit style cannot target it. This mirrors that style until an equivalent
+            can be added to ForgeStyles.xaml, which is a shared file.
+        -->
+        <Style x:Key="ForgeMultilineEdit" TargetType="dx:MultilineEdit">
+            <Setter Property="BoxMode" Value="Outlined" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+            <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetPrimary}" />
+        </Style>
+
+        <Style x:Key="FilterChipButton" TargetType="dx:DXButton">
+            <Setter Property="ButtonType" Value="Outlined" />
+            <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetMin}" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusPill}" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*"
+          Padding="{StaticResource PagePadding}"
+          RowSpacing="{StaticResource SpaceM}">
+
+        <VerticalStackLayout Spacing="{StaticResource SpaceS}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
                 <Label Text="Exercise library"
                        Style="{StaticResource HeadlineText}"
                        SemanticProperties.HeadingLevel="Level1" />
                 <dx:DXButton Grid.Column="1"
-                            Content="New"
-                            SemanticProperties.Description="New"
-                            Style="{StaticResource PrimaryButton}"
-                            Command="{Binding NewExerciseCommand}" />
+                             Content="New"
+                             SemanticProperties.Description="Create a custom exercise"
+                             Style="{StaticResource PrimaryButton}"
+                             Command="{Binding NewExerciseCommand}" />
             </Grid>
+
             <dx:TextEdit Text="{Binding SearchText}"
-                         PlaceholderText="Search by name or muscle"
+                         PlaceholderText="Search name, muscle, equipment or pattern"
+                         SemanticProperties.Description="Search the exercise library"
                          Style="{StaticResource ForgeTextEdit}" />
-            <Label Text="Personal" Style="{StaticResource CaptionText}" />
+
+            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="{StaticResource SpaceS}">
+                <dx:DXButton Content="{Binding FiltersButtonText}"
+                             SemanticProperties.Description="Show or hide the filters"
+                             Style="{StaticResource TextButton}"
+                             Command="{Binding ToggleFiltersCommand}" />
+                <dx:DXButton Grid.Column="1"
+                             Content="Clear"
+                             SemanticProperties.Description="Clear search and filters"
+                             Style="{StaticResource TextButton}"
+                             IsVisible="{Binding HasActiveFilters}"
+                             Command="{Binding ClearFiltersCommand}" />
+                <Label Grid.Column="2"
+                       Text="{Binding CountSummary}"
+                       Style="{StaticResource SecondaryText}"
+                       HorizontalTextAlignment="End"
+                       VerticalTextAlignment="Center" />
+            </Grid>
+
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding HasActionMessage}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                    <Label Text="{Binding ActionMessage}"
+                           Style="{StaticResource BodyText}"
+                           TextColor="{dx:ThemeColor OnErrorContainer}"
+                           VerticalTextAlignment="Center" />
+                    <dx:DXButton Grid.Column="1"
+                                 Content="Dismiss"
+                                 SemanticProperties.Description="Dismiss this message"
+                                 Style="{StaticResource TextButton}"
+                                 Command="{Binding DismissActionMessageCommand}" />
+                </Grid>
+            </dx:DXBorder>
+        </VerticalStackLayout>
+
+        <VerticalStackLayout Grid.Row="1"
+                             Spacing="{StaticResource SpaceXs}"
+                             IsVisible="{Binding AreFiltersVisible}">
+            <Label Text="Show" Style="{StaticResource CaptionText}" />
             <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
                 <HorizontalStackLayout Spacing="{StaticResource SpaceS}"
-                                      BindableLayout.ItemsSource="{Binding PersonalChips}">
+                                       BindableLayout.ItemsSource="{Binding ScopeChips}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
-                           <dx:DXButton Content="{Binding DisplayText}"
-                                        ButtonType="Outlined"
-                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectPersonalCommand}"
-                                        CommandParameter="{Binding .}" />
+                            <dx:DXButton Content="{Binding DisplayText}"
+                                         SemanticProperties.Description="{Binding AccessibilityDescription}"
+                                         Style="{StaticResource FilterChipButton}"
+                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectScopeCommand}"
+                                         CommandParameter="{Binding .}" />
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </HorizontalStackLayout>
             </ScrollView>
+
+            <Label Text="Movement pattern" Style="{StaticResource CaptionText}" />
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                <HorizontalStackLayout Spacing="{StaticResource SpaceS}"
+                                       BindableLayout.ItemsSource="{Binding PatternChips}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <dx:DXButton Content="{Binding DisplayText}"
+                                         SemanticProperties.Description="{Binding AccessibilityDescription}"
+                                         Style="{StaticResource FilterChipButton}"
+                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.TogglePatternCommand}"
+                                         CommandParameter="{Binding .}" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+
             <Label Text="Muscle" Style="{StaticResource CaptionText}" />
             <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
                 <HorizontalStackLayout Spacing="{StaticResource SpaceS}"
@@ -43,13 +122,15 @@
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
                             <dx:DXButton Content="{Binding DisplayText}"
-                                         ButtonType="Outlined"
-                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectMuscleCommand}"
+                                         SemanticProperties.Description="{Binding AccessibilityDescription}"
+                                         Style="{StaticResource FilterChipButton}"
+                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleMuscleCommand}"
                                          CommandParameter="{Binding .}" />
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </HorizontalStackLayout>
             </ScrollView>
+
             <Label Text="Equipment" Style="{StaticResource CaptionText}" />
             <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
                 <HorizontalStackLayout Spacing="{StaticResource SpaceS}"
@@ -57,119 +138,180 @@
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
                             <dx:DXButton Content="{Binding DisplayText}"
-                                         ButtonType="Outlined"
-                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectEquipmentCommand}"
+                                         SemanticProperties.Description="{Binding AccessibilityDescription}"
+                                         Style="{StaticResource FilterChipButton}"
+                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleEquipmentCommand}"
                                          CommandParameter="{Binding .}" />
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </HorizontalStackLayout>
             </ScrollView>
-            <Label Text="Pattern" Style="{StaticResource CaptionText}" />
+
+            <Label Text="Difficulty" Style="{StaticResource CaptionText}" />
             <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
                 <HorizontalStackLayout Spacing="{StaticResource SpaceS}"
-                                       BindableLayout.ItemsSource="{Binding PatternChips}">
+                                       BindableLayout.ItemsSource="{Binding DifficultyChips}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
                             <dx:DXButton Content="{Binding DisplayText}"
-                                         ButtonType="Outlined"
-                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectPatternCommand}"
+                                         SemanticProperties.Description="{Binding AccessibilityDescription}"
+                                         Style="{StaticResource FilterChipButton}"
+                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleDifficultyCommand}"
                                          CommandParameter="{Binding .}" />
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </HorizontalStackLayout>
             </ScrollView>
-            <Label Text="{Binding CountSummary}" Style="{StaticResource SecondaryText}" />
         </VerticalStackLayout>
 
-        <dx:DXBorder Grid.Row="1"
-                     Style="{StaticResource Card}"
-                     IsVisible="{Binding IsEditorVisible}">
-            <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                <Label Text="{Binding EditorTitle}" Style="{StaticResource TitleText}" />
-                <dx:TextEdit Text="{Binding EditName}"
-                             PlaceholderText="Exercise name"
-                             Style="{StaticResource ForgeTextEdit}" />
-                <dx:TextEdit Text="{Binding EditPrimaryMuscle}"
-                             PlaceholderText="Primary muscle"
-                             Style="{StaticResource ForgeTextEdit}" />
-                <dx:TextEdit Text="{Binding EditEquipment}"
-                             PlaceholderText="Equipment (blank for bodyweight)"
-                             Style="{StaticResource ForgeTextEdit}" />
-                <dx:ComboBoxEdit ItemsSource="{Binding PatternOptions}"
-                                 SelectedItem="{Binding SelectedPattern}"
-                                 Style="{StaticResource ForgeTextEdit}" />
-                <dx:ComboBoxEdit ItemsSource="{Binding DifficultyOptions}"
-                                 SelectedItem="{Binding SelectedDifficulty}"
-                                 Style="{StaticResource ForgeTextEdit}" />
-                <HorizontalStackLayout Spacing="{StaticResource SpaceS}">
-                    <dx:DXButton Content="Save"
-                                 SemanticProperties.Description="Save"
-                                 Style="{StaticResource PrimaryButton}"
-                                 Command="{Binding SaveExerciseCommand}" />
-                    <dx:DXButton Content="Cancel"
-                                 SemanticProperties.Description="Cancel"
-                                 ButtonType="Text"
-                                 Command="{Binding CancelEditCommand}" />
-                </HorizontalStackLayout>
-            </VerticalStackLayout>
-        </dx:DXBorder>
- 
         <Grid Grid.Row="2">
-            <VerticalStackLayout IsVisible="{Binding IsLoading}" Spacing="{StaticResource SpaceM}">
-                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
-                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
-                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
-            </VerticalStackLayout>
 
-            <controls:EmptyState IsVisible="{Binding HasError}"
-                                 Glyph="!"
-                                 Headline="Exercise library unavailable"
-                                 Message="{Binding ErrorMessage}" />
+            <ScrollView IsVisible="{Binding IsEditorVisible}">
+                <dx:DXBorder Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <Label Text="{Binding EditorTitle}"
+                               Style="{StaticResource TitleText}"
+                               SemanticProperties.HeadingLevel="Level2" />
+                        <Label Text="Everything except the name is optional. Anything you fill in shows on the exercise page exactly as the shipped movements do."
+                               Style="{StaticResource CaptionText}" />
 
-            <controls:EmptyState IsVisible="{Binding IsEmpty}"
-                                 Headline="No exercises match"
-                                 Message="Try a different search or filter, or create a custom exercise." />
+                        <dx:TextEdit Text="{Binding EditName}"
+                                     PlaceholderText="Exercise name"
+                                     SemanticProperties.Description="Exercise name"
+                                     Style="{StaticResource ForgeTextEdit}" />
+                        <dx:TextEdit Text="{Binding EditPrimaryMuscle}"
+                                     PlaceholderText="Primary muscle"
+                                     SemanticProperties.Description="Primary muscle"
+                                     Style="{StaticResource ForgeTextEdit}" />
+                        <dx:TextEdit Text="{Binding EditSecondaryMuscles}"
+                                     PlaceholderText="Secondary muscles, separated by commas"
+                                     SemanticProperties.Description="Secondary muscles, separated by commas"
+                                     Style="{StaticResource ForgeTextEdit}" />
+                        <dx:TextEdit Text="{Binding EditEquipment}"
+                                     PlaceholderText="Equipment (leave blank for bodyweight)"
+                                     SemanticProperties.Description="Equipment, left blank for bodyweight"
+                                     Style="{StaticResource ForgeTextEdit}" />
 
-            <dx:DXCollectionView ItemsSource="{Binding Exercises}"
-                                 IsVisible="{Binding HasExercises}">
-                <dx:DXCollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <dx:DXBorder Style="{StaticResource ListRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
-                                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
-                                    <Label Text="{Binding Name}" Style="{StaticResource TitleText}" />
-                                    <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
-                                    <Label Text="{Binding Pattern}" Style="{StaticResource CaptionText}" />
-                                    <Label Text="{Binding RecentSummary}" Style="{StaticResource CaptionText}" />
-                                </VerticalStackLayout>
-                                <VerticalStackLayout Grid.Column="1" Spacing="{StaticResource SpaceXs}">
-                                    <dx:DXButton Content="{Binding FavouriteGlyph}"
-                                                 ButtonType="Text"
-                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleFavouriteCommand}"
-                                                 CommandParameter="{Binding .}" />
-                                    <dx:DXButton Content="View"
-                                                 SemanticProperties.Description="View"
-                                                 ButtonType="Text"
-                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenExerciseCommand}"
-                                                 CommandParameter="{Binding .}" />
-                                    <dx:DXButton Content="Edit"
-                                                 SemanticProperties.Description="Edit"
-                                                 ButtonType="Text"
-                                                 IsVisible="{Binding IsUserCreated}"
-                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.EditExerciseCommand}"
-                                                 CommandParameter="{Binding .}" />
-                                    <dx:DXButton Content="Delete"
-                                                 SemanticProperties.Description="Delete"
-                                                 ButtonType="Text"
-                                                 IsVisible="{Binding IsUserCreated}"
-                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteExerciseCommand}"
-                                                 CommandParameter="{Binding .}" />
-                                </VerticalStackLayout>
-                            </Grid>
-                        </dx:DXBorder>
-                    </DataTemplate>
-                </dx:DXCollectionView.ItemTemplate>
-            </dx:DXCollectionView>
+                        <Label Text="Movement pattern" Style="{StaticResource CaptionText}" />
+                        <dx:ComboBoxEdit ItemsSource="{Binding PatternOptions}"
+                                         SelectedItem="{Binding SelectedPattern}"
+                                         SemanticProperties.Description="Movement pattern"
+                                         Style="{StaticResource ForgeTextEdit}" />
+
+                        <Label Text="Difficulty" Style="{StaticResource CaptionText}" />
+                        <dx:ComboBoxEdit ItemsSource="{Binding DifficultyOptions}"
+                                         SelectedItem="{Binding SelectedDifficulty}"
+                                         SemanticProperties.Description="Difficulty"
+                                         Style="{StaticResource ForgeTextEdit}" />
+
+                        <Label Text="Force" Style="{StaticResource CaptionText}" />
+                        <dx:ComboBoxEdit ItemsSource="{Binding ForceTypeOptions}"
+                                         SelectedItem="{Binding SelectedForceType}"
+                                         SemanticProperties.Description="Force type"
+                                         Style="{StaticResource ForgeTextEdit}" />
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource SpaceM}">
+                            <dx:CheckEdit IsChecked="{Binding EditIsUnilateral}"
+                                          SemanticProperties.Description="Trained one side at a time" />
+                            <Label Grid.Column="1"
+                                   Text="Trained one side at a time"
+                                   Style="{StaticResource BodyText}"
+                                   VerticalTextAlignment="Center" />
+                        </Grid>
+
+                        <dx:MultilineEdit Text="{Binding EditExecutionSteps}"
+                                          PlaceholderText="Execution steps, one per line"
+                                          SemanticProperties.Description="Execution steps, one per line"
+                                          Style="{StaticResource ForgeMultilineEdit}" />
+                        <dx:MultilineEdit Text="{Binding EditCoachingCues}"
+                                          PlaceholderText="Coaching cues, one per line"
+                                          SemanticProperties.Description="Coaching cues, one per line"
+                                          Style="{StaticResource ForgeMultilineEdit}" />
+                        <dx:MultilineEdit Text="{Binding EditCommonMistakes}"
+                                          PlaceholderText="Common mistakes, one per line"
+                                          SemanticProperties.Description="Common mistakes, one per line"
+                                          Style="{StaticResource ForgeMultilineEdit}" />
+                        <dx:MultilineEdit Text="{Binding EditSafetyNotes}"
+                                          PlaceholderText="Safety notes, one per line"
+                                          SemanticProperties.Description="Safety notes, one per line"
+                                          Style="{StaticResource ForgeMultilineEdit}" />
+
+                        <HorizontalStackLayout Spacing="{StaticResource SpaceS}">
+                            <dx:DXButton Content="Save"
+                                         SemanticProperties.Description="Save this exercise"
+                                         Style="{StaticResource PrimaryButton}"
+                                         Command="{Binding SaveExerciseCommand}" />
+                            <dx:DXButton Content="Cancel"
+                                         SemanticProperties.Description="Cancel editing"
+                                         Style="{StaticResource TextButton}"
+                                         Command="{Binding CancelEditCommand}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </dx:DXBorder>
+            </ScrollView>
+
+            <Grid IsVisible="{Binding IsListVisible}">
+                <VerticalStackLayout IsVisible="{Binding IsLoading}" Spacing="{StaticResource SpaceM}">
+                    <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+                    <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+                    <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="88" />
+                </VerticalStackLayout>
+
+                <controls:EmptyState IsVisible="{Binding HasError}"
+                                     Glyph="!"
+                                     Headline="Exercise library unavailable"
+                                     Message="{Binding ErrorMessage}" />
+
+                <controls:EmptyState IsVisible="{Binding IsEmpty}"
+                                     Headline="Nothing matches"
+                                     Message="Try a different search, clear a filter, or create your own exercise." />
+
+                <dx:DXCollectionView ItemsSource="{Binding Exercises}" IsVisible="{Binding HasExercises}">
+                    <dx:DXCollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <dx:DXBorder Style="{StaticResource ListRow}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                    <VerticalStackLayout Spacing="{StaticResource SpaceXxs}"
+                                                         SemanticProperties.Description="{Binding AccessibilityDescription}">
+                                        <Label Text="{Binding Name}" Style="{StaticResource TitleText}" />
+                                        <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
+                                        <Label Text="{Binding Pattern}" Style="{StaticResource CaptionText}" />
+                                        <Label Text="{Binding MatchExplanation}"
+                                               Style="{StaticResource CaptionText}"
+                                               TextColor="{dx:ThemeColor Primary}"
+                                               IsVisible="{Binding HasMatchExplanation}" />
+                                        <Label Text="{Binding RecentSummary}" Style="{StaticResource CaptionText}" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="{StaticResource SpaceXxs}">
+                                        <dx:DXButton Content="{Binding FavouriteGlyph}"
+                                                     SemanticProperties.Description="{Binding FavouriteDescription}"
+                                                     Style="{StaticResource TextButton}"
+                                                     Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleFavouriteCommand}"
+                                                     CommandParameter="{Binding .}" />
+                                        <dx:DXButton Content="View"
+                                                     SemanticProperties.Description="View this exercise"
+                                                     Style="{StaticResource TextButton}"
+                                                     Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenExerciseCommand}"
+                                                     CommandParameter="{Binding .}" />
+                                        <dx:DXButton Content="Edit"
+                                                     SemanticProperties.Description="Edit this custom exercise"
+                                                     Style="{StaticResource TextButton}"
+                                                     IsVisible="{Binding IsUserCreated}"
+                                                     Command="{Binding Source={x:Reference Page}, Path=BindingContext.EditExerciseCommand}"
+                                                     CommandParameter="{Binding .}" />
+                                        <dx:DXButton Content="Delete"
+                                                     SemanticProperties.Description="Delete this custom exercise"
+                                                     Style="{StaticResource TextButton}"
+                                                     IsVisible="{Binding IsUserCreated}"
+                                                     Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteExerciseCommand}"
+                                                     CommandParameter="{Binding .}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </dx:DXBorder>
+                        </DataTemplate>
+                    </dx:DXCollectionView.ItemTemplate>
+                </dx:DXCollectionView>
+            </Grid>
         </Grid>
     </Grid>
 </ContentPage>

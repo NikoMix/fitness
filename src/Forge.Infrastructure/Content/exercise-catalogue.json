@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "provenance": "Original Forge seed content written from scratch for offline distribution; do not copy third-party exercise databases.",
   "exercises": [
     {
@@ -15,23 +15,24 @@
       "difficulty": "Beginner",
       "forceType": "Push",
       "executionSteps": [
-        "Set your feet firmly and brace before you descend.",
-        "Sit between your hips while keeping your whole foot grounded.",
-        "Drive the floor away and finish tall without leaning back."
+        "Stand with your feet about shoulder width apart and turn your toes out slightly.",
+        "Take a breath, brace your stomach, and bend at the knees and hips together.",
+        "Lower until your thighs are roughly parallel to the floor, or as far as you can go without your lower back rounding.",
+        "Push the floor away and stand up, finishing with your hips fully extended."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the heels lift off the floor as you descend.",
+        "Rounding the lower back at the bottom instead of stopping at your usable depth.",
+        "Letting the knees collapse inward on the way up."
       ],
       "coachingCues": [
-        "Whole foot heavy.",
-        "Knees follow toes.",
-        "Tall chest, quiet ribs."
+        "Spread the floor with your feet.",
+        "Chest stays proud all the way down.",
+        "Knees track over the middle of each foot."
       ],
       "safetyNotes": [
-        "Reduce depth or load if the knee or hip feels sharp pain.",
-        "Use a stable support when learning the pattern."
+        "Reduce depth if you feel pinching at the front of the hip or sharp pain in the knee.",
+        "Hold a doorframe or bench for balance while you are learning the pattern."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -49,23 +50,24 @@
       "difficulty": "Beginner",
       "forceType": "Push",
       "executionSteps": [
-        "Set your feet firmly and brace before you descend.",
-        "Sit between your hips while keeping your whole foot grounded.",
-        "Drive the floor away and finish tall without leaning back."
+        "Hold a dumbbell or kettlebell vertically against your chest with both hands.",
+        "Stand with your feet about shoulder width apart and brace your stomach.",
+        "Squat between your knees, keeping your elbows inside your thighs.",
+        "Stand back up, keeping the weight pressed against your chest throughout."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the weight drift away from the chest, which pulls you forward.",
+        "Shrugging the shoulders up toward the ears while holding the weight.",
+        "Bouncing out of the bottom instead of controlling the turnaround."
       ],
       "coachingCues": [
-        "Whole foot heavy.",
-        "Knees follow toes.",
-        "Tall chest, quiet ribs."
+        "Hug the weight tight to the chest.",
+        "Elbows brush the inside of the knees.",
+        "Sit down, not back."
       ],
       "safetyNotes": [
-        "Reduce depth or load if the knee or hip feels sharp pain.",
-        "Use a stable support when learning the pattern."
+        "Start with a light weight, because the front-loaded position tires the upper back quickly.",
+        "Set the weight down rather than dropping it if your grip starts to fail."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -84,23 +86,24 @@
       "difficulty": "Advanced",
       "forceType": "Push",
       "executionSteps": [
-        "Set your feet firmly and brace before you descend.",
-        "Sit between your hips while keeping your whole foot grounded.",
-        "Drive the floor away and finish tall without leaning back."
+        "Rack the bar across the front of your shoulders and lift your elbows until your upper arms are close to parallel with the floor.",
+        "Set your feet about shoulder width apart, brace, and descend by bending the knees.",
+        "Keep the torso as upright as you can and lower to the depth you can hold without the elbows dropping.",
+        "Drive up through your whole foot and keep the elbows high until the rep is finished."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the elbows drop, which pulls the bar forward and rounds the upper back.",
+        "Leaning forward as if performing a back squat.",
+        "Gripping so tightly that the wrists take the load instead of the shoulders."
       ],
       "coachingCues": [
-        "Whole foot heavy.",
-        "Knees follow toes.",
-        "Tall chest, quiet ribs."
+        "Elbows up, always.",
+        "Bar sits on the shoulders, not the hands.",
+        "Stay tall through the middle."
       ],
       "safetyNotes": [
-        "Reduce depth or load if the knee or hip feels sharp pain.",
-        "Use a stable support when learning the pattern."
+        "Practise dumping the bar forward from an empty rack before loading it heavily.",
+        "Stop the set the moment the elbows start to drop, because the position is what protects the back."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -118,23 +121,24 @@
       "difficulty": "Intermediate",
       "forceType": "Push",
       "executionSteps": [
-        "Set your feet firmly and brace before you descend.",
-        "Sit between your hips while keeping your whole foot grounded.",
-        "Drive the floor away and finish tall without leaning back."
+        "Set a box or bench so that sitting on it puts your thighs roughly parallel to the floor.",
+        "Stand with the bar on your upper back, feet slightly wider than for a normal squat.",
+        "Sit back toward the box, keeping your shins close to vertical.",
+        "Touch the box under control without relaxing, then stand up by driving through your whole foot."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Dropping onto the box rather than sitting under control.",
+        "Fully relaxing on the box and losing the braced trunk position.",
+        "Rocking backward and then swinging forward to start the stand."
       ],
       "coachingCues": [
-        "Whole foot heavy.",
-        "Knees follow toes.",
-        "Tall chest, quiet ribs."
+        "Reach the hips back first.",
+        "Touch, do not sit down.",
+        "Stand up with the chest and hips together."
       ],
       "safetyNotes": [
-        "Reduce depth or load if the knee or hip feels sharp pain.",
-        "Use a stable support when learning the pattern."
+        "Use a squat rack with safety pins set just below your bottom position.",
+        "Choose a stable box that will not slide or tip when you touch it."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -152,23 +156,24 @@
       "difficulty": "Beginner",
       "forceType": "Push",
       "executionSteps": [
-        "Set your feet firmly and brace before you descend.",
-        "Sit between your hips while keeping your whole foot grounded.",
-        "Drive the floor away and finish tall without leaning back."
+        "Sit in the machine with your back and hips flat against the pad.",
+        "Place your feet about shoulder width apart in the middle of the platform.",
+        "Release the safety catches and lower the platform until your knees reach about ninety degrees.",
+        "Press back up without locking the knees out sharply, and reset the catches before you get out."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Lowering so far that the hips curl up off the pad and round the lower back.",
+        "Snapping the knees straight at the top of each repetition.",
+        "Pushing on the knees with the hands to force out extra reps."
       ],
       "coachingCues": [
-        "Whole foot heavy.",
-        "Knees follow toes.",
-        "Tall chest, quiet ribs."
+        "Hips stay glued to the pad.",
+        "Press through the whole foot.",
+        "Stop just short of locked knees."
       ],
       "safetyNotes": [
-        "Reduce depth or load if the knee or hip feels sharp pain.",
-        "Use a stable support when learning the pattern."
+        "Always engage the safety catches before getting into or out of the machine.",
+        "Reduce the range of motion if your hips lift off the pad at the bottom."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -186,23 +191,24 @@
       "difficulty": "Beginner",
       "forceType": "Static",
       "executionSteps": [
-        "Set your feet firmly and brace before you descend.",
-        "Sit between your hips while keeping your whole foot grounded.",
-        "Drive the floor away and finish tall without leaning back."
+        "Stand with your back flat against a wall and walk your feet out about two foot lengths.",
+        "Slide down the wall until your knees are bent to roughly ninety degrees.",
+        "Keep your whole back in contact with the wall and your weight through your heels and midfoot.",
+        "Hold for the planned time, then push through your feet to slide back up."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Setting the feet too close to the wall so the knees travel far past the toes.",
+        "Resting the hands on the thighs to take load off the legs.",
+        "Holding your breath for the whole set."
       ],
       "coachingCues": [
-        "Whole foot heavy.",
-        "Knees follow toes.",
-        "Tall chest, quiet ribs."
+        "Back flat, shoulders wide.",
+        "Weight through the heels.",
+        "Breathe steadily the whole time."
       ],
       "safetyNotes": [
-        "Reduce depth or load if the knee or hip feels sharp pain.",
-        "Use a stable support when learning the pattern."
+        "Come out of the hold early if the knees start to ache rather than the thighs burning.",
+        "Use a wall that is smooth and dry so you do not slip partway through the hold."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -220,23 +226,24 @@
       "difficulty": "Beginner",
       "forceType": "Mobility",
       "executionSteps": [
-        "Stand tall and brace with soft knees.",
-        "Push your hips back until you feel tension through the back of the thighs.",
-        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+        "Hold a broomstick or light bar along your back so it touches your head, upper back and tailbone.",
+        "Stand with feet hip width apart and soften the knees slightly.",
+        "Push your hips back and lower your chest, keeping all three contact points on the stick.",
+        "Return to standing by driving the hips forward."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Losing contact between the stick and the lower back, which shows the spine is rounding.",
+        "Bending the knees so much that the drill becomes a squat.",
+        "Looking straight ahead and craning the neck as the torso comes down."
       ],
       "coachingCues": [
-        "Hips back, spine long.",
-        "Feel the hamstrings load.",
-        "Finish with glutes, not your low back."
+        "Three points stay on the stick.",
+        "Hips back, chest down.",
+        "Eyes follow the floor."
       ],
       "safetyNotes": [
-        "Keep load close and stop if the low back takes over.",
-        "Choose a lighter implement until the hip hinge is consistent."
+        "Move slowly and use this to learn the shape before adding any load.",
+        "Reduce the range if you feel pulling in the lower back rather than the hamstrings."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -254,23 +261,24 @@
       "difficulty": "Intermediate",
       "forceType": "Pull",
       "executionSteps": [
-        "Stand tall and brace with soft knees.",
-        "Push your hips back until you feel tension through the back of the thighs.",
-        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+        "Stand holding a barbell at the top of a deadlift with your hands just outside your hips.",
+        "Soften your knees and hold that knee angle throughout.",
+        "Push your hips back and lower the bar down your thighs, keeping it in contact with your legs.",
+        "Stop at the end of your hamstring range, then drive the hips forward to stand tall."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the bar drift forward away from the legs.",
+        "Rounding the upper back to reach the floor.",
+        "Hyperextending the lower back at the top instead of finishing with the glutes."
       ],
       "coachingCues": [
-        "Hips back, spine long.",
-        "Feel the hamstrings load.",
-        "Finish with glutes, not your low back."
+        "Shave the legs with the bar.",
+        "Hips back, not down.",
+        "Squeeze the glutes to finish, do not lean back."
       ],
       "safetyNotes": [
-        "Keep load close and stop if the low back takes over.",
-        "Choose a lighter implement until the hip hinge is consistent."
+        "The bar does not need to reach the floor; range is set by your hamstrings, not the plates.",
+        "Use a rack to unload the bar between sets rather than lowering it from standing."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -288,23 +296,24 @@
       "difficulty": "Beginner",
       "forceType": "Pull",
       "executionSteps": [
-        "Stand tall and brace with soft knees.",
-        "Push your hips back until you feel tension through the back of the thighs.",
-        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+        "Stand holding a dumbbell in each hand in front of your thighs.",
+        "Soften your knees and keep them at that angle for the whole repetition.",
+        "Push your hips back and let the dumbbells travel down close to your legs.",
+        "Stop when you feel a strong stretch behind the thighs, then drive the hips forward to stand up."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Bending the knees more as you descend, which turns it into a squat.",
+        "Letting the dumbbells drift away from the legs and loading the lower back.",
+        "Chasing depth by rounding the back instead of stopping at the end of your hamstring range."
       ],
       "coachingCues": [
-        "Hips back, spine long.",
-        "Feel the hamstrings load.",
-        "Finish with glutes, not your low back."
+        "Drag the dumbbells down your legs.",
+        "Push the hips toward the wall behind you.",
+        "Long spine from head to hips."
       ],
       "safetyNotes": [
-        "Keep load close and stop if the low back takes over.",
-        "Choose a lighter implement until the hip hinge is consistent."
+        "Stop the descent as soon as your lower back starts to round.",
+        "Set the dumbbells down between sets rather than holding them while you rest."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -322,23 +331,24 @@
       "difficulty": "Intermediate",
       "forceType": "Mixed",
       "executionSteps": [
-        "Stand tall and brace with soft knees.",
-        "Push your hips back until you feel tension through the back of the thighs.",
-        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+        "Stand with the kettlebell about a foot in front of you and hinge to grip the handle with both hands.",
+        "Tilt the bell toward you and hike it back between your legs, above knee height.",
+        "Snap your hips forward so the bell swings up to roughly chest height on its own momentum.",
+        "Let the bell fall back down and absorb it by hinging again, keeping the arms relaxed."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Lifting the bell with the arms and shoulders instead of the hips.",
+        "Squatting the bell up and down rather than hinging.",
+        "Letting the bell swing below the knees and pulling the back into a rounded position."
       ],
       "coachingCues": [
-        "Hips back, spine long.",
-        "Feel the hamstrings load.",
-        "Finish with glutes, not your low back."
+        "Snap the hips, do not lift the arms.",
+        "Bell floats, hips drive.",
+        "Hike it back like a pass between your legs."
       ],
       "safetyNotes": [
-        "Keep load close and stop if the low back takes over.",
-        "Choose a lighter implement until the hip hinge is consistent."
+        "Swing in a clear space with nothing in front of you or behind you.",
+        "Stop the set if the bell starts pulling you forward onto your toes."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -356,23 +366,24 @@
       "difficulty": "Beginner",
       "forceType": "Pull",
       "executionSteps": [
-        "Stand tall and brace with soft knees.",
-        "Push your hips back until you feel tension through the back of the thighs.",
-        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+        "Set a rope handle at the lowest pulley position and face away from the machine.",
+        "Pass the rope between your legs and step forward until the cable is under tension.",
+        "Push your hips back with a soft bend in the knees, letting the rope travel between your legs.",
+        "Stand tall by squeezing your glutes, without leaning back at the top."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Turning the movement into a squat by bending the knees instead of the hips.",
+        "Pulling with the arms rather than letting the hips do the work.",
+        "Leaning backward at the top and stressing the lower back."
       ],
       "coachingCues": [
-        "Hips back, spine long.",
-        "Feel the hamstrings load.",
-        "Finish with glutes, not your low back."
+        "Arms are just hooks.",
+        "Hips go back, then forward.",
+        "Finish standing tall, not leaning back."
       ],
       "safetyNotes": [
-        "Keep load close and stop if the low back takes over.",
-        "Choose a lighter implement until the hip hinge is consistent."
+        "Check that the rope is fully attached before you load the stack.",
+        "Keep the weight light enough that the cable cannot pull you off balance."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -391,23 +402,24 @@
       "difficulty": "Intermediate",
       "forceType": "Pull",
       "executionSteps": [
-        "Stand tall and brace with soft knees.",
-        "Push your hips back until you feel tension through the back of the thighs.",
-        "Return by squeezing the glutes and keeping the ribs stacked over the pelvis."
+        "Step into the middle of the trap bar with your feet about hip width apart.",
+        "Hinge down and take both handles, then set your chest up and take the slack out of the bar.",
+        "Push your feet through the floor and stand up, keeping the bar close to your body.",
+        "Finish standing tall, then return the bar to the floor by hinging back down under control."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Yanking the bar off the floor before the slack is taken out.",
+        "Letting the hips shoot up first so the legs stop contributing.",
+        "Dropping the bar from the top rather than lowering it."
       ],
       "coachingCues": [
-        "Hips back, spine long.",
-        "Feel the hamstrings load.",
-        "Finish with glutes, not your low back."
+        "Take the slack out, then push.",
+        "Chest and hips rise together.",
+        "Push the floor away."
       ],
       "safetyNotes": [
-        "Keep load close and stop if the low back takes over.",
-        "Choose a lighter implement until the hip hinge is consistent."
+        "Stop the set if your lower back rounds on the way up rather than adding another repetition.",
+        "Keep your feet and shins clear of the frame when you set the bar back down."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -426,23 +438,24 @@
       "difficulty": "Beginner",
       "forceType": "Push",
       "executionSteps": [
-        "Set the shoulder blades and brace your trunk.",
-        "Lower or press with the elbows tracking comfortably from the body.",
-        "Finish with control and keep the neck relaxed."
+        "Set your hands on the floor slightly wider than shoulder width, under or just below your shoulders.",
+        "Straighten your legs and squeeze your glutes so your body forms one line.",
+        "Lower your chest toward the floor with your elbows at roughly forty-five degrees.",
+        "Press back up to straight arms, keeping the trunk rigid the whole time."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the hips sag toward the floor.",
+        "Flaring the elbows straight out to the sides.",
+        "Leading with the head and neck instead of the chest."
       ],
       "coachingCues": [
-        "Brace before you press.",
-        "Reach long without shrugging.",
-        "Control the lower."
+        "One straight line, head to heels.",
+        "Screw the hands into the floor.",
+        "Chest touches first."
       ],
       "safetyNotes": [
-        "Use a pain-free shoulder range and avoid flared, forced elbows.",
-        "Elevate the hands or reduce load if the wrist or shoulder complains."
+        "Raise your hands onto a bench or step if you cannot hold the line at floor level.",
+        "Stop if the front of the shoulder pinches, and reduce how far you descend."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -460,23 +473,24 @@
       "difficulty": "Beginner",
       "forceType": "Push",
       "executionSteps": [
-        "Set the shoulder blades and brace your trunk.",
-        "Lower or press with the elbows tracking comfortably from the body.",
-        "Finish with control and keep the neck relaxed."
+        "Place your hands on a bench or a sturdy raised surface, slightly wider than shoulder width.",
+        "Walk your feet back until your body forms a straight line from head to heels.",
+        "Lower your chest toward the bench, keeping your elbows at roughly forty-five degrees.",
+        "Press back up to straight arms without letting your hips sag or rise."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the hips drop so the lower back takes the load.",
+        "Dropping the head forward instead of keeping the neck in line with the spine.",
+        "Only lowering partway and cutting the range short."
       ],
       "coachingCues": [
-        "Brace before you press.",
-        "Reach long without shrugging.",
-        "Control the lower."
+        "Straight line, head to heels.",
+        "Squeeze the glutes to stop the hips sagging.",
+        "Push the bench away."
       ],
       "safetyNotes": [
-        "Use a pain-free shoulder range and avoid flared, forced elbows.",
-        "Elevate the hands or reduce load if the wrist or shoulder complains."
+        "Use a surface that cannot slide or tip under your hands.",
+        "Raise the surface to make the movement easier rather than shortening the range."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -494,23 +508,24 @@
       "difficulty": "Intermediate",
       "forceType": "Push",
       "executionSteps": [
-        "Set the shoulder blades and brace your trunk.",
-        "Lower or press with the elbows tracking comfortably from the body.",
-        "Finish with control and keep the neck relaxed."
+        "Sit on the end of a bench with a dumbbell resting on each thigh.",
+        "Lie back while bringing the dumbbells up to shoulder height, then set your shoulder blades back and down.",
+        "Press both dumbbells up until your arms are almost straight, keeping them over your shoulders.",
+        "Lower under control until your upper arms are about level with your torso, then press again."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Lowering the dumbbells so far that the shoulders roll forward.",
+        "Letting the dumbbells drift toward the head or the hips instead of tracking over the chest.",
+        "Clashing the dumbbells together at the top and losing tension."
       ],
       "coachingCues": [
-        "Brace before you press.",
-        "Reach long without shrugging.",
-        "Control the lower."
+        "Chest up, blades back.",
+        "Dumbbells stack over the shoulders.",
+        "Stop the descent when the chest says so."
       ],
       "safetyNotes": [
-        "Use a pain-free shoulder range and avoid flared, forced elbows.",
-        "Elevate the hands or reduce load if the wrist or shoulder complains."
+        "Learn to sit up with the dumbbells rather than dropping them beside you.",
+        "Choose a weight you can get into position on your own without a spotter."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -528,23 +543,24 @@
       "difficulty": "Intermediate",
       "forceType": "Push",
       "executionSteps": [
-        "Set the shoulder blades and brace your trunk.",
-        "Lower or press with the elbows tracking comfortably from the body.",
-        "Finish with control and keep the neck relaxed."
+        "Lie on the bench with your eyes under the bar and your feet flat on the floor.",
+        "Grip the bar a little wider than shoulder width and pull your shoulder blades back and down.",
+        "Unrack the bar, lower it under control to the lower half of your chest, and pause briefly.",
+        "Press the bar back over your shoulders without letting the shoulder blades roll forward."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Bouncing the bar off the chest to start the press.",
+        "Letting the shoulder blades come loose so the shoulders roll forward.",
+        "Flaring the elbows straight out to the sides at ninety degrees."
       ],
       "coachingCues": [
-        "Brace before you press.",
-        "Reach long without shrugging.",
-        "Control the lower."
+        "Shoulder blades pinned to the bench.",
+        "Bend the bar apart as you press.",
+        "Elbows tucked to about forty-five degrees."
       ],
       "safetyNotes": [
-        "Use a pain-free shoulder range and avoid flared, forced elbows.",
-        "Elevate the hands or reduce load if the wrist or shoulder complains."
+        "Use a spotter or a rack with safety arms set just above chest height whenever you train near your limit.",
+        "Do not use a thumbless grip; the bar can roll out of the hands."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -562,23 +578,24 @@
       "difficulty": "Intermediate",
       "forceType": "Push",
       "executionSteps": [
-        "Set the shoulder blades and brace your trunk.",
-        "Lower or press with the elbows tracking comfortably from the body.",
-        "Finish with control and keep the neck relaxed."
+        "Sit on a bench with back support and hold a dumbbell in each hand at shoulder height.",
+        "Turn your palms to face forward and set your ribs down so your back is not arched.",
+        "Press both dumbbells overhead until your arms are almost straight.",
+        "Lower under control back to shoulder height before the next repetition."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Arching the lower back to push the weight up.",
+        "Pressing the dumbbells forward rather than straight overhead.",
+        "Letting the dumbbells drift wide and away from the shoulders."
       ],
       "coachingCues": [
-        "Brace before you press.",
-        "Reach long without shrugging.",
-        "Control the lower."
+        "Ribs down, stomach braced.",
+        "Press to the ceiling, not the wall.",
+        "Finish with the arms beside the ears."
       ],
       "safetyNotes": [
-        "Use a pain-free shoulder range and avoid flared, forced elbows.",
-        "Elevate the hands or reduce load if the wrist or shoulder complains."
+        "Reduce the weight if you cannot press without arching the lower back.",
+        "Stop the set if you feel pinching at the top of the shoulder rather than working through it."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -596,23 +613,24 @@
       "difficulty": "Beginner",
       "forceType": "Push",
       "executionSteps": [
-        "Set the shoulder blades and brace your trunk.",
-        "Lower or press with the elbows tracking comfortably from the body.",
-        "Finish with control and keep the neck relaxed."
+        "Set both pulleys at roughly chest height and take a handle in each hand.",
+        "Step forward into a split stance so the cables are under tension before you start.",
+        "Press the handles forward until your arms are almost straight, bringing them slightly together.",
+        "Return under control until you feel a stretch across the chest, then press again."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Standing too close to the machine so there is no tension at the start.",
+        "Letting the torso twist to help push one arm through.",
+        "Shrugging the shoulders up as the handles come forward."
       ],
       "coachingCues": [
-        "Brace before you press.",
-        "Reach long without shrugging.",
-        "Control the lower."
+        "Split stance, stay square.",
+        "Press forward and slightly in.",
+        "Shoulders stay down and back."
       ],
       "safetyNotes": [
-        "Use a pain-free shoulder range and avoid flared, forced elbows.",
-        "Elevate the hands or reduce load if the wrist or shoulder complains."
+        "Check both handles are clipped in before you step forward into tension.",
+        "Return the stack under control rather than letting the plates slam."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -630,23 +648,24 @@
       "difficulty": "Beginner",
       "forceType": "Pull",
       "executionSteps": [
-        "Start with a long spine and shoulders set down away from the ears.",
-        "Pull by driving the elbows, not by shrugging.",
-        "Pause briefly, then return with control until the arms are long."
+        "Anchor a resistance band at about chest height and hold one end in each hand.",
+        "Step back until the band is under tension with your arms straight.",
+        "Pull your elbows back past your ribs, drawing your shoulder blades together.",
+        "Return under control until your arms are straight and your shoulder blades come apart again."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Leaning back to add range instead of pulling with the arms and back.",
+        "Shrugging the shoulders toward the ears as you pull.",
+        "Letting the band snap you forward on the way back."
       ],
       "coachingCues": [
-        "Lead with elbows.",
-        "Shoulders down.",
-        "Pause where the back works hardest."
+        "Elbows past the ribs.",
+        "Pull the shoulder blades together.",
+        "Control the return, do not release it."
       ],
       "safetyNotes": [
-        "Avoid yanking from a stretched shoulder position.",
-        "Choose assistance or a lighter load if the neck starts to tense."
+        "Check the band and the anchor for wear or nicks before every set.",
+        "Never anchor a band at eye level in a way that could snap back toward your face."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -665,23 +684,24 @@
       "difficulty": "Beginner",
       "forceType": "Pull",
       "executionSteps": [
-        "Start with a long spine and shoulders set down away from the ears.",
-        "Pull by driving the elbows, not by shrugging.",
-        "Pause briefly, then return with control until the arms are long."
+        "Place one hand and the matching knee on a bench, with the other foot on the floor.",
+        "Hold a dumbbell in the free hand and let it hang with the arm straight.",
+        "Pull the dumbbell toward your hip, driving the elbow back past your ribs.",
+        "Lower under control until the arm is straight, then repeat before switching sides."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Twisting the torso to throw the weight up.",
+        "Pulling the dumbbell out toward the shoulder instead of back toward the hip.",
+        "Rounding the back rather than keeping the torso flat and steady."
       ],
       "coachingCues": [
-        "Lead with elbows.",
-        "Shoulders down.",
-        "Pause where the back works hardest."
+        "Back stays flat like a tabletop.",
+        "Elbow to the hip pocket.",
+        "Shoulders stay level."
       ],
       "safetyNotes": [
-        "Avoid yanking from a stretched shoulder position.",
-        "Choose assistance or a lighter load if the neck starts to tense."
+        "Match the repetitions on both sides so one side does not quietly fall behind.",
+        "Set the dumbbell down rather than dropping it when the set ends."
       ],
       "isUnilateral": true,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -699,23 +719,24 @@
       "difficulty": "Beginner",
       "forceType": "Pull",
       "executionSteps": [
-        "Start with a long spine and shoulders set down away from the ears.",
-        "Pull by driving the elbows, not by shrugging.",
-        "Pause briefly, then return with control until the arms are long."
+        "Set the thigh pad so your legs are held down firmly, and take a grip slightly wider than shoulder width.",
+        "Sit down and let your arms straighten, allowing the shoulders to rise.",
+        "Pull your shoulder blades down first, then draw the bar to your upper chest.",
+        "Return the bar under control until your arms are straight again."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Leaning far back and turning the movement into a row.",
+        "Pulling the bar behind the neck.",
+        "Letting the weight stack pull the arms up quickly at the end of each rep."
       ],
       "coachingCues": [
-        "Lead with elbows.",
-        "Shoulders down.",
-        "Pause where the back works hardest."
+        "Shoulder blades down, then elbows.",
+        "Bar to the collarbone.",
+        "Slow on the way up."
       ],
       "safetyNotes": [
-        "Avoid yanking from a stretched shoulder position.",
-        "Choose assistance or a lighter load if the neck starts to tense."
+        "Pull to the front of the body rather than behind the neck.",
+        "Set the thigh pad snugly so you are not pulled up off the seat."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -734,23 +755,24 @@
       "difficulty": "Advanced",
       "forceType": "Pull",
       "executionSteps": [
-        "Start with a long spine and shoulders set down away from the ears.",
-        "Pull by driving the elbows, not by shrugging.",
-        "Pause briefly, then return with control until the arms are long."
+        "Take an overhand grip on the bar, a little wider than shoulder width.",
+        "Hang with straight arms and pull your shoulder blades down away from your ears.",
+        "Pull until your chin clears the bar, keeping the ribs down and the legs still.",
+        "Lower all the way back to straight arms under control."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Swinging the legs to generate momentum.",
+        "Stopping halfway down instead of returning to a full hang.",
+        "Craning the chin over the bar while the chest stays low."
       ],
       "coachingCues": [
-        "Lead with elbows.",
-        "Shoulders down.",
-        "Pause where the back works hardest."
+        "Pull the shoulders down first.",
+        "Chest to the bar.",
+        "Full hang between reps."
       ],
       "safetyNotes": [
-        "Avoid yanking from a stretched shoulder position.",
-        "Choose assistance or a lighter load if the neck starts to tense."
+        "Check the bar is secure and rated for your bodyweight before hanging from it.",
+        "Use a band or an assisted machine to build up rather than kipping to reach a rep count."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -768,23 +790,24 @@
       "difficulty": "Beginner",
       "forceType": "Pull",
       "executionSteps": [
-        "Start with a long spine and shoulders set down away from the ears.",
-        "Pull by driving the elbows, not by shrugging.",
-        "Pause briefly, then return with control until the arms are long."
+        "Sit facing the machine with your feet on the platform and a slight bend in your knees.",
+        "Take the handle and sit tall with your arms straight and the cable under tension.",
+        "Pull the handle to your stomach, driving your elbows back past your ribs.",
+        "Return under control, letting your shoulder blades come apart without letting your back round."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Rocking the torso back and forth to move the weight.",
+        "Rounding the lower back as the handle returns.",
+        "Shrugging the shoulders toward the ears at the end of the pull."
       ],
       "coachingCues": [
-        "Lead with elbows.",
-        "Shoulders down.",
-        "Pause where the back works hardest."
+        "Sit tall the whole set.",
+        "Elbows back, not out.",
+        "Let the blades travel, not the spine."
       ],
       "safetyNotes": [
-        "Avoid yanking from a stretched shoulder position.",
-        "Choose assistance or a lighter load if the neck starts to tense."
+        "Keep a soft bend in the knees so the load does not park on the lower back.",
+        "Let the stack down under control rather than releasing the handle at the end of the set."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -802,23 +825,24 @@
       "difficulty": "Beginner",
       "forceType": "Pull",
       "executionSteps": [
-        "Start with a long spine and shoulders set down away from the ears.",
-        "Pull by driving the elbows, not by shrugging.",
-        "Pause briefly, then return with control until the arms are long."
+        "Attach a rope to a pulley set at roughly head height.",
+        "Take one end in each hand with your thumbs pointing back, and step away until the cable is tight.",
+        "Pull the rope toward your face, separating your hands and driving your elbows high and wide.",
+        "Pause briefly with the hands beside your head, then return under control."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Using so much weight that the whole body rocks backward.",
+        "Letting the elbows drop so the movement becomes a row.",
+        "Shrugging the shoulders up instead of pulling the shoulder blades back."
       ],
       "coachingCues": [
-        "Lead with elbows.",
-        "Shoulders down.",
-        "Pause where the back works hardest."
+        "Elbows high and wide.",
+        "Pull the rope apart, not just back.",
+        "Light weight, long pause."
       ],
       "safetyNotes": [
-        "Avoid yanking from a stretched shoulder position.",
-        "Choose assistance or a lighter load if the neck starts to tense."
+        "Keep the load light; this is a positioning exercise rather than a strength test.",
+        "Stop if the front of the shoulder pinches and lower the pulley height slightly."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -837,23 +861,24 @@
       "difficulty": "Beginner",
       "forceType": "Carry",
       "executionSteps": [
-        "Pick up the load with a braced trunk and tall posture.",
-        "Walk with quiet steps while resisting leaning or twisting.",
-        "Set the load down by hinging instead of rounding the back."
+        "Set a dumbbell on each side of you and hinge down to grip both handles.",
+        "Stand up with a flat back and let the weights hang at your sides.",
+        "Set your shoulders down and back, brace your stomach, and walk with short controlled steps.",
+        "Walk the planned distance or time, then hinge down to set the weights back on the floor."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the shoulders round forward under the load.",
+        "Leaning back to counterbalance the weight.",
+        "Dropping the weights from standing at the end of the carry."
       ],
       "coachingCues": [
-        "Walk tall.",
-        "Quiet steps.",
-        "Do not let the load steer you."
+        "Tall spine, proud chest.",
+        "Short quick steps.",
+        "Crush the handles."
       ],
       "safetyNotes": [
-        "Clear the walking path before lifting the load.",
-        "Set the weight down before grip failure changes posture."
+        "Walk a clear route with no obstacles or trip hazards.",
+        "Set the weights down under control rather than dropping them near your feet."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -872,23 +897,24 @@
       "difficulty": "Beginner",
       "forceType": "Carry",
       "executionSteps": [
-        "Pick up the load with a braced trunk and tall posture.",
-        "Walk with quiet steps while resisting leaning or twisting.",
-        "Set the load down by hinging instead of rounding the back."
+        "Set a kettlebell beside one foot and hinge down to take the handle.",
+        "Stand up with a flat back and let the bell hang at your side.",
+        "Resist the pull to that side so your shoulders and hips stay level.",
+        "Walk the planned distance, set the bell down, then repeat carrying on the other side."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Leaning away from the weight instead of staying upright.",
+        "Letting the loaded shoulder drop toward the floor.",
+        "Carrying only on one side and never matching it on the other."
       ],
       "coachingCues": [
-        "Walk tall.",
-        "Quiet steps.",
-        "Do not let the load steer you."
+        "Shoulders and hips stay level.",
+        "Stand as if you were carrying nothing.",
+        "Match the distance on both sides."
       ],
       "safetyNotes": [
-        "Clear the walking path before lifting the load.",
-        "Set the weight down before grip failure changes posture."
+        "Always carry the same distance on each side so the trunk is trained evenly.",
+        "Set the bell down by hinging rather than bending sideways at the waist."
       ],
       "isUnilateral": true,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -907,23 +933,24 @@
       "difficulty": "Intermediate",
       "forceType": "Carry",
       "executionSteps": [
-        "Pick up the load with a braced trunk and tall posture.",
-        "Walk with quiet steps while resisting leaning or twisting.",
-        "Set the load down by hinging instead of rounding the back."
+        "Clean or lift two kettlebells to the front rack position, resting on the forearms against the chest.",
+        "Keep the elbows down and in, and the wrists straight.",
+        "Brace your stomach and breathe shallowly, then walk with controlled steps.",
+        "Complete the planned distance, then lower the bells to your shoulders and down to the floor."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the elbows flare out, which drags the chest down.",
+        "Arching the lower back to counter the front load.",
+        "Holding the breath for the whole carry."
       ],
       "coachingCues": [
-        "Walk tall.",
-        "Quiet steps.",
-        "Do not let the load steer you."
+        "Elbows in and down.",
+        "Ribs stacked over hips.",
+        "Small breaths, tight middle."
       ],
       "safetyNotes": [
-        "Clear the walking path before lifting the load.",
-        "Set the weight down before grip failure changes posture."
+        "Learn the rack position with one light bell before carrying two.",
+        "Stop the carry when the position breaks down rather than when the distance ends."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -942,23 +969,24 @@
       "difficulty": "Advanced",
       "forceType": "Carry",
       "executionSteps": [
-        "Pick up the load with a braced trunk and tall posture.",
-        "Walk with quiet steps while resisting leaning or twisting.",
-        "Set the load down by hinging instead of rounding the back."
+        "Press a dumbbell overhead in each hand until the arms are straight.",
+        "Lock the elbows, set the shoulder blades, and bring the arms close to the ears.",
+        "Brace hard and walk with slow deliberate steps, keeping the weights still.",
+        "Complete the distance, then lower the weights to the shoulders and down under control."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Arching the lower back to hold the weights up.",
+        "Letting the arms drift forward in front of the head.",
+        "Walking quickly so the weights start to wobble."
       ],
       "coachingCues": [
-        "Walk tall.",
-        "Quiet steps.",
-        "Do not let the load steer you."
+        "Arms beside the ears.",
+        "Ribs down, glutes on.",
+        "Slow steps, still hands."
       ],
       "safetyNotes": [
-        "Clear the walking path before lifting the load.",
-        "Set the weight down before grip failure changes posture."
+        "Start very light; overhead carrying exposes shoulder and trunk positioning quickly.",
+        "Stop and lower the weights safely the moment the arms start to drift forward."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -977,23 +1005,24 @@
       "difficulty": "Intermediate",
       "forceType": "Carry",
       "executionSteps": [
-        "Pick up the load with a braced trunk and tall posture.",
-        "Walk with quiet steps while resisting leaning or twisting.",
-        "Set the load down by hinging instead of rounding the back."
+        "Squat down to the sandbag and wrap both arms around it.",
+        "Pull it tight against your chest and stand up with a flat back.",
+        "Brace your stomach and keep your chest up against the bag pulling you forward.",
+        "Walk the planned distance, then squat down to set the bag back on the floor."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Rounding the back to lift the bag off the floor.",
+        "Letting the bag slide down so the arms take all the work.",
+        "Dropping the bag from standing height at the end of the carry."
       ],
       "coachingCues": [
-        "Walk tall.",
-        "Quiet steps.",
-        "Do not let the load steer you."
+        "Hug it high on the chest.",
+        "Chest up against the pull.",
+        "Squat it down, do not drop it."
       ],
       "safetyNotes": [
-        "Clear the walking path before lifting the load.",
-        "Set the weight down before grip failure changes posture."
+        "Practise picking the bag up with a light load before carrying a heavy one.",
+        "Keep your feet clear when you set the bag down."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1011,23 +1040,24 @@
       "difficulty": "Intermediate",
       "forceType": "Carry",
       "executionSteps": [
-        "Pick up the load with a braced trunk and tall posture.",
-        "Walk with quiet steps while resisting leaning or twisting.",
-        "Set the load down by hinging instead of rounding the back."
+        "Stand two weight plates together with the smooth sides facing out.",
+        "Pinch them between your thumb and fingers and stand up with a flat back.",
+        "Let the plates hang at your side and keep your shoulder set down and back.",
+        "Walk the planned distance, then lower the plates under control before your grip fails."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Resting the plates against the thigh to reduce the grip demand.",
+        "Carrying on until the plates slip out of the hand.",
+        "Leaning away from the load rather than staying tall."
       ],
       "coachingCues": [
-        "Walk tall.",
-        "Quiet steps.",
-        "Do not let the load steer you."
+        "Pinch hard from the first step.",
+        "Plates hang free of the leg.",
+        "Stand tall and even."
       ],
       "safetyNotes": [
-        "Clear the walking path before lifting the load.",
-        "Set the weight down before grip failure changes posture."
+        "Carry over a floor you do not mind dropping a plate on, and keep your feet clear.",
+        "End the set while you still control the plates rather than when they fall."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1045,23 +1075,24 @@
       "difficulty": "Beginner",
       "forceType": "Static",
       "executionSteps": [
-        "Anchor your feet and brace before the cable, band, or ball moves.",
-        "Rotate or resist rotation from the trunk while the hips stay controlled.",
-        "Return slowly and repeat without letting momentum take over."
+        "Set a cable at chest height and stand side on with your feet about shoulder width apart.",
+        "Hold the handle in both hands at your sternum and step away until the cable is under tension.",
+        "Press the handle straight out in front of you and resist the pull toward the machine.",
+        "Return the handle to your chest under control, and complete the set before switching sides."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the torso turn toward the machine as the arms extend.",
+        "Pressing high or low rather than straight out from the sternum.",
+        "Loading it so heavily that the trunk cannot stay square."
       ],
       "coachingCues": [
-        "Ribs over pelvis.",
-        "Move smoothly.",
-        "Resist the twist before you create it."
+        "Press straight out from the chest.",
+        "Shoulders and hips stay square.",
+        "Slow out, slow back."
       ],
       "safetyNotes": [
-        "Move through a range your spine can control.",
-        "Avoid fast twisting if the back is irritated."
+        "Choose a load you can hold without rotating; this is an anti-rotation exercise.",
+        "Keep the feet planted rather than pivoting to make the press easier."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1079,23 +1110,24 @@
       "difficulty": "Beginner",
       "forceType": "Static",
       "executionSteps": [
-        "Anchor your feet and brace before the cable, band, or ball moves.",
-        "Rotate or resist rotation from the trunk while the hips stay controlled.",
-        "Return slowly and repeat without letting momentum take over."
+        "Anchor a band at chest height and stand side on to the anchor.",
+        "Hold the band in both hands and press it straight out in front of your sternum.",
+        "Step away until the band is trying to rotate you toward the anchor.",
+        "Hold still for the planned time, then switch sides so both directions are trained."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the arms drift toward the anchor as the trunk gives in.",
+        "Bracing by holding the breath instead of breathing through the hold.",
+        "Standing so close that the band provides almost no resistance."
       ],
       "coachingCues": [
-        "Ribs over pelvis.",
-        "Move smoothly.",
-        "Resist the twist before you create it."
+        "Hands stay in the centre of the chest.",
+        "Refuse to turn.",
+        "Breathe while you resist."
       ],
       "safetyNotes": [
-        "Move through a range your spine can control.",
-        "Avoid fast twisting if the back is irritated."
+        "Inspect the band and anchor point before each set.",
+        "Step out gradually rather than jumping into full tension."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1114,23 +1146,24 @@
       "difficulty": "Intermediate",
       "forceType": "Mixed",
       "executionSteps": [
-        "Anchor your feet and brace before the cable, band, or ball moves.",
-        "Rotate or resist rotation from the trunk while the hips stay controlled.",
-        "Return slowly and repeat without letting momentum take over."
+        "Set the pulley high and stand side on with your feet a little wider than the hips.",
+        "Take the handle in both hands with your arms fairly straight.",
+        "Pull down and across your body toward the opposite hip, turning through the trunk and hips together.",
+        "Return under control along the same path, then complete the set before switching sides."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Turning only at the arms and shoulders while the hips stay locked.",
+        "Twisting the lower back rather than rotating through the whole trunk.",
+        "Using so much load that the return is uncontrolled."
       ],
       "coachingCues": [
-        "Ribs over pelvis.",
-        "Move smoothly.",
-        "Resist the twist before you create it."
+        "Turn the chest and hips together.",
+        "Arms stay long.",
+        "Control the way back."
       ],
       "safetyNotes": [
-        "Move through a range your spine can control.",
-        "Avoid fast twisting if the back is irritated."
+        "Keep the load moderate; rotation under heavy load is hard to control.",
+        "Stop if you feel a twinge in the lower back rather than working through it."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1149,23 +1182,24 @@
       "difficulty": "Advanced",
       "forceType": "Mixed",
       "executionSteps": [
-        "Anchor your feet and brace before the cable, band, or ball moves.",
-        "Rotate or resist rotation from the trunk while the hips stay controlled.",
-        "Return slowly and repeat without letting momentum take over."
+        "Stand side on to a solid wall, about an arm and a ball length away.",
+        "Hold the ball at chest height with your weight slightly on the back foot.",
+        "Turn the back hip through and throw the ball into the wall, letting the trunk follow the hips.",
+        "Catch or collect the ball, reset your stance, and repeat before switching sides."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Throwing with the arms alone while the hips stay still.",
+        "Standing too close, so there is no room to turn.",
+        "Using a bouncy ball that rebounds unpredictably."
       ],
       "coachingCues": [
-        "Ribs over pelvis.",
-        "Move smoothly.",
-        "Resist the twist before you create it."
+        "Back hip starts the throw.",
+        "Turn, then release.",
+        "Fast and light, not heavy and slow."
       ],
       "safetyNotes": [
-        "Move through a range your spine can control.",
-        "Avoid fast twisting if the back is irritated."
+        "Use a wall that can take repeated impact, and check nobody is standing in the rebound path.",
+        "Warm up before throwing; this is a fast movement and cold tissue tolerates it poorly."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1184,23 +1218,24 @@
       "difficulty": "Intermediate",
       "forceType": "Mixed",
       "executionSteps": [
-        "Anchor your feet and brace before the cable, band, or ball moves.",
-        "Rotate or resist rotation from the trunk while the hips stay controlled.",
-        "Return slowly and repeat without letting momentum take over."
+        "Set the pulley low and kneel side on with the inside knee down.",
+        "Take the handle in both hands near the down knee, with your arms fairly straight.",
+        "Pull up and across your body toward the opposite shoulder, rotating through the trunk.",
+        "Return under control, and complete the set before switching sides."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the hips sink to one side instead of staying tall in the kneeling position.",
+        "Pulling with the arms while the trunk stays still.",
+        "Leaning back at the top of the lift."
       ],
       "coachingCues": [
-        "Ribs over pelvis.",
-        "Move smoothly.",
-        "Resist the twist before you create it."
+        "Tall through the down hip.",
+        "Turn the chest, then the arms follow.",
+        "Ribs stay down at the top."
       ],
       "safetyNotes": [
-        "Move through a range your spine can control.",
-        "Avoid fast twisting if the back is irritated."
+        "Kneel on a pad to protect the down knee.",
+        "Keep the load light enough that the cable cannot pull you off balance."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1218,23 +1253,24 @@
       "difficulty": "Beginner",
       "forceType": "Static",
       "executionSteps": [
-        "Anchor your feet and brace before the cable, band, or ball moves.",
-        "Rotate or resist rotation from the trunk while the hips stay controlled.",
-        "Return slowly and repeat without letting momentum take over."
+        "Lie on your back with your arms straight above your shoulders and your knees over your hips.",
+        "Press your lower back gently into the floor and keep it there.",
+        "Slowly lower one arm overhead and the opposite leg toward the floor.",
+        "Return to the start under control and repeat on the other side."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the lower back arch as the limbs reach away.",
+        "Moving quickly so the trunk never really has to work.",
+        "Holding the breath rather than exhaling as the limbs extend."
       ],
       "coachingCues": [
-        "Ribs over pelvis.",
-        "Move smoothly.",
-        "Resist the twist before you create it."
+        "Lower back stays pressed down.",
+        "Move slowly, opposite arm and leg.",
+        "Exhale as you reach."
       ],
       "safetyNotes": [
-        "Move through a range your spine can control.",
-        "Avoid fast twisting if the back is irritated."
+        "Shorten the reach if your back lifts off the floor.",
+        "This should feel like work in the stomach, not the lower back."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1253,23 +1289,24 @@
       "difficulty": "Beginner",
       "forceType": "Push",
       "executionSteps": [
-        "Stand tall and brace before stepping or lowering.",
-        "Let the front foot stay grounded while the knee tracks over the toes.",
-        "Push through the working leg and regain balance before the next rep."
+        "Stand tall with your feet hip width apart.",
+        "Step one foot straight back and land on the ball of that foot.",
+        "Lower until the back knee is just above the floor and the front thigh is roughly parallel.",
+        "Push through the front foot to bring the back leg forward and return to standing."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Stepping back on a diagonal, which narrows the base and unsettles balance.",
+        "Letting the torso fall forward over the front thigh.",
+        "Pushing off the back toes to stand instead of loading the front leg."
       ],
       "coachingCues": [
-        "Own the landing.",
-        "Front foot planted.",
-        "Stand through the working leg."
+        "Step straight back, not across.",
+        "Chest stays over the hips.",
+        "Front heel drives you up."
       ],
       "safetyNotes": [
-        "Shorten the step or hold support if balance changes knee tracking.",
-        "Stop if the front knee has sharp pain."
+        "Place a folded mat under the back knee while you are learning the depth.",
+        "Hold a support for balance rather than shortening the range."
       ],
       "isUnilateral": true,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1288,23 +1325,24 @@
       "difficulty": "Intermediate",
       "forceType": "Push",
       "executionSteps": [
-        "Stand tall and brace before stepping or lowering.",
-        "Let the front foot stay grounded while the knee tracks over the toes.",
-        "Push through the working leg and regain balance before the next rep."
+        "Stand tall holding a dumbbell in each hand with your arms by your sides.",
+        "Step forward far enough that both knees can bend to about ninety degrees.",
+        "Lower until the back knee is just above the floor, keeping the torso upright.",
+        "Drive through the front foot to stand, bring the back foot through, and step into the next lunge."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Taking a short step so the front knee travels a long way forward.",
+        "Leaning the torso over the front thigh.",
+        "Letting the back knee bang into the floor."
       ],
       "coachingCues": [
-        "Own the landing.",
-        "Front foot planted.",
-        "Stand through the working leg."
+        "Long step, tall chest.",
+        "Kiss the floor with the back knee.",
+        "Push the floor away to stand."
       ],
       "safetyNotes": [
-        "Shorten the step or hold support if balance changes knee tracking.",
-        "Stop if the front knee has sharp pain."
+        "Walk in a clear straight lane with room to finish the set.",
+        "Reduce the load or switch to a static lunge if your balance is wavering."
       ],
       "isUnilateral": true,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1322,23 +1360,24 @@
       "difficulty": "Beginner",
       "forceType": "Push",
       "executionSteps": [
-        "Stand tall and brace before stepping or lowering.",
-        "Let the front foot stay grounded while the knee tracks over the toes.",
-        "Push through the working leg and regain balance before the next rep."
+        "Step one foot forward into a split stance about one stride long.",
+        "Keep the front foot flat and rise onto the ball of the back foot.",
+        "Lower straight down until the back knee is just above the floor.",
+        "Drive up through the front foot without moving your feet, and finish the set before swapping."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Setting the stance too short, so the front knee is crowded at the bottom.",
+        "Drifting forward and back instead of moving straight up and down.",
+        "Letting the hips rotate so the two sides are no longer square."
       ],
       "coachingCues": [
-        "Own the landing.",
-        "Front foot planted.",
-        "Stand through the working leg."
+        "Move like a lift, straight up and down.",
+        "Hips stay square to the front.",
+        "Weight into the front heel."
       ],
       "safetyNotes": [
-        "Shorten the step or hold support if balance changes knee tracking.",
-        "Stop if the front knee has sharp pain."
+        "Use a wall or rack for balance until the position feels stable.",
+        "Reduce the depth if the front of the back hip feels pinched."
       ],
       "isUnilateral": true,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1357,23 +1396,24 @@
       "difficulty": "Intermediate",
       "forceType": "Push",
       "executionSteps": [
-        "Stand tall and brace before stepping or lowering.",
-        "Let the front foot stay grounded while the knee tracks over the toes.",
-        "Push through the working leg and regain balance before the next rep."
+        "Stand about a stride in front of a bench and rest the top of your back foot on it.",
+        "Check the front foot is far enough forward that the knee stays over the midfoot at the bottom.",
+        "Lower straight down until the back knee is close to the floor.",
+        "Drive up through the front foot, then finish all the reps before swapping legs."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Standing too close to the bench, which crowds the front knee.",
+        "Pushing off the back foot instead of loading the front leg.",
+        "Letting the front knee collapse inward under fatigue."
       ],
       "coachingCues": [
-        "Own the landing.",
-        "Front foot planted.",
-        "Stand through the working leg."
+        "Back leg is a kickstand, not an engine.",
+        "Straight down, straight up.",
+        "Front knee tracks over the second toe."
       ],
       "safetyNotes": [
-        "Shorten the step or hold support if balance changes knee tracking.",
-        "Stop if the front knee has sharp pain."
+        "Hold a rack or wall for balance while you learn the position.",
+        "Use a lower surface for the back foot if the front of the rear hip feels pinched."
       ],
       "isUnilateral": true,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1391,23 +1431,24 @@
       "difficulty": "Beginner",
       "forceType": "Push",
       "executionSteps": [
-        "Stand tall and brace before stepping or lowering.",
-        "Let the front foot stay grounded while the knee tracks over the toes.",
-        "Push through the working leg and regain balance before the next rep."
+        "Set a box at a height where your thigh is roughly parallel to the floor when your foot is on it.",
+        "Place one whole foot on the box, with the heel well inside the edge.",
+        "Push through that foot to stand up on the box without pushing off the floor with the other leg.",
+        "Lower back down under control on the same leg, then repeat before swapping sides."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Pushing off the trailing foot to help the working leg.",
+        "Placing only part of the foot on the box so the heel hangs over the edge.",
+        "Dropping back to the floor rather than lowering under control."
       ],
       "coachingCues": [
-        "Own the landing.",
-        "Front foot planted.",
-        "Stand through the working leg."
+        "Whole foot on the box.",
+        "Trailing leg does nothing.",
+        "Lower yourself, do not fall."
       ],
       "safetyNotes": [
-        "Shorten the step or hold support if balance changes knee tracking.",
-        "Stop if the front knee has sharp pain."
+        "Use a box that cannot slide or tip, and check it before every set.",
+        "Lower the box height if you cannot control the way down."
       ],
       "isUnilateral": true,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1425,23 +1466,24 @@
       "difficulty": "Intermediate",
       "forceType": "Push",
       "executionSteps": [
-        "Stand tall and brace before stepping or lowering.",
-        "Let the front foot stay grounded while the knee tracks over the toes.",
-        "Push through the working leg and regain balance before the next rep."
+        "Stand tall with your feet together and your toes pointing forward.",
+        "Take a wide step directly out to one side, keeping both feet flat and facing forward.",
+        "Push your hips back and bend the stepping knee while the other leg stays straight.",
+        "Push off the bent leg to return to standing, then repeat before changing sides."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Turning the stepping foot outward so the movement becomes a lunge on an angle.",
+        "Letting the inside edge of the foot lift as you sit into the side.",
+        "Bending the trailing knee instead of keeping that leg long."
       ],
       "coachingCues": [
-        "Own the landing.",
-        "Front foot planted.",
-        "Stand through the working leg."
+        "Both toes point forward.",
+        "Hips back, not just knee out.",
+        "Trailing leg stays long."
       ],
       "safetyNotes": [
-        "Shorten the step or hold support if balance changes knee tracking.",
-        "Stop if the front knee has sharp pain."
+        "Ease into the range gradually; the inner thigh is easy to strain when cold.",
+        "Reduce the width of the step if you feel a pull rather than a stretch on the inside of the leg."
       ],
       "isUnilateral": true,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1459,23 +1501,24 @@
       "difficulty": "Beginner",
       "forceType": "Static",
       "executionSteps": [
-        "Set your ribs down and lightly squeeze the glutes.",
-        "Hold the position while breathing behind the brace.",
-        "Stop before your low back arches or your shoulders collapse."
+        "Set your forearms on the floor with your elbows under your shoulders.",
+        "Extend your legs behind you and rise onto your toes.",
+        "Squeeze your glutes and brace your stomach so your body forms a straight line.",
+        "Hold for the planned time, breathing steadily, then lower your knees to finish."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the hips sag so the lower back takes the load.",
+        "Lifting the hips high into an inverted V to make the hold easier.",
+        "Holding the breath for the duration of the set."
       ],
       "coachingCues": [
-        "Breathe behind the brace.",
-        "Ribs down.",
-        "Stop before form breaks."
+        "Squeeze the glutes hard.",
+        "Pull the elbows toward the toes without moving them.",
+        "Breathe through the brace."
       ],
       "safetyNotes": [
-        "End the set when bracing is lost.",
-        "Use shorter holds rather than sagging through the low back."
+        "End the hold as soon as the hips start to drop rather than pushing for time.",
+        "Drop to your knees if you feel it in your lower back instead of your stomach."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1494,23 +1537,24 @@
       "difficulty": "Beginner",
       "forceType": "Static",
       "executionSteps": [
-        "Set your ribs down and lightly squeeze the glutes.",
-        "Hold the position while breathing behind the brace.",
-        "Stop before your low back arches or your shoulders collapse."
+        "Lie on one side with your elbow under your shoulder and your legs stacked.",
+        "Press your forearm into the floor and lift your hips until your body forms a straight line.",
+        "Keep your head in line with your spine and your top hip stacked over the bottom one.",
+        "Hold for the planned time, then lower under control and repeat on the other side."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the hips sink toward the floor during the hold.",
+        "Rotating the top hip forward so the position becomes a partial front plank.",
+        "Placing the elbow ahead of or behind the shoulder."
       ],
       "coachingCues": [
-        "Breathe behind the brace.",
-        "Ribs down.",
-        "Stop before form breaks."
+        "Elbow directly under the shoulder.",
+        "Push the floor away and lift the ribs.",
+        "Stack the hips and shoulders."
       ],
       "safetyNotes": [
-        "End the set when bracing is lost.",
-        "Use shorter holds rather than sagging through the low back."
+        "Bend the bottom knee and rest it on the floor to reduce the load while you build up.",
+        "Match the hold time on both sides so one side does not lag behind."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1528,23 +1572,24 @@
       "difficulty": "Intermediate",
       "forceType": "Static",
       "executionSteps": [
-        "Set your ribs down and lightly squeeze the glutes.",
-        "Hold the position while breathing behind the brace.",
-        "Stop before your low back arches or your shoulders collapse."
+        "Lie on your back and press your lower back flat into the floor.",
+        "Lift your shoulder blades off the floor and reach your arms past your ears.",
+        "Raise your legs and lower them until just before your back lifts away from the floor.",
+        "Hold that position, breathing shallowly, then lower everything to finish."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the lower back arch away from the floor as the legs come down.",
+        "Pulling on the head with the hands to hold the shoulders up.",
+        "Holding the breath rather than breathing into the position."
       ],
       "coachingCues": [
-        "Breathe behind the brace.",
-        "Ribs down.",
-        "Stop before form breaks."
+        "Lower back glued to the floor.",
+        "Long from fingertips to toes.",
+        "Raise the legs if the back lifts."
       ],
       "safetyNotes": [
-        "End the set when bracing is lost.",
-        "Use shorter holds rather than sagging through the low back."
+        "Bend the knees or keep the legs higher to make the hold manageable.",
+        "Stop the moment the lower back arches, because that is where the position stops working."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1562,23 +1607,24 @@
       "difficulty": "Advanced",
       "forceType": "Static",
       "executionSteps": [
-        "Set your ribs down and lightly squeeze the glutes.",
-        "Hold the position while breathing behind the brace.",
-        "Stop before your low back arches or your shoulders collapse."
+        "Set your forearms on a stability ball and extend your legs behind you into a plank.",
+        "Squeeze your glutes and brace hard, since the ball will move at any loss of tension.",
+        "Draw small circles with your forearms while keeping your hips and spine completely still.",
+        "Complete the planned circles in each direction, then lower your knees to finish."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Drawing circles so large that the hips start to sway.",
+        "Letting the hips drop as the trunk fatigues.",
+        "Rushing the circles instead of moving slowly and staying rigid."
       ],
       "coachingCues": [
-        "Breathe behind the brace.",
-        "Ribs down.",
-        "Stop before form breaks."
+        "Small circles, still hips.",
+        "The arms move, nothing else does.",
+        "Glutes on the whole time."
       ],
       "safetyNotes": [
-        "End the set when bracing is lost.",
-        "Use shorter holds rather than sagging through the low back."
+        "Position the ball against a wall while you are learning so it cannot roll away.",
+        "End the set as soon as the hips start to move rather than pushing for more circles."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1595,23 +1641,24 @@
       "difficulty": "Beginner",
       "forceType": "Pull",
       "executionSteps": [
-        "Set your ribs down and lightly squeeze the glutes.",
-        "Hold the position while breathing behind the brace.",
-        "Stop before your low back arches or your shoulders collapse."
+        "Attach a rope to a high pulley and kneel facing the machine.",
+        "Hold the rope beside your head and hinge slightly forward to load the cable.",
+        "Curl your ribs toward your hips, rounding the upper back rather than folding at the hips.",
+        "Return under control until you feel your abdominals lengthen, without letting the weight pull you up."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Bending at the hips so the movement becomes a hinge rather than a trunk curl.",
+        "Pulling with the arms and shoulders instead of the abdominals.",
+        "Letting the stack yank the torso back up between reps."
       ],
       "coachingCues": [
-        "Breathe behind the brace.",
-        "Ribs down.",
-        "Stop before form breaks."
+        "Ribs toward the hips.",
+        "Hands stay glued to the head.",
+        "Hips stay still."
       ],
       "safetyNotes": [
-        "End the set when bracing is lost.",
-        "Use shorter holds rather than sagging through the low back."
+        "Kneel on a pad and check the rope attachment before adding load.",
+        "Stop if you feel strain in the neck rather than work in the abdominals."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1629,23 +1676,24 @@
       "difficulty": "Intermediate",
       "forceType": "Pull",
       "executionSteps": [
-        "Set your ribs down and lightly squeeze the glutes.",
-        "Hold the position while breathing behind the brace.",
-        "Stop before your low back arches or your shoulders collapse."
+        "Hang from a bar with an overhand grip and your arms straight.",
+        "Pull your shoulder blades down so you are not hanging loose from the shoulders.",
+        "Raise both knees toward your chest by curling the pelvis, not just bending the hips.",
+        "Lower under control until your legs hang straight again, without swinging."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Swinging the legs and using momentum from a previous repetition.",
+        "Only bending at the hips so the abdominals barely work.",
+        "Dropping the legs quickly and starting the next rep from the swing."
       ],
       "coachingCues": [
-        "Breathe behind the brace.",
-        "Ribs down.",
-        "Stop before form breaks."
+        "Shoulders down, chest proud.",
+        "Curl the tailbone up.",
+        "Stop dead at the bottom."
       ],
       "safetyNotes": [
-        "End the set when bracing is lost.",
-        "Use shorter holds rather than sagging through the low back."
+        "Check the bar is secure before hanging from it.",
+        "Use straps or a padded bar if your grip gives out before your abdominals do."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1663,23 +1711,24 @@
       "difficulty": "Beginner",
       "forceType": "Locomotion",
       "executionSteps": [
-        "Begin at a pace that lets you breathe rhythmically.",
-        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
-        "Increase speed only while technique stays quiet and controlled."
+        "Start at an easy pace for two to three minutes to let your breathing settle.",
+        "Pick up the pace until talking becomes slightly effortful but still possible.",
+        "Keep your posture tall with a relaxed arm swing and a steady rhythm.",
+        "Finish with two to three minutes of easy walking to bring the heart rate down."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Starting at the target pace with no warm-up.",
+        "Overstriding, which lands the heel far in front and jars the knee.",
+        "Hunching forward over a phone and losing the tall posture."
       ],
       "coachingCues": [
-        "Easy rhythm first.",
-        "Relax the jaw and shoulders.",
-        "Let effort build gradually."
+        "Tall through the spine.",
+        "Quick steps, not long ones.",
+        "Breathing effortful but under control."
       ],
       "safetyNotes": [
-        "Build volume gradually and keep impact appropriate for joints.",
-        "Slow down if breathing or gait becomes uncontrolled."
+        "Choose even ground and footwear with grip if conditions are wet.",
+        "Slow down if you become dizzy, unusually breathless, or feel chest discomfort."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1698,23 +1747,24 @@
       "difficulty": "Intermediate",
       "forceType": "Locomotion",
       "executionSteps": [
-        "Begin at a pace that lets you breathe rhythmically.",
-        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
-        "Increase speed only while technique stays quiet and controlled."
+        "Attach the safety key before you start the belt.",
+        "Begin with several minutes of walking, then raise the speed gradually.",
+        "Run near the front of the belt with a tall posture and a relaxed arm swing.",
+        "Lower the speed gradually at the end rather than stepping straight off."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Holding the handrails while running, which changes the stride and posture.",
+        "Drifting toward the back of the belt.",
+        "Jumping onto a belt that is already moving quickly."
       ],
       "coachingCues": [
-        "Easy rhythm first.",
-        "Relax the jaw and shoulders.",
-        "Let effort build gradually."
+        "Run tall and light.",
+        "Stay near the front of the belt.",
+        "Hands off the rails."
       ],
       "safetyNotes": [
-        "Build volume gradually and keep impact appropriate for joints.",
-        "Slow down if breathing or gait becomes uncontrolled."
+        "Always clip the safety key to your clothing so the belt stops if you fall.",
+        "Stop immediately if you feel chest discomfort, dizziness, or unusual breathlessness."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1733,23 +1783,24 @@
       "difficulty": "Beginner",
       "forceType": "Locomotion",
       "executionSteps": [
-        "Begin at a pace that lets you breathe rhythmically.",
-        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
-        "Increase speed only while technique stays quiet and controlled."
+        "Set the saddle so your knee is slightly bent when the pedal is at its lowest point.",
+        "Start pedalling at an easy resistance for a few minutes to warm up.",
+        "Raise the resistance or cadence until your breathing matches the intended effort.",
+        "Finish with a few minutes of easy pedalling before you get off."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Riding with the saddle too low, which cramps the knees.",
+        "Rocking the hips side to side because the saddle is too high.",
+        "Gripping the handlebars hard and hunching the shoulders."
       ],
       "coachingCues": [
-        "Easy rhythm first.",
-        "Relax the jaw and shoulders.",
-        "Let effort build gradually."
+        "Hips stay still in the saddle.",
+        "Smooth circles, not stamps.",
+        "Relaxed hands and shoulders."
       ],
       "safetyNotes": [
-        "Build volume gradually and keep impact appropriate for joints.",
-        "Slow down if breathing or gait becomes uncontrolled."
+        "Check the saddle and handlebar clamps are tight before you start.",
+        "Stop and rest if you feel dizzy, light-headed, or any chest discomfort."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1768,23 +1819,24 @@
       "difficulty": "Intermediate",
       "forceType": "Locomotion",
       "executionSteps": [
-        "Begin at a pace that lets you breathe rhythmically.",
-        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
-        "Increase speed only while technique stays quiet and controlled."
+        "Strap your feet in and sit with your shins vertical and your arms straight.",
+        "Drive with the legs first, keeping the arms long and the back braced.",
+        "As the legs finish, swing the torso back slightly and then pull the handle to the lower ribs.",
+        "Reverse the order on the recovery: arms away, then torso, then let the knees bend."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Pulling with the arms before the legs have finished driving.",
+        "Rounding the back at the front of the stroke.",
+        "Rushing the recovery so the next stroke starts from a poor position."
       ],
       "coachingCues": [
-        "Easy rhythm first.",
-        "Relax the jaw and shoulders.",
-        "Let effort build gradually."
+        "Legs, body, arms. Then arms, body, legs.",
+        "Handle to the lower ribs.",
+        "Slow recovery, fast drive."
       ],
       "safetyNotes": [
-        "Build volume gradually and keep impact appropriate for joints.",
-        "Slow down if breathing or gait becomes uncontrolled."
+        "Set the foot straps over the widest part of the foot so your heels stay in contact.",
+        "Reduce the damper setting if your lower back tires before your legs do."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1802,23 +1854,24 @@
       "difficulty": "Intermediate",
       "forceType": "Locomotion",
       "executionSteps": [
-        "Begin at a pace that lets you breathe rhythmically.",
-        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
-        "Increase speed only while technique stays quiet and controlled."
+        "Set the rope length so the handles reach about armpit height when you stand on the middle.",
+        "Hold the handles near your hips with your elbows close to your sides.",
+        "Turn the rope with your wrists and hop just high enough to clear it.",
+        "Land softly on the balls of your feet and keep the rhythm steady."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Jumping far higher than the rope requires.",
+        "Turning the rope with the whole arm instead of the wrists.",
+        "Landing flat and heavy on stiff legs."
       ],
       "coachingCues": [
-        "Easy rhythm first.",
-        "Relax the jaw and shoulders.",
-        "Let effort build gradually."
+        "Wrists turn, arms stay still.",
+        "Small hops, quiet landings.",
+        "Stay light on the feet."
       ],
       "safetyNotes": [
-        "Build volume gradually and keep impact appropriate for joints.",
-        "Slow down if breathing or gait becomes uncontrolled."
+        "Jump on a forgiving surface rather than concrete where possible.",
+        "Build up the duration gradually, because the calves and Achilles take time to adapt."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1836,23 +1889,24 @@
       "difficulty": "Beginner",
       "forceType": "Locomotion",
       "executionSteps": [
-        "Begin at a pace that lets you breathe rhythmically.",
-        "Keep posture relaxed and repeat smooth, efficient strokes or steps.",
-        "Increase speed only while technique stays quiet and controlled."
+        "Stand tall with your feet hip width apart and your arms relaxed.",
+        "Lift one knee to about hip height while swinging the opposite arm.",
+        "Place the foot down softly and repeat on the other side.",
+        "Build to a steady rhythm you can hold for the planned time."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Leaning back as the knee comes up.",
+        "Slapping the foot down instead of placing it.",
+        "Losing the rhythm and drifting to a stop halfway through."
       ],
       "coachingCues": [
-        "Easy rhythm first.",
-        "Relax the jaw and shoulders.",
-        "Let effort build gradually."
+        "Tall posture, knee to hip height.",
+        "Quiet feet.",
+        "Opposite arm, opposite knee."
       ],
       "safetyNotes": [
-        "Build volume gradually and keep impact appropriate for joints.",
-        "Slow down if breathing or gait becomes uncontrolled."
+        "Hold a chair or wall for balance if you need it; this stays effective either way.",
+        "Lower the knee height rather than stopping if the hip flexors start to fatigue."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1871,23 +1925,24 @@
       "difficulty": "Beginner",
       "forceType": "Mobility",
       "executionSteps": [
-        "Move into the starting position slowly and breathe out.",
-        "Explore the range without forcing the joint or bouncing.",
-        "Return with control and repeat on the other side when appropriate."
+        "Step one foot forward into a long lunge and place both hands on the floor inside the front foot.",
+        "Drop the back knee if you need to, and let the front hip sink toward the floor.",
+        "Rotate your torso and reach the inside arm toward the ceiling, following it with your eyes.",
+        "Return the hand to the floor and repeat, then switch legs."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Taking a short lunge, which leaves no room for the hip to open.",
+        "Rotating from the lower back instead of the upper back.",
+        "Rushing through so nothing has time to lengthen."
       ],
       "coachingCues": [
-        "Move with your breath.",
-        "No bouncing.",
-        "Comfortable range only."
+        "Long lunge, hips low.",
+        "Turn from the ribs, not the waist.",
+        "Follow the hand with your eyes."
       ],
       "safetyNotes": [
-        "Stretch sensation is acceptable; sharp joint pain is not.",
-        "Use small ranges when returning from injury."
+        "Keep the back knee on the floor while you are learning the position.",
+        "Ease back if the front hip pinches rather than stretches."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1905,23 +1960,24 @@
       "difficulty": "Beginner",
       "forceType": "Mobility",
       "executionSteps": [
-        "Move into the starting position slowly and breathe out.",
-        "Explore the range without forcing the joint or bouncing.",
-        "Return with control and repeat on the other side when appropriate."
+        "Start on your hands and knees with your hands under your shoulders and knees under your hips.",
+        "Exhale and round your spine, tucking your tailbone and letting your head drop.",
+        "Inhale and reverse it, lifting your tailbone and chest while letting your stomach drop.",
+        "Move slowly between the two positions for the planned repetitions."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Moving quickly so only the middle of the back actually moves.",
+        "Pushing into an extreme range at each end rather than moving through the middle.",
+        "Letting the elbows bend and the shoulders creep toward the ears."
       ],
       "coachingCues": [
-        "Move with your breath.",
-        "No bouncing.",
-        "Comfortable range only."
+        "Move one vertebra at a time.",
+        "Breathe with the movement.",
+        "Arms stay straight and steady."
       ],
       "safetyNotes": [
-        "Stretch sensation is acceptable; sharp joint pain is not.",
-        "Use small ranges when returning from injury."
+        "Use a mat or padding under the knees.",
+        "Reduce the range at either end if you feel pinching rather than easy movement."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1939,23 +1995,24 @@
       "difficulty": "Beginner",
       "forceType": "Mobility",
       "executionSteps": [
-        "Move into the starting position slowly and breathe out.",
-        "Explore the range without forcing the joint or bouncing.",
-        "Return with control and repeat on the other side when appropriate."
+        "Kneel on one knee with the other foot flat on the floor in front of you.",
+        "Tuck your tailbone under so your lower back flattens slightly.",
+        "Squeeze the glute on the kneeling side and shift your weight gently forward.",
+        "Hold for the planned time while breathing steadily, then swap sides."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Arching the lower back and calling it a hip stretch.",
+        "Pushing forward so far that the front knee travels well past the toes.",
+        "Skipping the glute squeeze, which is what makes the stretch reach the hip."
       ],
       "coachingCues": [
-        "Move with your breath.",
-        "No bouncing.",
-        "Comfortable range only."
+        "Tuck the tailbone first.",
+        "Squeeze the back glute.",
+        "Small shift forward is enough."
       ],
       "safetyNotes": [
-        "Stretch sensation is acceptable; sharp joint pain is not.",
-        "Use small ranges when returning from injury."
+        "Use a pad under the kneeling knee.",
+        "Ease off if you feel pinching at the front of the front hip."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -1973,23 +2030,24 @@
       "difficulty": "Beginner",
       "forceType": "Mobility",
       "executionSteps": [
-        "Move into the starting position slowly and breathe out.",
-        "Explore the range without forcing the joint or bouncing.",
-        "Return with control and repeat on the other side when appropriate."
+        "Lie on your side with your knees bent to about ninety degrees and stacked.",
+        "Stretch both arms out in front of you at shoulder height, palms together.",
+        "Keeping the knees down, open the top arm across your body and follow it with your eyes.",
+        "Return slowly and repeat for the planned repetitions, then swap sides."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the knees roll open, which turns it into a lower back twist.",
+        "Rushing the movement rather than letting the upper back open gradually.",
+        "Holding the breath through the rotation."
       ],
       "coachingCues": [
-        "Move with your breath.",
-        "No bouncing.",
-        "Comfortable range only."
+        "Knees stay stacked and down.",
+        "Lead with the eyes, then the arm.",
+        "Exhale as you open."
       ],
       "safetyNotes": [
-        "Stretch sensation is acceptable; sharp joint pain is not.",
-        "Use small ranges when returning from injury."
+        "Rest the knees on a cushion if holding them down is uncomfortable.",
+        "Movement should be felt in the upper back, not the lower back."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -2006,23 +2064,24 @@
       "difficulty": "Intermediate",
       "forceType": "Mobility",
       "executionSteps": [
-        "Move into the starting position slowly and breathe out.",
-        "Explore the range without forcing the joint or bouncing.",
-        "Return with control and repeat on the other side when appropriate."
+        "Loop a band around a low anchor and around the front of your ankle, just below the joint line.",
+        "Step away so the band pulls your ankle back toward the anchor.",
+        "Put that foot on a low step and drive your knee forward over your toes, keeping the heel down.",
+        "Rock in and out of the position for the planned repetitions, then swap sides."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Letting the heel lift as the knee travels forward.",
+        "Placing the band across the foot rather than just below the ankle joint.",
+        "Forcing the range instead of easing into it."
       ],
       "coachingCues": [
-        "Move with your breath.",
-        "No bouncing.",
-        "Comfortable range only."
+        "Heel stays glued down.",
+        "Knee travels over the second toe.",
+        "Gentle rocking, not forcing."
       ],
       "safetyNotes": [
-        "Stretch sensation is acceptable; sharp joint pain is not.",
-        "Use small ranges when returning from injury."
+        "Check the band for damage and make sure the anchor is secure.",
+        "This should feel like a stretch at the front of the ankle, not pinching or pain."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."
@@ -2040,23 +2099,24 @@
       "difficulty": "Beginner",
       "forceType": "Mobility",
       "executionSteps": [
-        "Move into the starting position slowly and breathe out.",
-        "Explore the range without forcing the joint or bouncing.",
-        "Return with control and repeat on the other side when appropriate."
+        "Stand with your back against a wall and your feet a short step away from it.",
+        "Place your forearms on the wall with your elbows at about shoulder height.",
+        "Keep your lower back gently pressed toward the wall and slide your arms upward.",
+        "Slide back down under control, stopping wherever contact with the wall is lost."
       ],
       "commonMistakes": [
-        "Rushing the setup before the brace is established.",
-        "Using momentum instead of owning the full range.",
-        "Letting discomfort turn into sharp or pinching pain."
+        "Arching the lower back away from the wall to gain more range.",
+        "Letting the forearms come off the wall as the arms rise.",
+        "Shrugging the shoulders toward the ears."
       ],
       "coachingCues": [
-        "Move with your breath.",
-        "No bouncing.",
-        "Comfortable range only."
+        "Ribs down, back near the wall.",
+        "Forearms stay in contact.",
+        "Stop where the contact stops."
       ],
       "safetyNotes": [
-        "Stretch sensation is acceptable; sharp joint pain is not.",
-        "Use small ranges when returning from injury."
+        "Range is limited by what you can do without arching; do not chase a higher reach.",
+        "Stop if the shoulder pinches at the top of the slide."
       ],
       "isUnilateral": false,
       "provenance": "Original Forge seed content written from scratch for the offline catalogue."

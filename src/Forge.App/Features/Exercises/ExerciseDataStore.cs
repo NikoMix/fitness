@@ -1,29 +1,49 @@
 using Forge.App.Composition;
 using Forge.Core.Abstractions.Data;
+using Forge.Domain.Profile;
 using Forge.Domain.Training;
 
 namespace Forge.App.Features.Exercises;
 
 internal sealed class ExerciseDataStore(ForgeStartupService startup, IDataSessionFactory sessions) : IExerciseDataStore
 {
-    public async Task<ExerciseDataResult<IReadOnlyList<Exercise>>> ListAsync(CancellationToken cancellationToken)
+    public async Task<ExerciseDataResult<ExerciseLibrarySnapshot>> LoadLibraryAsync(CancellationToken cancellationToken)
     {
         try
         {
             var startupError = await EnsureStartupAsync(cancellationToken).ConfigureAwait(false);
             if (startupError is not null)
             {
-                return ExerciseDataResult.Failure<IReadOnlyList<Exercise>>(startupError);
+                return ExerciseDataResult.Failure<ExerciseLibrarySnapshot>(startupError);
             }
 
+            // One session, so the catalogue and the profile are read through a single context
+            // rather than opening a second SQLite connection for one screen.
             await using var session = sessions.Create();
             var exercises = await session.Repository<Exercise>().ListAsync(cancellationToken).ConfigureAwait(false);
-            return ExerciseDataResult.Success<IReadOnlyList<Exercise>>(exercises);
+            var profiles = await session.Repository<UserProfile>().ListAsync(cancellationToken).ConfigureAwait(false);
+
+            var declaration = profiles
+                .OrderBy(profile => profile.CreatedUtc)
+                .FirstOrDefault()?
+                .AvailableEquipment;
+
+            return ExerciseDataResult.Success(
+                new ExerciseLibrarySnapshot(exercises, EquipmentAvailability.FromDeclaration(declaration)));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return ExerciseDataResult.Failure<IReadOnlyList<Exercise>>(CreateErrorMessage(ex));
+            return ExerciseDataResult.Failure<ExerciseLibrarySnapshot>(CreateErrorMessage(ex));
         }
+    }
+
+    public async Task<ExerciseDataResult<IReadOnlyList<Exercise>>> ListAsync(CancellationToken cancellationToken)
+    {
+        var result = await LoadLibraryAsync(cancellationToken).ConfigureAwait(false);
+        return result.Succeeded && result.Value is not null
+            ? ExerciseDataResult.Success(result.Value.Exercises)
+            : ExerciseDataResult.Failure<IReadOnlyList<Exercise>>(
+                result.ErrorMessage ?? "The exercise library could not be loaded.");
     }
 
     public async Task<ExerciseDataResult<Exercise?>> FindAsync(string identifier, CancellationToken cancellationToken)
@@ -55,12 +75,15 @@ internal sealed class ExerciseDataStore(ForgeStartupService startup, IDataSessio
                 return ExerciseDataResult.Failure<Exercise>(startupError);
             }
 
+            // Set here rather than trusted from the caller. The flag is what stops a catalogue
+            // refresh from overwriting the user's own movements, so it must not depend on every
+            // call site remembering to set it.
             exercise.IsUserCreated = true;
             await using var session = sessions.Create();
             await session.Repository<Exercise>().AddAsync(exercise, cancellationToken).ConfigureAwait(false);
             await session.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            return ExerciseDataResult.Success<Exercise>(exercise);
+            return ExerciseDataResult.Success(exercise);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -84,7 +107,7 @@ internal sealed class ExerciseDataStore(ForgeStartupService startup, IDataSessio
             await session.Repository<Exercise>().UpdateAsync(exercise, cancellationToken).ConfigureAwait(false);
             await session.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            return ExerciseDataResult.Success<Exercise>(exercise);
+            return ExerciseDataResult.Success(exercise);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -107,7 +130,7 @@ internal sealed class ExerciseDataStore(ForgeStartupService startup, IDataSessio
             var exercise = await repository.GetAsync(id, cancellationToken).ConfigureAwait(false);
             if (exercise is null)
             {
-                return ExerciseDataResult.Success<bool>(false);
+                return ExerciseDataResult.Success(false);
             }
 
             if (!exercise.IsUserCreated)
@@ -118,7 +141,7 @@ internal sealed class ExerciseDataStore(ForgeStartupService startup, IDataSessio
             await repository.SoftDeleteAsync(id, cancellationToken).ConfigureAwait(false);
             await session.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            return ExerciseDataResult.Success<bool>(true);
+            return ExerciseDataResult.Success(true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
