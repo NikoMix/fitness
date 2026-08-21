@@ -74,7 +74,9 @@ public sealed partial class ProfileViewModel : ObservableObject
     private bool hasWeightHistory;
 
     [ObservableProperty]
-    private bool hasGaps;    [ObservableProperty]
+    private bool hasGaps;
+
+    [ObservableProperty]
     private double completionProgress;
 
     [ObservableProperty]
@@ -85,6 +87,14 @@ public sealed partial class ProfileViewModel : ObservableObject
 
     [ObservableProperty]
     private string editActionText = "Edit profile";
+
+    /// <summary>How many profiles share this device, and what that means.</summary>
+    [ObservableProperty]
+    private string profileSwitcherSummary = "Add another profile if someone else uses this device.";
+
+    /// <summary>Label for the action that opens the profile switcher.</summary>
+    [ObservableProperty]
+    private string profileSwitcherActionText = "Manage profiles";
 
     partial void OnHasWeightHistoryChanged(bool value) => OnPropertyChanged(nameof(HasNoWeightHistory));
 
@@ -137,6 +147,7 @@ public sealed partial class ProfileViewModel : ObservableObject
             DisplayName = DescribeName(snapshot.Profile.DisplayName);
             GoalSummary = FormatGoal(snapshot.Profile);
             TrainingSummary = FormatTraining(snapshot.Profile);
+            DescribeProfileSharing(snapshot);
 
             BuildMetrics(snapshot.Profile, latestMetric, formatter);
             BuildHistory(snapshot.BodyMetrics, formatter);
@@ -172,6 +183,23 @@ public sealed partial class ProfileViewModel : ObservableObject
     /// <summary>Opens the body-metric trend surface owned by the Insights feature.</summary>
     [RelayCommand]
     private static Task OpenBodyMetricsAsync() => Shell.Current.GoToAsync(ForgeRoutes.BodyMetrics);
+
+    /// <summary>Opens the local profile switcher.</summary>
+    [RelayCommand]
+    private static Task SwitchProfileAsync() => Shell.Current.GoToAsync(ForgeRoutes.ProfileSwitcher);
+
+    private void DescribeProfileSharing(ProfileSnapshot snapshot)
+    {
+        // Stated on the profile summary rather than only inside the switcher, because on a shared
+        // device the first question is "is this screen showing me?" and the answer has to be
+        // visible without navigating anywhere.
+        ProfileSwitcherActionText = snapshot.IsShared ? "Switch or manage profiles" : "Manage profiles";
+        ProfileSwitcherSummary = snapshot.IsShared
+            ? string.Create(
+                CultureInfo.CurrentCulture,
+                $"{snapshot.ProfileCount} profiles share this device. {ProfileDataAreas.SummariseSeparation()}")
+            : "Add another profile if someone else uses this device.";
+    }
 
     private void BuildMetrics(UserProfile profile, BodyMetric? latestMetric, IUnitFormatter unitFormatter)
     {

@@ -4,7 +4,7 @@ using Forge.Domain.Measurement;
 namespace Forge.Domain.Profile;
 
 /// <summary>A timestamped body measurement entry.</summary>
-public sealed class BodyMetric : Entity
+public sealed class BodyMetric : Entity, IProfileOwned
 {
     /// <summary>The profile this measurement belongs to.</summary>
     public required Guid UserProfileId { get; init; }

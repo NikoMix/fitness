@@ -1,5 +1,31 @@
 namespace Forge.Domain.Profile;
 
+/// <summary>
+/// What a local profile is for.
+/// </summary>
+/// <remarks>
+/// Deliberately two values rather than a separate demo mode with its own storage. A guest is an
+/// ordinary profile that is labelled, is never auto-selected on launch, and can be emptied in one
+/// action; everything else about it - training, logging, deletion - behaves identically. Anything
+/// more elaborate would mean a second code path through persistence, and a second code path is
+/// where a real user's data eventually gets written into demo storage or wiped with it.
+/// </remarks>
+public enum ProfileKind
+{
+    /// <summary>A profile belonging to somebody who uses this device.</summary>
+    Personal,
+
+    /// <summary>
+    /// A throwaway profile for showing the app to somebody else.
+    /// </summary>
+    /// <remarks>
+    /// The case this exists for is a coach demonstrating Forge on their own phone. Without it they
+    /// either pollute their own history with fake sets or hand over a device showing their real
+    /// body weight and training log.
+    /// </remarks>
+    Guest,
+}
+
 /// <summary>Biological sex used only where physiology formulas require it.</summary>
 public enum BiologicalSex
 {

@@ -72,6 +72,18 @@
 
             <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasProfile}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Profiles on this device" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding ProfileSwitcherSummary}" Style="{StaticResource BodyText}" />
+                    <dx:DXButton Content="{Binding ProfileSwitcherActionText}"
+                                 SemanticProperties.Description="{Binding ProfileSwitcherActionText}"
+                                 Command="{Binding SwitchProfileCommand}"
+                                 Style="{StaticResource TextButton}"
+                                 HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasProfile}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="Goal" Style="{StaticResource TitleText}" />
                     <Label Text="{Binding GoalSummary}" Style="{StaticResource BodyText}" />
                     <Label Text="Forge keeps goal changes gradual and explains, rather than silently adjusting, any nutrition target outside its safety guardrails."
