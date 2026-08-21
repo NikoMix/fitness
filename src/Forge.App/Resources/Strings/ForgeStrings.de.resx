@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Forge display strings - German.
+
+    Translated from the English source file. Terms flagged for a native-speaker review are listed
+    in docs/localization/adding-a-locale.md; "Imperial" is kept because German fitness apps use
+    the English term, but it is the one entry here worth a second opinion rather than a guess.
+
+    Every key present in ForgeStrings.resx must be present here. A key that is missing falls back
+    to English rather than rendering blank, and ForgeStringResourcesTests fails the build so the
+    gap is never silent.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="app.name" xml:space="preserve">
+    <value>Forge</value>
+    <comment>Product name. Deliberately identical to the English entry.</comment>
+  </data>
+  <data name="common.back" xml:space="preserve">
+    <value>Zurück</value>
+  </data>
+  <data name="common.cancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="common.done" xml:space="preserve">
+    <value>Fertig</value>
+  </data>
+  <data name="common.imperial" xml:space="preserve">
+    <value>Imperial</value>
+    <comment>Kept in English. German fitness apps use "Imperial" rather than "angloamerikanisch"; worth confirming with a native speaker.</comment>
+  </data>
+  <data name="common.metric" xml:space="preserve">
+    <value>Metrisch</value>
+  </data>
+  <data name="common.save" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="settings.language.applies-immediately" xml:space="preserve">
+    <value>Änderungen werden sofort übernommen. Forge muss nicht neu gestartet werden.</value>
+  </data>
+  <data name="settings.language.available" xml:space="preserve">
+    <value>Verfügbare Sprachen</value>
+  </data>
+  <data name="settings.language.current" xml:space="preserve">
+    <value>Forge wird derzeit auf {0} angezeigt.</value>
+    <comment>{0} ist ein Sprachname in der jeweiligen Sprache, zum Beispiel "Deutsch".</comment>
+  </data>
+  <data name="settings.language.description" xml:space="preserve">
+    <value>Wählen Sie die Sprache, in der Forge angezeigt wird.</value>
+  </data>
+  <data name="settings.language.follow-system" xml:space="preserve">
+    <value>Gerätesprache verwenden</value>
+  </data>
+  <data name="settings.language.follow-system.description" xml:space="preserve">
+    <value>Forge übernimmt die Sprache, die auf Ihrem Gerät eingestellt ist.</value>
+  </data>
+  <data name="settings.language.heading" xml:space="preserve">
+    <value>Anzeigesprache</value>
+  </data>
+  <data name="settings.language.preview.body-weight" xml:space="preserve">
+    <value>Körpergewicht</value>
+  </data>
+  <data name="settings.language.preview.date" xml:space="preserve">
+    <value>Datum</value>
+  </data>
+  <data name="settings.language.preview.duration" xml:space="preserve">
+    <value>Dauer</value>
+  </data>
+  <data name="settings.language.preview.energy" xml:space="preserve">
+    <value>Energie</value>
+  </data>
+  <data name="settings.language.preview.heading" xml:space="preserve">
+    <value>Vorschau der Formatierung</value>
+  </data>
+  <data name="settings.language.preview.number" xml:space="preserve">
+    <value>Zahl</value>
+  </data>
+  <data name="settings.language.preview.percent" xml:space="preserve">
+    <value>Prozentsatz</value>
+  </data>
+  <data name="settings.language.title" xml:space="preserve">
+    <value>Sprache</value>
+  </data>
+  <data name="settings.language.unit-system" xml:space="preserve">
+    <value>Maßsystem</value>
+  </data>
+  <data name="settings.language.units-note" xml:space="preserve">
+    <value>Maßeinheiten sind eine eigene Einstellung. Forge verwendet derzeit {0}; ein Sprachwechsel ändert daran nichts.</value>
+    <comment>{0} ist ein Maßsystem, zum Beispiel "Metrisch".</comment>
+  </data>
+</root>
