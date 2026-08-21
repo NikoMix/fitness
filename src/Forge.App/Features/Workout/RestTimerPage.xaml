@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             x:Class="Forge.App.Features.Workout.RestTimerPage"
+             Title="Rest"
+             Shell.TabBarIsVisible="False"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+            <Label Text="{Binding ExerciseText}"
+                   Style="{StaticResource TitleText}"
+                   HorizontalTextAlignment="Center"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="{Binding ReasonText}"
+                   Style="{StaticResource SecondaryText}"
+                   HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+
+        <Grid Grid.Row="1" VerticalOptions="Center">
+            <dx:RadialProgressBar Value="{Binding Progress}"
+                                  StartAngle="-90"
+                                  SweepAngle="360"
+                                  HeightRequest="260"
+                                  WidthRequest="260"
+                                  HorizontalOptions="Center"
+                                  SemanticProperties.Description="Rest countdown progress" />
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="{StaticResource SpaceXs}">
+                <Label Text="{Binding RemainingText}"
+                       FontSize="{StaticResource FontMetricLarge}"
+                       FontAttributes="Bold"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{dx:ThemeColor OnSurface}"
+                       SemanticProperties.Description="Time remaining in this rest" />
+                <Label Text="{Binding EndsAtText}"
+                       Style="{StaticResource CaptionText}"
+                       HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <VerticalStackLayout Grid.Row="2" Spacing="{StaticResource SpaceM}">
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
+                <dx:DXButton Content="−30"
+                             Style="{StaticResource SecondaryButton}"
+                             MinimumHeightRequest="{StaticResource TouchTargetPrimary}"
+                             SemanticProperties.Description="Take thirty seconds off the rest"
+                             Command="{Binding AdjustCommand}"
+                             CommandParameter="-30" />
+                <dx:DXButton Grid.Column="1"
+                             Content="+30"
+                             Style="{StaticResource SecondaryButton}"
+                             MinimumHeightRequest="{StaticResource TouchTargetPrimary}"
+                             SemanticProperties.Description="Add thirty seconds to the rest"
+                             Command="{Binding AdjustCommand}"
+                             CommandParameter="30" />
+                <dx:DXButton Grid.Column="2"
+                             Content="+60"
+                             Style="{StaticResource SecondaryButton}"
+                             MinimumHeightRequest="{StaticResource TouchTargetPrimary}"
+                             SemanticProperties.Description="Add sixty seconds to the rest"
+                             Command="{Binding AdjustCommand}"
+                             CommandParameter="60" />
+            </Grid>
+            <dx:DXButton Content="Skip rest and lift"
+                         Style="{StaticResource WorkoutActionButton}"
+                         SemanticProperties.Description="Skip rest and return to the workout"
+                         SemanticProperties.Hint="Ends the rest now and goes back to logging"
+                         Command="{Binding SkipCommand}" />
+            <dx:DXButton Content="Back to workout"
+                         Style="{StaticResource TextButton}"
+                         SemanticProperties.Description="Back to workout without ending the rest"
+                         Command="{Binding BackToWorkoutCommand}" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

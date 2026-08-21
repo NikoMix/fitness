@@ -31,13 +31,29 @@ public static class WorkoutFeatureRegistration
         services.AddSingleton<IRestNotificationScheduler, RestNotificationScheduler>();
         services.AddSingleton<IWorkoutPersistenceService, WorkoutPersistenceService>();
 
+        // One workout is in progress at a time and several screens act on it, so the session,
+        // the rep counter and the equipment stores are shared rather than per-page.
+        services.AddSingleton<IActiveWorkoutSession, ActiveWorkoutSession>();
+        services.AddSingleton<IExerciseRestPreferences, ExerciseRestPreferences>();
+        services.AddSingleton<IPlateInventoryStore, PlateInventoryStore>();
+        services.AddSingleton<IRepCountingService, RepCountingService>();
+
         services.AddTransient<ActiveWorkoutPageViewModel>();
         services.AddTransient<ActiveWorkoutPage>();
         services.AddTransient<WorkoutSummaryPageViewModel>();
         services.AddTransient<WorkoutSummaryPage>();
+        services.AddTransient<RestTimerPageViewModel>();
+        services.AddTransient<RestTimerPage>();
+        services.AddTransient<PlateCalculatorPageViewModel>();
+        services.AddTransient<PlateCalculatorPage>();
+        services.AddTransient<WorkoutHistoryPageViewModel>();
+        services.AddTransient<WorkoutHistoryPage>();
 
         Routing.RegisterRoute(ForgeRoutes.ActiveWorkout, typeof(ActiveWorkoutPage));
         Routing.RegisterRoute(ForgeRoutes.WorkoutSummary, typeof(WorkoutSummaryPage));
+        Routing.RegisterRoute(ForgeRoutes.RestTimer, typeof(RestTimerPage));
+        Routing.RegisterRoute(ForgeRoutes.PlateCalculator, typeof(PlateCalculatorPage));
+        Routing.RegisterRoute(ForgeRoutes.WorkoutHistory, typeof(WorkoutHistoryPage));
 
         return services;
     }

@@ -64,6 +64,12 @@ public sealed partial class WorkoutSummaryPageViewModel(IWorkoutClock clock, IWo
                 Records.Add("No PRs today — consistency still compounds.");
             }
         }
+        catch (Exception ex)
+        {
+            // Deliberately broad. The workout has already been saved by the time this screen runs,
+            // so a failure to summarise it must not look like the session was lost.
+            Comparison = $"Your workout was saved, but Forge could not summarise it: {ex.Message}";
+        }
         finally
         {
             IsBusy = false;
