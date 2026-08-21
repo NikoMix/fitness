@@ -47,6 +47,9 @@ public static class ForgeRoutes
     /// <summary>Biometric or PIN app-lock screen.</summary>
     public const string AppLock = "app-lock";
 
+    /// <summary>Configure the optional app lock: enable it and choose the grace period.</summary>
+    public const string AppLockSettings = "settings-app-lock";
+
     /// <summary>Local profile selection when more than one profile exists on the device.</summary>
     public const string ProfileSwitcher = "profile-switcher";
 

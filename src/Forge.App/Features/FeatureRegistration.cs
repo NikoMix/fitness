@@ -12,6 +12,8 @@ using Forge.App.Features.Plans;
 using Forge.App.Features.Profile;
 using Forge.App.Features.Progress;
 using Forge.App.Features.Scanning;
+using Forge.App.Features.Security;
+using Forge.App.Features.Settings.Localization;
 using Forge.App.Features.Settings;
 using Forge.App.Features.Shop;
 using Forge.App.Features.Today;
@@ -53,6 +55,7 @@ public static class FeatureRegistration
             .AddHydrationFeature()
             .AddInsightsFeature()
             .AddLegalFeature()
+            .AddLocalizationFeature()
             .AddMediaFeature()
             .AddNutritionFeature()
             .AddOnboardingFeature()
@@ -60,6 +63,7 @@ public static class FeatureRegistration
             .AddProfileFeature()
             .AddProgressFeature()
             .AddScanningFeature()
+            .AddSecurityFeature()
             .AddSettingsFeature()
             .AddShopFeature()
             .AddTodayFeature()

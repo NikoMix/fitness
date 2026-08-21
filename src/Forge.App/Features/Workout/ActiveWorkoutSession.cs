@@ -1,3 +1,4 @@
+using Forge.Core.Abstractions.Security;
 using Forge.Domain.Workout;
 
 namespace Forge.App.Features.Workout;
@@ -98,10 +99,24 @@ public interface IActiveWorkoutSession
 internal sealed class ActiveWorkoutSession(
     IWorkoutClock clock,
     IWorkoutPersistenceService persistence,
-    IRestNotificationScheduler restNotifications) : IActiveWorkoutSession
+    IRestNotificationScheduler restNotifications,
+    IAppLockActivityContext appLockActivity) : IActiveWorkoutSession
 {
     private readonly Lock persistenceGate = new();
     private Task persistenceTail = Task.CompletedTask;
+
+    // Holding this scope is what tells the app lock a workout is in progress, which stretches the
+    // lock grace period to a floor of 15 minutes.
+    //
+    // Without it the allowance is dead code and the setting silently does nothing. That matters
+    // because a workout backgrounds the app constantly - screen off between sets, changing a
+    // track, answering a message - and coming back to a biometric prompt with chalked hands, mid
+    // set, with a rest timer running, is how a user turns the lock off for good.
+    //
+    // The scope lives here rather than on a page because it must track the WORKOUT, not the
+    // screen. The logging page and the full-screen rest timer are separate pages over one
+    // session, so a page-scoped lifetime would end the moment the user opened the rest timer.
+    private IDisposable? activityScope;
 
     /// <inheritdoc />
     public event EventHandler? RestChanged;
@@ -120,11 +135,16 @@ internal sealed class ActiveWorkoutSession(
     {
         var result = await persistence.LoadOrStartAsync(exerciseCatalogue, clock.UtcNow, cancellationToken);
         State = result.State;
+        activityScope ??= appLockActivity.BeginActivity();
         return result;
     }
 
     /// <inheritdoc />
-    public void Reset() => State = null;
+    public void Reset()
+    {
+        State = null;
+        EndActivityScope();
+    }
 
     /// <inheritdoc />
     public Task SaveStateAsync(CancellationToken cancellationToken)
@@ -242,6 +262,12 @@ internal sealed class ActiveWorkoutSession(
             return false;
         }
 
+        // The workout is over, so the app lock's workout allowance must end with it. Discard
+        // reaches this through Reset; completing does not clear State (the summary screen still
+        // reads it), so the scope is released explicitly. Leaking it would leave the lock on a
+        // 15-minute grace for the rest of the process lifetime.
+        EndActivityScope();
+
         RestChanged?.Invoke(this, EventArgs.Empty);
         return true;
     }
@@ -276,8 +302,14 @@ internal sealed class ActiveWorkoutSession(
         return true;
     }
 
-    private Task Enqueue(Func<CancellationToken, Task> operation)
+    /// <summary>Releases the app-lock workout allowance, if one is held.</summary>
+    private void EndActivityScope()
     {
+        activityScope?.Dispose();
+        activityScope = null;
+    }
+
+    private Task Enqueue(Func<CancellationToken, Task> operation)    {
         lock (persistenceGate)
         {
             var queued = persistenceTail.ContinueWith(

@@ -64,7 +64,7 @@ public static class SecurityFeatureRegistration
         services.AddTransient<AppLockSettingsPage>();
 
         Routing.RegisterRoute(ForgeRoutes.AppLock, typeof(AppLockPage));
-        Routing.RegisterRoute(SecurityRoutes.AppLockSettings, typeof(AppLockSettingsPage));
+        Routing.RegisterRoute(ForgeRoutes.AppLockSettings, typeof(AppLockSettingsPage));
 
         return services;
     }
