@@ -12,6 +12,21 @@ public interface IHealthDataService
 {
     Task<HealthAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Reports current authorization state without prompting and without reading data.</summary>
+    /// <param name="dataTypes">Categories to report on.</param>
+    /// <param name="cancellationToken">Cancels the query.</param>
+    /// <returns>The permission state as the platform will admit to it.</returns>
+    /// <remarks>
+    /// Exists so a settings screen can render without issuing a data read. The obvious shortcut -
+    /// calling <see cref="ReadAsync"/> over an empty window and keeping only its permission map -
+    /// does not work: Health Connect rejects a <c>TimeRangeFilter</c> whose end is not strictly
+    /// after its start, so the probe throws and the screen reports a broken integration on a
+    /// perfectly healthy device.
+    /// </remarks>
+    Task<HealthPermissionResult> GetPermissionsAsync(
+        IReadOnlyCollection<HealthDataType> dataTypes,
+        CancellationToken cancellationToken = default);
+
     Task<HealthPermissionResult> RequestAuthorizationAsync(
         IReadOnlyCollection<HealthDataType> dataTypes,
         CancellationToken cancellationToken = default);

@@ -14,6 +14,18 @@ public sealed class UnavailableHealthDataService : IHealthDataService
         return Task.FromResult(HealthAvailability.NotSupportedOnPlatform);
     }
 
+    public Task<HealthPermissionResult> GetPermissionsAsync(
+        IReadOnlyCollection<HealthDataType> dataTypes,
+        CancellationToken cancellationToken = default)
+    {
+        GC.KeepAlive(instanceMarker);
+        return Task.FromResult(new HealthPermissionResult(
+            HealthAvailability.NotSupportedOnPlatform,
+            dataTypes.ToDictionary(type => type, _ => HealthPermissionStatus.Unavailable),
+            ManualEntryAvailable: true,
+            Message: FallbackMessage));
+    }
+
     public Task<HealthPermissionResult> RequestAuthorizationAsync(
         IReadOnlyCollection<HealthDataType> dataTypes,
         CancellationToken cancellationToken = default)

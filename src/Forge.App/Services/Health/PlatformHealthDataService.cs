@@ -8,6 +8,10 @@ public sealed partial class PlatformHealthDataService : IHealthDataService, IDis
 {
     public partial Task<HealthAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default);
 
+    public partial Task<HealthPermissionResult> GetPermissionsAsync(
+        IReadOnlyCollection<HealthDataType> dataTypes,
+        CancellationToken cancellationToken = default);
+
     public partial Task<HealthPermissionResult> RequestAuthorizationAsync(
         IReadOnlyCollection<HealthDataType> dataTypes,
         CancellationToken cancellationToken = default);

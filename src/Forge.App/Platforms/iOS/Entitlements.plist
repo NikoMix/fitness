@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    iOS entitlements.
+
+    HealthKit does nothing without com.apple.developer.healthkit. The API compiles, the
+    authorization sheet never appears, and every read comes back empty - which is
+    indistinguishable from a user refusal, so the failure is invisible until someone checks the
+    provisioning profile. The entitlement must also be enabled on the App ID in the Apple
+    Developer portal and present in the provisioning profile used to sign the build.
+
+    com.apple.developer.healthkit.access is intentionally an empty array. It is the opt-in for
+    clinical health records, which Forge does not read. Listing it empty states that explicitly
+    rather than leaving reviewers to infer it.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+	<key>com.apple.developer.healthkit.access</key>
+	<array/>
+</dict>
+</plist>

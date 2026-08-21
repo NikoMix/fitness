@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Health.HealthConnectionsPage"
+             Title="Health connections"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <ScrollView>
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <Label Text="Health connections"
+                   Style="{StaticResource HeadlineText}"
+                   SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Forge reads only what it needs, keeps every reading on this device, and never sends health data anywhere."
+                   Style="{StaticResource SecondaryText}" />
+
+            <controls:SkeletonPlaceholder IsBusy="{Binding IsBusy}" HeightRequest="120" />
+
+            <dx:DXBorder Style="{StaticResource ElevatedCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="{Binding Headline}"
+                           Style="{StaticResource TitleText}"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="{Binding Explanation}" Style="{StaticResource BodyText}" />
+                    <Label Text="{Binding LastImportSummary}"
+                           Style="{StaticResource SecondaryText}"
+                           IsVisible="{Binding HasLastImportSummary}" />
+
+                    <dx:DXButton Content="Connect health data"
+                                 SemanticProperties.Description="Connect health data and choose which categories to share"
+                                 Style="{StaticResource PrimaryButton}"
+                                 IsEnabled="{Binding CanConnect}"
+                                 Command="{Binding ConnectCommand}" />
+                    <dx:DXButton Content="Refresh now"
+                                 SemanticProperties.Description="Import the last seven days again"
+                                 Style="{StaticResource SecondaryButton}"
+                                 IsEnabled="{Binding CanConnect}"
+                                 Command="{Binding RefreshCommand}" />
+                    <dx:DXButton Content="Forget sync history"
+                                 SemanticProperties.Description="Forget sync history and stop showing this as connected"
+                                 Style="{StaticResource TextButton}"
+                                 Command="{Binding DisconnectCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <!--
+                Shown only where the platform refuses to confirm read permission. It is an advisory
+                surface rather than an error one: nothing is broken, Forge simply will not claim
+                something it cannot verify.
+            -->
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding HasUnverifiablePermission}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Why some categories say &quot;cannot be confirmed&quot;"
+                           Style="{StaticResource TitleText}"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="{Binding UnverifiableExplanation}" Style="{StaticResource BodyText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <Label Text="What Forge reads" Style="{StaticResource SectionHeaderText}" />
+            <dx:DXCollectionView ItemsSource="{Binding Rows}" HeightRequest="520">
+                <dx:DXCollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <dx:DXBorder Style="{StaticResource ListRow}">
+                            <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
+                                    <Label Text="{Binding DisplayName}"
+                                           Style="{StaticResource BodyText}"
+                                           FontAttributes="Bold" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding StatusLabel}"
+                                           Style="{StaticResource SecondaryText}"
+                                           VerticalTextAlignment="Center" />
+                                </Grid>
+                                <Label Text="{Binding Purpose}" Style="{StaticResource CaptionText}" />
+                                <Label Text="{Binding Explanation}" Style="{StaticResource CaptionText}" />
+                                <Label Text="{Binding LastSyncLabel}" Style="{StaticResource CaptionText}" />
+                            </VerticalStackLayout>
+                        </dx:DXBorder>
+                    </DataTemplate>
+                </dx:DXCollectionView.ItemTemplate>
+            </dx:DXCollectionView>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Workouts Forge sends back"
+                           Style="{StaticResource TitleText}"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="Sessions you finish in Forge are written to your health store so your rings and other fitness apps include them."
+                           Style="{StaticResource BodyText}" />
+                    <Label Text="Workout write-back is allowed."
+                           Style="{StaticResource SecondaryText}"
+                           IsVisible="{Binding CanWriteWorkouts}" />
+                    <Label Text="Workout write-back is not allowed yet. Forge still saves every session locally."
+                           Style="{StaticResource SecondaryText}"
+                           IsVisible="{Binding CannotWriteWorkouts}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <Label Text="Health data is special-category data under GDPR Article 9. Forge treats it that way: explicit consent per category, revocable at any time in your device's health settings, never logged and never used for advertising."
+                   Style="{StaticResource CaptionText}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
