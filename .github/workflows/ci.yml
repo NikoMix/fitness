@@ -120,6 +120,13 @@ jobs:
         shell: pwsh
         run: ./tools/legal/Test-LegalContentSync.ps1
 
+      # A language missing from CFBundleLocalizations is one iOS will never select, so its
+      # translations ship in the bundle and never appear. Nothing crashes and nothing warns - it
+      # just looks like the translation was never done.
+      - name: Verify localization manifests match the shipped languages
+        shell: pwsh
+        run: ./tools/ci/Test-LocalizationManifests.ps1
+
       - name: Test with coverlet coverage
         run: |
           dotnet test tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --no-build -c Release -- --results-directory artifacts/coverage/Domain --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml

@@ -14,6 +14,25 @@
 		<string>arm64</string>
 	</array>
 	<!--
+		Languages Forge ships translations for.
+
+		Without this list iOS assumes the app is available only in CFBundleDevelopmentRegion, so a
+		device set to German negotiates down to English and reports English to the app - the German
+		translations ship in the bundle and never appear. It also drives what the App Store listing
+		claims, so omitting it understates the product.
+
+		Keep in step with ForgeLanguages.All; tools/ci/Test-LocalizationManifests.ps1 fails the
+		build if they drift, because the symptom otherwise is a silent fallback to English that
+		looks like working software.
+	-->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>de</string>
+	</array>
+	<!--
 		HealthKit usage descriptions.
 
 		App Review rejects a HealthKit app whose purpose strings are generic, and iOS itself
