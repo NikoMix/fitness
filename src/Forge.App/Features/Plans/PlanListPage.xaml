@@ -2,12 +2,16 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Plans.PlanListPage"
              x:Name="Page"
              Title="Plans"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
+    <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}"
+                                  HorizontalOptions="Center"
+                                  WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" RowSpacing="{StaticResource SpaceL}">
         <VerticalStackLayout Spacing="{StaticResource SpaceM}">
             <Label Text="Training plans" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <Label Text="Start from a template or keep full control over your own programming." Style="{StaticResource SecondaryText}" />
@@ -29,6 +33,7 @@
                                  ActionText="Browse templates"
                                  ActionCommand="{Binding OpenTemplatesCommand}" />
             <dx:DXCollectionView ItemsSource="{Binding Plans}" IsVisible="{Binding HasPlans}">
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
             <dx:DXCollectionView.ItemTemplate>
                 <DataTemplate>
                     <controls:ForgeCard Title="{Binding Name}" Subtitle="{Binding Summary}">
@@ -46,4 +51,5 @@
             </dx:DXCollectionView>
         </Grid>
     </Grid>
+    </adaptive:AdaptiveHost>
 </ContentPage>

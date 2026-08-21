@@ -4,6 +4,7 @@ using Forge.App.Features.Media.Library;
 using Forge.Core.Abstractions.Media;
 using Forge.Infrastructure.Media;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Forge.App.Features.Media;
 
@@ -20,7 +21,7 @@ namespace Forge.App.Features.Media;
 /// must also be registered here, or navigating to it throws at runtime - CI enforces the
 /// pairing via tools/ci/Test-RouteRegistrations.ps1.
 /// </remarks>
-public static class MediaFeatureRegistration
+public static partial class MediaFeatureRegistration
 {
     /// <summary>Registers the Media feature.</summary>
     /// <param name="services">The service collection.</param>
@@ -40,7 +41,8 @@ public static class MediaFeatureRegistration
         // stays small and the user picks the fidelity they want. Platforms without that facility
         // fall back to a service that reports packs as unavailable instead of failing.
 #if ANDROID || IOS
-        services.AddSingleton<IMediaPackService, PlatformMediaPackService>();
+        services.AddSingleton<IMediaPackService>(provider => CreatePlatformPackService(
+            provider.GetRequiredService<ILogger<PlatformMediaPackService>>()));
 #else
         services.AddSingleton<IMediaPackService, UnavailableMediaPackService>();
 #endif
@@ -55,4 +57,46 @@ public static class MediaFeatureRegistration
 
         return services;
     }
+
+#if ANDROID || IOS
+    /// <summary>
+    /// Builds the platform pack service, degrading to "no video" if the store binding will not load.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The asset delivery bindings resolve native classes when the service is constructed, and a
+    /// mismatch between the binding and the version of the store library on the device surfaces as
+    /// a <see cref="TypeLoadException"/> or a Java linkage error rather than a return value. That
+    /// is currently reproducible on Android: the generated <c>PackStateListener</c> overrides
+    /// <c>onStateUpdate</c>, which is final in the Play Core class it derives from, and the JVM
+    /// rejects the class the moment it is loaded.
+    /// </para>
+    /// <para>
+    /// Video is explicitly optional in Forge and every exercise is written to be followable from
+    /// text alone, so an unusable delivery binding must cost the user the video and nothing else.
+    /// Before this guard it took the whole process down as soon as anything touched an exercise
+    /// that might have a demonstration, which on a tablet is the library itself.
+    /// </para>
+    /// </remarks>
+    /// <param name="logger">Records why delivery was disabled.</param>
+    /// <returns>The platform service, or the unavailable fallback.</returns>
+    private static IMediaPackService CreatePlatformPackService(ILogger<PlatformMediaPackService> logger)
+    {
+        try
+        {
+            return new PlatformMediaPackService();
+        }
+        catch (Exception ex)
+        {
+            LogDeliveryUnavailable(logger, ex);
+            return new UnavailableMediaPackService();
+        }
+    }
+
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Error,
+        Message = "Store asset delivery is unavailable; optional video packs are disabled.")]
+    private static partial void LogDeliveryUnavailable(ILogger logger, Exception exception);
+#endif
 }

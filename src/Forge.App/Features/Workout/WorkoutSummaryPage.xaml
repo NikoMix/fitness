@@ -2,12 +2,16 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Workout.WorkoutSummaryPage"
              Title="Workout summary"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
     <ScrollView>
-        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                             HorizontalOptions="Center"
+                             WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" Spacing="{StaticResource SpaceL}">
             <dx:DXBorder Style="{StaticResource ElevatedCard}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="✦" FontSize="{StaticResource FontMetricLarge}" HorizontalTextAlignment="Center" TextColor="{dx:ThemeColor Primary}" SemanticProperties.Description="Workout completed" />
@@ -18,6 +22,7 @@
 
             <controls:SectionHeader Title="Totals" />
             <dx:DXCollectionView ItemsSource="{Binding Metrics}" HeightRequest="190">
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <controls:StatRow Label="{Binding Label}" Value="{Binding Value}" />
@@ -27,6 +32,7 @@
 
             <controls:SectionHeader Title="Volume by muscle" />
             <dx:DXCollectionView ItemsSource="{Binding MuscleVolume}" HeightRequest="220">
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <controls:StatRow Label="{Binding Label}" Value="{Binding Value}" />
@@ -49,4 +55,5 @@
     SemanticProperties.Description="Done" Style="{StaticResource WorkoutActionButton}" Command="{Binding DoneCommand}" />
         </VerticalStackLayout>
     </ScrollView>
+    </adaptive:AdaptiveHost>
 </ContentPage>

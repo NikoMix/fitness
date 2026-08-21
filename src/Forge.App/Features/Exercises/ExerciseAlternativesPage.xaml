@@ -2,12 +2,16 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Exercises.ExerciseAlternativesPage"
              x:Name="Page"
              Title="Alternatives"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
+    <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}"
+                                  HorizontalOptions="Center"
+                                  WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" RowSpacing="{StaticResource SpaceL}">
 
         <VerticalStackLayout Spacing="{StaticResource SpaceS}">
             <Label Text="{Binding Title}"
@@ -55,6 +59,7 @@
                                  Message="{Binding Explanation}" />
 
             <dx:DXCollectionView ItemsSource="{Binding Alternatives}" IsVisible="{Binding HasAlternatives}">
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ListRow}">
@@ -81,4 +86,5 @@
             </dx:DXCollectionView>
         </Grid>
     </Grid>
+    </adaptive:AdaptiveHost>
 </ContentPage>

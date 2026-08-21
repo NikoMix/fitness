@@ -29,8 +29,23 @@
     <sys:Double x:Key="SpaceXxl">32</sys:Double>
     <sys:Double x:Key="SpaceXxxl">48</sys:Double>
 
-    <Thickness x:Key="PagePadding">20,16,20,24</Thickness>
-    <Thickness x:Key="CardPadding">16</Thickness>
+    <!--
+        Page padding is the one token that has to know about the device, because it is applied
+        directly by roughly forty pages rather than through a style. Widening it here is what gives
+        every screen - including the ones nobody edited - room to breathe on a tablet, where a
+        20pt gutter against a 1366pt display reads as an oversight.
+
+        The tablet value is kept deliberately modest. It also applies when an iPad is running Forge
+        in a 320pt Slide Over window, where anything generous would eat the content.
+    -->
+    <OnIdiom x:Key="PagePadding" x:TypeArguments="Thickness"
+             Default="20,16,20,24"
+             Phone="20,16,20,24"
+             Tablet="28,20,28,32" />
+    <OnIdiom x:Key="CardPadding" x:TypeArguments="Thickness"
+             Default="16"
+             Phone="16"
+             Tablet="20" />
     <Thickness x:Key="ListRowPadding">16,12</Thickness>
 
     <!-- Corner radii. Pill is deliberately large so it stays fully rounded at any height. -->
@@ -52,6 +67,16 @@
     <sys:Double x:Key="TouchTargetPrimary">64</sys:Double>
 
     <!--
+        Tablet touch targets grow, but only a little, and only the primary one.
+
+        48 is already an absolute minimum rather than a comfortable size, so it does not change:
+        making it larger on a tablet would not help anyone and would space every list row out for
+        no reason. The mid-set controls do grow, because a tablet propped on a gym floor is
+        further from the eye and further from the hand than a phone held at chest height.
+    -->
+    <sys:Double x:Key="TouchTargetPrimaryTablet">76</sys:Double>
+
+    <!--
         Type scale. Sizes are unscaled base values; MAUI applies the OS font-scale factor on
         top, so every layout must tolerate 200% scaling without truncation or overlap.
     -->
@@ -66,11 +91,34 @@
     <sys:Double x:Key="FontCaption">12</sys:Double>
 
     <!--
+        Tablet type scale.
+
+        The increase is deliberately sub-linear. A 13-inch iPad has roughly three times the area of
+        a phone but is held at most twice the distance, and body text that grows in proportion to
+        the screen looks like an accessibility setting left switched on. Headings move furthest
+        because a larger canvas needs a stronger hierarchy to stay navigable; body and caption move
+        barely at all, because their size is set by reading distance, not by the display.
+
+        Applied through OnIdiom in ForgeStyles.xaml so no page has to opt in.
+    -->
+    <sys:Double x:Key="FontDisplayTablet">42</sys:Double>
+    <sys:Double x:Key="FontHeadlineLTablet">34</sys:Double>
+    <sys:Double x:Key="FontHeadlineMTablet">29</sys:Double>
+    <sys:Double x:Key="FontTitleLTablet">23</sys:Double>
+    <sys:Double x:Key="FontTitleMTablet">19</sys:Double>
+    <sys:Double x:Key="FontBodyLTablet">17</sys:Double>
+    <sys:Double x:Key="FontBodyMTablet">15</sys:Double>
+    <sys:Double x:Key="FontLabelTablet">14</sys:Double>
+    <sys:Double x:Key="FontCaptionTablet">13</sys:Double>
+
+    <!--
         Metric display. Deliberately large: a working weight or a rest countdown must be
         readable at arm's length, on a bench, in bright gym lighting.
     -->
     <sys:Double x:Key="FontMetric">40</sys:Double>
     <sys:Double x:Key="FontMetricLarge">56</sys:Double>
+    <sys:Double x:Key="FontMetricTablet">52</sys:Double>
+    <sys:Double x:Key="FontMetricLargeTablet">76</sys:Double>
 
     <!--
         Motion.
@@ -85,9 +133,73 @@
     <sys:Int32 x:Key="MotionSlow">400</sys:Int32>
     <sys:Int32 x:Key="MotionCelebration">900</sys:Int32>
 
-    <!-- Layout breakpoints in device-independent units. -->
+    <!--
+        Layout breakpoints in device-independent units.
+
+        These are window widths, not device widths. On iPad the same hardware reports 1366, 981,
+        678 and 320 depending on how the user has arranged Split View and Slide Over, and Forge has
+        to be right in all four. The thresholds follow the Material 3 window size classes; Apple's
+        regular/compact size classes fall either side of the same boundaries closely enough that
+        one scale serves both stores.
+
+        Mirrored by Forge.Core.Adaptive.AdaptiveLayoutMetrics, which does the arithmetic. Change
+        both together, and the tests in Forge.Core.Tests will tell you if a real device moves class.
+    -->
     <sys:Double x:Key="BreakpointCompact">600</sys:Double>
     <sys:Double x:Key="BreakpointMedium">840</sys:Double>
+
+    <!--
+        Two panes are shown only when there is genuinely room for both, which is a stricter test
+        than the size class.
+
+        Width alone is not enough. A large phone in landscape is 932 points wide - wider than an
+        iPad in portrait Split View - and 430 points tall, and splitting it would leave two columns
+        four rows deep behind a keyboard. Requiring height as well is what keeps the phone layout
+        exactly as it was, in both orientations, while every real tablet passes in both.
+
+        740 is set just under the 744pt width of an iPad mini in portrait, so the smallest tablet
+        Forge will meet still gets the split rather than the phone layout blown up.
+    -->
+    <sys:Double x:Key="SplitMinimumWidth">740</sys:Double>
+    <sys:Double x:Key="SplitMinimumHeight">520</sys:Double>
+
+    <!--
+        Measures.
+
+        ReadingMeasure caps running prose at roughly 90 characters at body size. Past that the eye
+        loses the start of the next line on the return sweep, which is why an uncapped paragraph on
+        a 13-inch iPad is physically harder to read than the same paragraph on a phone.
+
+        ContentMeasure is the looser cap for a column of cards and controls, which tolerate more
+        width than a sentence does but still stop looking deliberate somewhere past a thousand
+        points.
+    -->
+    <sys:Double x:Key="ReadingMeasure">680</sys:Double>
+    <sys:Double x:Key="ContentMeasure">1040</sys:Double>
+
+    <!--
+        Split panes. The list is fixed and the detail takes the remainder, as in every platform's
+        own split view: a list row carries the same information at 360 points as it does at 700, so
+        growing it wastes the space the detail could have used.
+    -->
+    <sys:Double x:Key="ListPaneWidth">360</sys:Double>
+    <sys:Double x:Key="DetailPaneMinimumWidth">420</sys:Double>
+    <sys:Double x:Key="PaneGutter">24</sys:Double>
+
+    <!--
+        Wrapping card grids. Capped at three columns because a fourth stops reading as a layout and
+        starts reading as a table.
+    -->
+    <sys:Double x:Key="CardMinimumWidth">340</sys:Double>
+    <sys:Int32 x:Key="CardMaximumColumns">3</sys:Int32>
+
+    <!--
+        The plan schedule is the one grid with a natural column count rather than a comfortable
+        one: a training week is seven days, and a calendar that wraps at three reads as a list of
+        dates instead of a week. Below the width for seven it degrades to whatever fits.
+    -->
+    <sys:Double x:Key="ScheduleCellMinimumWidth">132</sys:Double>
+    <sys:Int32 x:Key="ScheduleMaximumColumns">7</sys:Int32>
 
     <!-- Opacity for disabled affordances, chosen to stay above a 3:1 contrast floor. -->
     <sys:Double x:Key="OpacityDisabled">0.38</sys:Double>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    Forge adaptive layout.
+
+    Forge ships one binary for phones and tablets, and the iOS Info.plist declares UIDeviceFamily
+    1 and 2, so App Review runs this app on an iPad. The rules below are what stop that being a
+    stretched phone layout.
+
+    The decision, in one line: adapt on measured window width, not on device idiom. An iPad is
+    1366, 981, 678 or 320 points wide depending on how the user has arranged Split View and Slide
+    Over, and it changes while the app is running. Type scale is the exception - a device's
+    physical size really is fixed - so that is the one thing keyed on OnIdiom, in ForgeStyles.xaml.
+
+    The full rationale, and the recipe for applying this to a page, is in
+    docs/design/tablet-layout.md.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    xmlns:dx="http://schemas.devexpress.com/maui"
+                    xmlns:adaptive="clr-namespace:Forge.App.Adaptive">
+
+    <!--
+        Every AdaptiveHost is tuned from the design tokens rather than from constants in C#. The
+        defaults compiled into the control exist only so it still behaves if it is ever built
+        outside the application's resource scope; this style is what actually configures it.
+    -->
+    <Style TargetType="adaptive:AdaptiveHost">
+        <Setter Property="HorizontalOptions" Value="Fill" />
+        <Setter Property="VerticalOptions" Value="Fill" />
+        <Setter Property="MediumBreakpoint" Value="{StaticResource BreakpointCompact}" />
+        <Setter Property="ExpandedBreakpoint" Value="{StaticResource BreakpointMedium}" />
+        <Setter Property="SplitMinimumWidth" Value="{StaticResource SplitMinimumWidth}" />
+        <Setter Property="SplitMinimumHeight" Value="{StaticResource SplitMinimumHeight}" />
+        <Setter Property="ReadingMeasure" Value="{StaticResource ReadingMeasure}" />
+        <Setter Property="ContentMeasure" Value="{StaticResource ContentMeasure}" />
+        <Setter Property="PreferredListPaneWidth" Value="{StaticResource ListPaneWidth}" />
+        <Setter Property="MinimumDetailPaneWidth" Value="{StaticResource DetailPaneMinimumWidth}" />
+        <Setter Property="PaneGutter" Value="{StaticResource PaneGutter}" />
+        <Setter Property="MinimumCardWidth" Value="{StaticResource CardMinimumWidth}" />
+        <Setter Property="MaximumCardColumns" Value="{StaticResource CardMaximumColumns}" />
+    </Style>
+
+    <!--
+        The measure-capped column.
+
+        Centring is only half of the answer, and on its own it is the lazy answer: a phone layout
+        centred in a box still looks like a phone layout in a box. It is applied to running prose
+        and to forms, where a second column would be inventing content that is not there, while
+        list-and-detail pages use SplitColumns instead and fill the width with something real.
+
+        Pages pair this with WidthRequest bound to the host's ReadingWidth or ContentWidth, which
+        returns -1 below the cap. That -1 is deliberate: on a phone the request is never applied at
+        all, so the layout is not merely equivalent to the old one, it is the same one.
+    -->
+    <Style x:Key="MeasuredColumn" TargetType="View">
+        <Setter Property="HorizontalOptions" Value="Center" />
+    </Style>
+
+    <!--
+        The grid that carries a list-and-detail split. ColumnDefinitions is bound per page to the
+        host's SplitColumns, which collapses to a single column when the window is too small.
+    -->
+    <Style x:Key="SplitLayout" TargetType="Grid">
+        <Setter Property="ColumnSpacing" Value="0" />
+    </Style>
+
+    <!--
+        The detail half of a split.
+
+        Given its own surface tone so the two panes read as two places rather than one long page
+        that happens to have a rule down the middle.
+    -->
+    <Style x:Key="DetailPane" TargetType="dx:DXBorder">
+        <Setter Property="BackgroundColor" Value="{dx:ThemeColor SurfaceContainerLowest}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusL}" />
+        <Setter Property="Padding" Value="{StaticResource SpaceL}" />
+    </Style>
+
+</ResourceDictionary>

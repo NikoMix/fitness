@@ -2,12 +2,16 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Coaching.MorningCheckInPage"
              Title="Morning check-in"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
     <ScrollView>
-        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                             HorizontalOptions="Center"
+                             WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ReadingWidth}" Spacing="{StaticResource SpaceL}">
             <Label Text="Morning check-in" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <Label Text="Rate each manual input from 1 to 5. Sleep can be manual or health-store sourced when available." Style="{StaticResource SecondaryText}" />
 
@@ -30,4 +34,5 @@
             </controls:ForgeCard>
         </VerticalStackLayout>
     </ScrollView>
+    </adaptive:AdaptiveHost>
 </ContentPage>

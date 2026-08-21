@@ -2,13 +2,24 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="Forge.App.Features.Media.ExerciseVideoPage"
              Title="Exercise video"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <!--
+        Full-screen playback is handled in code-behind and deliberately left alone: it already
+        fills whatever the window is. Only the guidance column below the player is capped, so a
+        demonstration still uses the whole 13-inch display while the description beside it stays
+        readable.
+    -->
+    <adaptive:AdaptiveHost x:Name="Adaptive">
     <Grid x:Name="RootGrid" RowDefinitions="Auto,*">
         <ScrollView x:Name="GuidanceScroll" Grid.Row="1">
-            <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+            <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                                 HorizontalOptions="Center"
+                                 WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}"
+                                 Spacing="{StaticResource SpaceL}">
                 <Label Text="{Binding Title}"
                        Style="{StaticResource HeadlineText}"
                        SemanticProperties.HeadingLevel="Level1" />
@@ -105,4 +116,5 @@
             </VerticalStackLayout>
         </ScrollView>
     </Grid>
+    </adaptive:AdaptiveHost>
 </ContentPage>

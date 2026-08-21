@@ -19,6 +19,7 @@
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
                 <ResourceDictionary Source="Resources/Styles/ForgeTokens.xaml" />
                 <ResourceDictionary Source="Resources/Styles/ForgeStyles.xaml" />
+                <ResourceDictionary Source="Resources/Styles/ForgeAdaptive.xaml" />
                 <ResourceDictionary Source="Resources/Styles/ForgeMotion.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

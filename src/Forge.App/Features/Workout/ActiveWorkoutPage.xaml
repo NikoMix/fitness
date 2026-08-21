@@ -2,13 +2,24 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Workout.ActiveWorkoutPage"
              x:Name="Page"
              Title="Active workout"
              Shell.TabBarIsVisible="False"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <Grid RowDefinitions="*,Auto" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceM}">
+    <!--
+        Deliberately the tight measure rather than the wide one. Everything on this screen is
+        touched between sets, one-handed and out of breath, so spreading the set controls across a
+        13-inch display would put the weight field and the tick a forearm apart. Wider is worse here.
+    -->
+    <adaptive:AdaptiveHost x:Name="Adaptive">
+    <Grid RowDefinitions="*,Auto"
+          Padding="{StaticResource PagePadding}"
+          HorizontalOptions="Center"
+          WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ReadingWidth}"
+          RowSpacing="{StaticResource SpaceM}">
         <ScrollView>
             <VerticalStackLayout Spacing="{StaticResource SpaceL}">
                 <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding HasRecoverableSession}">
@@ -349,4 +360,5 @@
             </VerticalStackLayout>
         </dx:BottomSheet>
     </Grid>
+    </adaptive:AdaptiveHost>
 </ContentPage>

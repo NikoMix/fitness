@@ -2,12 +2,22 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Plans.PlanSchedulePage"
              x:Name="Page"
              Title="Plan schedule"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+    <!--
+        A week is seven days, so the schedule overrides the shared card grid: three wide columns
+        would render a calendar as a list of dates.
+    -->
+    <adaptive:AdaptiveHost x:Name="Adaptive"
+                           MinimumCardWidth="{StaticResource ScheduleCellMinimumWidth}"
+                           MaximumCardColumns="{StaticResource ScheduleMaximumColumns}">
+    <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}"
+                                  HorizontalOptions="Center"
+                                  WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" RowSpacing="{StaticResource SpaceL}">
         <VerticalStackLayout Spacing="{StaticResource SpaceS}">
             <Label Text="Schedule" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <Label Text="{Binding Reassurance}" Style="{StaticResource SecondaryText}" />
@@ -21,6 +31,7 @@
                                  ActionText="Browse plans"
                                  ActionCommand="{Binding Source={x:Reference Page}, Path=BindingContext.OpenTemplatesCommand}" />
             <dx:DXCollectionView ItemsSource="{Binding Days}" IsVisible="{Binding HasSchedule}">
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource Card}" Margin="2">
@@ -36,4 +47,5 @@
             </dx:DXCollectionView>
         </Grid>
     </Grid>
+    </adaptive:AdaptiveHost>
 </ContentPage>

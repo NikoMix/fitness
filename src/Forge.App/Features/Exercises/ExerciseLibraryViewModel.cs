@@ -23,7 +23,14 @@ namespace Forge.App.Features.Exercises;
 /// </para>
 /// </remarks>
 /// <param name="exerciseDataStore">Reads and writes the exercise library.</param>
-public sealed partial class ExerciseLibraryViewModel(IExerciseDataStore exerciseDataStore) : ObservableObject, IDisposable
+/// <param name="detail">
+/// Backs the detail pane shown beside the list once the window is wide enough to hold both. It is
+/// the same view model the detail page uses, so a tablet and a phone show the same screen rather
+/// than two implementations of it.
+/// </param>
+public sealed partial class ExerciseLibraryViewModel(
+    IExerciseDataStore exerciseDataStore,
+    ExerciseDetailViewModel detail) : ObservableObject, IDisposable
 {
     private const int SearchDebounceMilliseconds = 200;
     private static readonly char[] LineSeparators = ['\n', '\r'];
@@ -154,7 +161,46 @@ public sealed partial class ExerciseLibraryViewModel(IExerciseDataStore exercise
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsListVisible))]
+    [NotifyPropertyChangedFor(nameof(IsDetailPaneVisible))]
+    [NotifyPropertyChangedFor(nameof(ListPaneColumnSpan))]
     private bool isEditorVisible;
+
+    /// <summary>
+    /// Whether the window is wide enough to show the list and an exercise at the same time.
+    /// </summary>
+    /// <remarks>
+    /// Set by the page from the measured width rather than from the device idiom, because an iPad
+    /// in Slide Over is 320 points wide and has to behave exactly like a phone, including pushing
+    /// the detail page instead of trying to show it beside a list that no longer fits.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsListVisible))]
+    [NotifyPropertyChangedFor(nameof(IsDetailPaneVisible))]
+    private bool isSplitLayout;
+
+    /// <summary>Whether an exercise has been chosen for the detail pane.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNoDetailSelection))]
+    private bool hasDetailSelection;
+
+    /// <summary>The exercise shown in the detail pane.</summary>
+    public ExerciseDetailViewModel Detail { get; } = detail;
+
+    /// <summary>Whether the detail pane is showing beside the list.</summary>
+    public bool IsDetailPaneVisible => IsSplitLayout && !IsEditorVisible;
+
+    /// <summary>Whether the detail pane is waiting for the user to choose something.</summary>
+    public bool HasNoDetailSelection => !HasDetailSelection;
+
+    /// <summary>
+    /// How many columns the list side occupies.
+    /// </summary>
+    /// <remarks>
+    /// The custom-exercise form takes the whole width while it is open. A long form squeezed into
+    /// a 360 point list column beside an unrelated exercise would be worse than the phone layout,
+    /// not better, which is the one outcome this work is not allowed to produce.
+    /// </remarks>
+    public int ListPaneColumnSpan => IsEditorVisible ? 2 : 1;
 
     [ObservableProperty]
     private string editorTitle = "New custom exercise";
@@ -162,7 +208,8 @@ public sealed partial class ExerciseLibraryViewModel(IExerciseDataStore exercise
     /// <summary>Whether the results list is showing, as opposed to the editor.</summary>
     /// <remarks>
     /// The custom-exercise form is long enough that showing it above the list would leave the
-    /// list a few pixels tall on a phone, so the two swap rather than stack.
+    /// list a few pixels tall on a phone, so the two swap rather than stack. On a split layout the
+    /// editor takes the width instead, so the same swap still applies.
     /// </remarks>
     public bool IsListVisible => !IsEditorVisible;
 
@@ -384,7 +431,7 @@ public sealed partial class ExerciseLibraryViewModel(IExerciseDataStore exercise
     }
 
     [RelayCommand]
-    private Task OpenExerciseAsync(ExerciseCardViewModel exercise)
+    private async Task OpenExerciseAsync(ExerciseCardViewModel exercise)
     {
         ArgumentNullException.ThrowIfNull(exercise);
 
@@ -392,12 +439,22 @@ public sealed partial class ExerciseLibraryViewModel(IExerciseDataStore exercise
         // typed text, so it is closed on the way out.
         IsEditorVisible = false;
 
+        // On a tablet the exercise lands in the pane beside the list, which is the whole point of
+        // the split: choosing the next movement is a comparison, and a comparison you have to
+        // navigate back and forth to make is not one anybody actually performs.
+        if (IsSplitLayout)
+        {
+            HasDetailSelection = true;
+            await Detail.LoadAsync(exercise.Id.ToString(), disposal.Token).ConfigureAwait(false);
+            return;
+        }
+
         // The visit is recorded by the detail page, which is the one place every route into an
         // exercise passes through.
-        return Shell.Current.GoToAsync(ForgeRoutes.ExerciseDetail, new Dictionary<string, object>
+        await Shell.Current.GoToAsync(ForgeRoutes.ExerciseDetail, new Dictionary<string, object>
         {
             ["forge.parameter"] = exercise.Id.ToString()
-        });
+        }).ConfigureAwait(false);
     }
 
     private bool CanSaveExercise() => !string.IsNullOrWhiteSpace(EditName);

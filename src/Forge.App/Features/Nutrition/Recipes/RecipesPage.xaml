@@ -2,11 +2,13 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Nutrition.Recipes.RecipesPage"
              x:Name="Page"
              Title="Recipes"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
     <Grid RowDefinitions="Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
         <VerticalStackLayout Spacing="{StaticResource SpaceM}">
             <Label Text="Recipes"
@@ -43,8 +45,15 @@
                                  Headline="Recipes unavailable"
                                  Message="{Binding ErrorMessage}" />
 
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceL}" IsVisible="{Binding HasRecipes}">
-                <dx:DXCollectionView ItemsSource="{Binding RecipeCards}">
+            <!--
+                A list and the recipe it scales, side by side once there is room. The column
+                definitions come from the adaptive host, so on a phone the second column collapses
+                to nothing and the recipe covers the list instead of halving it.
+            -->
+            <Grid ColumnDefinitions="{Binding Source={x:Reference Adaptive}, Path=SplitColumns}"
+                  ColumnSpacing="{Binding Source={x:Reference Adaptive}, Path=PaneSpacing}"
+                  IsVisible="{Binding HasRecipes}">
+                <dx:DXCollectionView ItemsSource="{Binding RecipeCards}" IsVisible="{Binding IsRecipeListVisible}">
                     <dx:DXCollectionView.ItemTemplate>
                         <DataTemplate>
                             <dx:DXBorder Style="{StaticResource ListRow}">
@@ -67,7 +76,10 @@
                     </dx:DXCollectionView.ItemTemplate>
                 </dx:DXCollectionView>
 
-                <ScrollView Grid.Column="1" IsVisible="{Binding HasSelection}">
+                <ScrollView Grid.Column="{Binding Source={x:Reference Adaptive}, Path=DetailPaneColumn}"
+                            Grid.ColumnSpan="{Binding Source={x:Reference Adaptive}, Path=DetailPaneColumnSpan}"
+                            BackgroundColor="{dx:ThemeColor Surface}"
+                            IsVisible="{Binding HasSelection}">
                     <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                         <dx:DXBorder Style="{StaticResource ElevatedCard}">
                             <VerticalStackLayout Spacing="{StaticResource SpaceS}">
@@ -127,10 +139,11 @@
                 </ScrollView>
 
                 <controls:EmptyState Grid.Column="1"
-                                     IsVisible="{Binding HasNoSelection}"
+                                     IsVisible="{Binding IsPlaceholderVisible}"
                                      Headline="Choose a recipe"
                                      Message="Scale ingredients, review macros, then hand a meal snapshot to the food log." />
             </Grid>
         </Grid>
     </Grid>
+    </adaptive:AdaptiveHost>
 </ContentPage>

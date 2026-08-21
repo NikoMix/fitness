@@ -2,13 +2,17 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Nutrition.FoodLogPage"
              x:Name="Page"
              Title="Food log"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
     <ScrollView>
-        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpaceL}">
+        <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                             HorizontalOptions="Center"
+                             WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" Spacing="{StaticResource SpaceL}">
             <Label Text="Search and log food" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <dx:TextEdit Text="{Binding SearchQuery}"
                          PlaceholderText="Search foods"
@@ -23,6 +27,7 @@
  
             <Label Text="Recent" Style="{StaticResource SectionHeaderText}" />
             <dx:DXCollectionView ItemsSource="{Binding RecentFoods}" HeightRequest="160">
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                          <dx:DXBorder Style="{StaticResource ListRow}">
@@ -68,6 +73,7 @@
 
             <Label Text="Frequent shortcuts" Style="{StaticResource SectionHeaderText}" />
             <dx:DXCollectionView ItemsSource="{Binding FrequentFoods}" HeightRequest="160">
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                          <dx:DXBorder Style="{StaticResource ListRow}">
@@ -105,4 +111,5 @@
             </dx:DXCollectionView>
         </VerticalStackLayout>
     </ScrollView>
+    </adaptive:AdaptiveHost>
 </ContentPage>

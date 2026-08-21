@@ -2,12 +2,16 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Plans.PlanEditorPage"
              x:Name="Page"
              Title="Plan editor"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <Grid RowDefinitions="Auto,Auto,*" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
+    <Grid RowDefinitions="Auto,Auto,*" Padding="{StaticResource PagePadding}"
+                                       HorizontalOptions="Center"
+                                       WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" RowSpacing="{StaticResource SpaceL}">
         <VerticalStackLayout Spacing="{StaticResource SpaceM}">
             <Label Text="Build your plan" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <dx:TextEdit Text="{Binding Name}" PlaceholderText="Plan name" Style="{StaticResource ForgeTextEdit}" />
@@ -73,4 +77,5 @@
             </dx:DXCollectionView>
         </Grid>
     </Grid>
+    </adaptive:AdaptiveHost>
 </ContentPage>

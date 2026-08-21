@@ -2,11 +2,15 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              x:Class="Forge.App.Features.Workout.RestTimerPage"
              Title="Rest"
              Shell.TabBarIsVisible="False"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource PagePadding}" RowSpacing="{StaticResource SpaceL}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
+    <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource PagePadding}"
+                                       HorizontalOptions="Center"
+                                       WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ReadingWidth}" RowSpacing="{StaticResource SpaceL}">
         <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
             <Label Text="{Binding ExerciseText}"
                    Style="{StaticResource TitleText}"
@@ -72,4 +76,5 @@
                          Command="{Binding BackToWorkoutCommand}" />
         </VerticalStackLayout>
     </Grid>
+    </adaptive:AdaptiveHost>
 </ContentPage>

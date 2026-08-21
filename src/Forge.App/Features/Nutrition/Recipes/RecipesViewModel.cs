@@ -69,7 +69,22 @@ public sealed partial class RecipesViewModel(IRecipeCatalogueService recipes) : 
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasNoSelection))]
+    [NotifyPropertyChangedFor(nameof(IsRecipeListVisible))]
+    [NotifyPropertyChangedFor(nameof(IsPlaceholderVisible))]
     private bool hasSelection;
+
+    /// <summary>
+    /// Whether the window can show the list and a recipe at the same time.
+    /// </summary>
+    /// <remarks>
+    /// Set by the page from the measured width. Before this existed the page laid itself out as
+    /// two equal columns unconditionally, which on a phone meant a recipe list roughly 200 points
+    /// wide sitting next to a permanently empty half.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRecipeListVisible))]
+    [NotifyPropertyChangedFor(nameof(IsPlaceholderVisible))]
+    private bool isSplitLayout;
 
     [ObservableProperty]
     private string countSummary = "Loading recipes…";
@@ -96,6 +111,16 @@ public sealed partial class RecipesViewModel(IRecipeCatalogueService recipes) : 
 
     /// <summary>Whether no recipe is currently selected.</summary>
     public bool HasNoSelection => !HasSelection;
+
+    /// <summary>Whether the recipe list should be shown.</summary>
+    /// <remarks>
+    /// Always, when there is room for both panes. When there is not, the chosen recipe covers the
+    /// list, because a detail card floating over a list it does not fully hide reads as a defect.
+    /// </remarks>
+    public bool IsRecipeListVisible => IsSplitLayout || !HasSelection;
+
+    /// <summary>Whether the pane is prompting the user to choose a recipe.</summary>
+    public bool IsPlaceholderVisible => IsSplitLayout && !HasSelection;
 
     partial void OnSearchTextChanged(string value) => ApplyFilters();
 
