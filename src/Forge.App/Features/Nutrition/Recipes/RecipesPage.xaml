@@ -76,11 +76,19 @@
                     </dx:DXCollectionView.ItemTemplate>
                 </dx:DXCollectionView>
 
-                <ScrollView Grid.Column="{Binding Source={x:Reference Adaptive}, Path=DetailPaneColumn}"
-                            Grid.ColumnSpan="{Binding Source={x:Reference Adaptive}, Path=DetailPaneColumnSpan}"
-                            BackgroundColor="{dx:ThemeColor Surface}"
-                            IsVisible="{Binding HasSelection}">
-                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                <!--
+                    A second host, measuring the pane rather than the page: ingredients and method
+                    are prose, and the pane is close to a thousand points wide on a 13-inch display.
+                -->
+                <adaptive:AdaptiveHost x:Name="RecipeAdaptive"
+                                       Grid.Column="{Binding Source={x:Reference Adaptive}, Path=DetailPaneColumn}"
+                                       Grid.ColumnSpan="{Binding Source={x:Reference Adaptive}, Path=DetailPaneColumnSpan}"
+                                       BackgroundColor="{dx:ThemeColor Surface}"
+                                       IsVisible="{Binding HasSelection}">
+                <ScrollView>
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}"
+                                         HorizontalOptions="Center"
+                                         WidthRequest="{Binding Source={x:Reference RecipeAdaptive}, Path=ReadingWidth}">
                         <dx:DXBorder Style="{StaticResource ElevatedCard}">
                             <VerticalStackLayout Spacing="{StaticResource SpaceS}">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
@@ -137,6 +145,7 @@
                         </dx:DXCollectionView>
                     </VerticalStackLayout>
                 </ScrollView>
+                </adaptive:AdaptiveHost>
 
                 <controls:EmptyState Grid.Column="1"
                                      IsVisible="{Binding IsPlaceholderVisible}"
