@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}} — {{siteName}}</title>
+<meta name="description" content="{{description}}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{canonical}}">
+<link rel="icon" href="{{root}}assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="{{root}}assets/forge.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <p class="site-title"><a href="{{root}}">{{siteName}}</a></p>
+    <p class="site-tagline">{{tagline}}</p>
+  </div>
+</header>
+<nav class="site-nav" aria-label="Legal documents">
+  <div class="wrap">
+    <ul>
+{{nav}}
+    </ul>
+  </div>
+</nav>
+<main id="main">
+  <div class="wrap">
+    <h1>{{title}}</h1>
+    <p class="lede">{{summary}}</p>
+{{meta}}
+{{content}}
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <ul>
+{{footerNav}}
+    </ul>
+    <p>{{footerNote}}</p>
+    <p>This site is static. It sets no cookies, loads no third-party resources and runs no JavaScript.</p>
+  </div>
+</footer>
+</body>
+</html>

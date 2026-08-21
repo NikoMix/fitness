@@ -1,0 +1,24 @@
+{
+  "siteName": "Forge",
+  "tagline": "Local-first fitness for Android and iOS",
+  "lang": "en-GB",
+  "baseUrl": "https://nikomix.github.io/fitness/",
+  "footerNote": "Forge stores your fitness data on your device. There is no Forge server that receives it.",
+  "pages": [
+    "index.md",
+    "privacy-policy.md",
+    "data-safety.md",
+    "delete-my-data.md",
+    "terms-of-service.md",
+    "support.md",
+    "medical-disclaimer.md",
+    "licences.md"
+  ],
+  "nav": [
+    "privacy",
+    "data-safety",
+    "delete-my-data",
+    "terms",
+    "support"
+  ]
+}

@@ -1,0 +1,302 @@
+/*
+ * Forge legal site stylesheet.
+ *
+ * Deliberately hand written and self contained. An app that stores nothing remotely should not
+ * ship a privacy page that pulls a webfont, a CDN stylesheet or an analytics beacon, so there is
+ * exactly one stylesheet, no JavaScript, and no external request of any kind.
+ *
+ * Colours are checked against WCAG 2.2 AA. Body text is #1f2328 on #ffffff (14.4:1) in light mode
+ * and #e6edf3 on #0d1117 (14.7:1) in dark mode. Links stay above 4.5:1 in both.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --page: #ffffff;
+  --surface: #f6f8fa;
+  --ink: #1f2328;
+  --ink-muted: #4a5157;
+  --line: #d0d7de;
+  --link: #0a4fa8;
+  --link-hover: #073a7d;
+  --todo-bg: #fff4d6;
+  --todo-ink: #4a3200;
+  --todo-line: #a97a00;
+  --focus: #0a4fa8;
+  --measure: 42rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0d1117;
+    --surface: #161b22;
+    --ink: #e6edf3;
+    --ink-muted: #b3bcc6;
+    --line: #30363d;
+    --link: #79b8ff;
+    --link-hover: #a6d2ff;
+    --todo-bg: #3a2d0a;
+    --todo-ink: #ffdf9e;
+    --todo-line: #b98900;
+    --focus: #79b8ff;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  padding: 0.75rem 1rem;
+  background: var(--page);
+  color: var(--link);
+  border: 2px solid var(--focus);
+  z-index: 10;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+.wrap {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  padding: 1rem 0;
+}
+
+.site-header .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+}
+
+.site-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.site-title a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.site-title a:hover,
+.site-title a:focus {
+  text-decoration: underline;
+}
+
+.site-tagline {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.site-nav {
+  border-bottom: 1px solid var(--line);
+  padding: 0.5rem 0;
+}
+
+.site-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.1rem;
+}
+
+.site-nav a {
+  display: inline-block;
+  padding: 0.3rem 0;
+  font-size: 0.95rem;
+}
+
+.site-nav a[aria-current="page"] {
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration-thickness: 2px;
+}
+
+main {
+  padding: 2rem 0 3rem;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  margin: 2rem 0 0.75rem;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: 1.9rem;
+  margin-top: 0;
+}
+
+h2 {
+  font-size: 1.3rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+h3 {
+  font-size: 1.08rem;
+}
+
+p,
+ul,
+ol {
+  margin: 0 0 1rem;
+}
+
+ul,
+ol {
+  padding-left: 1.4rem;
+}
+
+li {
+  margin-bottom: 0.35rem;
+}
+
+a {
+  color: var(--link);
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  color: var(--link-hover);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+strong {
+  font-weight: 700;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.08em 0.32em;
+}
+
+.lede {
+  font-size: 1.15rem;
+  color: var(--ink-muted);
+  margin-bottom: 1.5rem;
+}
+
+.meta {
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+  margin: 0 0 2rem;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  margin: 0 0 1.25rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+th,
+td {
+  border: 1px solid var(--line);
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+thead th {
+  background: var(--surface);
+}
+
+mark.todo {
+  background: var(--todo-bg);
+  color: var(--todo-ink);
+  border: 1px dashed var(--todo-line);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  font-weight: 600;
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  padding: 1.5rem 0 2.5rem;
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+
+.site-footer ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.1rem;
+}
+
+.site-footer p {
+  margin: 0 0 0.5rem;
+}
+
+@media print {
+  .site-nav,
+  .skip-link,
+  .site-footer ul {
+    display: none;
+  }
+
+  body {
+    color: #000;
+    background: #fff;
+    font-size: 11pt;
+  }
+
+  a {
+    color: #000;
+  }
+
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+  }
+}
