@@ -1,6 +1,8 @@
 using Forge.App.Composition;
+using Forge.App.Features.Plans;
 using Forge.App.Features.Profile;
 using Forge.Domain.Measurement;
+using Forge.Domain.Planning;
 using Forge.Domain.Profile;
 using Forge.Domain.Training;
 using Forge.Domain.Workout;
@@ -17,9 +19,18 @@ public interface IWorkoutPersistenceService
     /// <summary>Resumes an unfinished session or starts a new one.</summary>
     /// <param name="exerciseCatalogue">Exercises available to queue.</param>
     /// <param name="nowUtc">Current time.</param>
+    /// <param name="planDayId">
+    /// The plan day to execute, or <see langword="null"/> for an ad hoc workout. Ignored when an
+    /// unfinished session is resumed, because that session is already executing whatever it was
+    /// started for.
+    /// </param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The loaded state and how it was recovered.</returns>
-    Task<WorkoutLoadResult> LoadOrStartAsync(IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue, DateTimeOffset nowUtc, CancellationToken cancellationToken);
+    Task<WorkoutLoadResult> LoadOrStartAsync(
+        IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue,
+        DateTimeOffset nowUtc,
+        Guid? planDayId,
+        CancellationToken cancellationToken);
 
     /// <summary>Saves the recoverable snapshot and any set rows it is missing.</summary>
     /// <param name="state">The state to save.</param>
@@ -74,7 +85,31 @@ public interface IWorkoutPersistenceService
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>History entries, newest first.</returns>
     Task<IReadOnlyList<WorkoutHistoryEntry>> LoadHistoryAsync(int take, DateTimeOffset nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Loads the user's own last working set of an exercise.
+    /// </summary>
+    /// <remarks>
+    /// This is what an ad hoc workout offers instead of a fabricated target. It is the user's data
+    /// rather than a suggestion, and the screen labels it as such.
+    /// </remarks>
+    /// <param name="exerciseId">The exercise to look up.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>A target attributed to the user's history, or <see langword="null"/> when they have none.</returns>
+    Task<WorkoutTarget?> LoadLastPerformanceAsync(Guid exerciseId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Loads which plan days the profile has already completed, and on which local dates.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>One entry per completed plan-day session.</returns>
+    Task<IReadOnlyList<PlanDayCompletion>> LoadPlanDayCompletionsAsync(CancellationToken cancellationToken);
 }
+
+/// <summary>One completed session that was executing a plan day.</summary>
+/// <param name="PlanDayId">The plan day performed.</param>
+/// <param name="CompletedOn">The local date it was finished on.</param>
+public sealed record PlanDayCompletion(Guid PlanDayId, DateOnly CompletedOn);
 
 /// <summary>The state loaded at start-up and how it was recovered.</summary>
 /// <param name="State">The active workout state.</param>
@@ -98,14 +133,19 @@ public sealed record WorkoutLoadResult(ActiveWorkoutState State, WorkoutRecovery
 /// silently fall back to client evaluation over the whole table.
 /// </para>
 /// </remarks>
-internal sealed class WorkoutPersistenceService(ForgeStartupService startup, IServiceProvider services, ProfileStore profiles) : IWorkoutPersistenceService
+internal sealed class WorkoutPersistenceService(
+    ForgeStartupService startup,
+    IServiceProvider services,
+    ProfileStore profiles,
+    IPlanPersistenceService plans) : IWorkoutPersistenceService
 {
-    public async Task<WorkoutLoadResult> LoadOrStartAsync(IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue, DateTimeOffset nowUtc, CancellationToken cancellationToken)
+    public async Task<WorkoutLoadResult> LoadOrStartAsync(
+        IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue,
+        DateTimeOffset nowUtc,
+        Guid? planDayId,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(exerciseCatalogue);
-        var firstExercise = exerciseCatalogue.Count > 0
-            ? exerciseCatalogue[0]
-            : new ActiveWorkoutExercise(Guid.CreateVersion7(), "Workout", null, 20m, 8);
 
         var scope = await ResolveScopeForWriteAsync(cancellationToken);
         await using var context = CreateContext();
@@ -128,19 +168,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
 
         if (session is null)
         {
-            var newSession = new WorkoutSession
-            {
-                Id = Guid.CreateVersion7(),
-                UserProfileId = scope.ProfileId,
-                StartedUtc = nowUtc,
-                CompletedUtc = null,
-                Title = "Workout"
-            };
-            var newState = ActiveWorkoutState.Start(scope.ProfileId, newSession.Id, nowUtc, firstExercise);
-            context.Set<WorkoutSession>().Add(newSession);
-            context.Set<ActiveWorkoutState>().Add(newState);
-            await context.SaveChangesAsync(cancellationToken);
-            return new WorkoutLoadResult(newState, WorkoutRecoveryKind.None);
+            return await StartNewAsync(context, scope, exerciseCatalogue, nowUtc, planDayId, cancellationToken);
         }
 
         var state = await context.Set<ActiveWorkoutState>()
@@ -161,6 +189,58 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
 
         await context.SaveChangesAsync(cancellationToken);
         return new WorkoutLoadResult(state, WorkoutRecoveryPolicy.Classify(session, nowUtc));
+    }
+
+    /// <summary>
+    /// Creates the session and its snapshot, from a plan day when one was chosen.
+    /// </summary>
+    /// <remarks>
+    /// The plan day is re-read here through the plan service rather than trusted from the caller,
+    /// so it is confined to the profile that is training. A workout started from another profile's
+    /// plan would be a data-separation failure that no later read could detect.
+    /// </remarks>
+    private async Task<WorkoutLoadResult> StartNewAsync(
+        ForgeDbContext context,
+        ProfileScope scope,
+        IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue,
+        DateTimeOffset nowUtc,
+        Guid? planDayId,
+        CancellationToken cancellationToken)
+    {
+        var plan = planDayId is Guid dayId
+            ? await plans.GetPlanDayAsync(dayId, cancellationToken)
+            : null;
+
+        var queue = plan is null
+            ? []
+            : PlanWorkoutProjection.BuildQueue(plan.Day, exerciseCatalogue);
+
+        if (queue.Count == 0)
+        {
+            // Either no plan was chosen, or the chosen day has no exercises in it. Both are ad hoc
+            // workouts: the queue opens on the first catalogue entry and carries no target, rather
+            // than a placeholder standing in for a prescription that does not exist.
+            queue = [exerciseCatalogue.Count > 0 ? exerciseCatalogue[0] : AdHocPlaceholder()];
+            plan = null;
+        }
+
+        var newSession = new WorkoutSession
+        {
+            Id = Guid.CreateVersion7(),
+            UserProfileId = scope.ProfileId,
+            StartedUtc = nowUtc,
+            CompletedUtc = null,
+            Title = plan is null ? "Workout" : plan.Day.Name,
+            TrainingPlanId = plan?.Plan.Id,
+            PlanDayId = plan?.Day.Id,
+            PlanDayName = plan?.Day.Name
+        };
+
+        var newState = ActiveWorkoutState.StartWithQueue(scope.ProfileId, newSession.Id, nowUtc, queue);
+        context.Set<WorkoutSession>().Add(newSession);
+        context.Set<ActiveWorkoutState>().Add(newState);
+        await context.SaveChangesAsync(cancellationToken);
+        return new WorkoutLoadResult(newState, WorkoutRecoveryKind.None);
     }
 
     public async Task SaveActiveStateAsync(ActiveWorkoutState state, CancellationToken cancellationToken)
@@ -326,7 +406,38 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
             .Where(s => s.CompletedUtc < session.StartedUtc)
             .ToList();
 
-        return WorkoutSummaryCalculator.Calculate(session, exercises, session.CompletedUtc ?? nowUtc, previousSets);
+        // The comparison needs whole sessions rather than loose sets, because "more volume than
+        // last Wednesday" is a claim about one session. The sets are attached from the rows
+        // already materialised above rather than through a second Include, so this costs one
+        // extra query over a table bounded by the owner and by completion.
+        //
+        // Both filters here are translatable: a null check and a Guid inequality. The date
+        // ordering that follows is not, and is done in memory.
+        var otherSessions = await context.Set<WorkoutSession>()
+            .OwnedBy(scope)
+            .Where(s => s.CompletedUtc != null && s.Id != session.Id)
+            .ToListAsync(cancellationToken);
+
+        var setsBySession = ownedSets.GroupBy(s => s.WorkoutSessionId).ToDictionary(g => g.Key, g => g.ToList());
+        foreach (var other in otherSessions)
+        {
+            if (!setsBySession.TryGetValue(other.Id, out var sets))
+            {
+                continue;
+            }
+
+            foreach (var set in sets)
+            {
+                other.Sets.Add(set);
+            }
+        }
+
+        return WorkoutSummaryCalculator.Calculate(
+            session,
+            exercises,
+            session.CompletedUtc ?? nowUtc,
+            previousSets,
+            otherSessions);
     }
 
     /// <inheritdoc />
@@ -362,6 +473,50 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
             .ToDictionaryAsync(e => e.Id, e => e.Name, cancellationToken);
 
         return WorkoutHistoryBuilder.Build(sessions, names, nowUtc);
+    }
+
+    /// <inheritdoc />
+    public async Task<WorkoutTarget?> LoadLastPerformanceAsync(Guid exerciseId, CancellationToken cancellationToken)
+    {
+        var scope = await ResolveScopeAsync(cancellationToken);
+        await using var context = CreateContext();
+
+        // Bounded to one exercise for one profile, then ordered in memory. Ordering by
+        // CompletedUtc in the database would throw: SQLite has no DateTimeOffset type. See
+        // LoadOrStartAsync.
+        var sets = await context.Set<SetEntry>()
+            .OwnedBy(scope)
+            .Where(s => s.ExerciseId == exerciseId && !s.IsWarmUp)
+            .ToListAsync(cancellationToken);
+
+        var last = sets.OrderByDescending(s => s.CompletedUtc).FirstOrDefault();
+        return last is null || last.Repetitions <= 0
+            ? null
+            : WorkoutTarget.FromLastPerformance(last.Load.Kilograms, last.Repetitions);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PlanDayCompletion>> LoadPlanDayCompletionsAsync(CancellationToken cancellationToken)
+    {
+        var scope = await ResolveScopeAsync(cancellationToken);
+        await using var context = CreateContext();
+
+        // Both predicates translate: a Guid null check and a date null check. The conversion to a
+        // local date is done after materialising, because it reads a DateTimeOffset.
+        var completed = await context.Set<WorkoutSession>()
+            .OwnedBy(scope)
+            .Where(s => s.PlanDayId != null && s.CompletedUtc != null)
+            .Select(s => new { s.PlanDayId, s.CompletedUtc })
+            .ToListAsync(cancellationToken);
+
+        return
+        [
+            .. completed
+                .Where(row => row.PlanDayId is not null && row.CompletedUtc is not null)
+                .Select(row => new PlanDayCompletion(
+                    row.PlanDayId!.Value,
+                    DateOnly.FromDateTime(row.CompletedUtc!.Value.ToLocalTime().DateTime)))
+        ];
     }
 
     /// <summary>
@@ -408,6 +563,17 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
     }
 
     private ForgeDbContext CreateContext() => services.GetRequiredService<ForgeDbContext>();
+
+    /// <summary>
+    /// The queue entry used when there is nothing at all to open a workout on.
+    /// </summary>
+    /// <remarks>
+    /// It carries no target. The previous version supplied 20 kg for 8 reps here and 60 kg for 8
+    /// in the view model, and both were rendered to the user under the caption "Target" as though
+    /// they had come from their programme.
+    /// </remarks>
+    private static ActiveWorkoutExercise AdHocPlaceholder()
+        => new(Guid.CreateVersion7(), "Workout", null, null, null);
 
     /// <summary>Inserts the set rows the snapshot has but the database does not.</summary>
     /// <remarks>
@@ -464,7 +630,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
             ? found
             : exerciseCatalogue.Count > 0
                 ? exerciseCatalogue[0]
-                : new ActiveWorkoutExercise(Guid.CreateVersion7(), "Workout", null, 20m, 8);
+                : AdHocPlaceholder();
 
         // The owner is taken from the session being recovered, not from the active profile. A
         // recovered workout belongs to whoever started it even if somebody else is holding the

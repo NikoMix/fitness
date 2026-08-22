@@ -112,15 +112,26 @@ public sealed class EngagementMigrationTests : IDisposable
     }
 
     /// <summary>
-    /// Builds a database at the migration immediately before this one, holding a badge and a streak
-    /// whose history is in the old per-day shape.
+    /// Builds a database at the migration immediately before the engagement one, holding a badge
+    /// and a streak whose history is in the old per-day shape.
     /// </summary>
+    /// <remarks>
+    /// The target is found by naming the engagement migration and stepping back from it, rather
+    /// than by taking the second-from-last entry. Positionally it was correct only while
+    /// engagement happened to be the newest migration: the next migration to land pushed it along,
+    /// and this method then built a database that already had the post-engagement schema, so the
+    /// raw INSERT below failed with "table Streak has no column named CurrentDays" and four tests
+    /// broke for a reason that had nothing to do with what they cover.
+    /// </remarks>
     private async Task<Guid> CreatePreEngagementDatabaseAsync(int profiles)
     {
         await using var context = CreateContext();
 
         var all = context.Database.GetMigrations().ToList();
-        var previous = all[^2];
+        var engagementIndex = all.FindIndex(migration => migration.EndsWith("EngagementProfileOwnership", StringComparison.Ordinal));
+        engagementIndex.ShouldBeGreaterThan(0, "the engagement migration must exist and must not be the first one");
+
+        var previous = all[engagementIndex - 1];
         var migrator = context.Database.GetService<IMigrator>();
         await migrator.MigrateAsync(previous, TestContext.Current.CancellationToken);
 

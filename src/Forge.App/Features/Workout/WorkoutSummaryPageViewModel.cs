@@ -44,8 +44,19 @@ public sealed partial class WorkoutSummaryPageViewModel(
     [ObservableProperty]
     private string title = "Workout complete";
 
+    /// <summary>
+    /// How this session measures against the last comparable one.
+    /// </summary>
+    /// <remarks>
+    /// This used to be initialised to "You showed up. Next time Forge will compare this against
+    /// your previous effort." and nothing ever replaced it, because no delta was computed
+    /// anywhere. It read as real because the personal-record line beside it is real. The initial
+    /// value is now the honest one for a screen that has not loaded yet, and
+    /// <see cref="LoadAsync"/> replaces it with either a genuine comparison or a plain statement
+    /// that there is nothing to compare against.
+    /// </remarks>
     [ObservableProperty]
-    private string comparison = "You showed up. Next time Forge will compare this against your previous effort.";
+    private string comparison = "Working out how this compares with your last session…";
 
     [ObservableProperty]
     private bool isBusy;
@@ -101,12 +112,15 @@ public sealed partial class WorkoutSummaryPageViewModel(
             {
                 Metrics.Add(new SummaryMetricRow("Volume", "0 kg"));
                 Metrics.Add(new SummaryMetricRow("Duration", "0:00"));
+                Comparison = "There is no finished session to summarise yet.";
                 return;
             }
 
             Metrics.Add(new SummaryMetricRow("Volume", $"{summary.TotalVolume.Kilograms:0.##} kg"));
             Metrics.Add(new SummaryMetricRow("Working sets", summary.WorkingSetCount.ToString(CultureInfo.CurrentCulture)));
             Metrics.Add(new SummaryMetricRow("Duration", FormatDuration(summary.Duration)));
+
+            Comparison = WorkoutComparisonNarrator.Describe(summary.Comparison ?? WorkoutComparison.None);
 
             foreach (var item in summary.PerMuscleVolume.OrderByDescending(kvp => kvp.Value.Kilograms))
             {

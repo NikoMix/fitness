@@ -84,6 +84,34 @@ public sealed class WorkoutSession : Entity, IProfileOwned
     /// <summary>Optional user-supplied title.</summary>
     public string? Title { get; set; }
 
+    /// <summary>
+    /// The plan this session was executing, or <see langword="null"/> when it was ad hoc.
+    /// </summary>
+    /// <remarks>
+    /// Nullable on purpose, and it must stay that way. Starting without a plan is a legitimate
+    /// flow - somebody in a hotel gym with three machines is still training - and every session
+    /// recorded before this existed genuinely was ad hoc. A non-nullable column would have to
+    /// invent a plan for all of them, which would be a fabricated history rather than a migrated
+    /// one.
+    /// </remarks>
+    public Guid? TrainingPlanId { get; set; }
+
+    /// <summary>The plan day this session was executing, or <see langword="null"/> when it was ad hoc.</summary>
+    public Guid? PlanDayId { get; set; }
+
+    /// <summary>
+    /// The plan day's name at the moment the session started.
+    /// </summary>
+    /// <remarks>
+    /// Snapshotted rather than joined. A plan is editable and deletable, and a finished session
+    /// has to keep saying what it was: renaming "Upper A" to "Push" next month must not silently
+    /// relabel every workout performed under the old name.
+    /// </remarks>
+    public string? PlanDayName { get; set; }
+
+    /// <summary>Whether this session was started from a plan rather than ad hoc.</summary>
+    public bool IsPlanned => PlanDayId is not null;
+
     /// <summary>How the session felt overall, from 1 (very easy) to 10 (maximal).</summary>
     public int? SessionRpe { get; set; }
 

@@ -11,8 +11,11 @@ namespace Forge.App.Features.Workout;
 /// real usability failure rather than a nicety. The previous value is restored on the way out so
 /// Forge never leaves the device burning battery once the workout ends.
 /// </remarks>
-public partial class ActiveWorkoutPage : ContentPage
+public partial class ActiveWorkoutPage : ContentPage, IQueryAttributable
 {
+    /// <summary>Navigation parameter naming the plan day this workout should execute.</summary>
+    public const string PlanDayParameter = "forge.planDay";
+
     private readonly ActiveWorkoutPageViewModel viewModel;
     private bool previousKeepScreenOn;
     private bool timerRunning;
@@ -27,6 +30,33 @@ public partial class ActiveWorkoutPage : ContentPage
         this.viewModel = viewModel;
         BindingContext = viewModel;
         viewModel.LiveAnnouncementRequested += OnLiveAnnouncementRequested;
+    }
+
+    /// <summary>
+    /// Receives the plan day to start from.
+    /// </summary>
+    /// <remarks>
+    /// Applied before <see cref="OnAppearing"/> runs, which is what lets the very first load queue
+    /// the plan rather than starting ad hoc and correcting itself afterwards. Both the typed Guid
+    /// and its string form are accepted because Shell passes a string when the route is built as a
+    /// query string rather than with a parameter dictionary.
+    /// </remarks>
+    /// <param name="query">The navigation parameters.</param>
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        if (!query.TryGetValue(PlanDayParameter, out var value))
+        {
+            return;
+        }
+
+        viewModel.PlanDayId = value switch
+        {
+            Guid id when id != Guid.Empty => id,
+            string text when Guid.TryParse(text, out var parsed) && parsed != Guid.Empty => parsed,
+            _ => null
+        };
     }
     /// <inheritdoc />
     protected override async void OnAppearing()

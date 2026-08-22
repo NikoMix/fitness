@@ -41,6 +41,9 @@
                 </dx:DXBorder>
 
                 <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                    <Label Text="{Binding PlanContextText}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding IsPlanDriven}" />
                     <Label Text="{Binding CurrentExerciseName}"
                            Style="{StaticResource HeadlineText}"
                            SemanticProperties.HeadingLevel="Level1" />
@@ -49,10 +52,20 @@
                            IsVisible="{Binding IsInSuperset}" />
                 </VerticalStackLayout>
 
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
-                    <controls:MetricTile Value="{Binding TargetWeightKilograms, StringFormat='{0:0.##}'}" Unit="kg" Caption="Target" />
-                    <controls:MetricTile Grid.Column="1" Value="{Binding ActualWeightKilograms, StringFormat='{0:0.##}'}" Unit="kg" Caption="Actual" Accent="{dx:ThemeColor Primary}" />
-                </Grid>
+                <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
+                        <controls:MetricTile Value="{Binding TargetValueText}" Unit="{Binding TargetUnitText}" Caption="{Binding TargetCaption}" />
+                        <controls:MetricTile Grid.Column="1" Value="{Binding ActualWeightKilograms, StringFormat='{0:0.##}'}" Unit="kg" Caption="Actual" Accent="{dx:ThemeColor Primary}" />
+                    </Grid>
+                    <!--
+                        The caption above and this line are the difference between a prescription
+                        and an invention. The tile used to show a hard-coded 60 kg under the word
+                        "Target", which read as the user's own programme.
+                    -->
+                    <Label Text="{Binding TargetDetailText}"
+                           Style="{StaticResource CaptionText}"
+                           IsVisible="{Binding HasTargetDetail}" />
+                </VerticalStackLayout>
 
                 <dx:DXBorder Style="{StaticResource Card}">
                     <VerticalStackLayout Spacing="{StaticResource SpaceM}">
