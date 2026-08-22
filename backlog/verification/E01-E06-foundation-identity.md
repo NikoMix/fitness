@@ -5,8 +5,8 @@ Verdicts are grounded in file/line evidence. Criteria that cannot be settled by 
 (frame timings, device rendering, screen-reader behaviour, text scaling) are called out as
 ungrounded rather than credited or failed.
 
-> **Status: E01 and E04 complete.** E05 and E06 are in progress and will be appended
-> to this file and to the accompanying JSON.
+> **Status: E01, E04 and E05 complete.** E06 is in progress and will be appended to this file
+> and to the accompanying JSON.
 
 ## Counts
 
@@ -14,7 +14,7 @@ ungrounded rather than credited or failed.
 | --- | --- | --- | --- | --- | --- | --- |
 | E01 Platform Foundation and Application Shell | 8 | 1 | 5 | 2 | 0 | 0 |
 | E04 Local Data Platform and Persistence | 15 | 1 | 11 | 3 | 0 | 0 |
-| E05 Onboarding, Local Accounts and Authentication | 17 | — | — | — | — | — |
+| E05 Onboarding, Local Accounts and Authentication | 17 | 0 | 14 | 3 | 0 | 0 |
 | E06 User Profile, Goals and Personalisation | 17 | — | — | — | — | — |
 
 ## Most deserving of attention
@@ -46,6 +46,29 @@ application at all. The comment describes behaviour that does not exist. Same sh
 through `WorkoutPersistenceService` and the database, so the draft store is redundant
 registered dead code. (E10 owns the store; it is recorded here because S01.03.03 is the story
 that would have consumed it.)
+
+**The camera permission prompt fires *before* the rationale, not after it.**
+`S05.03.01 AC1` requires a Forge rationale sheet to appear *before* the platform dialog.
+`BarcodeScannerViewModel.cs:200-206` calls `StartCameraAsync(promptWhenAskable: true)` straight
+from the page's `Appearing` command, and lines 448-451 then call `permissions.RequestAsync` as
+soon as the status is `Denied`. So the OS dialog appears automatically on entering the scanner,
+and Forge's explanation (lines 466-469) is shown *afterwards*, as consolation for a refusal.
+There is no Allow / Not now sheet anywhere in the app, so `REQ5` — *"If the user chooses Not
+now, the platform permission API is not called"* — has no affordance to honour.
+
+**`UserProfile.MovementLimitations` is write-only, exactly as warned.**
+Collected at `GoalWizardPage.xaml:132`, round-tripped through `OnboardingDraftStore`, persisted
+by `ProfileStore.cs:430`, mapped at `ProfileConfigurations.cs:19` with `HasMaxLength(1000)` and
+present in the initial migration. **Nothing reads it.** All 23 matches across `src/` are the
+write path, the wizard re-displaying its own value, and the review line. No exercise filter, no
+plan builder and no coaching path consults it. The user is asked about injuries and the answer
+changes nothing.
+
+**`ADR-0001` claims a schema seam that does not exist.**
+`docs/adr/0001-local-first-no-backend.md:65` states *"identity is modelled as a seam an account
+can later attach to"*. `UserProfile` has no `externalIdentityId` or equivalent nullable column,
+no migration adds one, and `ForgeRoutes` declares no `AccountAttach` route. The sentence
+describes an intention, not the schema.
 
 **`AppShell` is bound twice, and the app depends on registration order.**
 `src/Forge.App/MauiProgram.cs:124` registers `AddSingleton<AppShell>()`;
@@ -135,6 +158,31 @@ apply — `S04.01.03` is a regression-test story and `S04.05.02` is a pre-repair
 `AC3` is generally ungroundable by reading and is excluded from those verdicts; `AC4` is
 grounded as unmet only where the story is genuinely about scale, because **no large fixture and
 no `QueryPlanTests.cs` exist anywhere in the repository**.
+
+**Session-duration availability does not exist in the model.** `S05.02.02 REQ3` requires session
+recommendations to respect *"availability under 20 minutes"* and `AC2` describes a user choosing
+*"15-minute sessions"*. `OnboardingAnswers` captures `TrainingDaysPerWeek` only — there is no
+minutes-per-session field anywhere in `src/`. The criterion assumes a data point the product
+never collects. Backlog defect. (The goal/experience half of `REQ1` remains a genuine gap.)
+
+**The profile cap is 8, so `S05.04.01 AC2` cannot occur.** The criterion posits ten existing
+profiles and the creation of an eleventh. `ActiveProfileSelector.cs:30` sets
+`MaximumProfiles = 8` and `CanAdd` refuses beyond it. Arithmetic defect in the criterion; the
+cap itself is undocumented outside the constant, which is worth fixing separately.
+
+**Duplicate profile names are rejected, not disambiguated.** `S05.04.01 REQ4` asks for
+duplicates to be allowed when an avatar or suffix distinguishes them.
+`ProfileNameRules.cs:50-51` rejects them outright: *"Two identical names is how a set gets
+logged against the wrong person."* The code's position follows necessarily from there being no
+avatar field at all. Reconcile the two rather than treating either as a bug.
+
+**The app lock's PIN was replaced by the device credential.** `S05.05.02` specifies a six-digit
+Forge PIN with a five-attempt / 60-second lockout. The product instead delegates entirely to the
+platform prompt with its own credential fallback — very likely the better decision, since a
+Forge-owned PIN would need its own storage, hashing and lockout to guard a threat the device
+lock already covers. It is described in `docs/security/app-lock-threat-model.md` but **not in an
+ADR**, and it silently changes the meaning of every "PIN" reference in `F05.05`. Recorded as
+`NOT-DONE` against the written criteria, flagged for a backlog rewrite rather than a code fix.
 
 ### Cross-cutting rule violation
 
@@ -476,3 +524,255 @@ and both ACs fail. The underlying risk is *partly* mitigated by other means — 
 through a single transactional `SaveChanges`, so a kill mid-write rolls back rather than
 orphaning — but that is a property of the write path, not the journal-and-reconcile mechanism
 specified here, and nothing verifies it.
+
+---
+
+## E05 — Onboarding, Local Accounts and Authentication
+
+### F05.01 Create value-first first-run onboarding — PARTIAL
+
+#### S05.01.01 Explain local-first onboarding without credential fields — PARTIAL
+
+`WelcomePage.xaml:26` leads with *"Forge works without an account"*, line 29 adds *"Everything
+stays on this device either way"*, and lines 35-38 repeat it as *"No sign-up. No backend."* A
+primary Set-up action and a secondary Skip action sit below it. No email, password, phone or
+remote-auth field exists anywhere in the flow, and no OAuth package is referenced. Skip is one
+tap to Today (AC1). The privacy statement is the first content on the page and there are no
+profile fields on this screen at all (AC2).
+
+**Gap.** `REQ5` is unmet as written: there is no `onboardingCompleted` flag in `Preferences`.
+`FirstRunGate.cs:12` decides first-run by calling `ProfileStore.HasProfileAsync` — a database
+read — so the ordering guarantee has no artefact to attach to. Functionally this is arguably
+better (it cannot drift out of step with the data), but it is not what the story specifies.
+`REQ4`'s grade-8 readability and `AC3`'s 60-second happy path are ungroundable by reading and
+are excluded.
+
+#### S05.01.02 Add a skip-everything path that creates a usable guest profile — PARTIAL
+
+`EnsureDefaultProfileAsync` (`ProfileStore.cs:368-395`) returns an existing active profile
+before creating one, so a kill immediately after Skip cannot duplicate — `REQ5`/`AC3` hold.
+The created profile uses `Unspecified` goal and experience with an in-file comment rejecting
+*"plausible-looking defaults the user never chose"*. The profile is a real row, so logging works
+immediately.
+
+**Gaps.** The skip profile is **not** named Guest and is **not** `ProfileKind.Guest` — it takes
+the placeholder name and `ProfileKind.Personal`. `ProfileKind.Guest` exists but is a different
+concept, produced only by the switcher's *"Add guest profile"*. Two values *are* fabricated:
+`AvailableEquipment = "Bodyweight"` and `TrainingDaysPerWeek = 3`. And `REQ3`/`AC2` fail
+outright: **the complete-setup nudge has no once-per-day gate**. `TodayFocusPlanner.cs:33-45`
+makes setup the hero on every launch while the profile is minimal, and lines 130-133 attach a
+secondary nudge on every launch after that; no dismissal timestamp is stored and no dismissal
+action exists.
+
+#### S05.01.03 Record local activation without personal data — NOT-DONE
+
+No `Telemetry` namespace exists in any project. No activation or event table appears in
+`Persistence/Configurations`, and `ProfileDataAreas.cs` — which enumerates every profile-owned
+entity and is guarded by a test that fails when a persisted type is unaccounted for — lists
+twelve areas, none of them activation. `REQ3`/`REQ4` are trivially true because nothing is
+captured and nothing is uploaded, and `REQ5` would come free from `IProfileOwned` if the entity
+existed, but the story is not implemented.
+
+### F05.02 Personalise onboarding with goals and availability — PARTIAL
+
+#### S05.02.01 Guide the user through a three-step goal wizard — PARTIAL
+
+`OnboardingAnswers.cs:8-14` states that nothing is validated on assignment and input is kept
+exactly as typed, with `OnboardingFlow` reporting problems separately — that satisfies `REQ5`'s
+*"do not clear previously entered answers"*, and `OnboardingIssue` carries a field so a message
+attaches to the right editor. `REQ4`/`AC3` hold: the draft store persists a partial wizard,
+Welcome offers *"Pick up where you left off"*, and Skip always leaves a usable profile.
+
+**Gaps.** `REQ1` unmet: `OnboardingStep.cs` declares **six** steps, not three, and
+`WelcomePage.xaml:40` advertises this to the user as *"Steps: Six"*. The extra steps are
+deliberate (body metrics feed `GoalSafetyEvaluator`) but the feature outcome explicitly warns
+against a long questionnaire and no ADR records the change. `REQ2`/`AC2` unmet:
+`ProfileLabels.cs:16-23` offers five concrete goals and exactly Beginner/Intermediate/Advanced —
+**there is no "I am not sure" option**, so the unsure-on-every-step path cannot be taken.
+`FitnessGoal.Unspecified` exists in the domain but is unreachable from the wizard UI. `AC1`'s
+9-tap budget is not achievable with six steps. `REQ3`'s 250 ms and `REQ5`'s announcement
+mechanism could not be grounded.
+
+#### S05.02.02 Apply onboarding answers to the first Today card — PARTIAL
+
+`REQ4`/`AC3` are met well: a safe setup card is the hero whenever the profile is minimal, it
+names the specific gaps, and `TodayFocus` refuses at construction to be built with an empty
+headline, message or button label.
+
+**Gap — this is the core of the story.** `TodayFocusPlanner.Plan`'s entire input is
+`TodayFocusInputs(ProfileCompletion, HasScheduledSession, TrainingRingProgress,
+RecentActivityCount)`. **It never sees `FitnessGoal`, `TrainingExperienceLevel` or
+`TrainingDaysPerWeek`.** `ProfileCompletion` reports how *much* of the profile is filled in, not
+what the answers were. A newcomer who chose strength and two days a week and a returner who
+chose fat loss and five get an identical card. `AC1` unmet; `REQ2` has no implementation;
+`REQ3`/`AC2` cannot be met at all because session-duration availability does not exist (backlog
+defect, above). `REQ5` routes to `ForgeRoutes.GoalWizard` — re-running first-run setup — rather
+than to an E06 goal-editing surface.
+
+#### S05.02.03 Offer re-onboarding after a long absence — NOT-DONE
+
+Nothing implements it. `TodayFocusPlanner` enumerates every card Today can show and none is a
+re-onboarding card; the planner has no inactivity input and no dismissal input. No preference
+key for a re-onboarding dismissal exists. `AC2` would hold if the card existed — completing
+setup updates the active profile in place — but that is a property of the existing path.
+
+### F05.03 Request permissions progressively at point of need — PARTIAL
+
+#### S05.03.01 Show reusable permission rationale sheets — PARTIAL
+
+`REQ3`/`AC2` are met and verifiable: nothing in the first-run path requests a permission, and
+`LocalNotificationScheduler.cs:60-63` hard-refuses the `AppLaunch` reason. The copy that does
+exist names the feature and the data type.
+
+**Gaps.** `AC1` is **inverted** — see the finding above. `REQ1` and `REQ5` are therefore unmet:
+the platform API is called without the user having chosen Allow, and *"Not now"* does not exist
+as an affordance. `REQ4` unmet: there is no shared copy contract, because there is no
+`Forge.Core/Permissions` — camera copy lives in a scanner view model, health copy in an Android
+`Activity`, notification copy in a streaks view model, and the three do not share a shape.
+
+#### S05.03.02 Handle denied permissions with working alternatives — PARTIAL
+
+The camera path is genuinely good: every denial has a specific, blame-free fallback already on
+screen (manual barcode entry), *Open settings* only appears for `PermanentlyDenied` — which
+`Map` (line 93) can only reach after an actual prompt, so it genuinely follows a second attempt
+— and denial is remembered per visit and, for notifications, persistently.
+
+**Gap.** Only camera is complete. `NotificationSettingsPageViewModel` contains **no reference to
+permission at all**, so a user whose notification permission is denied can configure reminders
+there and receive nothing: `ScheduleAsync` silently returns `false`. `AC2` fails on exactly the
+surface it names.
+
+#### S05.03.03 Defer health and notification permission education — PARTIAL
+
+Health permission work is confined to the health connection surface, reachable only from
+Settings (`REQ1`). The only caller of `RequestPermissionForDemonstratedValueAsync` is an explicit
+user action on the Streaks page (`REQ2` in the direction that matters, `AC1`). Manual logging
+never consults a permission, so `REQ3`/`AC2`/`AC3` hold. Notification state is two booleans and
+nothing else (`REQ4`).
+
+**Gaps.** `REQ2`'s *"reminder creation"* surface is the wrong one — `NotificationSettingsPage`
+has no education or request. `REQ4`'s dismissal-state half is unmet for health: nothing records
+that health education was dismissed, so `REQ5` is unverifiable — the rationale simply reappears
+whenever the connection screen opens.
+
+### F05.04 Support multiple local profiles on one device — PARTIAL
+
+#### S05.04.01 Create additional local profiles from the switcher — PARTIAL
+
+Profile identity is `Entity.Id` — init-only `Guid.CreateVersion7`, immutable and never reused
+(`REQ2`, `AC1`). Creation writes through `IDataSessionFactory` only and touches no contacts,
+account or identity API, so it works offline (`REQ5`, `AC3`). Names are validated with specific,
+non-blaming messages.
+
+**Gaps.** There is **no avatar field at all** — not on `UserProfile`, not in the row view model,
+not in the switcher XAML — so `REQ1`'s *"optional avatar"* is absent. `REQ4` is deliberately
+inverted: duplicates are rejected rather than disambiguated (see the divergence note). `AC2`
+cannot occur because the cap is 8, not 10+.
+
+#### S05.04.02 Switch profiles quickly and visibly — PARTIAL
+
+`ProfileScope` is fail-closed and pinned by `ProfileScopeTests`; every profile-owned entity
+implements `IProfileOwned`; switching writes a `LastActivatedUtc` strictly newer than every
+existing one so the active profile survives a restart and can never be ambiguous. The switch
+confirmation itself tells the user that shared data is unchanged rather than implying clean
+separation.
+
+**Gaps.** `REQ1` unmet: **the active profile is invisible outside the Profile tab.** The
+switcher appears only in `ProfilePage.xaml:77-79`; `AppShell.xaml` has no profile indicator, so
+`AC3` is only satisfiable on one tab. `REQ3`/`AC1` unmet: `SwitchToAsync` (lines 148-163)
+switches immediately with **no unsaved-edit check and no confirmation** — nothing consults
+`ActiveWorkoutSession` or any dirty flag. `REQ4`'s *"reject implicit global reads"* is not fully
+true: the exercise library (including user-created exercises and favourites) and the food
+catalogue (including user-added foods and saved barcodes) remain shared.
+
+#### S05.04.03 Delete a local profile with irreversible confirmation — PARTIAL
+
+`ProfileDeletion.Partition` classifies rows through `ProfileScope.Owns` rather than raw id
+comparison, so an unresolved scope can only leave rows in the *surviving* half, and the partition
+shape exists precisely so tests can assert no row is misclassified. The deletable set is derived
+from `ProfileDataAreas`, and anything the executor cannot handle is reported as *retained*
+rather than claimed as deleted. The whole delete runs through one `IDataSession`, so `REQ4` and
+`AC3` follow from a single transactional save.
+
+**Gaps.** `REQ1`/`AC1` unmet: **there is no typed-name confirmation** — `ProfileSwitcherViewModel
+.cs:218-219` uses a two-button `DisplayAlertAsync`, so the destructive action is one tap behind a
+dialog with no disabled-until-matching command to assert against. `REQ3`/`AC2` unmet: the last
+profile cannot be deleted from this surface at all (`canDelete: roster.Profiles.Count > 1`), so
+the app never returns to first-run onboarding by this route. `REQ5` unmet: the confirmation does
+not state that health data is special-category data remaining local until erased.
+
+### F05.05 Protect local data with optional app lock — PARTIAL
+
+#### S05.05.01 Enable biometric app lock when supported — PARTIAL
+
+The honesty requirements are met verbatim in two places: the lock screen and the settings screen
+both say the lock protects local app access, that anyone with the device passcode can pass it,
+and that no online account is involved. `IAppLockAuthenticator`'s own remarks record that Forge
+never sees or derives anything from the credential and that the database key is not derived from
+it (`REQ3`). `REQ5` is the best part of the story: `AppLockPolicy.cs:101-104` returns
+`DisableBecauseUnavailable` ahead of every other rule, and the coordinator acts on it — the
+comment reads *"a vault with the key thrown away"*. `TryEnableAsync` requires one successful
+prompt before the setting changes (`AC1`), and lockout/cancellation map to explicit results with
+recovery copy stating nothing is deleted (`AC3`).
+
+**Gap.** `REQ1`/`AC2` unmet because there is no separate biometric toggle to gate — the lock is a
+single on/off setting backed by the platform prompt, offered whenever the device has *any*
+credential. The settings screen reports capability honestly, which is arguably better, but
+*"PIN setup remains available"* has no counterpart: there is no Forge PIN to remain available.
+
+#### S05.05.02 Provide PIN fallback with lockout and local recovery copy — NOT-DONE
+
+**There is no PIN in Forge.** All 40 case-insensitive matches for PIN/passcode/lockout across
+`src/` refer to the *device* credential. `AppLockPage.xaml` has exactly one action — an Unlock
+button that invokes the platform prompt. `AppLockStateMachine` and `AppLockState` have no
+attempt count and no lockout-until timestamp; `IAppLockSettings` stores only `IsEnabled`,
+`GraceDuration`, `RelaxDuringActivity` and `HideInAppSwitcher`. `src/Forge.Infrastructure/Security`
+does not exist.
+
+`REQ3` and `REQ5` *are* satisfied in spirit and stated to the user — Forge cannot reset anything
+and there is no support bypass, because there is no server. But the mechanism the story
+describes does not exist. See the divergence note: this needs a backlog rewrite and an ADR, not
+a code fix.
+
+#### S05.05.03 Obscure protected content on launch and resume — PARTIAL
+
+`AppLockPage.xaml` renders only static text with no binding to any user data (`REQ2`).
+`AppLockPolicy.cs:106-109` returns `Lock` unconditionally for `Launched`, so unlock state never
+survives a restart (`REQ4`, `AC3`), and the idle interval is the configurable `GraceDuration`.
+`UnlockAsync:187-195` only leaves the locked state when the state machine accepts the result, so
+failure, cancellation and unavailability all keep content hidden (`REQ5`). The app-switcher
+cover is held until the lock screen is actually on screen rather than merely decided.
+
+**Gaps.** `REQ1`/`AC1`'s 500 ms bound needs a device and is excluded. `AC2` is satisfied by
+*re-navigation* rather than refusal: `AppLockPresenter` navigates back over whatever appeared,
+so a command already executing would still run — no guard inside any command checks
+`AppLockState` before acting. In practice the lock page is the current page so the switcher is
+unreachable, but the invariant is positional rather than enforced.
+
+### F05.06 Preserve a post-v1 remote identity path — PARTIAL
+
+#### S05.06.01 Add disabled account-attachment route metadata — PARTIAL
+
+`REQ1`'s first half holds — `Entity.Id` is a stable, immutable, populated Guid v7. `REQ3`/`AC2`
+are checkable and true: no sign-in, social-login or account action anywhere in Onboarding,
+Profile or Settings, and no OAuth package in `Directory.Packages.props`.
+
+**Gaps.** `UserProfile` has **no `externalIdentityId`** — confirmed against the class, the EF
+configuration and all three migrations. `ForgeRoutes` declares 46 routes and none is
+`AccountAttach`; there is **no feature-flag mechanism in the codebase at all**, so `AC3`'s
+*"navigation returns a disabled-route result"* has nothing to exercise — and since
+`ShellNavigationService` performs no route validation, an unregistered route surfaces as a raw
+MAUI failure rather than a typed result.
+
+#### S05.06.02 Document future social sign-in compliance constraints — PARTIAL
+
+`ADR-0001:22-26` covers `REQ4`'s app-lock-versus-identity distinction and is reinforced at length
+by `docs/security/app-lock-threat-model.md:14-28`. `AC3` is met and checkable — no OAuth package,
+no `WebAuthenticator` route.
+
+**Gaps.** Three of five requirements are undocumented. `REQ1`: **no document mentions Sign in
+with Apple or any privacy-preserving equivalent** — commercially significant, because Apple
+guideline 4.8 requires it once any third-party login ships. `REQ3`: nothing describes attaching
+identity to the local profile id, and there is no migration test for unchanged row counts, so
+`AC2` cannot be run. `REQ5`: nothing covers delete and export consequences. This is a
+documentation story whose deliverable is roughly 40 per cent written.
