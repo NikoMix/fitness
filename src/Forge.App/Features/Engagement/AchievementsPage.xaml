@@ -23,9 +23,9 @@
              BackgroundColor="{dx:ThemeColor Surface}">
     <ContentPage.Resources>
         <!-- List height is a layout constant for this section; ForgeTokens carries no list scale. -->
-        <sys:Double x:Key="CabinetHeight">560</sys:Double>
+        <!-- Height of the loading placeholder only; nothing else on the page is a fixed size. -->
+        <sys:Double x:Key="SkeletonHeight">240</sys:Double>
         <sys:Double x:Key="ShareCardWidth">360</sys:Double>
-        <Thickness x:Key="CardGap">0,0,0,12</Thickness>
     </ContentPage.Resources>
 
     <Grid>
@@ -41,7 +41,7 @@
                     <Label Text="Earned from training you logged on this device. Nothing is uploaded, and nothing here rewards training through pain."
                            Style="{StaticResource SecondaryText}" />
 
-                    <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource CabinetHeight}" />
+                    <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource SkeletonHeight}" />
 
                     <Label Text="{Binding Summary}" Style="{StaticResource CaptionText}" />
 
@@ -54,15 +54,20 @@
                     <controls:EmptyState IsVisible="{Binding HasNoAchievements}"
                                          Glyph="🏆"
                                          Headline="Your cabinet is ready"
-                                         Message="Log a session, record how a set felt, or check in on your recovery. Every badge below shows exactly how far along you are, and none of them appears before you have earned it." />
+                                         Message="Log a session, record how a set felt, or check in on your recovery. Badges appear here only once you have earned them, and each one shows exactly how far along you are." />
 
-                    <dx:DXCollectionView ItemsSource="{Binding Achievements}"
-                                         HeightRequest="{StaticResource CabinetHeight}"
-                                         ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
-                        <dx:DXCollectionView.ItemTemplate>
+                    <!--
+                        A BindableLayout rather than a fixed-height DXCollectionView. A scrolling,
+                        virtualised list nested inside a ScrollView needs an explicit height, and any
+                        height chosen is wrong twice: it leaves a void when there are few items and
+                        clips when there are many. This page is already inside a ScrollView, so laying
+                        the cards out in the stack sizes them to their content instead.
+                    -->
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Achievements}"
+                                         Spacing="{StaticResource SpaceM}">
+                        <BindableLayout.ItemTemplate>
                             <DataTemplate>
                                 <dx:DXBorder Style="{StaticResource Card}"
-                                             Margin="{StaticResource CardGap}"
                                              SemanticProperties.Description="{Binding AccessibleDescription}">
                                     <Grid RowDefinitions="Auto,Auto,Auto,Auto"
                                           ColumnDefinitions="*,Auto"
@@ -102,8 +107,8 @@
                                     </Grid>
                                 </dx:DXBorder>
                             </DataTemplate>
-                        </dx:DXCollectionView.ItemTemplate>
-                    </dx:DXCollectionView>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
             </ScrollView>
         </adaptive:AdaptiveHost>

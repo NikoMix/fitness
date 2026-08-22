@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-    Rhythm - consistency measured in weeks, never in days.
+    Consistency - measured in weeks, never in days.
 
     Nothing on this page counts down, and nothing is taken away by a rest day. The ring shows
     progress through the user's own weekly target and is drawn only when an active plan supplies
@@ -22,11 +22,12 @@
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Engagement.StreaksPage"
              x:Name="Page"
-             Title="Rhythm"
+             Title="Consistency"
              BackgroundColor="{dx:ThemeColor Surface}">
     <ContentPage.Resources>
         <!-- List height is a layout constant for this section; ForgeTokens carries no list scale. -->
-        <sys:Double x:Key="HistoryHeight">320</sys:Double>
+        <!-- Height of the loading placeholder only; nothing else on the page is a fixed size. -->
+        <sys:Double x:Key="SkeletonHeight">240</sys:Double>
     </ContentPage.Resources>
 
     <adaptive:AdaptiveHost x:Name="Adaptive">
@@ -35,13 +36,13 @@
                                  HorizontalOptions="Center"
                                  WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}"
                                  Spacing="{StaticResource SpaceL}">
-                <Label Text="Your rhythm"
+                <Label Text="Your consistency"
                        Style="{StaticResource HeadlineText}"
                        SemanticProperties.HeadingLevel="Level1" />
                 <Label Text="Forge counts weeks that contained training, not days in a row. Rest, recovery and deloads are part of training."
                        Style="{StaticResource SecondaryText}" />
 
-                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource HistoryHeight}" />
+                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource SkeletonHeight}" />
 
                 <controls:EmptyState IsVisible="{Binding HasNoHistory}"
                                      Glyph="🌱"
@@ -121,17 +122,17 @@
                     </VerticalStackLayout>
                 </controls:ForgeCard>
 
-                <controls:ForgeCard Title="Badges and rhythm" Subtitle="Entirely optional">
+                <controls:ForgeCard Title="Badges and consistency" Subtitle="Entirely optional">
                     <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                         <Label Text="{Binding GamificationNote}" Style="{StaticResource SecondaryText}" />
                         <dx:DXButton IsVisible="{Binding GamificationEnabled}"
-                                     Content="Turn badges and rhythm off"
-                                     SemanticProperties.Description="Turn badges and rhythm framing off. Logging, plans, nutrition and progress are unchanged."
+                                     Content="Turn badges and consistency off"
+                                     SemanticProperties.Description="Turn badges and consistency framing off. Logging, plans, nutrition and progress are unchanged."
                                      Style="{StaticResource SecondaryButton}"
                                      Command="{Binding ToggleGamificationCommand}" />
                         <dx:DXButton IsVisible="{Binding GamificationDisabled}"
-                                     Content="Turn badges and rhythm on"
-                                     SemanticProperties.Description="Turn badges and rhythm framing back on"
+                                     Content="Turn badges and consistency on"
+                                     SemanticProperties.Description="Turn badges and consistency framing back on"
                                      Style="{StaticResource SecondaryButton}"
                                      Command="{Binding ToggleGamificationCommand}" />
                     </VerticalStackLayout>
@@ -153,11 +154,16 @@
                        Style="{StaticResource SectionHeaderText}"
                        SemanticProperties.HeadingLevel="Level2" />
 
-                <dx:DXCollectionView IsVisible="{Binding HasHistory}"
-                                     ItemsSource="{Binding History}"
-                                     HeightRequest="{StaticResource HistoryHeight}"
-                                     ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
-                    <dx:DXCollectionView.ItemTemplate>
+                <!--
+                    A BindableLayout rather than a fixed-height DXCollectionView. Consistency data
+                    is sparse for a new user by definition, so a list with one or two rows is the
+                    common case here, and a fixed height would render as a heading above several
+                    hundred pixels of nothing.
+                -->
+                <VerticalStackLayout IsVisible="{Binding HasHistory}"
+                                     BindableLayout.ItemsSource="{Binding History}"
+                                     Spacing="{StaticResource SpaceS}">
+                    <BindableLayout.ItemTemplate>
                         <DataTemplate>
                             <dx:DXBorder Style="{StaticResource ListRow}"
                                          SemanticProperties.Description="{Binding Description}">
@@ -170,8 +176,8 @@
                                 </VerticalStackLayout>
                             </dx:DXBorder>
                         </DataTemplate>
-                    </dx:DXCollectionView.ItemTemplate>
-                </dx:DXCollectionView>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>
     </adaptive:AdaptiveHost>

@@ -140,7 +140,7 @@ public sealed partial class AchievementsPageViewModel : ObservableObject
 
         Summary = snapshot switch
         {
-            { HasProfile: false } => "No profile is active yet, so Forge has nothing to show. Nothing is guessed here.",
+            { HasProfile: false } => "No profile is active on this device yet, so there is nothing to measure. Finish setting up Forge and this fills in from your own training.",
             { GamificationEnabled: false } => EngagementEthicsPolicy.GamificationDisablementMessage,
             _ when Achievements.Count == 0 => "No badges are defined.",
             _ => $"{earned} of {Achievements.Count} earned from your own logged training. Everything stays on this device.",

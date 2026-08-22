@@ -61,8 +61,8 @@ public interface IEngagementDataService
     /// <returns>The snapshot after the change.</returns>
     Task<EngagementSnapshot> ProtectFromAsync(TrainingInterruption reason, DateOnly from, DateOnly today, CancellationToken cancellationToken);
 
-    /// <summary>Closes any running protected period.</summary>
-    /// <param name="today">The user's local date, used as the final protected day.</param>
+    /// <summary>Closes any running protected period, so today is measured again.</summary>
+    /// <param name="today">The user's local date. Protection is closed at the day before it.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The snapshot after the change.</returns>
     Task<EngagementSnapshot> EndProtectionAsync(DateOnly today, CancellationToken cancellationToken);
@@ -110,7 +110,10 @@ internal sealed class EngagementDataService(ForgeStartupService startup, IDataSe
 
     /// <inheritdoc />
     public Task<EngagementSnapshot> EndProtectionAsync(DateOnly today, CancellationToken cancellationToken)
-        => WriteAsync(today, streak => streak.EndProtection(today), cancellationToken);
+        // Protection ends yesterday, not today. "I am training again" is a statement about today,
+        // so leaving today covered would leave the screen still reporting a protection the user
+        // just cancelled, and the button would look like it had done nothing.
+        => WriteAsync(today, streak => streak.EndProtection(today.AddDays(-1)), cancellationToken);
 
     /// <summary>
     /// Runs one operation on a background thread over a single session.
@@ -144,9 +147,18 @@ internal sealed class EngagementDataService(ForgeStartupService startup, IDataSe
 
             await using var session = sessions.Create();
 
-            var streak = await GetOrCreateStreakAsync(session, scope, cancellationToken).ConfigureAwait(false);
+            var (streak, created) = await GetOrCreateStreakAsync(session, scope, cancellationToken).ConfigureAwait(false);
             mutate(streak);
-            await session.Repository<Streak>().UpdateAsync(streak, cancellationToken).ConfigureAwait(false);
+
+            // Only an existing row is marked modified. Calling Update on an entity that is already
+            // Added flips its state to Modified, so the INSERT becomes an UPDATE of a row that does
+            // not exist yet and SaveChanges throws DbUpdateConcurrencyException - "expected to
+            // affect 1 row, actually affected 0". That crashed the screen on a device while every
+            // test passed, because the tests never opened a database with no engagement row in it.
+            if (!created)
+            {
+                await session.Repository<Streak>().UpdateAsync(streak, cancellationToken).ConfigureAwait(false);
+            }
 
             var snapshot = await BuildAsync(session, scope, streak, today, cancellationToken).ConfigureAwait(false);
             await session.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -154,20 +166,24 @@ internal sealed class EngagementDataService(ForgeStartupService startup, IDataSe
             return snapshot;
         }, cancellationToken);
 
-    private static async Task<Streak> GetOrCreateStreakAsync(IDataSession session, ProfileScope scope, CancellationToken cancellationToken)
+    private static async Task<(Streak Streak, bool Created)> GetOrCreateStreakAsync(
+        IDataSession session,
+        ProfileScope scope,
+        CancellationToken cancellationToken)
     {
         var existing = await OwnedAsync<Streak>(session, scope, cancellationToken).ConfigureAwait(false);
 
-        // Ordered in memory. CreatedUtc is a DateTimeOffset and SQLite refuses to sort one.
+        // Ordered in memory. CreatedUtc is a DateTimeOffset, and SQLite refuses both to sort one
+        // and to compare one in a translated predicate.
         var streak = existing.OrderBy(record => record.CreatedUtc).FirstOrDefault();
         if (streak is not null)
         {
-            return streak;
+            return (streak, false);
         }
 
         streak = new Streak { UserProfileId = scope.ProfileId };
         await session.Repository<Streak>().AddAsync(streak, cancellationToken).ConfigureAwait(false);
-        return streak;
+        return (streak, true);
     }
 
     private static async Task<EngagementSnapshot> BuildAsync(

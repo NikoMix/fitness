@@ -98,6 +98,33 @@ public sealed class StreakTests
     }
 
     [Fact]
+    public void Saying_you_are_training_again_on_the_day_you_marked_it_cancels_the_period()
+    {
+        // Found on a device: closing the period at "today" left today still covered, so the
+        // button appeared to do nothing. A period that would end before it began never happened.
+        var streak = new Streak();
+        streak.Protect(new ProtectedPeriod(Monday, null, TrainingInterruption.Illness));
+
+        streak.EndProtection(Monday.AddDays(-1));
+
+        streak.ProtectedPeriods.ShouldBeEmpty();
+        streak.IsProtectedOn(Monday).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Ending_protection_the_day_before_leaves_the_earlier_days_protected()
+    {
+        var streak = new Streak();
+        streak.Protect(new ProtectedPeriod(Monday, null, TrainingInterruption.Illness));
+
+        streak.EndProtection(Monday.AddDays(3));
+
+        streak.IsProtectedOn(Monday).ShouldBeTrue();
+        streak.IsProtectedOn(Monday.AddDays(3)).ShouldBeTrue();
+        streak.IsProtectedOn(Monday.AddDays(4)).ShouldBeFalse();
+    }
+
+    [Fact]
     public void Reminders_are_suppressed_while_a_period_is_protected()
     {
         var streak = new Streak();

@@ -18,7 +18,7 @@ namespace Forge.App.Features.Engagement.ViewModels;
 public sealed record StreakHistoryRow(string Label, string Detail, string Status, bool IsProtected, string Description);
 
 /// <summary>
-/// The Streaks screen: consistency measured in weeks, derived entirely from logged sessions.
+/// The Consistency screen: training measured in weeks, derived entirely from logged sessions.
 /// </summary>
 /// <remarks>
 /// <para>

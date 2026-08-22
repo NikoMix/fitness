@@ -164,16 +164,31 @@ public sealed class Streak : Entity, IProfileOwned
         ModifiedUtc = DateTimeOffset.UtcNow;
     }
 
-    /// <summary>Closes every still-running protected period.</summary>
+    /// <summary>
+    /// Closes every still-running protected period.
+    /// </summary>
+    /// <remarks>
+    /// A period that would end before it began is removed rather than stored. Somebody who marks
+    /// illness and then immediately says they are training again has not had a protected period;
+    /// keeping a zero-length one would leave the screen reporting a protection they just cancelled.
+    /// </remarks>
     /// <param name="lastProtectedDay">The final day the protection covered.</param>
     public void EndProtection(DateOnly lastProtectedDay)
     {
-        for (var index = 0; index < ProtectedPeriods.Count; index++)
+        for (var index = ProtectedPeriods.Count - 1; index >= 0; index--)
         {
-            if (ProtectedPeriods[index].IsOpenEnded)
+            if (!ProtectedPeriods[index].IsOpenEnded)
             {
-                ProtectedPeriods[index] = ProtectedPeriods[index] with { End = lastProtectedDay };
+                continue;
             }
+
+            if (lastProtectedDay < ProtectedPeriods[index].Start)
+            {
+                ProtectedPeriods.RemoveAt(index);
+                continue;
+            }
+
+            ProtectedPeriods[index] = ProtectedPeriods[index] with { End = lastProtectedDay };
         }
 
         ModifiedUtc = DateTimeOffset.UtcNow;

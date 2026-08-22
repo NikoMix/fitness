@@ -208,6 +208,42 @@ public sealed class EngagementPersistenceTests : IAsyncLifetime
         newest.UnlockedUtc!.Value.ShouldBe(later, TimeSpan.FromSeconds(1));
     }
 
+    [Fact]
+    public async Task Updating_a_row_that_was_added_in_the_same_unit_of_work_is_rejected()
+    {
+        // The trap behind a device-only crash on the Consistency screen. EF's Update() forces the
+        // state to Modified even when the entity is already Added, so the INSERT becomes an UPDATE
+        // of a row that does not exist and the save reports zero rows affected. Nothing in the
+        // suite caught it because no test opened a database with no engagement row in it.
+        await using var context = CreateContext();
+        var streak = new Streak { UserProfileId = Alice };
+
+        await context.Set<Streak>().AddAsync(streak, TestContext.Current.CancellationToken);
+        context.Set<Streak>().Update(streak);
+
+        var save = () => context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        await save.ShouldThrowAsync<DbUpdateConcurrencyException>();
+    }
+
+    [Fact]
+    public async Task Adding_the_first_engagement_record_without_updating_it_inserts_cleanly()
+    {
+        await using (var context = CreateContext())
+        {
+            var streak = new Streak { UserProfileId = Alice };
+            streak.Protect(new ProtectedPeriod(new DateOnly(2026, 6, 1), null, TrainingInterruption.Illness));
+
+            await context.Set<Streak>().AddAsync(streak, TestContext.Current.CancellationToken);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using var verify = CreateContext();
+        var stored = await verify.Set<Streak>().OwnedBy(new ProfileScope(Alice)).SingleAsync(TestContext.Current.CancellationToken);
+
+        stored.ProtectedPeriods.Count.ShouldBe(1);
+    }
+
     private static Achievement Badge(Guid owner, string code)
     {
         var definition = AchievementEvaluator.Find(code).ShouldNotBeNull();
