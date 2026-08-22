@@ -102,6 +102,22 @@ UPDATE "Streak" SET "ProtectedPeriods" = '[]';
 Either write that after the rename, or replace the rename with a `DropColumn` + `AddColumn` carrying
 `defaultValue: "[]"`. Both are acceptable; the plain rename alone is not.
 
+## This is not optional polish — the screens crash without it
+
+Verified on `emulator-5554`. Before the migration exists, opening Consistency throws immediately:
+
+```
+Microsoft.Data.Sqlite.SqliteException: SQLite Error 1: 'no such column: s.ProtectedPeriods'
+```
+
+and takes the process down. That is true on a fresh install as well as an upgrade, because the
+existing chain creates `Streak.History` and the model now reads `ProtectedPeriods`. Both screens are
+reachable from the Progress hub, so this is a user-facing hard crash rather than a latent risk.
+
+With the migration applied locally, the crash disappears, both screens render, and
+`Forge.Infrastructure.Tests` goes from 9 failures to 0. The scaffold was then deleted and the
+snapshot restored, so nothing under `Persistence/Migrations/` is modified by this branch.
+
 ## Test consequences on this branch
 
 Nine tests in `Forge.Infrastructure.Tests` are **red on this branch and go green when the migration
@@ -119,6 +135,6 @@ They were green before this branch and are unrelated to the engagement logic its
 those build their schema with `EnsureCreatedAsync` from the model.
 
 After generating the migration, please re-run `Forge.Infrastructure.Tests` and confirm all nine
-recover. `ProfileOwnershipBackfillTests` is the one worth reading closely: it is the pattern for
-asserting that a populated pre-migration database is still reachable afterwards, and the
-`Achievement` backfill above deserves the same treatment.
+recover — they did locally against the scaffolded version. `ProfileOwnershipBackfillTests` is the
+one worth reading closely: it is the pattern for asserting that a populated pre-migration database
+is still reachable afterwards, and the `Achievement` backfill above deserves the same treatment.
