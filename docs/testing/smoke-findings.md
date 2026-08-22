@@ -272,10 +272,22 @@ of those.
 **To confirm or dismiss:** open `profile` cold ten times and watch for a frame with nothing on it.
 If it is a race, the fix is on the page; if it is the harness, `-SettleSeconds` needs raising.
 
-### F7 — fourteen registered routes have no inbound navigation anywhere in the app
+### F7 — registered routes with no inbound navigation *(mostly fixed upstream)*
 
-**Owner: multiple, listed below** · **Severity: P1 as a group** · Derived from source, confirmed by
-the walk.
+**Owner: multiple** · **Status: 13 of 14 resolved.**
+
+At the time of the first report, fourteen registered routes had a page, a title, and no page in the
+app navigating to them. Re-deriving the graph against the merged foundation branch now finds
+**one**: `barcode-scanner`, which is opened by `BarcodeScanCoordinator` from a scan button rather
+than by a static reference, so its absence from the graph is a limitation of static analysis and
+not a defect.
+
+`achievements` and `streaks` now resolve as `progress -> achievements` and `progress -> streaks`.
+There is also a `tools/ci/Test-RouteReachability.ps1` in the tree now, which is the right place for
+this check to live permanently — a static guard costs nothing per PR, where the device walk costs
+forty minutes.
+
+The original list is kept below for the record.
 
 These routes are registered with `Routing.RegisterRoute`, have a page, have a title, and **no page
 in the app navigates to them**. Nothing links to them in XAML, nothing references the constant
@@ -346,57 +358,54 @@ Consequences:
 A single `ILogger` call in the broad catch blocks would make every one of these visible to the
 smoke harness, and to anyone with `adb` attached, at effectively no cost.
 
-### F9 — `dotnet format --verify-no-changes` fails at `HEAD`, so CI is red for everyone
+### F9 — ~~format gate fails at `HEAD`~~ *(fixed upstream — and it was worse than reported)*
 
-**Owner: whoever lands the next `src/` change** · **Severity: P1 for CI** · Reproduced from a clean
-worktree with no local `src/` edits.
+**Status: resolved.** The profile-scoping stream fixed the four tab-indented files, and
+`Forge.App` is now inside the format gate.
 
-```powershell
-git diff --name-only HEAD -- src/     # empty
-dotnet format --verify-no-changes     # exit 2
-```
+That second half matters more than the finding did. `Forge.App` had been **excluded** from the
+gate because the core CI job runs without the MAUI workload — so the largest project in the
+repository was the one nothing checked. It now runs in the Android job, and `dotnet format` is
+clean across all seven projects.
 
-Four files are tab-indented where the `.editorconfig` requires spaces:
+Worth recording as a shape rather than an incident: a gate that silently skips its biggest input
+reads exactly like a passing gate. That is the same failure mode as an upgrade-path run reporting
+green for a first run, and as this harness checking a screen under the wrong route name — a green
+result for something that was never examined. Three instances of it in one wave.
 
-| File |
-|---|
-| `src/Forge.App/Features/Workout/ActiveWorkoutSession.cs` (line 312) |
-| `src/Forge.App/Platforms/Android/MainApplication.cs` |
-| `src/Forge.App/Platforms/iOS/AppDelegate.cs` |
-| `src/Forge.App/Platforms/iOS/Program.cs` |
+<details>
+<summary>Original finding</summary>
 
-The three `Platforms` files came in with commit `36483e4` *"Restore 135 app files that .gitignore
-was silently excluding"* — they are template-generated and were never run through the formatter,
-because until that commit `.gitignore` was hiding them.
+Four files were tab-indented where `.editorconfig` requires spaces: `ActiveWorkoutSession.cs` and
+the three `Platforms/{Android,iOS}` files. Those three arrived in `36483e4` *"Restore 135 app files
+that .gitignore was silently excluding"* — template-generated and never formatted, because until
+that commit `.gitignore` was hiding them.
 
-This is not caused by this work stream: it changed no C# at all, and `dotnet build Forge.slnx
---no-incremental` is clean at 0 warnings and 0 errors. It is recorded here because the contributor
-guide states CI runs this gate, which means **every pull request from every stream is currently
-failing on whitespace in files nobody in this wave edited**. One `dotnet format` run on those four
-files clears it.
+</details>
 
-### F10 — labels on `active-workout` render at zero height
+### F10 — ~~labels on `active-workout` render at zero height~~ *(fixed in `3b31c68`, and it was not a text problem)*
 
-**Owner: Workout** · **Severity: P2** · Finding ids `4534e6510b`, `64dd45cbee`, `86779b98e2`
-(phone) plus `3e71983313`, `3f2623e03c`, `f2fed0270b` (tablet) · first-run pass, both devices.
+**Status: resolved.** Worth keeping because the diagnosis corrected this harness, not just the app.
 
-| Label | Bounds on the phone |
-|---|---|
-| `−15` | 21x0 |
-| `Skip` | 20x0 |
-| `Full screen` | 20x0 |
+The six controls were in the second column of a `ColumnDefinitions="140,*"` grid beside the 140px
+ring, and six buttons plus two labels do not fit the width that leaves on a phone. The second row
+was laid out **past the bottom of its own parent** — starting at y=1907 inside a parent ending at
+y=1904 — so the buttons reported negative heights. Measured on device:
+`Skip 71x-67 → 71x49`, `Full screen 83x-24 → 178x49`, `−15 62x-67 → 62x49`.
 
-Each has text and lays out at zero height, so not one pixel of it is drawn. The accessibility tree
-still reports the string, which is why this is invisible to a screen-reader audit *and* to a
-screenshot diff — the control is announced but cannot be seen. The tablet shows six such labels
-rather than three, so it is worse at that size, not better.
+**This harness reported them as `21x0` and `20x0`.** `ConvertTo-UiBounds` clamped negative
+dimensions to zero, so the detector fired — but on the weaker of the two available signals. A zero
+height has an innocent explanation, a deliberately empty label; a negative height has none. The
+clamped number also points at the label, while the real number points at the parent, which is
+where the defect actually was.
 
-This is on the active workout screen, which is the app's core interaction surface, and `Skip` and
-`−15` are rest-timer controls a user reaches for mid-set.
+Fixed here: the parser keeps the signed dimensions, and `Inverted` is now a distinct shape reported
+ahead of `Collapsed`, with the negative measurement carried into the report. Four assertions cover
+it, including that an ordinary 71x49 control is not called inverted.
 
-Found only now because `active-workout` had never been reached before: the walk to it goes through
-*Start a workout* on `train`, and on a device carrying an old database that path ended in F2's
-crash before the screen rendered.
+The app-side diagnosis went the same way — the first attempt blamed the button style and added
+padding, and device measurement corrected it. The padding was a real touch-target improvement and
+was kept, and the commit message says it fixed nothing.
 
 ### F11 — the food log's empty state renders nothing at all
 
@@ -411,6 +420,26 @@ states carry explanatory copy on purpose — that is the documented convention a
 blank-content check can be trusted — so a wordless one here is a gap, not a false positive.
 
 Every device run before this wave would have missed it, because no device was ever empty.
+
+### F12 — inverted bounds on `active-workout` and `exercise-detail`
+
+**Owner: Workout, Exercises** · **Severity: P2** · Phone, after `3b31c68`.
+
+Found by the `Inverted` shape the moment the bounds parser stopped clamping negatives:
+
+| Route | Element | Measured |
+|---|---|---|
+| `active-workout` | `Rest complete` | `891x-354` |
+| `exercise-detail` | `3` (a step number) | `25x-5` |
+| `exercise-detail` | *"Step away until the band is trying to rotate you toward the anchor."* | `834x-5` |
+
+`3b31c68` fixed the six rest controls, and these are separate. The `-354` on `Rest complete` is a
+large overhang, not a rounding artefact; the two `-5` values on `exercise-detail` are small enough
+that they may be a systematic one-off in a step-list row template, which would make them one defect
+rather than two.
+
+Under the old clamping these would have been reported as `891x0`, `25x0` and `834x0` — detected,
+but described as empty labels rather than as elements laid out past the end of their parent.
 
 ## Not defects — harness limitations and false positives
 
@@ -495,6 +524,54 @@ first two runs and from the written reports for the last three. They agree.
 See N5 item 2. Given F8 — the app logs no exceptions at all — that bug cost nothing in practice
 on these runs. That is luck, not design.
 
+
+### N7 — the harness could not scroll a DevExpress list, and that was worse than a coverage gap
+
+Reported by the engagement stream and reproduced here before changing anything.
+
+**What is true.** `adb input swipe` at the harness's original 350ms is delivered to a DevExpress
+list as a **tap**: it opens the card under the finger. Verified on the Progress hub — a swipe from
+(540,1728) to (540,768) navigated to a detail page rather than scrolling past it.
+
+**Why that was worse than merely not scrolling.** The old code compared fingerprints, saw the
+screen had changed and concluded it had scrolled. Every check that ran afterwards was then filed
+under the route the harness *thought* it was still on. That is a finding attributed to a screen
+that was not on the display — the same shape as an upgrade-path run reporting green for a first
+run, arriving from the other direction.
+
+**What was changed.** Three scroll strategies, tried in order, each verified afterwards:
+
+| | Result |
+|---|---|
+| 900ms drag confined to the scrollable node | scrolls; stayed on screen, overlap 0.5 |
+| `KEYCODE_DPAD_DOWN` ×12 | scrolls; revealed the `Achievements` row |
+| whole-screen swipe | opt-in only, behind `-UseSwipeFallback` |
+
+Duration is the variable that matters: 350ms reads as a fling and opens a card, 900ms reads as a
+drag and moves the content.
+
+**And two guards, which matter more than the scrolling.**
+
+- *Identity by content overlap, not by the resolver.* Scrolling pushes the toolbar title off the
+  top and the resolver falls through to a text literal — and the Progress hub's cards describe
+  their own destinations, so a **scrolled hub identifies as `personal-records`**. The harness did
+  exactly that on a device during this work. Real captures: 0.90 overlap for a scroll, 0.05 for a
+  navigation.
+- *`Invoke-ScreenChecks` refuses a hierarchy that is not the route it was told*, reporting
+  `CheckedWrongScreen` and running nothing. That is systemic: no future bug of this shape can
+  misattribute a finding, whether or not anyone remembers scrolling exists.
+
+**What is still not proven.** I did not get an end-to-end run in which `achievements` was actually
+reached and checked. Two attempts failed for different reasons — the first to the resolver
+mis-fire described above, now fixed; the second to `uiautomator` returning
+`null root node returned by UiTestAutomationBridge`, an environmental flake unrelated to scrolling.
+
+**And one limitation the original report did not have.** `KEYCODE_DPAD_DOWN` scrolls, but focus
+traversal can walk out of the content area into the bottom tab bar and switch tabs. Observed here:
+two consecutive scroll attempts on the Progress hub landed on Today and then Coaching. The overlap
+check catches it and reports `ScrollNavigated` rather than misattributing, so it is safe — but
+"focus movement is the safe way to scroll" is not unconditionally true, and below-the-fold content
+on these lists is still not reliably reachable.
 
 ## What the harness still cannot see
 

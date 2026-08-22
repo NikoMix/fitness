@@ -184,7 +184,55 @@ Every exit-info fixture in `tools/smoke/fixtures/exitinfo/` was captured from a 
 rather than invented, because the printed format varies and a parser written against a guess is
 worth nothing.
 
-### 6. Phase budgets, so one screen cannot eat the run
+### 6. Scrolling, which is where a harness can start lying
+
+`adb input swipe` is delivered to a DevExpress list as a **tap, not a scroll**. The gesture opens
+whichever card is under the finger. Verified on the Progress hub: a swipe from (540,1728) to
+(540,768) navigated to a detail page, while twelve `KEYCODE_DPAD_DOWN` presses scrolled the same
+list and revealed the `Achievements` row below the fold. A real finger scrolls it fine; this is
+specific to synthetic input.
+
+That made swiping actively harmful rather than merely useless. The old code compared fingerprints,
+saw the screen had changed and concluded it had scrolled — so every check that ran afterwards was
+filed under the route the harness thought it was still on. One run produced 808 hierarchy dumps
+without ever displaying the two screens it was trying to reach.
+
+Three changes, and the third is the one that generalises:
+
+1. **Scroll by moving focus.** `KEYCODE_DPAD_DOWN` scrolls the container to bring the focused item
+   into view and generates no touch at all, so it cannot activate anything. A swipe remains
+   available behind `-UseSwipeFallback` for a plain scroll view with nothing focusable in it, and
+   is off by default: better to miss content below the fold than to report a screen opened by
+   accident.
+
+2. **Confirm identity by content overlap, not by the resolver.** Scrolling pushes the toolbar title
+   off the top, and the resolver then falls through to matching a text literal — and the Progress
+   hub's cards describe their own destinations, so a *scrolled hub identifies as
+   `personal-records`*. The harness did exactly that on a device and reported a perfectly good
+   scroll as a stray tap. Overlap answers the question directly, and the two cases are nowhere
+   near each other:
+
+   | | Overlap |
+   |---|---:|
+   | scrolled six presses | 0.90 |
+   | swiped, opened a card | 0.05 |
+
+   Both numbers come from real captures kept in `tools/smoke/fixtures/scroll/`.
+
+3. **Checks refuse a hierarchy that is not the route they were told.** `Invoke-ScreenChecks`
+   resolves the tree it is handed and, if it is a different route, runs nothing and says so as
+   `CheckedWrongScreen`. A finding filed under the wrong route is worse than a missing one: it
+   sends somebody to fix a screen that was fine. This is a systemic guard — no future bug of this
+   shape can misattribute a finding, whether or not anyone remembers scrolling exists.
+
+### 7. The first tab tap after a restart does not switch tabs
+
+The app restores its last pushed page on relaunch, so immediately after a restart the tab bar is
+drawn over a pushed screen and the first tab tap **pops that stack** rather than switching tabs.
+The tap is correct and the destination is not, which makes the next few steps of a walk land
+somewhere nobody expects. `Open-ShellTab` now confirms it arrived and taps once more if it did not.
+
+### 8. Phase budgets, so one screen cannot eat the run
 
 The crawl's branching factor is enormous and it runs first, so with a single shared budget it
 always won and the directed pass never started. Three separate caps now apply:
@@ -198,7 +246,7 @@ always won and the directed pass never started. Three separate caps now apply:
 A screen the harness has already navigated to is always checked, even when the crawl budget is
 spent — the cap stops it descending further, not seeing where it is.
 
-### 7. The app is still alive
+### 9. The app is still alive
 
 After every action, `adb shell pidof com.nikomix.forge`. If the process is gone, the harness reads
 Android's exit record, the crash buffer and logcat, in that order of authority, and works out why
@@ -214,7 +262,7 @@ before saying anything:
 - **Unknown** — the process is gone and nothing explains it. Reported as a failure, because "I do
   not know" is not a pass.
 
-### 8. Exceptions, fatal and otherwise
+### 10. Exceptions, fatal and otherwise
 
 `FATAL EXCEPTION`, `Fatal signal`, `Unhandled Exception` and the mono runtime variants kill the
 process and are reported with a block of following lines.
@@ -225,7 +273,7 @@ screen stamps the device clock on arrival, so an exception the app survived is a
 route that was open when it was thrown — *"the readiness screen threw
 InvalidOperationException"*, not *"something threw during a forty-minute run"*.
 
-### 9. Blank content — the `ForgeCard` class of bug
+### 11. Blank content — the `ForgeCard` class of bug
 
 Three checks on the accessibility tree, in decreasing severity.
 
@@ -250,7 +298,7 @@ be wrong:
 - **Icon-only and camera screens are not flagged as unbound.** The check needs a substantial node
   count before "no text" means anything.
 
-### 10. Error text rendered to the user
+### 12. Error text rendered to the user
 
 A caught exception whose `Message` is bound into a label never reaches logcat as a fatal. The
 process stays alive, every other check passes, and the user is reading:
@@ -265,7 +313,7 @@ The patterns deliberately avoid bare words. `error` and `failed` appear in legit
 *"Import failed, nothing was changed"* — and matching those would make the check useless within a
 week. The self-test asserts exactly that, against four realistic strings.
 
-### 11. Text that does not fit
+### 13. Text that does not fit
 
 `uiautomator` reports a label's full string rather than the truncated text actually drawn, so
 *"does this end in an ellipsis"* is unanswerable from a hierarchy. Geometry is answerable, and
@@ -273,9 +321,17 @@ geometry is where the real failures are:
 
 | Shape | Meaning |
 |---|---|
+| `Inverted` | the bottom edge is above the top, or the right edge left of the left. The element was laid out past the end of its parent — a layout error with no innocent explanation |
 | `Collapsed` | the node has text and zero width or height — the string exists and no pixel is on screen |
 | `OffScreen` | the node has text and extends past the screen edge |
 | `Overflow` | the node extends past its parent's box, so whatever the parent clips to is cutting it |
+
+`Inverted` is reported separately from `Collapsed`, and that distinction was earned. Six rest
+controls on the active workout screen measured `71x-67` and `83x-24`; this harness clamped negative
+dimensions to zero and reported `21x0` and `20x0`. The check fired either way, but zero has an
+innocent explanation — a deliberately empty label — and a negative height has none. The clamped
+number also points at the label, while the real number points at the parent, which is where the
+defect was: a grid row starting at y=1907 inside a parent ending at y=1904.
 
 A two-pixel tolerance keeps sub-pixel layout rounding out of the report.
 
@@ -285,7 +341,7 @@ moment someone turns text up gets caught. The original scale is always restored,
 failure — leaving a shared emulator at 1.3x would silently change what every other work stream
 sees.
 
-### 12. Accessibility exposure
+### 14. Accessibility exposure
 
 **Unlabelled interactive elements** — a node Android reports as actionable whose subtree has no
 text and no `content-desc`. A screen reader announces an anonymous control.

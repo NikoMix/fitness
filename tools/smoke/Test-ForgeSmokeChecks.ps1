@@ -287,6 +287,30 @@ Assert-Condition -Name 'text overhanging its parent is detected' `
     -Condition (@($overflow | Where-Object { $_.Shape -eq 'Overflow' }).Count -ge 1) `
     -Detail $(if (@($overflow | Where-Object { $_.Shape -eq 'Overflow' }).Count -ge 1) { (@($overflow | Where-Object { $_.Shape -eq 'Overflow' }))[0].Detail } else { 'nothing detected' })
 
+# A negative dimension is the one geometry result with no innocent explanation: zero height can be
+# a deliberately empty label, but a bottom edge above a top edge can only be a layout error. The
+# harness used to clamp it to zero and report it as Collapsed, which detected the six broken rest
+# controls on the active-workout screen but described them as 21x0 rather than 71x-67 - and the
+# real cause was a grid row laid out past the end of its parent, which the clamped number hides.
+$invertedFindings = @($overflow | Where-Object { $_.Shape -eq 'Inverted' })
+Assert-Condition -Name 'an inverted bound is reported as its own shape, not as merely collapsed' `
+    -Condition ($invertedFindings.Count -ge 1) `
+    -Detail $(if ($invertedFindings.Count -ge 1) { $invertedFindings[0].Detail } else { 'nothing detected' })
+
+Assert-Condition -Name 'the negative measurement survives into the report rather than being clamped' `
+    -Condition (($invertedFindings.Count -ge 1) -and ($invertedFindings[0].Detail -match '-\d+')) `
+    -Detail 'a reader sees the real number, which is what points at the layout rather than the label'
+
+$invertedBounds = ConvertTo-UiBounds '[100,1907][171,1840]'
+Assert-Condition -Name 'the bounds parser keeps the signed dimensions' `
+    -Condition (($invertedBounds.RawHeight -eq -67) -and ($invertedBounds.Inverted)) `
+    -Detail "raw $($invertedBounds.RawWidth)x$($invertedBounds.RawHeight), clamped $($invertedBounds.Width)x$($invertedBounds.Height)"
+
+$normalBounds = ConvertTo-UiBounds '[100,100][171,149]'
+Assert-Condition -Name 'and does not call an ordinary control inverted' `
+    -Condition ((-not $normalBounds.Inverted) -and ($normalBounds.RawHeight -eq 49)) `
+    -Detail 'the fixed rest controls measure 71x49'
+
 # Sub-pixel rounding routinely puts a label a pixel outside its parent. Paging anyone about that
 # would be indistinguishable from noise.
 $hairline = ConvertFrom-UiDump -Content @"
@@ -299,6 +323,59 @@ $hairline = ConvertFrom-UiDump -Content @"
 Assert-Condition -Name 'a one-pixel overhang is within tolerance and not reported' `
     -Condition ((@(Find-ForgeTextOverflow -Tree $hairline -PackageName $PackageName)).Count -eq 0) `
     -Detail 'layout rounding does not produce findings'
+
+Write-Host ''
+
+# ---------------------------------------------------------------------------------------------
+Write-Host 'Telling a scroll apart from an accidental tap' -ForegroundColor White
+
+# adb input swipe is delivered to a DevExpress list as a TAP, not a scroll: it opens whichever
+# card is under the finger. The old code compared fingerprints, saw the screen had changed, and
+# concluded it had scrolled - so every check afterwards was attributed to the route the harness
+# thought it was still on. One run produced 808 dumps without displaying the screens it was
+# trying to reach.
+#
+# All three captures below are real, taken from the Progress hub on emulator-5554.
+$scrollBefore = Get-FixtureTree (Join-Path 'scroll' 'progress-before-scroll.xml')
+$scrollAfter = Get-FixtureTree (Join-Path 'scroll' 'progress-after-scroll.xml')
+$navAfter = Get-FixtureTree (Join-Path 'scroll' 'progress-after-navigation.xml')
+
+$scrolled = Test-ForgeSameScreen -Before $scrollBefore -After $scrollAfter -PackageName $PackageName
+Assert-Condition -Name 'a genuine scroll is recognised as the same screen' `
+    -Condition ($scrolled.SameScreen) `
+    -Detail $scrolled.Detail
+
+$navigated = Test-ForgeSameScreen -Before $scrollBefore -After $navAfter -PackageName $PackageName
+Assert-Condition -Name 'a swipe that opened a card is recognised as a different screen' `
+    -Condition (-not $navigated.SameScreen) `
+    -Detail $navigated.Detail
+
+Assert-Condition -Name 'and the two are far apart rather than either side of a hairline' `
+    -Condition (($scrolled.Overlap - $navigated.Overlap) -ge 0.5) `
+    -Detail "scroll overlap $($scrolled.Overlap) against navigation overlap $($navigated.Overlap)"
+
+# The reason this is not done with the screen resolver. Scrolling pushes the toolbar title off the
+# top, and the resolver then falls through to matching a text literal - and the Progress hub's
+# cards describe their own destinations, so a scrolled hub identifies as one of them. The harness
+# reported exactly this on a device before the overlap check replaced it.
+$repoRootForScroll = Get-ForgeRepoRoot -StartPath $PSScriptRoot
+$scrollInventory = @(Get-ForgeRouteInventory -RepoRoot $repoRootForScroll)
+$titleMap = @{}
+foreach ($r in $scrollInventory) {
+    foreach ($literal in $r.Literals) {
+        $k = $literal.Trim().ToLowerInvariant()
+        if (-not $titleMap.ContainsKey($k)) { $titleMap[$k] = $r.Route }
+    }
+    if ($r.Title) {
+        $k = $r.Title.Trim().ToLowerInvariant()
+        if (-not $titleMap.ContainsKey($k)) { $titleMap[$k] = $r.Route }
+    }
+}
+$afterTexts = @(Get-ForgeAllTexts -Tree $scrollAfter | ForEach-Object { $_.Trim().ToLowerInvariant() })
+$misleading = @($afterTexts | Where-Object { $titleMap.ContainsKey($_) -and $titleMap[$_] -ne 'progress' } | Select-Object -Unique)
+Assert-Condition -Name 'a scrolled hub really does carry text belonging to other routes' `
+    -Condition ($misleading.Count -ge 1) `
+    -Detail $(if ($misleading.Count -ge 1) { "it would resolve as: $(($misleading | ForEach-Object { $titleMap[$_] } | Select-Object -Unique) -join ', ')" } else { 'no ambiguity present in this capture' })
 
 Write-Host ''
 
