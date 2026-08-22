@@ -135,6 +135,15 @@ jobs:
         shell: pwsh
         run: ./tools/ci/Test-RouteReachability.ps1
 
+      # The smoke harness's own self-test: it runs its detection logic against a real captured
+      # screen and three mechanically seeded defects, and asserts it fires on the defects and stays
+      # quiet on the healthy screen. Device-free and seconds, so it belongs with the other guards -
+      # a detector that cannot fail its own fixtures is not a detector. The device walk needs an
+      # emulator that GitHub-hosted runners do not have, and is deliberately not gated here.
+      - name: Smoke harness self-test
+        shell: pwsh
+        run: ./tools/smoke/Test-ForgeSmokeChecks.ps1
+
       - name: Test with coverlet coverage
         run: |
           dotnet test tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --no-build -c Release -- --results-directory artifacts/coverage/Domain --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
