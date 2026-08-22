@@ -17,6 +17,7 @@ namespace Forge.Infrastructure.Tests.Persistence;
 /// These tests are about the user's rows surviving, which is the only part of this that they would
 /// ever notice.
 /// </remarks>
+[Collection(SqliteFileDatabaseGroup.Name)]
 public sealed class LocalDatabaseEncryptionTests : IDisposable
 {
     // A real key in the shape the app uses: 32 random bytes, base64. That shape is what makes the

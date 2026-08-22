@@ -25,6 +25,7 @@ namespace Forge.Infrastructure.Tests.Persistence;
 /// asserting on the rows a person would look for.
 /// </para>
 /// </remarks>
+[Collection(SqliteFileDatabaseGroup.Name)]
 public sealed class ProfileOwnershipBackfillTests : IDisposable
 {
     private readonly string path = Path.Combine(

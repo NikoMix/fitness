@@ -35,6 +35,7 @@ namespace Forge.Infrastructure.Tests.Persistence;
 /// success while doing nothing.
 /// </para>
 /// </remarks>
+[Collection(SqliteFileDatabaseGroup.Name)]
 public sealed class DatabaseEncryptionTests : IDisposable
 {
     private const string SqliteHeader = "SQLite format 3";

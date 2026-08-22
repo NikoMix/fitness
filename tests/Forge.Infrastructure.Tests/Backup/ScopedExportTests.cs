@@ -30,6 +30,7 @@ namespace Forge.Infrastructure.Tests.Backup;
 /// they keep testing the right property as features adopt <c>IProfileOwned</c>.
 /// </para>
 /// </remarks>
+[Collection(SqliteFileDatabaseGroup.Name)]
 public sealed class ScopedExportTests : IAsyncLifetime
 {
     private static readonly Guid AlexId = Guid.Parse("0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b");

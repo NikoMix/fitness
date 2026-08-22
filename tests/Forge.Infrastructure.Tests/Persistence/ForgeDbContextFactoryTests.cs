@@ -5,6 +5,7 @@ using Shouldly;
 
 namespace Forge.Infrastructure.Tests.Persistence;
 
+[Collection(SqliteFileDatabaseGroup.Name)]
 public sealed class ForgeDbContextFactoryTests
 {
     [Fact]

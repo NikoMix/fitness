@@ -14,6 +14,7 @@ using Shouldly;
 
 namespace Forge.Infrastructure.Tests.Backup;
 
+[Collection(SqliteFileDatabaseGroup.Name)]
 public sealed class BackupServiceTests : IAsyncLifetime
 {
     private SqliteConnection connection = null!;

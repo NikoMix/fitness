@@ -20,6 +20,7 @@ namespace Forge.Infrastructure.Tests.Backup;
 /// property being tested is transactional: the in-memory provider has no transactions worth the
 /// name, so a half-applied import would pass there.
 /// </remarks>
+[Collection(SqliteFileDatabaseGroup.Name)]
 public sealed class ImportSafetyTests : IAsyncLifetime
 {
     private const string TwoWorkoutCsv =
