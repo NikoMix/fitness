@@ -11,14 +11,18 @@ below is derived from reading source, XAML, manifests, seed content and CI tooli
 | Epic | Stories | DONE | PARTIAL | NOT-DONE | DEFERRED | UNCLEAR | Epic verdict |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | E11 Sensor tracking and automatic rep counting | 18 | 0 | 4 | 14 | 0 | 0 | PARTIAL |
-| E12 Health platform integration | 16 | 4 | 8 | 4 | 0 | 0 | PARTIAL |
+| E12 Health platform integration | 16 | 3 | 9 | 4 | 0 | 0 | PARTIAL |
 | E13 Nutrition, food logging and macro tracking | 15 | 0 | 10 | 5 | 0 | 0 | PARTIAL |
 | E14 Recipes and meal planning | 15 | 0 | 4 | 11 | 0 | 0 | PARTIAL |
 | E15 Hydration and supplement tracking | 15 | 0 | 7 | 8 | 0 | 0 | PARTIAL |
-| **Total** | **79** | **4** | **33** | **42** | **0** | **0** | — |
+| **Total** | **79** | **3** | **34** | **42** | **0** | **0** | — |
 
 Features: 0 DONE, 19 PARTIAL, 6 NOT-DONE (25 total). Epics: 5 PARTIAL. Every DONE verdict in the
-range falls in E12: S12.01.03, S12.02.02, S12.03.01 and S12.03.03.
+range falls in E12: S12.02.02, S12.03.01 and S12.03.03.
+
+> **Re-verified.** `S12.01.03` was recorded DONE here and has been downgraded to PARTIAL: it was
+> judged on DI registration alone, but its AC4 requires workout import and deduplication, and
+> platform workout reads are not implemented. See its section below.
 
 ### How these verdicts were reached
 
@@ -297,14 +301,20 @@ rationale.
 `0002-platform-scope.md` — and no comparison table marking each required data type
 supported/missing/uncertain for both `ConnectClient` and `Plugin.Maui.Health`.
 
-**S12.01.03 Register platform health services through dependency injection — DONE.**
-`InfrastructureRegistration.cs:66-77` registers the Health Connect implementation for Android and
-HealthKit for iOS behind `#if`, with `UnavailableHealthDataService` elsewhere; the comment at `:66`
-records the DI activation defect this guards against. Tests substitute `IHealthDataService` on a
+**S12.01.03 Register platform health services through dependency injection — PARTIAL.**
+`InfrastructureRegistration.cs:75-82` registers the Health Connect implementation for Android and
+HealthKit for iOS behind `#if`, with `UnavailableHealthDataService` elsewhere; the comment records
+the DI activation defect this guards against. Tests substitute `IHealthDataService` on a
 plain runner without loading a platform assembly
-(`tests/Forge.Core.Tests/Health/HealthPermissionFlowTests.cs:209,266,311`). The backlog's
-`Forge.Health` project and `AddForgeHealth` naming were not followed; the behaviour the criteria
-describe is met.
+(`tests/Forge.Core.Tests/Health/HealthPermissionFlowTests.cs:172-215, 224-277, 284-318`).
+
+Originally recorded DONE on that basis. That was too narrow: AC4 requires imported health data to be
+deduplicated against Forge's own records, and no workout import exists to deduplicate.
+`HealthDataTypeCatalog.ReadTypes` excludes `Workout` (`:79-88`) while `WriteTypes` is only `Workout`
+(`:90-98`), and Android's `ReadCategoryAsync` returns no workout samples
+(`PlatformHealthDataService.Android.cs:424-449`), so Forge writes workouts outward and never reads
+them back. The backlog's `Forge.Health` project and `AddForgeHealth` naming were also not followed;
+registration and the platform services live in `Forge.App`.
 
 ### F12.02 Clear Android Health Connect store gates and permissions — PARTIAL
 

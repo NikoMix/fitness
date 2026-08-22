@@ -15,9 +15,9 @@ whether GitHub Pages is live.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | E21 Shop, In-App Purchases and Entitlements | 16 | 0 | 11 | 5 | 0 | 0 |
 | E22 Settings and Preferences | 18 | 0 | 13 | 5 | 0 | 0 |
-| E25 Privacy, Legal and Regulatory Compliance | 18 | 0 | 13 | 5 | 0 | 0 |
+| E25 Privacy, Legal and Regulatory Compliance | 18 | 0 | 14 | 4 | 0 | 0 |
 | E26 Data Portability, Backup and Restore | 15 | 0 | 9 | 6 | 0 | 0 |
-| **Total** | **67** | **0** | **46** | **21** | **0** | **0** |
+| **Total** | **67** | **0** | **47** | **20** | **0** | **0** |
 
 All 21 features and all 4 epics are PARTIAL: a feature is DONE only when every story is, and no
 feature in this range reaches that bar.
@@ -78,14 +78,16 @@ as `status: not-started` in `docs/release/launch-gates.yml:59` and `:75`, and
 the tooling half of `S25.02.01` and `S25.06.02` is genuinely built; the content half of every legal
 story is not.
 
-A sixth item that is not yet a defect but is one rename away from being one: `IDataErasureService` is
-registered twice — `PendingDataErasureService` at
+A sixth item that was not yet a defect but was one rename away from being one, **now fixed by
+`afca838`**: `IDataErasureService` was registered twice — `PendingDataErasureService` at
 `src/Forge.App/Features/Settings/SettingsFeatureRegistration.cs:40` and the real
 `LocalDataErasureService` at `src/Forge.App/Features/Shop/ShopFeatureRegistration.cs:35`. Microsoft
-DI resolves last-wins, and Shop registers after Settings at
-`src/Forge.App/Features/FeatureRegistration.cs:69-70` only because that list is kept alphabetical.
-Reorder or rename either feature and the store-blocking Delete-my-data flow starts throwing
-`NotSupportedException` (`PendingDataErasureService.cs:31`).
+DI resolves last-wins, and Shop registered after Settings only because that list is kept
+alphabetical, so reordering or renaming either feature would have started the store-blocking
+Delete-my-data flow throwing `NotSupportedException`. `PendingDataErasureService` has been deleted,
+`LegalFeatureRegistration.cs:35` is the sole registration, and
+`tools/ci/Test-ServiceRegistrations.ps1` now fails the build on a duplicate registration rather than
+leaving the next one to be found by reading.
 
 ---
 
@@ -452,26 +454,41 @@ hard-coded XAML rather than sourced from the versioned `docs/legal` documents, a
 requirement that all user-facing legal copy be generated.
 
 **S25.01.02 Erase SQLite, SQLCipher keys and local artefacts atomically — PARTIAL.**
-`LocalDataErasureService.EraseAllLocalDataAsync` clears preferences, calls
-`SecureStorage.Default.RemoveAll()` (which removes both the SQLCipher key and the entitlement
-envelope), deletes the contents of the cache and app-data directories, recreates them, and throws an
-aggregated `IOException` naming the failures rather than reporting success
-(`src/Forge.App/Features/Legal/Services/LocalDataErasureService.cs:38-57`). AC1 substantially met.
-*Gaps:* AC2 is not demonstrably met — `ReleaseDataSessionAsync` merely creates and disposes a
-session (lines 111-123); it does not clear SQLite connection pools, which is what prevents a sharing
-violation against an open handle. AC3 is not met end-to-end: the service throws `IOException`, but
-`DeleteMyDataPageViewModel.EraseAllDataAsync` catches only `NotSupportedException` (line 57), so a
-failed deletion surfaces as an unhandled exception rather than a safe retry screen. There is no
-`LocalDataErasureServiceTests` — the store-blocking erasure path has no test at all. And the
-duplicate `IDataErasureService` registration described in the summary makes the correct
-implementation win only by alphabetical accident.
+`LocalDataErasureService.EraseAllLocalDataAsync` releases pooled database handles, clears
+preferences, calls `SecureStorage.Default.RemoveAll()` (which removes both the SQLCipher key and the
+entitlement envelope), deletes the contents of the cache and app-data directories, recreates them,
+and throws an aggregated `IOException` naming the failures rather than reporting success
+(`src/Forge.App/Features/Legal/Services/LocalDataErasureService.cs:47`, `:50-56`). AC1 and AC2 met.
 
-**S25.01.03 Reset the app to first run after deletion — NOT-DONE.** After a successful erase the
-view model shows an alert and leaves the user on the deletion page
-(`DeleteMyDataPageViewModel.cs:54-55`). There is no navigation reset, no onboarding relaunch, no
-post-delete verification screen and no `DataDeletedEvent`; health consent state is not re-armed
-because Forge holds no consent state to re-arm.
-*Gaps:* AC1, AC2 and AC3 all unmet. The back button still reaches every previous route.
+Three gaps recorded here have since been closed, by `61aa900` and `afca838`:
+
+- **Connection pools are now cleared.** `IDatabaseFileRelease`
+  (`src/Forge.Core/Abstractions/Data/IDatabaseFileRelease.cs:23-33`) and
+  `SqliteDatabaseFileRelease` (`:16-19`, calling `SqliteConnection.ClearAllPools()`) are injected
+  into the erasure service, and `DatabaseFileReleaseTests.cs:49-82`, `:107-128` prove a released
+  pooled handle permits delete and recreate.
+- **The exception is handled.** `DeleteMyDataPageViewModel.cs:52-63` catches `IOException`,
+  `UnauthorizedAccessException` and `NotSupportedException` and shows fixed retry copy — notably
+  without interpolating `ex.Message`, which on this screen would have shown file paths to someone
+  who had just decided to leave.
+- **The duplicate registration is gone.** `LegalFeatureRegistration.cs:35` is now the only
+  `IDataErasureService` registration, so the correct implementation no longer wins by alphabetical
+  accident.
+
+*Gaps:* there is still no `LocalDataErasureServiceTests` or failure-injection coverage for the whole
+store-blocking erasure path; `DatabaseFileReleaseTests` pins only the pool-release seam.
+
+**S25.01.03 Reset the app to first run after deletion — PARTIAL.** Upgraded from NOT-DONE: the
+recorded gap "onboarding is not relaunched" turned out to be only partly true. `FirstRunGate.cs:12-18`
+routes to Welcome on launch when no profile exists, and erasure clears the profile and preferences,
+so a relaunch after a real delete does reach onboarding. What is missing is everything that should
+happen *without* a relaunch: after a successful erase the view model shows an alert and leaves the
+user on the deletion page (`DeleteMyDataPageViewModel.cs:49-50`).
+*Gaps:* AC1 unmet — no navigation stack clear and no root-route replacement, so within the same
+session the back button still reaches every previous route. AC3 unmet — there is no `DataDeletedEvent`
+or in-memory reset path, and `HealthConnectionService.cs:95-99` still refreshes from existing platform
+health permissions rather than requiring a fresh in-app opt-in. There is no post-delete verification
+screen.
 
 ### F25.02 Publish policy, terms, disclaimer and attribution surfaces — PARTIAL
 
@@ -616,10 +633,10 @@ before deleting" card sits above the destructive confirmation
 block deletion — AC1 and AC2 met. The policy describes portability as the local export, not a server
 request (`privacy-policy.md:128-131`).
 *Gaps:* the link routes to **Backup and restore**, which produces the whole-device unencrypted
-archive, rather than to the Article 20 scoped export; there is no
-`IDataExportAvailabilityService`, so availability is assumed rather than checked; and if the
-duplicate DI registration ever resolves to `PendingDataErasureService`, the button shows "Backup
-export not wired" instead (`PendingDataErasureService.cs:22-25`).
+archive, rather than to the Article 20 scoped export; and there is no
+`IDataExportAvailabilityService`, so availability is assumed rather than checked. (The third gap
+recorded here — that the duplicate DI registration could resolve to `PendingDataErasureService` and
+show "Backup export not wired" — is gone: that service was deleted by `afca838`.)
 
 **S25.06.02 Add a store-blocker compliance release checklist — PARTIAL.** This is the strongest
 story in the epic. `docs/release/launch-gates.yml` records per-gate `id`, `name`, `status`, `blocks`,

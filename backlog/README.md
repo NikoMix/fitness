@@ -60,6 +60,55 @@ pwsh tools/backlog-sync/Invoke-BacklogSync.ps1 -DryRun
 pwsh tools/backlog-sync/Invoke-BacklogSync.ps1 -Apply
 ```
 
+## Reporting status back: `verification/`
+
+The sync only ever pushes the backlog *out*. Nothing in it notices that the code now does what a
+story asked for, which is why the backlog once said the same thing on the day the app was
+feature-complete as it had on the day the first line was written.
+
+Verification streams read each item's acceptance criteria against the code and record a verdict in
+`verification/<range>.json`, one entry per key:
+
+```json
+{ "story": "S10.02.01", "verdict": "PARTIAL", "evidence": "file.cs:12-40 ...", "gaps": "AC3 unmet ..." }
+```
+
+| Verdict | Meaning | Effect on the issue |
+| --- | --- | --- |
+| `DONE` | every acceptance criterion met | closed as completed, evidence in the closing comment |
+| `DEFERRED` | deliberately out of scope for v1 | closed as not planned, reason in the closing comment |
+| `PARTIAL` | some criteria met, some not | `status:partial` + a comment listing the gaps |
+| `NOT-DONE` | not implemented, or too thin | `status:not-started` + a comment listing the gaps |
+| `UNCLEAR` | could not be established from the code | `status:needs-review` + a comment |
+
+```bash
+# Check the verdict files are internally consistent (offline)
+pwsh tools/backlog-sync/Invoke-BacklogReconcile.ps1 -Validate
+
+# Resolve real issue numbers and print the plan
+pwsh tools/backlog-sync/Invoke-BacklogReconcile.ps1 -DryRun
+
+# Apply
+pwsh tools/backlog-sync/Invoke-BacklogReconcile.ps1 -Apply
+```
+
+Two rules are enforced rather than trusted, because both failures are silent:
+
+- **`DONE` with no `evidence` fails validation.** Once the context is gone, an unexplained closure
+  is indistinguishable from a mistake.
+- **`PARTIAL` or `NOT-DONE` with no `gaps` fails validation.** A gap nobody wrote down is a gap
+  nobody can act on.
+
+The gap text is posted **onto the issue**, not left in the report. `status:partial` describes itself
+as "gaps recorded on the issue"; for one release that was untrue, and 621 issues carried a label
+whose detail existed only in a file nobody opened. The reconcile keeps exactly one gap comment per
+issue and rewrites it in place, so re-verifying does not stack duplicates.
+
+Re-running reconciles rather than re-applies: a superseded status label is replaced instead of
+stacked, an issue whose verdict has regressed away from `DONE` is reopened, and anything already in
+the right state is skipped. Use `-Backfill` to add gap comments to issues labelled by an older run
+that predates them.
+
 ## Authoring rules
 
 Every item must be independently understandable by a contributor with no prior context.

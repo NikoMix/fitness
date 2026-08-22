@@ -2,8 +2,8 @@
   {
     "story": "S07.01.01",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.Domain/Training/Exercise.cs:7-66; src/Forge.Domain/Training/MovementPattern.cs:8-42; src/Forge.Infrastructure/Persistence/SeedContent/SeedContentImporter.cs:42-83 writes with no field validation",
-    "gaps": "No mechanic, plane of motion, goal tags or contraindication tags on Exercise; AC1 pre-write validation absent; AC3/AC4 never measured against an 800-record catalogue because only 60 exist."
+    "evidence": "src/Forge.Domain/Training/Exercise.cs:12-99; src/Forge.Domain/Training/MovementPattern.cs:8-42; src/Forge.Infrastructure/Persistence/SeedContent/SeedContentImporter.cs:42-83; src/Forge.Infrastructure/Persistence/SeedContent/SeedContentImporter.cs:93-119; docs/media-strategy.md:7",
+    "gaps": "No mechanic, plane of motion, goal tags or contraindication tags on Exercise; seed import deserializes and writes rows without pre-write required-field validation; catalogue is still 60 exercises, not 800, and no 150 ms search or 60 fps scroll measurements are present."
   },
   {
     "story": "S07.01.02",
@@ -20,56 +20,56 @@
   {
     "story": "S07.01.04",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:311-414; src/Forge.App/Features/Exercises/ExerciseDataStore.cs:66-92 stamps IsUserCreated; ExerciseDataStore.cs:118-150 soft-deletes with no history check; SeedContentImporter.cs:55-59",
-    "gaps": "No case-insensitive uniqueness rule for custom names; AC2 fails - deletion is never blocked and Archive is never offered, DeleteCustomAsync soft-deletes any user-created row regardless of history."
+    "evidence": "src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:381-412; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:447-464; src/Forge.App/Features/Exercises/ExerciseDataStore.cs:90-110; src/Forge.App/Features/Exercises/ExerciseDataStore.cs:142-177; src/Forge.Infrastructure/Persistence/SeedContent/SeedContentImporter.cs:55-59",
+    "gaps": "No case-insensitive uniqueness rule for custom names; AC1 is incomplete because library result cards do not explicitly mark custom exercises as Custom; AC2 fails because deletion is never blocked for completed workout history and Archive is never offered."
   },
   {
     "story": "S07.02.01",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:285 (DXCollectionView), :97-178 (chip panel), :270-274 (skeleton); src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:47-78",
-    "gaps": "No Body / Equipment / Patterns / Goals / Favourites / Recently Used sections - Favourites, Recently used and My exercises are mutually exclusive scope chips; no Goals taxonomy exists; AC1 500 ms and AC2 60 fps unmeasured."
+    "evidence": "src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:114-195; src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:286-302; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:47-79; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:549-570",
+    "gaps": "No Body / Equipment / Patterns / Goals / Favourites / Recently Used home sections; Favourites, Recently used and My exercises are mutually exclusive scope chips; no Goals taxonomy exists; AC1 500 ms and AC2/AC4 60 fps are unmeasured, and filtering is debounced at 200 ms rather than 150 ms."
   },
   {
     "story": "S07.02.02",
     "verdict": "NOT-DONE",
-    "evidence": "Repository-wide search for BodyMap / body-map across src, tools and tests returns zero matches; the only muscle affordance is the alphabetical MuscleChips list in src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:567-570",
-    "gaps": "Entire story unimplemented: no front/back views, no 14 selectable regions, no screen-reader region announcements."
+    "evidence": "Repository-wide search for BodyMap / body-map across src returns zero matches; the only muscle affordance is the alphabetical MuscleChips collection in src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:50-52 and its horizontal chip list in src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:149-162",
+    "gaps": "Entire story unimplemented: no front/back views, no 14 selectable body-map regions, no 150 ms region hit path, and no screen-reader region announcements or equivalent body-map fallback."
   },
   {
     "story": "S07.02.03",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:554-582 builds chips; src/Forge.Domain/Training/ExerciseFilter.cs:138-176 applies them; src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:116-162",
-    "gaps": "AC2 fails - no facet counts are computed or displayed; goal browse (strength, hypertrophy, endurance, mobility, power, warm-up, joint-friendly) does not exist; chips are DXButton, not dx:TokenEdit."
+    "evidence": "src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:580-586; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:665-692; src/Forge.Domain/Training/ExerciseFilter.cs:120-134; src/Forge.Domain/Training/ExerciseFilter.cs:170-185; src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:133-178",
+    "gaps": "AC2 fails because no facet counts are computed or displayed; goal browse for strength, hypertrophy, endurance, mobility, power, warm-up and joint-friendly does not exist; chips are dx:DXButton controls, not dx:TokenEdit; 150 ms/800-exercise performance remains unproven."
   },
   {
     "story": "S07.02.04",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:276-283 (empty states), :69-74 (Clear); src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:296-306, :538-552; SeedContentImporter.cs:42-83",
-    "gaps": "AC1 fails - the empty state message is a fixed sentence and lists no active filter tokens, and Clear Filters lives in the toolbar rather than in the empty state; no 0-100 import progress and no interaction lock during import; a failed import surfaces a message with no Retry or Diagnostic Details."
+    "evidence": "src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:287-300; src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:69-74; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:273-318; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:346-356; src/Forge.Infrastructure/Persistence/SeedContent/SeedContentImporter.cs:22-83",
+    "gaps": "AC1/AC5 fail because the empty state is a fixed sentence and lists no active filter tokens, with Clear Filters only in the toolbar and no Browse All action; no 0-100 import progress or interaction lock during import; failed import has no Retry or Diagnostic Details action."
   },
   {
     "story": "S07.03.01",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.Domain/Training/ExerciseSearchIndex.cs:61-79 (score tiers), :220-260 (Entry fields: name, muscles, equipment, pattern, difficulty only), :262-335; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:497-526",
-    "gaps": "AC1 fails - 'RDL' matches nothing because no alias/slang field is indexed and matching is prefix/substring, not fuzzy; there is no FTS5 table; the search control is dx:TextEdit, not dx:AutoCompleteEdit."
+    "evidence": "src/Forge.Domain/Training/ExerciseSearchIndex.cs:61-79; src/Forge.Domain/Training/ExerciseSearchIndex.cs:220-259; src/Forge.Domain/Training/ExerciseSearchIndex.cs:262-374; src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:59-62; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:35; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:563-568",
+    "gaps": "AC1 fails because RDL has no alias/slang/acronym index path; matching is prefix/substring, not fuzzy; there is no SQLite FTS5 table; the search control is dx:TextEdit rather than dx:AutoCompleteEdit; filtering waits 200 ms, so the 150 ms requirement is not met."
   },
   {
     "story": "S07.03.02",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Exercises/ExerciseAlternativesViewModel.cs:129-141 (chips seeded from profile, session override); src/Forge.App/Features/Exercises/ExerciseDataStore.cs:26-32; src/Forge.App/Features/Exercises/ExerciseCardViewModel.cs:11-71 has no availability member",
-    "gaps": "AC1 and AC2 both fail in the library - no Hide unavailable switch and no 'Missing Equipment' label naming the missing item; equipment chips are an inclusion filter, not an availability filter."
+    "evidence": "src/Forge.App/Features/Exercises/ExerciseDataStore.cs:52-56; src/Forge.App/Features/Exercises/ExerciseAlternativesViewModel.cs:129-141; src/Forge.App/Features/Exercises/ExerciseFilter.cs:80-85; src/Forge.App/Features/Exercises/ExerciseFilter.cs:180-185; src/Forge.App/Features/Exercises/ExerciseCardViewModel.cs:11-71",
+    "gaps": "AC1 and AC2 fail in the library: there is no Hide unavailable switch and no Missing Equipment label naming missing items; equipment chips are inclusion filters, not an availability filter; 150 ms/800-exercise performance remains unproven."
   },
   {
     "story": "S07.03.03",
-    "verdict": "NOT-DONE",
-    "evidence": "src/Forge.Domain/Training/ExerciseFilter.cs:50-62, :110-133, :142-145; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:528-533 calls ExerciseFilter.For without injuries; the only callers of FromDeclaredInjuries are tests/Forge.Domain.Tests/Training/ExerciseFilterTests.cs:68 and :79; src/Forge.Domain/Profile/UserProfile.cs:58",
-    "gaps": "Structured limitation tags do not exist (MovementLimitations is free text); no Hide contraindicated / Show with warning / Ignore choice; no 'not medical advice' notice gating the first use; AC1 and AC2 both fail."
+    "verdict": "PARTIAL",
+    "evidence": "src/Forge.Domain/Training/MovementLimitationDeclaration.cs:31-163; src/Forge.Domain/Training/ExerciseFilter.cs:50-62; src/Forge.Domain/Training/ExerciseFilter.cs:120-143; src/Forge.Domain/Training/ExerciseFilter.cs:152-155; src/Forge.App/Features/Exercises/ExerciseDataStore.cs:52-56; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:127-158; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:580-586; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:598-629; src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:82-96",
+    "gaps": "AC1 is only partially met: an overhead/shoulder declaration hides Push/Pull wholesale, so overhead press is hidden but neutral-grip row and pull movements are hidden too; there are no structured overhead/deep-knee/spinal-loading/high-impact tags, no Hide contraindicated / Show with warning / Ignore mode choice, and AC2 fails because there is no first-use notice requiring Continue before filters apply."
   },
   {
     "story": "S07.03.04",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.Domain/Training/Exercise.cs:55-65; src/Forge.App/Features/Exercises/ExerciseDetailViewModel.cs:197-204; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:416-431; src/Forge.Domain/Training/ExerciseFilter.cs:150",
-    "gaps": "AC2 fails - the RecentlyUsed scope is 'LastUsedUtc is not null' with no 30-item cap and no eviction, so every exercise ever opened stays in Recently used forever."
+    "evidence": "src/Forge.Domain/Training/Exercise.cs:70-82; src/Forge.Domain/Training/ExerciseProfileState.cs:25-48; src/Forge.App/Features/Exercises/ExerciseDataStore.cs:185-189; src/Forge.App/Features/Exercises/ExerciseDataStore.cs:217-235; src/Forge.App/Features/Exercises/ExerciseDetailViewModel.cs:143-148; src/Forge.Domain/Training/ExerciseFilter.cs:157-161; src/Forge.Domain/Training/ExerciseSearchIndex.cs:152-159",
+    "gaps": "AC2 fails because RecentlyUsed is any exercise with LastUsedUtc, with no 30-item cap and no eviction of the oldest item; 150 ms/800-exercise search and 60 fps scroll requirements remain unmeasured."
   },
   {
     "story": "S07.04.01",
@@ -80,8 +80,8 @@
   {
     "story": "S07.04.02",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.Infrastructure/Content/exercise-catalogue.json: 60/60 records have 3-9 executionSteps and >=2 coachingCues; src/Forge.App/Features/Exercises/ExerciseDetailViewModel.cs:229-234; src/Forge.Domain/Training/Exercise.cs:31-37 has no breathing or tempo member",
-    "gaps": "AC2 fails - no Breathing and no Tempo section exists anywhere, and there is no 'not applicable' marker either; no content lint enforces the step/cue counts, they happen to hold."
+    "evidence": "src/Forge.Domain/Training/Exercise.cs:37-47; src/Forge.App/Features/Exercises/ExerciseDetailViewModel.cs:235-256; src/Forge.App/Features/Exercises/ExerciseGuidanceView.xaml:71-126; src/Forge.Domain/Training/ExerciseGuidance.cs:117-150",
+    "gaps": "AC2 fails because no Breathing or Tempo section exists and there is no explicit not-applicable marker; no content lint enforces the step/cue counts, even if current seed records appear to carry steps and cues; 800-exercise performance acceptance criteria remain unproven."
   },
   {
     "story": "S07.04.03",
@@ -92,8 +92,8 @@
   {
     "story": "S07.04.04",
     "verdict": "NOT-DONE",
-    "evidence": "src/Forge.Domain/Training/Exercise.cs:7-66 has no relationship members; src/Forge.Infrastructure/Content/exercise-catalogue.json record keys are id, name, pattern, primaryMuscle, secondaryMuscles, equipment, difficulty, forceType, executionSteps, commonMistakes, coachingCues, safetyNotes, isUnilateral, provenance",
-    "gaps": "Whole story unimplemented; the nearest surface is the substitution list, which is computed rather than authored and carries no prerequisite/regression/progression semantics."
+    "evidence": "src/Forge.Domain/Training/Exercise.cs:12-99; src/Forge.Infrastructure/Persistence/SeedContent/SeedContentImporter.cs:93-119; src/Forge.Infrastructure/Persistence/SeedContent/SeedContentImporter.cs:146-155; src/Forge.Domain/Training/ExerciseSubstitution.cs:64-87",
+    "gaps": "Whole story remains unimplemented: Exercise has no prerequisite, regression or progression relationship members; seed import has no relationship fields or broken-link validation; the nearest surface is computed substitution, which carries no authored prerequisite/regression/progression semantics, reason text for linked exercises, or availability status."
   },
   {
     "story": "S07.05.01",
@@ -158,8 +158,8 @@
   {
     "story": "S08.01.01",
     "verdict": "PARTIAL",
-    "evidence": "docs/media-strategy.md:1-18 (size table and 40 MB comparison), :43-45 (recommendation); src/Forge.Infrastructure/Media/ExerciseMediaCatalogue.cs:25-27 returns Absent with a text fallback",
-    "gaps": "AC1 fails - no tools/media-budget and no signing-time failure on a bundled-media total; AC2 fails literally - the document reasons about 60 exercises and never states 800 x 6 MB = 4800 MB. The backlog assumes an 800-exercise catalogue the app deliberately does not ship."
+    "evidence": "docs/media-strategy.md:5-18; docs/media-strategy.md:24-29; docs/media-strategy.md:43-45; src/Forge.Infrastructure/Media/ExerciseMediaCatalogue.cs:46-105; src/Forge.App/Features/Media/ExerciseVideoPage.xaml:89-124",
+    "gaps": "AC1 and AC3 fail because there is no tools/media-budget implementation or signing-time/package-budget failure when bundled media exceeds 12 MB or the APK exceeds 40 MB; AC2 fails literally because the strategy documents 60 exercises and never states 800 x 6 MB = 4800 MB; checksum-verified cache is not implemented."
   },
   {
     "story": "S08.01.02",
@@ -181,27 +181,27 @@
   },
   {
     "story": "S08.02.01",
-    "verdict": "NOT-DONE",
-    "evidence": "src/Forge.Infrastructure/Media/ExerciseMediaCatalogue.cs:14-27; grep for DownloadAsync across src returns only the FileSystemMediaCache definition at src/Forge.Infrastructure/Media/FileSystemMediaCache.cs:72 - no caller; src/Forge.App/Features/Exercises/ExerciseVideoAvailability.cs:34-58 uses IMediaPackService; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:66-77 and :111-116; src/Forge.App/Features/Media/ExerciseVideoPage.xaml:28 IsVisible={Binding HasMedia}",
-    "gaps": "AC1 fails - no cached demo can exist because nothing populates the cache, and a Ready asset pack does not feed this code path; AC2's Retry action does not exist (MediaFailed only rewrites a label); the embed://filesystem:// source prefixes are not valid MediaElement sources."
+    "verdict": "PARTIAL",
+    "evidence": "src/Forge.Infrastructure/Media/ExerciseMediaCatalogue.cs:46-105; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:89-105; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:148-153; src/Forge.App/Features/Media/ExerciseVideoPage.xaml:28-44; src/Forge.App/Features/Media/ExerciseVideoPage.xaml:89-124; src/Forge.App/Features/Media/ExerciseVideoPage.xaml.cs:59-62; src/Forge.App/Features/Media/Library/VideoLibraryViewModel.cs:294-306",
+    "gaps": "Fixed since the previous verdict: nothing populated the cache and MediaElement was handed invalid embed:// and filesystem:// sources; playback now resolves store pack files via MediaSource.FromFile/FromResource. AC2 still fails because a missing or corrupt media failure only changes a label and provides no Retry or Text Guidance action; AC3 still fails because no release package-budget check is present; bundled packaged sources are not actually returned by ExerciseMediaCatalogue; checksum-verified cache is not implemented."
   },
   {
     "story": "S08.02.02",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Media/ExerciseVideoPage.xaml:52-83; src/Forge.App/Features/Media/ExerciseVideoPage.xaml.cs:8 (FrameStep 1/30 s), :68-97; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:95-102 clamps 0.25-2.0",
-    "gaps": "Speeds offered are 0.5/0.75/1/1.25, not the required 0.25/0.5/1.0/1.5; no loop control - ShouldLoopPlayback is hard-coded True at ExerciseVideoPage.xaml:36; frame-step is not labelled 'Step 0.1s' and there is no capability probe; selected speed state is not announced (AC1)."
+    "evidence": "src/Forge.App/Features/Media/ExerciseVideoPage.xaml:52-83; src/Forge.App/Features/Media/ExerciseVideoPage.xaml.cs:8; src/Forge.App/Features/Media/ExerciseVideoPage.xaml.cs:83-100; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:122-128; src/Forge.App/Features/Media/ExerciseVideoPage.xaml:36",
+    "gaps": "Speeds offered are 0.5/0.75/1/1.25, not the required 0.25/0.5/1.0/1.5; no loop control because looping is hard-coded true; fallback frame-step is not labelled Step 0.1s and no capability probe exists; selected speed state is not announced; package-budget and checksum-cache requirements remain unmet."
   },
   {
     "story": "S08.02.03",
     "verdict": "NOT-DONE",
-    "evidence": "src/Forge.App/Features/Media/ExerciseVideoPage.xaml.cs:115-135 (full screen is a height change only); no angle field on src/Forge.Core/Abstractions/Media/ExerciseMediaDescriptor.cs:4-9; repository-wide search finds no orientation service",
-    "gaps": "No 1.0x-3.0x pinch zoom or one-tap reset; no front/side angles, no per-exercise remembered angle and no position-preserving switch (AC1); no landscape lock or portrait restore (AC2)."
+    "evidence": "src/Forge.App/Features/Media/ExerciseVideoPage.xaml.cs:111-130; src/Forge.Core/Abstractions/Media/ExerciseMediaDescriptor.cs:4-22; repository-wide search finds no MediaAngleSelector, IOrientationService, pinch zoom or landscape lock implementation",
+    "gaps": "No 1.0x-3.0x pinch zoom or one-tap reset; no front/side angles, no per-exercise remembered angle and no position-preserving switch; full screen only hides shell chrome and changes height, with no landscape lock or portrait restore; package-budget and checksum-cache requirements remain unmet."
   },
   {
     "story": "S08.02.04",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Media/MauiMediaPlaybackPolicy.cs:13-43; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:77; src/Forge.App/Features/Settings/ViewModels/UnitsSettingsPageViewModel.cs:58-61",
-    "gaps": "No global media autoplay setting with Never / Wi-Fi cached only / Always cached only; AC1's 'a Play button is visible' holds only in the branch where media exists, which it never does."
+    "evidence": "src/Forge.App/Features/Media/MauiMediaPlaybackPolicy.cs:11-43; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:89-105; src/Forge.App/Features/Exercises/ExerciseGuidanceView.xaml:56-64; src/Forge.App/Features/Media/Library/VideoLibraryViewModel.cs:294-306; src/Forge.Core/Abstractions/Preferences/UnitPreferences.cs:162-165; src/Forge.App/Features/Settings/ViewModels/UnitsSettingsPageViewModel.cs:44-61",
+    "gaps": "Fixed since the previous verdict: media can now exist, because downloaded store packs produce playable media. Still missing: a global media autoplay setting with Never / Wi-Fi cached only / Always cached only; battery saver is not checked; the exercise detail page never starts a download and offers no Download button there, only a route to optional video packs; package-budget and checksum-cache requirements remain unmet."
   },
   {
     "story": "S08.03.01",
@@ -212,14 +212,14 @@
   {
     "story": "S08.03.02",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Media/ExerciseVideoPage.xaml:96-119 (three sections, always visible); src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:61-64; src/Forge.App/Features/Exercises/ExerciseDetailViewModel.cs:224-245",
-    "gaps": "AC1 fails on count - the fallback carries 3 of the required 5+ E07 sections and cannot carry breathing or tempo because neither exists (S07.04.02); AC2 fails - no audio description cue model, no enable switch."
+    "evidence": "src/Forge.App/Features/Media/ExerciseVideoPage.xaml:89-124; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:60-66; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:84-87; src/Forge.App/Features/Exercises/ExerciseGuidanceView.xaml:71-186",
+    "gaps": "AC1 fails on content count because the video page fallback carries only Execution steps, Coaching cues and Common mistakes, not setup, safety, breathing or tempo; AC2 fails because no audio description cue model, script storage or enable switch exists; package-budget and checksum-cache requirements remain unmet."
   },
   {
     "story": "S08.03.03",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Media/ExerciseVideoPage.xaml:44 (player description), :52-57 (slider description and hint), :62-83 (per-button descriptions)",
-    "gaps": "AC1 fails on state - the speed buttons announce a name but no selected state; AC2 unverified - none of the media buttons sets MinimumHeightRequest/MinimumWidthRequest, unlike the workout screen which uses the TouchTargetPrimary token."
+    "evidence": "src/Forge.App/Features/Media/ExerciseVideoPage.xaml:44; src/Forge.App/Features/Media/ExerciseVideoPage.xaml:52-83; src/Forge.App/Resources/Styles/ForgeStyles.xaml:139-143; src/Forge.App/Resources/Styles/ForgeStyles.xaml:160-164",
+    "gaps": "Partly stale gap corrected: shared button styles do provide a 48dp minimum height. AC1 still fails because speed controls announce names but no selected state, and captions and angle controls do not exist; roles are not explicitly modelled beyond MAUI button semantics; AC2 remains unverified for every control because only minimum height is styled and there is no automated bounds inspection proving all targets are at least 44 by 44 points."
   },
   {
     "story": "S08.03.04",
@@ -236,8 +236,8 @@
   {
     "story": "S08.04.02",
     "verdict": "NOT-DONE",
-    "evidence": "src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:64 (steps mapped to indices), :80-93 (ratio-based index selection)",
-    "gaps": "No TimedFormCue model with phase/start/end/text; AC1's 0.75-1.25 s window is meaningless against a ratio split; AC2 fails - there is no cue mode to open and no manual advance."
+    "evidence": "src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:66; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:84-87; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:107-120; src/Forge.App/Features/Media/ExerciseVideoPage.xaml:46-49",
+    "gaps": "No TimedFormCue model with phase/start/end/text; AC1's 0.75-1.25 s window is not meaningful because text changes by playback ratio rather than scheduled cue time; AC2 fails because there is no cue mode and no manual phase advance."
   },
   {
     "story": "S08.04.03",
@@ -266,8 +266,8 @@
   {
     "story": "S08.05.03",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.Infrastructure/Media/FileSystemMediaCache.cs:10 (80 MB cap constant), :94-187 (eviction then download), :189-212 (evict); src/Forge.App/Features/Settings/Services/StorageUsageService.cs:27-70; src/Forge.App/Features/Settings/DataManagementPage.xaml:24-27",
-    "gaps": "Cap is 80 MB and hard-coded - not a 500 MB default and not user-selectable between 100 MB / 500 MB / 1 GB / unlimited; AC2 fails - no device free-storage check and no low-storage message offering Manage Cache; no SHA-256 verification; the cache screen shows no per-item last access."
+    "evidence": "src/Forge.Infrastructure/Media/FileSystemMediaCache.cs:27; src/Forge.Core/Abstractions/Media/MediaCachePolicy.cs:20-58; src/Forge.Infrastructure/Media/FileSystemMediaCache.cs:89-182; src/Forge.Infrastructure/Media/FileSystemMediaCache.cs:206-237; src/Forge.App/Features/Settings/Services/StorageUsageService.cs:32-72; src/Forge.App/Features/Settings/DataManagementPage.xaml:16-28; src/Forge.App/Platforms/Android/Media/PlatformMediaPackService.Android.cs:455-458",
+    "gaps": "Settings now measures and reclaims store-delivered packs as well as the legacy file cache. Still missing: the cap is hard-coded at 80 MB, not a 500 MB default or user-selectable 100 MB / 500 MB / 1 GB / unlimited; AC2 fails because there is no pre-download free-storage check and no low-storage message offering Manage Cache; no SHA-256 verified HTTP cache path exists; the cache and settings screens show no per-item last access; package-budget requirements remain unmet."
   },
   {
     "story": "S08.05.04",
@@ -398,8 +398,8 @@
   {
     "story": "S09.05.02",
     "verdict": "NOT-DONE",
-    "evidence": "src/Forge.Domain/Planning/PlanEntities.cs:9-40 has no Version property; src/Forge.Domain/Training/Exercise.cs:69-99 WorkoutSession has no plan or plan-version member; src/Forge.App/Features/Plans/PlansFeatureViewModels.cs has no duplicate command",
-    "gaps": "Both acceptance criteria unimplementable - no version identity exists and nothing links a workout to the plan that generated it."
+    "evidence": "src/Forge.Domain/Planning/PlanEntities.cs:9-40 has no Version property; src/Forge.App/Features/Plans/PlansFeatureViewModels.cs:12-83 has no duplicate/archive/version command; src/Forge.Domain/Training/Exercise.cs:120-146 links WorkoutSession to plan/day but not a plan version; src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:210-239 writes plan/day link at workout start; src/Forge.Infrastructure/Persistence/Migrations/20260822204327_PlanWorkoutLink.cs:14-36 adds plan/day columns",
+    "gaps": "No duplicate command and no immutable plan-version model exist; completed workouts now link to a plan/day, but not to the plan version that generated them, so AC1 remains unmet and AC2 is still unimplemented."
   },
   {
     "story": "S09.05.03",
@@ -476,80 +476,80 @@
   {
     "story": "S10.01.01",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:828-834 (BuildQueueEntry hard-codes 60m, 8), :836-847 (falls back to 20 kg / 8 reps); src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:52-55 (Target/Actual tiles); src/Forge.App/Features/Train/TrainViewModel.cs:14-16 is the sole entry point and passes no plan",
-    "gaps": "AC1 fails - 'Set 1 of 3', target reps, target RPE and rest target are not rendered and the target load shown is a constant, not a prescription; no next-exercise preview; no plan-to-workout link exists anywhere in the app."
+    "evidence": "src/Forge.App/Features/Train/TrainViewModel.cs:195-198 passes a plan-day id to ActiveWorkout; src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:210-239 builds a plan-derived queue and records TrainingPlanId/PlanDayId; src/Forge.Domain/Planning/PlanWorkoutProjection.cs:61-91 copies planned sets/load/reps/rest into ActiveWorkoutExercise; src/Forge.Domain/Workout/WorkoutTarget.cs:75-84 resolves plan targets; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:925-979 applies target load/reps to the screen; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:43-67 renders plan context, current exercise, target load and target reps; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:327-336 keeps primary actions in the bottom bar",
+    "gaps": "Fixed since the previous verdict: plan-to-workout linking and hard-coded target constants are gone. Still missing: 'Set 1 of 3', target RPE, prescribed rest target above the fold, and a next-exercise preview that preserves the current action; several controls still expose Description without a distinct SemanticProperties.Hint."
   },
   {
     "story": "S10.01.02",
     "verdict": "DONE",
-    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:297-343 (log, await save, then rest); :362-372 (single-tap +/- for weight and reps); src/Forge.App/Features/Workout/ActiveWorkoutSession.cs:99-120 (serialised persistence queue); src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:176-185 (AddMissingSetEntries then SaveChanges); src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:316-323",
+    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:360-388 logs a set, awaits persistence, then starts rest; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:425-435 provides one-tap +/- adjustments; src/Forge.App/Features/Workout/ActiveWorkoutSession.cs:161-177 serializes save operations; src/Forge.App/Features/Workout/ActiveWorkoutSession.cs:323-338 maintains the persistence queue; src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:256-265 persists logged sets and snapshot; src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:584-600 inserts missing set entries idempotently; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:327-336 renders bottom primary actions with hints",
     "gaps": ""
   },
   {
     "story": "S10.01.03",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:62-94, :316-336; src/Forge.App/Resources/Styles/ForgeTokens.xaml:73-74 (TouchTargetMin 48, TouchTargetPrimary 64); src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml.cs:75-76",
-    "gaps": "Controls expose a Description but not a separate SemanticProperties.Hint, so AC2's 'name, value and action hint' is only partly met; AC1's 200 percent text-scale behaviour cannot be established by reading and needs a device check."
+    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:70-107 renders weight/reps/warm-up/failure/RIR controls; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:327-336 renders bottom primary actions with SemanticProperties.Hint; src/Forge.App/Resources/Styles/ForgeTokens.xaml:73-74 defines 48/64 dp touch targets; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml.cs:62-85 keeps the screen active and reconciles the timer",
+    "gaps": "Controls expose hints only on the primary bottom actions; many actionable controls still have Description but no separate SemanticProperties.Hint, so AC2/AC5 remain partial. AC1's 200 percent text-scale behaviour cannot be established from code alone and still needs device verification."
   },
   {
     "story": "S10.02.01",
     "verdict": "DONE",
-    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:321-325, :374-394; src/Forge.Domain/Workout/ActiveWorkoutState.cs:391-409 (ResolveNextRest); src/Forge.Domain/Workout/RestPrescription.cs; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:109-137",
+    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:360-388 starts rest after persisted set logging; src/Forge.Domain/Workout/ActiveWorkoutState.cs:449-476 resolves planned, warm-up, working-set and superset rest; src/Forge.App/Features/Workout/ActiveWorkoutSession.cs:184-199 starts and schedules rest; src/Forge.Domain/Workout/RestTimer.cs:54-90 derives remaining/progress from target end time; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:121-152 renders radial countdown and +15/+30/+60/-15/skip controls",
     "gaps": ""
   },
   {
     "story": "S10.02.02",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Workout/RestNotificationScheduler.cs:16-47; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:265-295 (reconcile from wall clock, announce once); src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml.cs:45-55",
-    "gaps": "AC1 fails - no haptic and no audio cue fire on expiry; HapticFeedback is used only for button feedback in src/Forge.App/Motion/ForgeAnimations.cs:215; AC3 fails - there is no Android foreground service, which RestNotificationScheduler.cs:21-25 documents as a deliberate choice against exact alarms."
+    "evidence": "src/Forge.App/Features/Workout/RestNotificationScheduler.cs:16-47 schedules/cancels a local notification; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:328-358 reconciles expiry from wall clock and announces once; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml.cs:73-85 ticks/reconciles foreground display",
+    "gaps": "AC1 still lacks haptic and audio expiry cues; AC3 still lacks an Android foreground service, and RestNotificationScheduler.cs:21-25 explicitly documents choosing normal local notifications instead."
   },
   {
     "story": "S10.02.03",
     "verdict": "DONE",
-    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml.cs:8-13, :35-36, :62; src/Forge.App/Features/Workout/RestTimerPage.xaml.cs:33-34, :56",
+    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml.cs:62-67 enables keep-awake while the active workout page appears; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml.cs:89-95 restores the previous keep-awake value on disappearance; src/Forge.App/Features/Workout/RestTimerPage.xaml.cs:30-40 enables keep-awake on the rest-timer page; src/Forge.App/Features/Workout/RestTimerPage.xaml.cs:53-59 restores it on disappearance",
     "gaps": ""
   },
   {
     "story": "S10.02.04",
     "verdict": "NOT-DONE",
-    "evidence": "Repository-wide search for pocket / WorkoutInputGuard across src returns no matches; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:320 binds Log set directly to the command with no guard",
-    "gaps": "Whole story unimplemented; both acceptance criteria unimplementable."
+    "evidence": "Repository-wide search for Pocket/pocket/LongPress/hold/WorkoutInputGuard under src returns no relevant implementation; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:333-336 binds Log set directly to LogSetCommand with no guard",
+    "gaps": "Whole story remains unimplemented; pocket lock does not exist, single taps are not guarded by a 700 ms hold/unlock path, and rest-expired alerts have no pocket-lock mode to integrate with."
   },
   {
     "story": "S10.03.01",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:345-360 (copies then calls LogSetAsync unconditionally), :362-372; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:316-323",
-    "gaps": "AC1 fails as written - Repeat last produces a committed set, not a draft; the load step is a hard-coded 2.5 kg rather than the plate increment, so AC2 only holds for a 2.5 kg gym; there is no RPE control at all, so the RPE +/- 0.5 requirement is unmet; no disabled state or explanation when there is no previous set."
+    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:408-423 copies the previous set and immediately calls LogSetAsync; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:425-435 hard-codes 2.5 kg and 1-rep increments; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:327-336 renders Repeat last and Log set in the bottom bar",
+    "gaps": "AC1 still fails because Repeat last commits immediately instead of producing an editable draft; load increments are hard-coded at 2.5 kg rather than the user plate increment; there is still no RPE control or +/-0.5 RPE adjustment; no disabled state or explanation is visible when no previous set exists."
   },
   {
     "story": "S10.03.02",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.Domain/Workout/PlateInventory.cs:37-46 (imperial default); src/Forge.Domain/Workout/PlateCalculator.cs; src/Forge.App/Features/Workout/WorkoutPreferenceStores.cs:99-100 (selects inventory from the unit preference); src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:428-445; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml.cs:78-82; src/Forge.Domain/Workout/WorkoutSummaryCalculator.cs:19 excludes warm-ups",
-    "gaps": "AC1 fails - no warm-up generator exists; warm-up sets must be entered manually one at a time with the checkbox ticked."
+    "evidence": "src/Forge.Domain/Workout/PlateCalculator.cs:24-78 calculates plate loading; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:491-508 shows calculated plates; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml.cs:108-112 opens the plate sheet; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:100-106 lets a manually-entered set be marked warm-up; src/Forge.Domain/Workout/WorkoutSummaryCalculator.cs:30-32 excludes warm-ups from working volume",
+    "gaps": "AC1 still fails because no warm-up generator exists; warm-up sets must be entered manually and ticked as warm-up. Plate calculation and warm-up exclusion from working volume are in place."
   },
   {
     "story": "S10.03.03",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:87-94 (Warm-up, Failure, RIR); src/Forge.Domain/Workout/ActiveWorkoutState.cs:75-105; src/Forge.Domain/Coaching/NextSessionRecommender.cs:79-98",
-    "gaps": "No RPE field (only RIR), so the 'mutually consistent but neither overwrites the other' requirement is untestable; no partial-rep count and no AMRAP flag, so AC2 fails; AC1 fails - the summary has no missed-targets section because there are no targets to miss (S10.01.01)."
+    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:100-106 exposes Warm-up, Failure and RIR only; src/Forge.Domain/Workout/ActiveWorkoutState.cs:133-163 logs warm-up/failure/RIR; src/Forge.Domain/Workout/ActiveWorkoutState.cs:696-708 stores CompletedWorkoutSet without RPE, partial reps or AMRAP; src/Forge.App/Features/Workout/WorkoutSummaryPage.xaml:23-52 has no missed-targets section",
+    "gaps": "No RPE field, partial-rep count or AMRAP flag exists; RIR/RPE mutual consistency is therefore untestable. Failed sets can be stored, but summaries do not show missed targets and progression input is not tied to AMRAP/failure handling here."
   },
   {
     "story": "S10.03.04",
     "verdict": "NOT-DONE",
-    "evidence": "src/Forge.Domain/Workout/ActiveWorkoutState.cs CompletedWorkoutSet has no parent set or drop members; no DropSetEntry type or DropSetSheet exists anywhere in src",
-    "gaps": "Whole story unimplemented; both acceptance criteria unimplementable."
+    "evidence": "src/Forge.Domain/Workout/ActiveWorkoutState.cs:696-708 CompletedWorkoutSet has no parent/drop-set members; repository-wide search for DropSet/DropSetEntry/DropSetSheet under src returns no implementation",
+    "gaps": "Whole story remains unimplemented; drop-set children, 1-to-5 drop limits, per-drop load/reps/RPE, and separately-labelled drop volume do not exist."
   },
   {
     "story": "S10.04.01",
     "verdict": "DONE",
-    "evidence": "src/Forge.Domain/Workout/ActiveWorkoutState.cs:294-325 (group), :351-409 (members, advance, ResolveNextRest gating); src/Forge.Domain/Workout/SupersetCycle.cs; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:321-338, :514-603; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:258-270; tests/Forge.Domain.Tests/Workout/SupersetCycleTests.cs",
+    "evidence": "src/Forge.Domain/Planning/PlanWorkoutProjection.cs:49-91 maps shared plan GroupKey values to active SupersetGroupId; src/Forge.Domain/Workout/ActiveWorkoutState.cs:357-433 groups, ungroups and advances superset members; src/Forge.Domain/Workout/ActiveWorkoutState.cs:449-476 gates shared rest until the round is complete; src/Forge.Domain/Workout/SupersetCycle.cs:35-100 calculates members and complete rounds; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:394-401 advances after logging; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:577-633 creates active supersets; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:267-286 renders grouping controls",
     "gaps": ""
   },
   {
     "story": "S10.04.02",
     "verdict": "NOT-DONE",
-    "evidence": "src/Forge.Domain/Planning/PlanEntities.cs:204-214 (Circuit is a plan block type only); no CircuitExecutionState or CircuitView exists in src; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:849-853 renders a station label with no round total",
-    "gaps": "AC1 and AC2 both fail - 'station 4 of 5, round 2 of 3' cannot be displayed and no circuit progress is persisted."
+    "evidence": "src/Forge.Domain/Planning/PlanEntities.cs:203-214 has Circuit only as a plan block type; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:267-286 labels the surface 'Supersets and circuits' but only exposes superset group/next/break controls; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:954-958 builds a superset-style station label and round count without total rounds; repository-wide search for CircuitExecutionState/CircuitView under src returns no implementation",
+    "gaps": "AC1 and AC2 still fail: 'station 4 of 5, round 2 of 3' cannot be displayed, circuit total rounds are not modelled, and circuit progress after each station is not persisted."
   },
   {
     "story": "S10.04.03",
@@ -560,50 +560,50 @@
   {
     "story": "S10.05.01",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:447-466 (Swap = SetCurrentExercise, no substitution), :468-497 (AddUnplanned takes FirstOrDefault), :499-512; src/Forge.Domain/Training/ExerciseSubstitution.cs is referenced only from src/Forge.App/Features/Exercises",
-    "gaps": "AC1 fails - swapping offers no same-pattern substitute and preserves no target context; AC2 fails - the summary has no unplanned-work section; adding an exercise is not a choice, it is whichever row happens to be first."
+    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:510-529 swaps by setting the selected catalogue exercise as current; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:541-560 adds the first unqueued catalogue exercise; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:562-575 reorders earlier; src/Forge.App/Features/Workout/ActiveWorkoutPage.xaml:290-323 renders add/swap/move controls; src/Forge.App/Features/Workout/WorkoutSummaryPage.xaml:23-52 has no unplanned-work section",
+    "gaps": "AC1 still fails because swapping does not offer same-pattern substitutes and does not preserve target context; AC2 still fails because summaries have no unplanned-work section. Added exercises are not user-selected from a picker; the first unqueued catalogue row is chosen."
   },
   {
     "story": "S10.05.02",
     "verdict": "NOT-DONE",
-    "evidence": "src/Forge.Domain/Workout/ActiveWorkoutState.cs:41-44 (Elapsed = CompletedUtc-or-now minus StartedUtc, no pause term); src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs has no pause command among its 32 [RelayCommand] members, and its only Resume members are ResumeSensorsAsync and the recovery kind",
-    "gaps": "AC1 and AC2 both fail - paused time cannot be excluded because pause does not exist, and finishing early records nothing about the exercises not performed. S10.02.03 and S10.06.01 both lean on this gap; see the note against this story in the .md companion."
+    "evidence": "src/Forge.Domain/Workout/ActiveWorkoutState.cs:41-44 computes elapsed as completed-or-now minus StartedUtc with no pause term; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:288-317 only suspends/resumes sensors, not workouts; repository-wide search for PausedAt/CutShort/NotPerformed under src returns no workout implementation",
+    "gaps": "AC1 and AC2 still fail: pause/resume does not exist, paused time cannot be excluded from active duration, and cutting short cannot mark remaining exercises as not performed."
   },
   {
     "story": "S10.05.03",
     "verdict": "DONE",
-    "evidence": "src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:113-163 (client-side ordering, RebuildState fallback), :166-185 (AddMissingSetEntries); src/Forge.Domain/Workout/WorkoutRecoveryPolicy.cs; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:784-808, :756-775; src/Forge.Domain/Workout/ActiveWorkoutState.cs:89-105; tests/Forge.Domain.Tests/Workout/WorkoutRecoveryPolicyTests.cs; tests/Forge.Domain.Tests/Workout/ActiveWorkoutStateSerializationTests.cs",
+    "evidence": "src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:142-191 resumes unfinished sessions, rebuilds from SQLite when the snapshot is missing and classifies recovery; src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:584-600 idempotently inserts missing set rows; src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:625-665 rebuilds/synchronizes state from persisted session sets; src/Forge.Domain/Workout/WorkoutRecoveryPolicy.cs:10-19 offers active workouts under the stale threshold; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:847-879 surfaces recovery state; src/Forge.Domain/Workout/ActiveWorkoutState.cs:81-101 starts from a persisted queue; src/Forge.Domain/Workout/ActiveWorkoutState.cs:696-708 carries stable set ids",
     "gaps": ""
   },
   {
     "story": "S10.05.04",
     "verdict": "NOT-DONE",
-    "evidence": "No WorkoutInterruptionService or Interruptions folder in src; no Battery or audio-route API use anywhere in src/Forge.App; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:265-295 is generic reconciliation",
-    "gaps": "AC2 is only vacuously true - there is no speaker audio to suppress; no low-battery warning and no option to disable keep-awake on low battery."
+    "evidence": "Repository-wide search for WorkoutInterruptionService/PhoneCall/Battery/Headphone/audio route under src returns no implementation; src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:328-358 only performs generic timer reconciliation; src/Forge.App/Features/Workout/RestNotificationScheduler.cs:21-25 documents notification-based rest handling",
+    "gaps": "AC1 is only partly covered by generic targetEndUtc reconciliation, not phone-call-specific handling; AC2 remains vacuously true because there is no speaker audio cue system; low-battery warning and keep-awake disablement do not exist."
   },
   {
     "story": "S10.06.01",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.Domain/Workout/WorkoutSummaryCalculator.cs:18-33; src/Forge.App/Features/Workout/WorkoutSummaryPageViewModel.cs:99-124, :126-142; src/Forge.App/Features/Workout/WorkoutSummaryPage.xaml:23-41",
-    "gaps": "No active-versus-total duration split (no pause exists); no total rep count; no planned-versus-completed exercises, because a session is never linked to a plan; AC2's 500 ms budget unmeasured."
+    "evidence": "src/Forge.Domain/Workout/WorkoutSummaryCalculator.cs:30-46 calculates volume, working sets, duration, muscle volume, PRs and comparison; src/Forge.Domain/Training/Exercise.cs:120-146 adds TrainingPlanId/PlanDayId/PlanDayName to WorkoutSession; src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:227-239 stores those fields at workout start; src/Forge.App/Features/Workout/WorkoutSummaryPageViewModel.cs:119-127 exposes volume, working sets, duration and muscle volume; src/Forge.App/Features/Workout/WorkoutSummaryPage.xaml:23-41 renders totals and muscle volume",
+    "gaps": "Fixed since the previous verdict: completed sessions are now linked to a plan and plan day. Still missing: active-versus-total duration split, total rep count, planned-versus-completed exercises in the summary, and measured proof that a 60-set summary opens within 500 ms."
   },
   {
     "story": "S10.06.02",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.Domain/Workout/WorkoutSummaryCalculator.cs:35-74; src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:313-329 (owner-scoped previous sets); src/Forge.App/Features/Workout/WorkoutSummaryPageViewModel.cs:47-48 (hard-coded Comparison), :137; src/Forge.App/Features/Workout/WorkoutSummaryPage.xaml:19",
-    "gaps": "No rep PR; no per-exercise volume PR; the entire comparison-to-last-time half of the story is a placeholder string that reads to a user like a real feature - the same defect class as the hard-coded streak numbers; AC2's 10000-set 500 ms budget unmeasured."
+    "evidence": "src/Forge.Domain/Workout/WorkoutSummaryCalculator.cs:37-46 attaches personal records and workout comparison to the summary; src/Forge.Domain/Workout/WorkoutSummaryCalculator.cs:49-87 detects heaviest-load, set-volume and estimated-1RM PRs; src/Forge.Domain/Workout/WorkoutComparison.cs:117-159 compares against the same plan day or previous session; src/Forge.Domain/Workout/WorkoutComparison.cs:63-95 narrates volume and working-set deltas; src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:400-440 loads previous sets/sessions for comparison; src/Forge.App/Features/Workout/WorkoutSummaryPageViewModel.cs:123-137 displays comparison and records",
+    "gaps": "Fixed since the previous verdict: the comparison string is no longer a placeholder. Still missing: rep PR detection, top-working-set delta display, per-exercise total-volume PR as distinct from best set volume, UI detail beyond a single comparison sentence, and measured proof that 10000-set PR detection completes within 500 ms."
   },
   {
     "story": "S10.06.03",
     "verdict": "NOT-DONE",
-    "evidence": "src/Forge.Domain/Training/Exercise.cs:88 (SessionRpe on WorkoutSession); grep for SessionRpe across src/Forge.App returns no matches; src/Forge.App/Features/Workout/WorkoutSummaryPage.xaml:1-59 has no feedback surface",
-    "gaps": "Both acceptance criteria unimplementable - no feedback is ever collected, so nothing links to the session id."
+    "evidence": "src/Forge.Domain/Training/Exercise.cs:148-149 has SessionRpe on WorkoutSession; repository-wide search for SessionRpe/feeling/feedback under src/Forge.App returns no collection surface; src/Forge.App/Features/Workout/WorkoutSummaryPage.xaml:15-55 has no feedback UI",
+    "gaps": "Both acceptance criteria remain unimplemented: the user is never asked for session RPE or feeling tags, no skip-feedback path exists, and no feedback is saved from the app UI."
   },
   {
     "story": "S10.06.04",
     "verdict": "PARTIAL",
-    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:731-755 (complete then navigate); src/Forge.App/Features/Workout/WorkoutSummaryPage.xaml:15-21 (static success card)",
-    "gaps": "No celebration animation at all, so the 3-second cap and the skip affordance are vacuous rather than met; the reduced-motion branch is untested because there is no motion branch to switch away from."
+    "evidence": "src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:794-817 completes the workout only after session.CompleteAsync succeeds and then navigates to summary; src/Forge.App/Features/Workout/ActiveWorkoutSession.cs:249-283 flushes queued writes, cancels rest and persists completion before reporting success; src/Forge.App/Features/Workout/WorkoutPersistenceService.cs:324-339 writes CompletedUtc and state completion; src/Forge.App/Features/Workout/WorkoutSummaryPage.xaml:15-20 renders a static success card",
+    "gaps": "No celebration animation exists, so the 3-second cap and skip affordance are vacuous rather than met; reduced-motion handling is unimplemented because there is no motion branch to replace."
   },
   {
     "story": "F10.01",
