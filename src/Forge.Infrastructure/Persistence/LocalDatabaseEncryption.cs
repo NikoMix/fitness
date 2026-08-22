@@ -110,15 +110,21 @@ public static class LocalDatabaseEncryption
     }
 
     /// <summary>Whether the database can be read using the supplied key pragma.</summary>
+    /// <remarks>
+    /// Opened on the same connection string the app itself uses, and - when the key works - left in
+    /// the pool rather than cleared. This probe has to read a page to be worth anything, and reading
+    /// a page of a SQLCipher database means deriving the key: 256,000 rounds of PBKDF2-HMAC-SHA512,
+    /// measured at 1198 ms on an Android emulator. Throwing that connection away meant startup
+    /// derived the same key again a moment later for the real context. Matching the connection
+    /// string lets the pool hand the very same handle to the first context instead.
+    /// </remarks>
     private static async Task<bool> CanOpenAsync(string databasePath, string keyPragma, CancellationToken cancellationToken)
     {
+        var succeeded = false;
         try
         {
-            await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
-            {
-                DataSource = databasePath,
-                Mode = SqliteOpenMode.ReadWrite
-            }.ToString());
+            await using var connection = new SqliteConnection(
+                ForgeDbContextFactory.CreateConnectionString(databasePath));
 
             await connection.OpenAsync(cancellationToken);
 
@@ -137,6 +143,7 @@ public static class LocalDatabaseEncryption
             // Reading sqlite_master is the cheapest operation that actually decrypts a page.
             command.CommandText = "SELECT COUNT(*) FROM sqlite_master";
             await command.ExecuteScalarAsync(cancellationToken);
+            succeeded = true;
             return true;
         }
         catch (SqliteException)
@@ -145,7 +152,14 @@ public static class LocalDatabaseEncryption
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
+            // Only when the key did not work. A failed probe is followed by a conversion that
+            // replaces the file, and a pooled handle keeps the old one open - which makes the
+            // replace fail on Windows. A successful probe is followed by nothing but ordinary use,
+            // so the warm connection is exactly what should be kept.
+            if (!succeeded)
+            {
+                SqliteConnection.ClearAllPools();
+            }
         }
     }
 

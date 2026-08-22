@@ -101,6 +101,12 @@ public sealed class LocalDatabaseEncryptionTests : IDisposable
         // Re-encrypting an encrypted database would double-encrypt it and lose everything, so
         // "already done" has to be detected rather than assumed from a flag somewhere.
         outcome.ShouldBe(LocalDatabaseEncryption.UpgradeOutcome.NotNeeded);
+
+        // A successful probe deliberately leaves its connection in the pool, so that startup's
+        // first context reuses the handle instead of deriving the SQLCipher key a second time.
+        // Reading the file back byte by byte is a Windows-only test concern and needs the handle
+        // released first.
+        SqliteConnection.ClearAllPools();
         (await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken)).ShouldBe(before);
     }
 
@@ -228,6 +234,10 @@ public sealed class LocalDatabaseEncryptionTests : IDisposable
             path, Key, TestContext.Current.CancellationToken);
 
         outcome.ShouldBe(LocalDatabaseEncryption.UpgradeOutcome.NotNeeded);
+
+        // See the note in An_already_encrypted_database_is_left_alone: a successful probe keeps its
+        // warm connection on purpose, so the file has to be released before it can be read.
+        SqliteConnection.ClearAllPools();
         (await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken)).ShouldBe(before);
     }
 
