@@ -54,9 +54,22 @@
 
   <ItemGroup Label="Data">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(EfCoreVersion)" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="$(EfCoreVersion)" />
+    <!--
+      Sqlite.Core rather than Sqlite. The convenience package depends on
+      SQLitePCLRaw.bundle_e_sqlite3 - stock SQLite, no encryption - and that bundle wins the
+      provider registration. PRAGMA key is then an unknown pragma, which SQLite ignores in silence,
+      so the database ships plaintext while every claim about SQLCipher stays in the privacy
+      policy. Core omits the bundle so the SQLCipher one below is the only one present.
+    -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite.Core" Version="$(EfCoreVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfCoreVersion)" />
-    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="3.0.5" />
+    <!--
+      2.1.11 is the newest SQLCipher bundle that exists. SQLitePCLRaw.core has moved on to 3.0.x
+      and this file previously carried 3.0.5 here - a version of this package that has never been
+      published. That alone shows the reference was never resolved: the database shipped on stock
+      SQLite, and PRAGMA key silently did nothing.
+    -->
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
   </ItemGroup>
 
   <ItemGroup Label="Platform extensions">

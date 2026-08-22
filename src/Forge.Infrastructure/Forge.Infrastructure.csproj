@@ -13,7 +13,14 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <!--
+      Sqlite.Core plus the SQLCipher bundle, never the plain Sqlite package. See the note in
+      Directory.Packages.props: the wrong combination produces a silently unencrypted database,
+      because PRAGMA key against stock SQLite is an unknown pragma and SQLite ignores those without
+      error. DatabaseEncryptionTests reads the file header to make sure that cannot recur.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" />
     <!-- Design-time only: scaffolds migrations. PrivateAssets keeps it out of the shipped app. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>

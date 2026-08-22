@@ -110,6 +110,21 @@ internal sealed partial class ForgeStartupService(
 
             StartupTimeline.Mark("db-key-ready");
 
+            // Must run before the first keyed connection. A database written while the SQLCipher
+            // bundle was missing is plaintext, and SQLCipher does not read a plaintext file as
+            // unencrypted - it decrypts the header, gets nonsense, and reports "file is not a
+            // database". Startup would fail into recovery mode over a database that is intact.
+            var encryption = await LocalDatabaseEncryption
+                .EnsureEncryptedAsync(options.DatabasePath, key, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (encryption == LocalDatabaseEncryption.UpgradeOutcome.Encrypted)
+            {
+                LogDatabaseEncrypted(logger);
+            }
+
+            StartupTimeline.Mark("db-encryption-ready");
+
             await using var context = ForgeDbContextFactory.CreateDbContext(options.DatabasePath, key);
 
             var initializer = new DatabaseInitializer(context);
@@ -167,4 +182,7 @@ internal sealed partial class ForgeStartupService(
 
     [LoggerMessage(EventId = 1002, Level = LogLevel.Error, Message = "Forge database startup failed.")]
     private static partial void LogStartupFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 1003, Level = LogLevel.Information, Message = "Converted a plaintext local database to an encrypted one.")]
+    private static partial void LogDatabaseEncrypted(ILogger logger);
 }
