@@ -1,12 +1,16 @@
 using Forge.Domain.Common;
 using Forge.Domain.Measurement;
+using Forge.Domain.Profile;
 using Forge.Domain.Training;
 
 namespace Forge.Domain.Workout;
 
 /// <summary>Recoverable in-progress workout aggregate used to rebuild the active screen.</summary>
-public sealed class ActiveWorkoutState : Entity
+public sealed class ActiveWorkoutState : Entity, IProfileOwned
 {
+    /// <summary>The profile whose workout this is.</summary>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>The session this snapshot belongs to.</summary>
     public required Guid WorkoutSessionId { get; init; }
 
@@ -40,15 +44,17 @@ public sealed class ActiveWorkoutState : Entity
     public TimeSpan Elapsed(DateTimeOffset now) => (CompletedUtc ?? now) - StartedUtc;
 
     /// <summary>Starts a new active workout.</summary>
+    /// <param name="userProfileId">The profile that owns the session.</param>
     /// <param name="workoutSessionId">The owning session identifier.</param>
     /// <param name="startedUtc">When the session started.</param>
     /// <param name="firstExercise">The exercise to open on.</param>
     /// <returns>The new state.</returns>
-    public static ActiveWorkoutState Start(Guid workoutSessionId, DateTimeOffset startedUtc, ActiveWorkoutExercise firstExercise)
+    public static ActiveWorkoutState Start(Guid userProfileId, Guid workoutSessionId, DateTimeOffset startedUtc, ActiveWorkoutExercise firstExercise)
     {
         ArgumentNullException.ThrowIfNull(firstExercise);
         return new ActiveWorkoutState
         {
+            UserProfileId = userProfileId,
             WorkoutSessionId = workoutSessionId,
             StartedUtc = startedUtc,
             CurrentExerciseId = firstExercise.ExerciseId,
@@ -422,15 +428,24 @@ public sealed class ActiveWorkoutState : Entity
         ActiveRestTimer = null;
     }
 
-    /// <summary>Projects a logged set onto the persisted set entity.</summary>
+    /// <summary>
+    /// Projects a logged set onto the persisted set entity.
+    /// </summary>
+    /// <remarks>
+    /// An instance method rather than a static one so the owner is taken from the workout the set
+    /// was logged in. A static overload taking the owner separately would allow a caller to stamp a
+    /// set with a profile that did not perform it, which is the exact failure this boundary exists
+    /// to prevent, and nothing downstream could detect it afterwards.
+    /// </remarks>
     /// <param name="set">The logged set.</param>
     /// <returns>The corresponding set entry.</returns>
-    public static SetEntry ToSetEntry(CompletedWorkoutSet set)
+    public SetEntry ToSetEntry(CompletedWorkoutSet set)
     {
         ArgumentNullException.ThrowIfNull(set);
         return new SetEntry
         {
             Id = set.SetEntryId,
+            UserProfileId = UserProfileId,
             WorkoutSessionId = set.WorkoutSessionId,
             ExerciseId = set.ExerciseId,
             Ordinal = set.Ordinal,

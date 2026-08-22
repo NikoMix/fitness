@@ -1,12 +1,23 @@
 using Forge.Domain.Common;
 using Forge.Domain.Measurement;
+using Forge.Domain.Profile;
 using Forge.Domain.Training;
 
 namespace Forge.Domain.Planning;
 
 /// <summary>A reusable or user-authored training programme.</summary>
-public sealed class TrainingPlan : Entity
+public sealed class TrainingPlan : Entity, IProfileOwned
 {
+    /// <summary>
+    /// The profile that owns this plan.
+    /// </summary>
+    /// <remarks>
+    /// Shipped templates in <see cref="PlanTemplateCatalogue"/> carry <see cref="Guid.Empty"/>
+    /// because they belong to nobody. They are never persisted as-is; adopting one produces an
+    /// owned copy through <see cref="CreateEditableCopy"/>.
+    /// </remarks>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>Display name.</summary>
     public required string Name { get; set; }
 
@@ -29,10 +40,15 @@ public sealed class TrainingPlan : Entity
     public ICollection<PlanDay> Days { get; } = [];
 
     /// <summary>Creates an editable user-owned copy of this plan.</summary>
-    public TrainingPlan CreateEditableCopy(string? name = null, bool isActive = true)
+    /// <param name="userProfileId">The profile that will own the copy.</param>
+    /// <param name="name">Optional new name; the source name is kept when omitted.</param>
+    /// <param name="isActive">Whether the copy becomes the active programme.</param>
+    /// <returns>The owned copy, including owned days, exercises and sets.</returns>
+    public TrainingPlan CreateEditableCopy(Guid userProfileId, string? name = null, bool isActive = true)
     {
         var copy = new TrainingPlan
         {
+            UserProfileId = userProfileId,
             Name = string.IsNullOrWhiteSpace(name) ? Name : name,
             Description = Description,
             IsTemplate = false,
@@ -45,6 +61,7 @@ public sealed class TrainingPlan : Entity
         {
             var dayCopy = new PlanDay
             {
+                UserProfileId = userProfileId,
                 Name = day.Name,
                 Ordinal = day.Ordinal,
                 ScheduledDay = day.ScheduledDay
@@ -54,6 +71,7 @@ public sealed class TrainingPlan : Entity
             {
                 var exerciseCopy = new PlannedExercise
                 {
+                    UserProfileId = userProfileId,
                     ExerciseId = exercise.ExerciseId,
                     ExerciseName = exercise.ExerciseName,
                     Pattern = exercise.Pattern,
@@ -68,6 +86,7 @@ public sealed class TrainingPlan : Entity
                 {
                     exerciseCopy.Sets.Add(new PlannedSet
                     {
+                        UserProfileId = userProfileId,
                         Ordinal = set.Ordinal,
                         TargetRepsMin = set.TargetRepsMin,
                         TargetRepsMax = set.TargetRepsMax,
@@ -89,8 +108,11 @@ public sealed class TrainingPlan : Entity
 }
 
 /// <summary>One planned training day inside a programme.</summary>
-public sealed class PlanDay : Entity
+public sealed class PlanDay : Entity, IProfileOwned
 {
+    /// <summary>The profile that owns the parent plan.</summary>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>Parent plan identifier.</summary>
     public Guid TrainingPlanId { get; init; }
 
@@ -108,8 +130,11 @@ public sealed class PlanDay : Entity
 }
 
 /// <summary>One exercise prescription, optionally grouped into supersets or circuits.</summary>
-public sealed class PlannedExercise : Entity
+public sealed class PlannedExercise : Entity, IProfileOwned
 {
+    /// <summary>The profile that owns the parent plan.</summary>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>Parent plan-day identifier.</summary>
     public Guid PlanDayId { get; init; }
 
@@ -145,8 +170,11 @@ public sealed class PlannedExercise : Entity
 }
 
 /// <summary>One planned set prescription.</summary>
-public sealed class PlannedSet : Entity
+public sealed class PlannedSet : Entity, IProfileOwned
 {
+    /// <summary>The profile that owns the parent plan.</summary>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>Parent exercise identifier.</summary>
     public Guid PlannedExerciseId { get; init; }
 

@@ -25,6 +25,8 @@ namespace Forge.Infrastructure.Tests.Persistence;
 /// </remarks>
 public sealed class SqliteOrderingTests : IAsyncLifetime
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
+
     private SqliteConnection connection = null!;
     private DbContextOptions<ForgeDbContext> options = null!;
 
@@ -70,8 +72,8 @@ public sealed class SqliteOrderingTests : IAsyncLifetime
 
         await using (var seed = CreateContext())
         {
-            seed.Set<WorkoutSession>().Add(new WorkoutSession { StartedUtc = older });
-            seed.Set<WorkoutSession>().Add(new WorkoutSession { StartedUtc = newer });
+            seed.Set<WorkoutSession>().Add(new WorkoutSession { UserProfileId = Owner, StartedUtc = older });
+            seed.Set<WorkoutSession>().Add(new WorkoutSession { UserProfileId = Owner, StartedUtc = newer });
             await seed.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -95,9 +97,10 @@ public sealed class SqliteOrderingTests : IAsyncLifetime
         await using (var seed = CreateContext())
         {
             seed.Set<Exercise>().Add(new Exercise { Id = exerciseId, Name = "Squat" });
-            seed.Set<WorkoutSession>().Add(new WorkoutSession { Id = sessionId, StartedUtc = DateTimeOffset.UtcNow.AddHours(-1) });
+            seed.Set<WorkoutSession>().Add(new WorkoutSession { UserProfileId = Owner, Id = sessionId, StartedUtc = DateTimeOffset.UtcNow.AddHours(-1) });
             seed.Set<SetEntry>().Add(new SetEntry
             {
+                UserProfileId = Owner,
                 WorkoutSessionId = sessionId,
                 ExerciseId = exerciseId,
                 Ordinal = 1,
@@ -105,6 +108,7 @@ public sealed class SqliteOrderingTests : IAsyncLifetime
             });
             seed.Set<SetEntry>().Add(new SetEntry
             {
+                UserProfileId = Owner,
                 WorkoutSessionId = sessionId,
                 ExerciseId = exerciseId,
                 Ordinal = 2,

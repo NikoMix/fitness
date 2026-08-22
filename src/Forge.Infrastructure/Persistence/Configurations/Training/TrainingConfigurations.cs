@@ -79,9 +79,14 @@ public sealed class WorkoutSessionConfiguration : IEntityTypeConfiguration<Worko
         // History is read newest-first almost everywhere in the app.
         builder.HasIndex(e => e.StartedUtc);
 
+        // Every read of this table is confined to one profile, so the owner leads the composite
+        // index rather than sitting in one of its own.
+        builder.HasIndex(e => new { e.UserProfileId, e.StartedUtc });
+
         // Locating an unfinished session is the first thing the app does after a crash or
         // process death, so it must not require scanning the table.
         builder.HasIndex(e => e.CompletedUtc);
+        builder.HasIndex(e => new { e.UserProfileId, e.CompletedUtc });
     }
 }
 
@@ -105,8 +110,12 @@ public sealed class SetEntryConfiguration : IEntityTypeConfiguration<SetEntry>
                .HasColumnName("LoadKilograms");
 
         // The dominant query is "every set of this exercise over time", which drives both the
-        // progression charts and personal-record detection.
+        // progression charts and personal-record detection. Since that query is now confined to
+        // one profile, the owner leads the index: an index that does not start with the column
+        // every read filters on cannot be used to satisfy it.
         builder.HasIndex(e => new { e.ExerciseId, e.CompletedUtc });
+        builder.HasIndex(e => new { e.UserProfileId, e.ExerciseId, e.CompletedUtc });
         builder.HasIndex(e => e.WorkoutSessionId);
+        builder.HasIndex(e => e.UserProfileId);
     }
 }

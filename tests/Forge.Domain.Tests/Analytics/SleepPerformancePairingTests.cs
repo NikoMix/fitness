@@ -9,6 +9,7 @@ namespace Forge.Domain.Tests.Analytics;
 
 public sealed class SleepPerformancePairingTests
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
     private static readonly Guid ExerciseId = Guid.CreateVersion7();
     private static readonly Guid SessionId = Guid.CreateVersion7();
     private static readonly DateOnly Start = new(2026, 8, 1);
@@ -176,6 +177,7 @@ public sealed class SleepPerformancePairingTests
     private static SetEntry Set(decimal kilograms, int reps, DateOnly localDate, bool isWarmUp = false)
         => new()
         {
+            UserProfileId = Owner,
             WorkoutSessionId = SessionId,
             ExerciseId = ExerciseId,
             Ordinal = 1,

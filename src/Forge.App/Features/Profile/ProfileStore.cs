@@ -1,8 +1,15 @@
 using Forge.App.Composition;
 using Forge.Core.Abstractions.Data;
+using Forge.Domain.Common;
 using Forge.Domain.Measurement;
+using Forge.Domain.Nutrition;
+using Forge.Domain.Nutrition.Recipes;
 using Forge.Domain.Onboarding;
+using Forge.Domain.Planning;
 using Forge.Domain.Profile;
+using Forge.Domain.Recovery;
+using Forge.Domain.Training;
+using Forge.Domain.Workout;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Forge.App.Features.Profile;
@@ -18,9 +25,10 @@ namespace Forge.App.Features.Profile;
 /// which is what this type used to do and what would otherwise make a switcher cosmetic.
 /// </para>
 /// <para>
-/// Most of Forge is not profile-separated yet. See docs/design/multi-profile.md for the ordered
-/// list of queries still to adopt <see cref="IProfileOwned"/>, and <see cref="ProfileDataAreas"/>
-/// for the machine-checked description the switcher shows the user.
+/// Every area of Forge that holds one person's own logging now adopts <see cref="IProfileOwned"/>.
+/// What is still shared, and why, is listed in phase 4 of docs/design/multi-profile.md and reported
+/// to the user by <see cref="ProfileDataAreas"/>, which derives it from the code rather than from a
+/// sentence that would rot.
 /// </para>
 /// </remarks>
 /// <param name="services">Provider used to reach the internal startup service.</param>
@@ -37,7 +45,22 @@ public sealed class ProfileStore(IServiceProvider services, IDataSessionFactory 
     /// until it is added the deletion dialog reports that data as retained rather than claiming an
     /// erasure that did not happen.
     /// </remarks>
-    public static IReadOnlyList<Type> DeletableEntityTypes { get; } = [typeof(BodyMetric)];
+    public static IReadOnlyList<Type> DeletableEntityTypes { get; } =
+    [
+        typeof(BodyMetric),
+        typeof(WorkoutSession),
+        typeof(SetEntry),
+        typeof(ActiveWorkoutState),
+        typeof(TrainingPlan),
+        typeof(PlanDay),
+        typeof(PlannedExercise),
+        typeof(PlannedSet),
+        typeof(FoodLogEntry),
+        typeof(HydrationEntry),
+        typeof(MorningCheckIn),
+        typeof(SorenessEntry),
+        typeof(Recipe),
+    ];
 
     /// <summary>Raised after the active profile changes, so open screens can reload.</summary>
     public event EventHandler? ActiveProfileChanged;
@@ -229,7 +252,23 @@ public sealed class ProfileStore(IServiceProvider services, IDataSessionFactory 
         }
 
         var owned = await ReadOwnedMetricsAsync(session, ProfileScope.For(profile), cancellationToken).ConfigureAwait(false);
-        var counts = new Dictionary<Type, int> { [typeof(BodyMetric)] = owned.Count };
+        var scope = ProfileScope.For(profile);
+        var counts = new Dictionary<Type, int>
+        {
+            [typeof(BodyMetric)] = owned.Count,
+            [typeof(WorkoutSession)] = await CountOwnedAsync<WorkoutSession>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(SetEntry)] = await CountOwnedAsync<SetEntry>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(ActiveWorkoutState)] = await CountOwnedAsync<ActiveWorkoutState>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(TrainingPlan)] = await CountOwnedAsync<TrainingPlan>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(PlanDay)] = await CountOwnedAsync<PlanDay>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(PlannedExercise)] = await CountOwnedAsync<PlannedExercise>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(PlannedSet)] = await CountOwnedAsync<PlannedSet>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(FoodLogEntry)] = await CountOwnedAsync<FoodLogEntry>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(HydrationEntry)] = await CountOwnedAsync<HydrationEntry>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(MorningCheckIn)] = await CountOwnedAsync<MorningCheckIn>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(SorenessEntry)] = await CountOwnedAsync<SorenessEntry>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(Recipe)] = await CountOwnedAsync<Recipe>(session, scope, cancellationToken).ConfigureAwait(false),
+        };
 
         var refusal = ActiveProfileSelector.CanDelete(stored, profileId)
             ? null
@@ -271,15 +310,23 @@ public sealed class ProfileStore(IServiceProvider services, IDataSessionFactory 
         var profile = stored.First(candidate => candidate.Id == profileId);
         var scope = ProfileScope.For(profile);
 
-        var metrics = session.Repository<BodyMetric>();
-        var partition = ProfileDeletion.Partition(
-            await metrics.ListAsync(cancellationToken).ConfigureAwait(false),
-            scope);
-
-        foreach (var metricId in partition.ToDelete)
-        {
-            await metrics.SoftDeleteAsync(metricId, cancellationToken).ConfigureAwait(false);
-        }
+        // Written out type by type rather than looped over DeletableEntityTypes with reflection.
+        // iOS builds ahead of time, so MakeGenericMethod over an entity type resolved at runtime
+        // works on Android and throws on device. MultiProfilePersistenceTests mirrors this list and
+        // fails when an owned type is missing from it.
+        await SoftDeleteOwnedAsync<BodyMetric>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<WorkoutSession>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<SetEntry>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<ActiveWorkoutState>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<TrainingPlan>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<PlanDay>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<PlannedExercise>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<PlannedSet>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<FoodLogEntry>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<HydrationEntry>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<MorningCheckIn>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<SorenessEntry>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<Recipe>(session, scope, cancellationToken).ConfigureAwait(false);
 
         // Extend here, and in DeletableEntityTypes, when another entity adopts IProfileOwned.
 
@@ -476,6 +523,49 @@ public sealed class ProfileStore(IServiceProvider services, IDataSessionFactory 
 
         await session.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return true;
+    }
+
+    /// <summary>
+    /// Soft-deletes every row of one owned type that belongs to the profile being removed.
+    /// </summary>
+    /// <remarks>
+    /// The rows are chosen by <see cref="ProfileDeletion.Partition{T}"/> rather than filtered
+    /// inline, so the one operation in Forge that can destroy another person's data is decided by
+    /// code that is tested directly. Records carrying no owner are never touched: deleting them
+    /// would take the remaining user's history with them.
+    /// </remarks>
+    /// <typeparam name="T">The owned entity type to remove.</typeparam>
+    /// <param name="session">The unit of work the delete commits through.</param>
+    /// <param name="scope">The profile being deleted.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>How many rows were marked for deletion.</returns>
+    private static async Task<int> SoftDeleteOwnedAsync<T>(IDataSession session, ProfileScope scope, CancellationToken cancellationToken)
+        where T : Entity, IProfileOwned
+    {
+        var repository = session.Repository<T>();
+        var partition = ProfileDeletion.Partition(
+            await repository.ListAsync(cancellationToken).ConfigureAwait(false),
+            scope);
+
+        foreach (var id in partition.ToDelete)
+        {
+            await repository.SoftDeleteAsync(id, cancellationToken).ConfigureAwait(false);
+        }
+
+        return partition.ToDelete.Count;
+    }
+
+    /// <summary>Counts the live rows of one owned type belonging to a profile.</summary>
+    /// <typeparam name="T">The owned entity type to count.</typeparam>
+    /// <param name="session">The session to read through.</param>
+    /// <param name="scope">The profile to count for.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The number of live owned rows, which is what the deletion dialog shows.</returns>
+    private static async Task<int> CountOwnedAsync<T>(IDataSession session, ProfileScope scope, CancellationToken cancellationToken)
+        where T : Entity, IProfileOwned
+    {
+        var rows = await session.Repository<T>().ListAsync(cancellationToken).ConfigureAwait(false);
+        return rows.OwnedBy(scope).Count(row => !row.IsDeleted);
     }
 
     private static async Task<IReadOnlyList<BodyMetric>> ReadOwnedMetricsAsync(

@@ -1,4 +1,5 @@
 using Forge.App.Composition;
+using Forge.App.Features.Profile;
 using Forge.Core.Abstractions.Data;
 using Forge.Domain.Analytics;
 using Forge.Domain.Common;
@@ -200,29 +201,29 @@ public sealed record TodayRingData(string Label, double Progress, string Detail)
 /// <param name="WhenUtc">When it happened.</param>
 public sealed record TodayActivityData(string Title, string Detail, DateTimeOffset WhenUtc);
 
-internal sealed class InsightsDataService(ForgeStartupService startup, IDataSessionFactory sessions) : IInsightsDataService
+internal sealed class InsightsDataService(ForgeStartupService startup, IDataSessionFactory sessions, ProfileStore profiles) : IInsightsDataService
 {
     private const int HydrationTargetMillilitres = 2000;
     private const int MaximumRecordsShown = 30;
     private static readonly OneRepMaxFormula DefaultFormula = OneRepMaxFormula.Epley;
 
     public Task<InsightsDataSnapshot> LoadAsync(DateOnly today, CancellationToken cancellationToken)
-        => ReadAsync(async (session, token) =>
+        => ReadAsync(async (session, scope, token) =>
         {
-            var sets = await LiveAsync<SetEntry>(session, token).ConfigureAwait(false);
-            var workouts = await LiveAsync<WorkoutSession>(session, token).ConfigureAwait(false);
-            var hydration = await LiveAsync<HydrationEntry>(session, token).ConfigureAwait(false);
-            var plans = await LiveAsync<TrainingPlan>(session, token).ConfigureAwait(false);
+            var sets = await OwnedAsync<SetEntry>(session, scope, token).ConfigureAwait(false);
+            var workouts = await OwnedAsync<WorkoutSession>(session, scope, token).ConfigureAwait(false);
+            var hydration = await OwnedAsync<HydrationEntry>(session, scope, token).ConfigureAwait(false);
+            var plans = await OwnedAsync<TrainingPlan>(session, scope, token).ConfigureAwait(false);
 
             return new InsightsDataSnapshot(BuildTodaySummary(today, sets, workouts, hydration, plans));
         }, cancellationToken);
 
     public Task<ProgressOverview> LoadProgressAsync(DateOnly today, CancellationToken cancellationToken)
-        => ReadAsync(async (session, token) =>
+        => ReadAsync(async (session, scope, token) =>
         {
-            var sets = await LiveAsync<SetEntry>(session, token).ConfigureAwait(false);
-            var workouts = await LiveAsync<WorkoutSession>(session, token).ConfigureAwait(false);
-            var plans = await LiveAsync<TrainingPlan>(session, token).ConfigureAwait(false);
+            var sets = await OwnedAsync<SetEntry>(session, scope, token).ConfigureAwait(false);
+            var workouts = await OwnedAsync<WorkoutSession>(session, scope, token).ConfigureAwait(false);
+            var plans = await OwnedAsync<TrainingPlan>(session, scope, token).ConfigureAwait(false);
 
             var weeks = TrainingTrendAggregator.PerWeek(sets);
             var loadedWeeks = weeks.Count(week => week.LoadedWorkingSets > 0);
@@ -236,13 +237,16 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
         }, cancellationToken);
 
     public Task<InsightsOverview> LoadInsightsAsync(DateOnly today, CancellationToken cancellationToken)
-        => ReadAsync(async (session, token) =>
+        => ReadAsync(async (session, scope, token) =>
         {
-            var sets = await LiveAsync<SetEntry>(session, token).ConfigureAwait(false);
+            var sets = await OwnedAsync<SetEntry>(session, scope, token).ConfigureAwait(false);
+
+            // The exercise catalogue is shared between profiles on purpose, so it is read
+            // unscoped. It carries no personal data; the sets that reference it do.
             var exercises = await LiveAsync<Exercise>(session, token).ConfigureAwait(false);
-            var workouts = await LiveAsync<WorkoutSession>(session, token).ConfigureAwait(false);
-            var plans = await LiveAsync<TrainingPlan>(session, token).ConfigureAwait(false);
-            var checkIns = await LiveAsync<MorningCheckIn>(session, token).ConfigureAwait(false);
+            var workouts = await OwnedAsync<WorkoutSession>(session, scope, token).ConfigureAwait(false);
+            var plans = await OwnedAsync<TrainingPlan>(session, scope, token).ConfigureAwait(false);
+            var checkIns = await OwnedAsync<MorningCheckIn>(session, scope, token).ConfigureAwait(false);
 
             var nights = checkIns
                 .Where(checkIn => checkIn.SleepHours is > 0m)
@@ -258,39 +262,46 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
         }, cancellationToken);
 
     public Task<ExerciseProgressView> LoadExerciseProgressAsync(CancellationToken cancellationToken)
-        => ReadAsync(async (session, token) =>
+        => ReadAsync(async (session, scope, token) =>
         {
-            var sets = await LiveAsync<SetEntry>(session, token).ConfigureAwait(false);
+            var sets = await OwnedAsync<SetEntry>(session, scope, token).ConfigureAwait(false);
             var exercises = await LiveAsync<Exercise>(session, token).ConfigureAwait(false);
 
             return BuildExerciseProgress(sets, exercises);
         }, cancellationToken);
 
     public Task<PersonalRecordsView> LoadPersonalRecordsAsync(CancellationToken cancellationToken)
-        => ReadAsync(async (session, token) =>
+        => ReadAsync(async (session, scope, token) =>
         {
-            var sets = await LiveAsync<SetEntry>(session, token).ConfigureAwait(false);
+            var sets = await OwnedAsync<SetEntry>(session, scope, token).ConfigureAwait(false);
             var exercises = await LiveAsync<Exercise>(session, token).ConfigureAwait(false);
 
             return new PersonalRecordsView(BuildPersonalRecords(sets, exercises), DefaultFormula);
         }, cancellationToken);
 
     public Task<BodyMetricsView> LoadBodyMetricsAsync(CancellationToken cancellationToken)
-        => ReadAsync(async (session, token) =>
+        => ReadAsync(async (session, scope, token) =>
         {
-            var metrics = await LiveAsync<BodyMetric>(session, token).ConfigureAwait(false);
+            var metrics = await OwnedAsync<BodyMetric>(session, scope, token).ConfigureAwait(false);
             return BuildBodyMetrics(metrics);
         }, cancellationToken);
 
     /// <summary>
-    /// Runs one read on a background thread over a single session.
+    /// Runs one read on a background thread over a single session, confined to the active profile.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The <c>Task.Run</c> is deliberate. The SQLite read and the aggregation that follows it are
     /// synchronous enough to stutter a scroll if they begin on the UI thread, which on a mid-range
     /// Android device shows up as a dropped frame every time this section is opened.
+    /// </para>
+    /// <para>
+    /// The scope is resolved once, before the session opens, and handed to the read. Resolving it
+    /// per query would let a profile switch land between two reads of the same screen and produce a
+    /// half-scoped result: this profile's sets against the other profile's sessions.
+    /// </para>
     /// </remarks>
-    private Task<T> ReadAsync<T>(Func<IDataSession, CancellationToken, Task<T>> read, CancellationToken cancellationToken)
+    private Task<T> ReadAsync<T>(Func<IDataSession, ProfileScope, CancellationToken, Task<T>> read, CancellationToken cancellationToken)
         => Task.Run(async () =>
         {
             await startup.InitialiseAsync(cancellationToken).ConfigureAwait(false);
@@ -299,10 +310,12 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
                 throw new InvalidOperationException("Forge startup did not complete successfully.", startup.Failure);
             }
 
+            var scope = await profiles.GetActiveScopeAsync(cancellationToken).ConfigureAwait(false);
+
             // One session, one context, one connection. Resolving a repository per entity type
             // from the container would open a separate connection for each of them.
             await using var session = sessions.Create();
-            return await read(session, cancellationToken).ConfigureAwait(false);
+            return await read(session, scope, cancellationToken).ConfigureAwait(false);
         }, cancellationToken);
 
     private static async Task<List<T>> LiveAsync<T>(IDataSession session, CancellationToken cancellationToken)
@@ -310,6 +323,18 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
     {
         var all = await session.Repository<T>().ListAsync(cancellationToken).ConfigureAwait(false);
         return all.Where(entity => !entity.IsDeleted).ToList();
+    }
+
+    /// <summary>Reads the live rows of one owned table, confined to a single profile.</summary>
+    /// <remarks>
+    /// An unresolved scope yields nothing rather than everything, so a screen opened before the
+    /// active profile is known renders empty instead of rendering somebody else's training.
+    /// </remarks>
+    private static async Task<List<T>> OwnedAsync<T>(IDataSession session, ProfileScope scope, CancellationToken cancellationToken)
+        where T : Entity, IProfileOwned
+    {
+        var all = await session.Repository<T>().ListAsync(cancellationToken).ConfigureAwait(false);
+        return all.OwnedBy(scope).Where(entity => !entity.IsDeleted).ToList();
     }
 
     private static ProgressTotals BuildTotals(IReadOnlyList<SetEntry> sets, IReadOnlyList<WorkoutSession> workouts)

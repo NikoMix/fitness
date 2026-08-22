@@ -13,6 +13,7 @@ namespace Forge.Domain.Tests.Workout;
 public sealed class ActiveWorkoutStateSerializationTests
 {
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
+    private static readonly Guid Owner = Guid.CreateVersion7();
     private static readonly DateTimeOffset Start = new(2026, 8, 20, 10, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -57,7 +58,7 @@ public sealed class ActiveWorkoutStateSerializationTests
     public void An_exercise_without_a_stored_rest_setting_falls_back_to_the_app_default()
     {
         var exercise = new ActiveWorkoutExercise(Guid.CreateVersion7(), "Cable curl", "Biceps", 20m, 12);
-        var state = ActiveWorkoutState.Start(Guid.CreateVersion7(), Start, exercise);
+        var state = ActiveWorkoutState.Start(Owner, Guid.CreateVersion7(), Start, exercise);
 
         state.ResolveNextRest(isWarmUp: false)!.Duration.ShouldBe(RestPrescription.Default.WorkingSetRest);
     }
@@ -66,6 +67,7 @@ public sealed class ActiveWorkoutStateSerializationTests
     public void A_completed_set_round_trips_including_its_identity()
     {
         var state = ActiveWorkoutState.Start(
+            Owner,
             Guid.CreateVersion7(),
             Start,
             new ActiveWorkoutExercise(Guid.CreateVersion7(), "Deadlift", "Posterior chain", 140m, 3));

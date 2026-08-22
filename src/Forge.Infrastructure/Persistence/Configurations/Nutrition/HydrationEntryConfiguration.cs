@@ -14,6 +14,7 @@ public sealed class HydrationEntryConfiguration : IEntityTypeConfiguration<Hydra
 
         builder.HasKey(e => e.Id);
         builder.HasIndex(e => e.ConsumedUtc);
+        builder.HasIndex(e => new { e.UserProfileId, e.ConsumedUtc });
         builder.Property(e => e.BeverageType).HasConversion<string>().HasMaxLength(40);
         builder.Property(e => e.CaffeineMilligrams).HasPrecision(10, 2);
         builder.Property(e => e.Volume)

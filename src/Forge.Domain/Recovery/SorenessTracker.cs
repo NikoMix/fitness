@@ -1,10 +1,14 @@
 using Forge.Domain.Common;
+using Forge.Domain.Profile;
 
 namespace Forge.Domain.Recovery;
 
 /// <summary>Per-muscle soreness entry that can constrain training recommendations.</summary>
-public sealed class SorenessEntry : Entity
+public sealed class SorenessEntry : Entity, IProfileOwned
 {
+    /// <summary>The profile that reported this soreness.</summary>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>Muscle group name, for example Quadriceps.</summary>
     public required string MuscleGroup { get; set; }
 

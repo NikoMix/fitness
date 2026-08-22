@@ -93,6 +93,7 @@ public sealed class WorkoutHistoryBuilderTests
         => WorkoutHistoryBuilder.Build([], Names(), Now).ShouldBeEmpty();
 
     private static readonly Guid Squat = Guid.CreateVersion7();
+    private static readonly Guid Owner = Guid.CreateVersion7();
     private static readonly Guid Curl = Guid.CreateVersion7();
 
     private static Dictionary<Guid, string> Names() => new()
@@ -105,6 +106,7 @@ public sealed class WorkoutHistoryBuilderTests
         => new()
         {
             Id = Guid.CreateVersion7(),
+            UserProfileId = Owner,
             Title = title,
             StartedUtc = startedUtc,
             CompletedUtc = completedUtc
@@ -114,6 +116,7 @@ public sealed class WorkoutHistoryBuilderTests
         => session.Sets.Add(new SetEntry
         {
             Id = Guid.CreateVersion7(),
+            UserProfileId = session.UserProfileId,
             WorkoutSessionId = session.Id,
             ExerciseId = exerciseId,
             Ordinal = session.Sets.Count + 1,

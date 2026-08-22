@@ -6,6 +6,7 @@ namespace Forge.Domain.Tests.Workout;
 
 public sealed class ActiveWorkoutSetEditingTests
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
     private static readonly DateTimeOffset Start = new(2026, 8, 20, 10, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -59,7 +60,10 @@ public sealed class ActiveWorkoutSetEditingTests
         var edited = state.EditSet(set.SetEntryId, Mass.FromKilograms(60m), 10, isWarmUp: true, toFailure: false, repsInReserve: null);
 
         edited!.IsWarmUp.ShouldBeTrue();
-        ActiveWorkoutState.ToSetEntry(edited).Volume.ShouldBe(Mass.Zero);
+
+        var entry = state.ToSetEntry(edited);
+        entry.Volume.ShouldBe(Mass.Zero);
+        entry.UserProfileId.ShouldBe(state.UserProfileId, "a persisted set must carry the owner of the workout it was logged in");
     }
 
     [Fact]
@@ -175,6 +179,7 @@ public sealed class ActiveWorkoutSetEditingTests
             Start.AddMinutes(minutes));
 
     private static ActiveWorkoutState BuildState() => ActiveWorkoutState.Start(
+        Owner,
         Guid.CreateVersion7(),
         Start,
         new ActiveWorkoutExercise(Guid.CreateVersion7(), "Bench press", "Chest", 60m, 8));

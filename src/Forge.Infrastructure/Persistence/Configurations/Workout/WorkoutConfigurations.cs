@@ -24,5 +24,6 @@ public sealed class ActiveWorkoutStateConfiguration : IEntityTypeConfiguration<A
 
         builder.HasIndex(e => e.WorkoutSessionId).IsUnique();
         builder.HasIndex(e => e.CompletedUtc);
+        builder.HasIndex(e => e.UserProfileId);
     }
 }

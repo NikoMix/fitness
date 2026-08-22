@@ -19,6 +19,8 @@ namespace Forge.Infrastructure.Tests.Persistence;
 /// </remarks>
 public sealed class ForgeDbContextTests : IAsyncLifetime
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
+
     private SqliteConnection connection = null!;
     private DbContextOptions<ForgeDbContext> options = null!;
 
@@ -50,9 +52,10 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
         await using (var context = CreateContext())
         {
             context.Set<Exercise>().Add(new Exercise { Id = exerciseId, Name = "Barbell Back Squat", Pattern = MovementPattern.Squat });
-            context.Set<WorkoutSession>().Add(new WorkoutSession { Id = sessionId, Title = "Lower A" });
+            context.Set<WorkoutSession>().Add(new WorkoutSession { UserProfileId = Owner, Id = sessionId, Title = "Lower A" });
             context.Set<SetEntry>().Add(new SetEntry
             {
+                UserProfileId = Owner,
                 WorkoutSessionId = sessionId,
                 ExerciseId = exerciseId,
                 Ordinal = 1,
@@ -82,10 +85,10 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
         await using (var context = CreateContext())
         {
             context.Set<Exercise>().Add(new Exercise { Id = exerciseId, Name = "Bench Press" });
-            context.Set<WorkoutSession>().Add(new WorkoutSession { Id = sessionId });
+            context.Set<WorkoutSession>().Add(new WorkoutSession { UserProfileId = Owner, Id = sessionId });
             context.Set<SetEntry>().AddRange(
-                new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 1, Load = Mass.FromKilograms(40m), Repetitions = 10, IsWarmUp = true },
-                new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 2, Load = Mass.FromKilograms(80m), Repetitions = 8 });
+                new SetEntry { UserProfileId = Owner, WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 1, Load = Mass.FromKilograms(40m), Repetitions = 10, IsWarmUp = true },
+                new SetEntry { UserProfileId = Owner, WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 2, Load = Mass.FromKilograms(80m), Repetitions = 8 });
 
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
@@ -162,8 +165,8 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
         await using (var context = CreateContext())
         {
             context.Set<Exercise>().Add(new Exercise { Id = exerciseId, Name = "Overhead Press" });
-            context.Set<WorkoutSession>().Add(new WorkoutSession { Id = sessionId });
-            context.Set<SetEntry>().Add(new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 1, Repetitions = 5 });
+            context.Set<WorkoutSession>().Add(new WorkoutSession { UserProfileId = Owner, Id = sessionId });
+            context.Set<SetEntry>().Add(new SetEntry { UserProfileId = Owner, WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 1, Repetitions = 5 });
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -192,10 +195,10 @@ public sealed class ForgeDbContextTests : IAsyncLifetime
         await using (var context = CreateContext())
         {
             context.Set<Exercise>().Add(new Exercise { Id = exerciseId, Name = "Row" });
-            context.Set<WorkoutSession>().Add(new WorkoutSession { Id = sessionId, CompletedUtc = null });
+            context.Set<WorkoutSession>().Add(new WorkoutSession { UserProfileId = Owner, Id = sessionId, CompletedUtc = null });
             context.Set<SetEntry>().AddRange(
-                new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 1, Load = Mass.FromKilograms(60m), Repetitions = 10 },
-                new SetEntry { WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 2, Load = Mass.FromKilograms(60m), Repetitions = 9 });
+                new SetEntry { UserProfileId = Owner, WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 1, Load = Mass.FromKilograms(60m), Repetitions = 10 },
+                new SetEntry { UserProfileId = Owner, WorkoutSessionId = sessionId, ExerciseId = exerciseId, Ordinal = 2, Load = Mass.FromKilograms(60m), Repetitions = 9 });
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 

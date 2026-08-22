@@ -81,31 +81,31 @@ public static class ProfileDataAreas
         new(
             "Workout history",
             [typeof(WorkoutSession), typeof(SetEntry)],
-            "Completed sessions and every logged set are shared. Each profile sees all training done on this device, and a set logged now is attributed to whoever reads it next."),
+            "Completed sessions and every logged set belong to one profile. A set is recorded against whoever was active when it was logged, and no other profile sees it."),
         new(
             "Workout in progress",
             [typeof(ActiveWorkoutState)],
-            "An unfinished workout is shared. Switching profile mid-session hands the session to the other profile rather than pausing it."),
+            "An unfinished workout belongs to the profile that started it. Switching profile mid-session leaves that session with its owner rather than handing it over."),
         new(
             "Training plans",
             [typeof(TrainingPlan), typeof(PlanDay), typeof(PlannedExercise), typeof(PlannedSet)],
-            "Plans, their days and their prescribed sets are shared, so editing a plan changes it for everyone on this device."),
+            "Plans, their days and their prescribed sets belong to one profile. The shipped templates are shared, and adopting one makes an owned copy."),
         new(
             "Food log",
             [typeof(FoodLogEntry)],
-            "Logged meals are shared, so calorie and macro totals combine everyone's food into one day."),
+            "Logged meals belong to one profile, so calorie and macro totals count only your own food."),
         new(
             "Hydration",
             [typeof(HydrationEntry)],
-            "Drinks are shared, so the hydration ring counts everyone's intake together."),
+            "Drinks belong to one profile, so the hydration ring counts only your own intake."),
         new(
             "Recipes",
             [typeof(Recipe)],
-            "Saved recipes are shared and visible to every profile."),
+            "Recipes you save belong to you alone. The recipes shipped with Forge are shown to every profile because they are published content, not anybody's data."),
         new(
             "Check-ins and soreness",
             [typeof(MorningCheckIn), typeof(SorenessEntry)],
-            "Readiness check-ins and soreness reports are shared, so coaching advice is computed from mixed inputs."),
+            "Readiness check-ins and soreness reports belong to one profile, so coaching advice is computed only from your own answers."),
         new(
             "Streaks",
             [typeof(Streak)],

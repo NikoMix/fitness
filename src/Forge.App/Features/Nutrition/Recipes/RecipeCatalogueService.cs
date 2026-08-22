@@ -1,10 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Forge.App.Composition;
+using Forge.App.Features.Profile;
 using Forge.Core.Abstractions.Data;
 using Forge.Domain.Measurement;
 using Forge.Domain.Nutrition;
 using Forge.Domain.Nutrition.Recipes;
+using Forge.Domain.Profile;
 using Forge.Infrastructure.Content;
 
 namespace Forge.App.Features.Nutrition.Recipes;
@@ -19,7 +21,7 @@ public interface IRecipeCatalogueService
     Task<Recipe?> GetAsync(Guid id, CancellationToken cancellationToken);
 }
 
-internal sealed class RecipeCatalogueService(ForgeStartupService startup, IDataSessionFactory sessions) : IRecipeCatalogueService
+internal sealed class RecipeCatalogueService(ForgeStartupService startup, IDataSessionFactory sessions, ProfileStore profiles) : IRecipeCatalogueService
 {
     private const string ResourceName = "Forge.Infrastructure.Content.recipe-catalogue.json";
     private static readonly SemaphoreSlim SeedLock = new(1, 1);
@@ -28,14 +30,29 @@ internal sealed class RecipeCatalogueService(ForgeStartupService startup, IDataS
         Converters = { new JsonStringEnumConverter() }
     };
 
+    /// <summary>
+    /// Lists the shipped catalogue plus the recipes this profile saved.
+    /// </summary>
+    /// <remarks>
+    /// Shipped recipes are owned by nobody and are shown to everybody on purpose: they are
+    /// published content, identical for every profile, and forking them per profile would multiply
+    /// the shipped rows for no benefit. Only recipes a user saved themselves are scoped, which is
+    /// why this is a union rather than a single <c>OwnedBy</c> call.
+    /// </remarks>
     public async Task<IReadOnlyList<Recipe>> ListAsync(CancellationToken cancellationToken)
     {
         await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        var scope = await profiles.GetActiveScopeAsync(cancellationToken).ConfigureAwait(false);
         await using var session = sessions.Create();
         var repository = session.Repository<Recipe>();
         await EnsureRecipeCatalogueAsync(repository, session, cancellationToken).ConfigureAwait(false);
         var recipes = await repository.ListAsync(cancellationToken).ConfigureAwait(false);
-        return recipes.OrderBy(recipe => recipe.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        var owned = recipes.OwnedBy(scope);
+
+        return [.. recipes.Where(IsShippedCatalogueRecipe)
+            .Concat(owned)
+            .DistinctBy(recipe => recipe.Id)
+            .OrderBy(recipe => recipe.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     public async Task<Recipe?> GetAsync(Guid id, CancellationToken cancellationToken)
@@ -43,6 +60,15 @@ internal sealed class RecipeCatalogueService(ForgeStartupService startup, IDataS
         var recipes = await ListAsync(cancellationToken).ConfigureAwait(false);
         return recipes.FirstOrDefault(recipe => recipe.Id == id);
     }
+
+    /// <summary>Whether a row is shipped content rather than something a profile saved.</summary>
+    /// <remarks>
+    /// Both conditions are required. Provenance alone would leak a user recipe that happened to
+    /// carry a provenance string, and an empty owner alone would expose rows left unattributed by
+    /// an earlier release.
+    /// </remarks>
+    private static bool IsShippedCatalogueRecipe(Recipe recipe)
+        => recipe.UserProfileId == Guid.Empty && !string.IsNullOrWhiteSpace(recipe.Provenance);
 
     private async Task EnsureDatabaseReadyAsync(CancellationToken cancellationToken)
     {
@@ -126,6 +152,10 @@ internal sealed class RecipeCatalogueService(ForgeStartupService startup, IDataS
             var recipe = new Recipe
             {
                 Id = Id,
+
+                // Shipped content belongs to nobody, which is what makes it visible to every
+                // profile without being anybody's data.
+                UserProfileId = Guid.Empty,
                 Name = Name,
                 Description = Description,
                 BaseServings = BaseServings,

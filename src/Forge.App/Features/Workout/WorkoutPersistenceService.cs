@@ -1,5 +1,7 @@
 using Forge.App.Composition;
+using Forge.App.Features.Profile;
 using Forge.Domain.Measurement;
+using Forge.Domain.Profile;
 using Forge.Domain.Training;
 using Forge.Domain.Workout;
 using Forge.Infrastructure.Persistence;
@@ -78,7 +80,24 @@ public interface IWorkoutPersistenceService
 /// <param name="RecoveryKind">Whether the state was resumed, stale, or brand new.</param>
 public sealed record WorkoutLoadResult(ActiveWorkoutState State, WorkoutRecoveryKind RecoveryKind);
 
-internal sealed class WorkoutPersistenceService(ForgeStartupService startup, IServiceProvider services) : IWorkoutPersistenceService
+/// <summary>
+/// Reads and writes the workout aggregate, confined to the profile that is training.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Every query here goes through <c>OwnedBy</c> and every insert stamps an owner. This is the one
+/// service in Forge where getting that wrong writes a set onto a stranger's record rather than
+/// merely showing them the wrong number, so the scope is resolved once per operation and passed
+/// down rather than read again inside each helper.
+/// </para>
+/// <para>
+/// The <see cref="IQueryable{T}"/> overload of <c>OwnedBy</c> is used throughout because it builds
+/// its predicate against the concrete entity type. A lambda over a generic parameter would compile
+/// to member access on <c>IProfileOwned</c>, which EF Core cannot translate, and the filter would
+/// silently fall back to client evaluation over the whole table.
+/// </para>
+/// </remarks>
+internal sealed class WorkoutPersistenceService(ForgeStartupService startup, IServiceProvider services, ProfileStore profiles) : IWorkoutPersistenceService
 {
     public async Task<WorkoutLoadResult> LoadOrStartAsync(IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue, DateTimeOffset nowUtc, CancellationToken cancellationToken)
     {
@@ -87,7 +106,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
             ? exerciseCatalogue[0]
             : new ActiveWorkoutExercise(Guid.CreateVersion7(), "Workout", null, 20m, 8);
 
-        await EnsureDatabaseReadyAsync(cancellationToken);
+        var scope = await ResolveScopeForWriteAsync(cancellationToken);
         await using var context = CreateContext();
 
         // The ordering is applied client-side deliberately. SQLite has no DateTimeOffset type -
@@ -100,6 +119,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         // them to pick the newest costs nothing.
         var unfinished = await context.Set<WorkoutSession>()
             .Include(s => s.Sets)
+            .OwnedBy(scope)
             .Where(s => s.CompletedUtc == null)
             .ToListAsync(cancellationToken);
 
@@ -110,11 +130,12 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
             var newSession = new WorkoutSession
             {
                 Id = Guid.CreateVersion7(),
+                UserProfileId = scope.ProfileId,
                 StartedUtc = nowUtc,
                 CompletedUtc = null,
                 Title = "Workout"
             };
-            var newState = ActiveWorkoutState.Start(newSession.Id, nowUtc, firstExercise);
+            var newState = ActiveWorkoutState.Start(scope.ProfileId, newSession.Id, nowUtc, firstExercise);
             context.Set<WorkoutSession>().Add(newSession);
             context.Set<ActiveWorkoutState>().Add(newState);
             await context.SaveChangesAsync(cancellationToken);
@@ -122,6 +143,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         }
 
         var state = await context.Set<ActiveWorkoutState>()
+            .OwnedBy(scope)
             .SingleOrDefaultAsync(s => s.WorkoutSessionId == session.Id, cancellationToken)
             ?? RebuildState(session, exerciseCatalogue);
 
@@ -145,7 +167,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         ArgumentNullException.ThrowIfNull(state);
         await EnsureDatabaseReadyAsync(cancellationToken);
         await using var context = CreateContext();
-        await AddMissingSetEntriesAsync(context, state.CompletedSets, cancellationToken);
+        await AddMissingSetEntriesAsync(context, state, state.CompletedSets, cancellationToken);
         context.Set<ActiveWorkoutState>().Update(state);
         await context.SaveChangesAsync(cancellationToken);
     }
@@ -156,7 +178,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         await EnsureDatabaseReadyAsync(cancellationToken);
         await using var context = CreateContext();
 
-        await AddMissingSetEntriesAsync(context, [completedSet], cancellationToken);
+        await AddMissingSetEntriesAsync(context, state, [completedSet], cancellationToken);
         context.Set<ActiveWorkoutState>().Update(state);
         await context.SaveChangesAsync(cancellationToken);
     }
@@ -168,13 +190,19 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         await EnsureDatabaseReadyAsync(cancellationToken);
         await using var context = CreateContext();
 
-        var existing = await context.Set<SetEntry>().SingleOrDefaultAsync(s => s.Id == completedSet.SetEntryId, cancellationToken);
+        // Scoped to the state's owner rather than to the active profile: a correction belongs to
+        // the workout it was logged in, and looking the row up by identifier alone would let an
+        // edit reach across into another profile's set.
+        var scope = new ProfileScope(state.UserProfileId);
+        var existing = await context.Set<SetEntry>()
+            .OwnedBy(scope)
+            .SingleOrDefaultAsync(s => s.Id == completedSet.SetEntryId, cancellationToken);
         if (existing is null)
         {
             // The correction arrived before the original insert committed, which can happen when
             // the user fixes a typo immediately. Inserting the corrected values is the right
             // outcome either way.
-            await context.Set<SetEntry>().AddAsync(ActiveWorkoutState.ToSetEntry(completedSet), cancellationToken);
+            await context.Set<SetEntry>().AddAsync(state.ToSetEntry(completedSet), cancellationToken);
         }
         else
         {
@@ -195,7 +223,10 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         await EnsureDatabaseReadyAsync(cancellationToken);
         await using var context = CreateContext();
 
-        var existing = await context.Set<SetEntry>().SingleOrDefaultAsync(s => s.Id == setEntryId, cancellationToken);
+        var scope = new ProfileScope(state.UserProfileId);
+        var existing = await context.Set<SetEntry>()
+            .OwnedBy(scope)
+            .SingleOrDefaultAsync(s => s.Id == setEntryId, cancellationToken);
         if (existing is not null)
         {
             context.Set<SetEntry>().Remove(existing);
@@ -215,8 +246,11 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         await EnsureDatabaseReadyAsync(cancellationToken);
         await using var context = CreateContext();
 
-        var session = await context.Set<WorkoutSession>().SingleAsync(s => s.Id == state.WorkoutSessionId, cancellationToken);
-        await AddMissingSetEntriesAsync(context, state.CompletedSets, cancellationToken);
+        var scope = new ProfileScope(state.UserProfileId);
+        var session = await context.Set<WorkoutSession>()
+            .OwnedBy(scope)
+            .SingleAsync(s => s.Id == state.WorkoutSessionId, cancellationToken);
+        await AddMissingSetEntriesAsync(context, state, state.CompletedSets, cancellationToken);
         session.CompletedUtc = completedUtc;
         state.Complete(completedUtc);
         context.Set<ActiveWorkoutState>().Update(state);
@@ -225,10 +259,12 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
 
     public async Task DiscardAsync(Guid workoutSessionId, CancellationToken cancellationToken)
     {
-        await EnsureDatabaseReadyAsync(cancellationToken);
+        var scope = await ResolveScopeAsync(cancellationToken);
         await using var context = CreateContext();
 
-        var state = await context.Set<ActiveWorkoutState>().SingleOrDefaultAsync(s => s.WorkoutSessionId == workoutSessionId, cancellationToken);
+        var state = await context.Set<ActiveWorkoutState>()
+            .OwnedBy(scope)
+            .SingleOrDefaultAsync(s => s.WorkoutSessionId == workoutSessionId, cancellationToken);
         if (state is not null)
         {
             context.Set<ActiveWorkoutState>().Remove(state);
@@ -236,6 +272,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
 
         var session = await context.Set<WorkoutSession>()
             .Include(s => s.Sets)
+            .OwnedBy(scope)
             .SingleOrDefaultAsync(s => s.Id == workoutSessionId, cancellationToken);
         if (session is not null)
         {
@@ -247,10 +284,10 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
 
     public async Task<WorkoutSummary?> LoadSummaryAsync(Guid? workoutSessionId, DateTimeOffset nowUtc, CancellationToken cancellationToken)
     {
-        await EnsureDatabaseReadyAsync(cancellationToken);
+        var scope = await ResolveScopeAsync(cancellationToken);
         await using var context = CreateContext();
 
-        var sessions = context.Set<WorkoutSession>().Include(s => s.Sets).AsQueryable();
+        var sessions = context.Set<WorkoutSession>().Include(s => s.Sets).OwnedBy(scope);
         WorkoutSession? session;
         if (workoutSessionId is Guid id)
         {
@@ -268,8 +305,11 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
             return null;
         }
 
+        // The exercise catalogue is shared between profiles on purpose and carries no personal
+        // data, so it is the one table here that is read unscoped.
         var exercises = await context.Set<Exercise>().ToDictionaryAsync(e => e.Id, cancellationToken);
         var previousSets = await context.Set<SetEntry>()
+            .OwnedBy(scope)
             .Where(s => s.WorkoutSessionId != session.Id && s.CompletedUtc < session.StartedUtc)
             .ToListAsync(cancellationToken);
 
@@ -280,7 +320,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
     public async Task<IReadOnlyList<WorkoutHistoryEntry>> LoadHistoryAsync(int take, DateTimeOffset nowUtc, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(take);
-        await EnsureDatabaseReadyAsync(cancellationToken);
+        var scope = await ResolveScopeAsync(cancellationToken);
         await using var context = CreateContext();
 
         // Include is why this service talks to the context directly: the history list needs each
@@ -289,6 +329,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         // sort nor the Take that depends on it can run in the database. See LoadOrStartAsync.
         var allSessions = await context.Set<WorkoutSession>()
             .Include(s => s.Sets)
+            .OwnedBy(scope)
             .ToListAsync(cancellationToken);
 
         var sessions = allSessions
@@ -310,6 +351,40 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         return WorkoutHistoryBuilder.Build(sessions, names, nowUtc);
     }
 
+    /// <summary>
+    /// Waits for the database and resolves whose workout this operation belongs to.
+    /// </summary>
+    /// <remarks>
+    /// Unlike a read, this refuses to continue when the profile cannot be resolved. A read with an
+    /// unresolved scope shows an empty screen, which is recoverable. A write with one would stamp
+    /// <see cref="Guid.Empty"/> on the session and every set logged into it, and because scoped
+    /// reads are fail-closed those rows are then readable by nobody: the user completes an entire
+    /// workout and it silently does not exist. Failing at the start of the session is the only
+    /// outcome the user can act on.
+    /// </remarks>
+    private async Task<ProfileScope> ResolveScopeForWriteAsync(CancellationToken cancellationToken)
+    {
+        var scope = await ResolveScopeAsync(cancellationToken);
+        if (!scope.IsResolved)
+        {
+            throw new InvalidOperationException(
+                "Forge could not determine which profile this workout belongs to, so it was not started. Sets logged without an owner would not be visible to any profile.");
+        }
+
+        return scope;
+    }
+
+    /// <summary>Waits for the database and resolves the profile a read is confined to.</summary>
+    /// <remarks>
+    /// An unresolved scope is not an error on a read. It matches nothing, so the screen is empty
+    /// rather than showing somebody else's training.
+    /// </remarks>
+    private async Task<ProfileScope> ResolveScopeAsync(CancellationToken cancellationToken)
+    {
+        await EnsureDatabaseReadyAsync(cancellationToken);
+        return await profiles.GetActiveScopeAsync(cancellationToken);
+    }
+
     private async Task EnsureDatabaseReadyAsync(CancellationToken cancellationToken)
     {
         await startup.InitialiseAsync(cancellationToken);
@@ -321,14 +396,27 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
 
     private ForgeDbContext CreateContext() => services.GetRequiredService<ForgeDbContext>();
 
-    private static async Task AddMissingSetEntriesAsync(ForgeDbContext context, IEnumerable<CompletedWorkoutSet> completedSets, CancellationToken cancellationToken)
+    /// <summary>Inserts the set rows the snapshot has but the database does not.</summary>
+    /// <remarks>
+    /// The owner comes from the state through <see cref="ActiveWorkoutState.ToSetEntry"/> rather
+    /// than from the active profile. If somebody switches profile while a workout is open, the sets
+    /// already logged still belong to the person who performed them.
+    /// </remarks>
+    private static async Task AddMissingSetEntriesAsync(
+        ForgeDbContext context,
+        ActiveWorkoutState state,
+        IEnumerable<CompletedWorkoutSet> completedSets,
+        CancellationToken cancellationToken)
     {
+        var scope = new ProfileScope(state.UserProfileId);
         foreach (var completedSet in completedSets)
         {
-            var setExists = await context.Set<SetEntry>().AnyAsync(s => s.Id == completedSet.SetEntryId, cancellationToken);
+            var setExists = await context.Set<SetEntry>()
+                .OwnedBy(scope)
+                .AnyAsync(s => s.Id == completedSet.SetEntryId, cancellationToken);
             if (!setExists)
             {
-                await context.Set<SetEntry>().AddAsync(ActiveWorkoutState.ToSetEntry(completedSet), cancellationToken);
+                await context.Set<SetEntry>().AddAsync(state.ToSetEntry(completedSet), cancellationToken);
             }
         }
     }
@@ -336,6 +424,7 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
     private static async Task SynchroniseOrdinalsAsync(ForgeDbContext context, ActiveWorkoutState state, CancellationToken cancellationToken)
     {
         var stored = await context.Set<SetEntry>()
+            .OwnedBy(new ProfileScope(state.UserProfileId))
             .Where(s => s.WorkoutSessionId == state.WorkoutSessionId)
             .ToListAsync(cancellationToken);
 
@@ -364,7 +453,10 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
                 ? exerciseCatalogue[0]
                 : new ActiveWorkoutExercise(Guid.CreateVersion7(), "Workout", null, 20m, 8);
 
-        return ActiveWorkoutState.Start(session.Id, session.StartedUtc, current);
+        // The owner is taken from the session being recovered, not from the active profile. A
+        // recovered workout belongs to whoever started it even if somebody else is holding the
+        // phone when the app is reopened.
+        return ActiveWorkoutState.Start(session.UserProfileId, session.Id, session.StartedUtc, current);
     }
 
     private static void SynchroniseStateFromSession(ActiveWorkoutState state, WorkoutSession session, IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue)

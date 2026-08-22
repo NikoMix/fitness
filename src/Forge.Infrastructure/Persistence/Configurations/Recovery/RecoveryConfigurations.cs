@@ -14,7 +14,12 @@ public sealed class MorningCheckInConfiguration : IEntityTypeConfiguration<Morni
 
         builder.HasKey(entry => entry.Id);
         builder.Property(entry => entry.SleepHours).HasPrecision(4, 2);
-        builder.HasIndex(entry => entry.Date).IsUnique();
+
+        // The uniqueness is per profile, not per device. A unique index on the date alone let the
+        // first person to check in on a given morning block everybody else on a shared device from
+        // checking in at all, and the failure surfaced as a database exception on save rather than
+        // as anything the user could act on.
+        builder.HasIndex(entry => new { entry.UserProfileId, entry.Date }).IsUnique();
     }
 }
 
@@ -29,5 +34,6 @@ public sealed class SorenessEntryConfiguration : IEntityTypeConfiguration<Sorene
         builder.HasKey(entry => entry.Id);
         builder.Property(entry => entry.MuscleGroup).HasMaxLength(100).IsRequired();
         builder.HasIndex(entry => new { entry.MuscleGroup, entry.RecordedOn });
+        builder.HasIndex(entry => new { entry.UserProfileId, entry.RecordedOn });
     }
 }

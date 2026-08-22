@@ -172,7 +172,7 @@ public sealed class BackupServiceTests : IAsyncLifetime
         await using var context = CreateContext();
         var profile = new UserProfile { DisplayName = "Alex", Height = Length.FromCentimetres(180m) };
         var exercise = new Exercise { Name = "Bench Press", Pattern = MovementPattern.Push, IsUserCreated = true };
-        var workout = new WorkoutSession { Title = "Push", StartedUtc = DateTimeOffset.Parse("2026-01-02T10:00:00Z", CultureInfo.InvariantCulture), CompletedUtc = DateTimeOffset.Parse("2026-01-02T11:00:00Z", CultureInfo.InvariantCulture) };
+        var workout = new WorkoutSession { UserProfileId = profile.Id, Title = "Push", StartedUtc = DateTimeOffset.Parse("2026-01-02T10:00:00Z", CultureInfo.InvariantCulture), CompletedUtc = DateTimeOffset.Parse("2026-01-02T11:00:00Z", CultureInfo.InvariantCulture) };
         var food = new FoodItem { Name = "Oats", Brand = "Forge", IsUserCreated = true, Per100Grams = new NutrientProfile(370m, 13m, 60m, 7m, 10m, 1m, 5m) };
         food.Servings.Add(new ServingDefinition { Name = "100 g", Mass = Mass.FromKilograms(0.1m) });
 
@@ -180,10 +180,10 @@ public sealed class BackupServiceTests : IAsyncLifetime
         await context.Set<BodyMetric>().AddAsync(new BodyMetric { UserProfileId = profile.Id, RecordedUtc = DateTimeOffset.Parse("2026-01-02T08:00:00Z", CultureInfo.InvariantCulture), Weight = Mass.FromKilograms(82m), WaistCircumference = Length.FromCentimetres(84m) }, TestContext.Current.CancellationToken);
         await context.Set<Exercise>().AddAsync(exercise, TestContext.Current.CancellationToken);
         await context.Set<WorkoutSession>().AddAsync(workout, TestContext.Current.CancellationToken);
-        await context.Set<SetEntry>().AddAsync(new SetEntry { WorkoutSessionId = workout.Id, ExerciseId = exercise.Id, Ordinal = 1, Load = Mass.FromKilograms(100m), Repetitions = 8, CompletedUtc = DateTimeOffset.Parse("2026-01-02T10:15:00Z", CultureInfo.InvariantCulture) }, TestContext.Current.CancellationToken);
-        await context.Set<HydrationEntry>().AddAsync(new HydrationEntry { Volume = Volume.FromMillilitres(500m), BeverageType = BeverageType.Water, ConsumedUtc = DateTimeOffset.Parse("2026-01-02T09:00:00Z", CultureInfo.InvariantCulture) }, TestContext.Current.CancellationToken);
+        await context.Set<SetEntry>().AddAsync(new SetEntry { UserProfileId = profile.Id, WorkoutSessionId = workout.Id, ExerciseId = exercise.Id, Ordinal = 1, Load = Mass.FromKilograms(100m), Repetitions = 8, CompletedUtc = DateTimeOffset.Parse("2026-01-02T10:15:00Z", CultureInfo.InvariantCulture) }, TestContext.Current.CancellationToken);
+        await context.Set<HydrationEntry>().AddAsync(new HydrationEntry { UserProfileId = profile.Id, Volume = Volume.FromMillilitres(500m), BeverageType = BeverageType.Water, ConsumedUtc = DateTimeOffset.Parse("2026-01-02T09:00:00Z", CultureInfo.InvariantCulture) }, TestContext.Current.CancellationToken);
         await context.Set<FoodItem>().AddAsync(food, TestContext.Current.CancellationToken);
-        await context.Set<FoodLogEntry>().AddAsync(new FoodLogEntry { FoodItemId = food.Id, Serving = new ServingSnapshot("100 g", 1m, 100m), MealSlot = MealSlot.Breakfast, ConsumedUtc = DateTimeOffset.Parse("2026-01-02T09:30:00Z", CultureInfo.InvariantCulture) }, TestContext.Current.CancellationToken);
+        await context.Set<FoodLogEntry>().AddAsync(new FoodLogEntry { UserProfileId = profile.Id, FoodItemId = food.Id, Serving = new ServingSnapshot("100 g", 1m, 100m), MealSlot = MealSlot.Breakfast, ConsumedUtc = DateTimeOffset.Parse("2026-01-02T09:30:00Z", CultureInfo.InvariantCulture) }, TestContext.Current.CancellationToken);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 

@@ -7,6 +7,7 @@ namespace Forge.Domain.Tests.Analytics;
 
 public sealed class TrainingTrendAggregatorTests
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
     private static readonly Guid SessionId = Guid.CreateVersion7();
 
     [Fact]
@@ -239,6 +240,7 @@ public sealed class TrainingTrendAggregatorTests
     private static SetEntry Set(Guid exerciseId, decimal kilograms, int reps, DateTimeOffset completed, bool isWarmUp = false)
         => new()
         {
+            UserProfileId = Owner,
             WorkoutSessionId = SessionId,
             ExerciseId = exerciseId,
             Ordinal = 1,

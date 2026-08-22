@@ -6,6 +6,7 @@ namespace Forge.Domain.Tests.Workout;
 
 public sealed class SupersetCycleTests
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
     private static readonly DateTimeOffset Start = new(2026, 8, 20, 10, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -200,6 +201,7 @@ public sealed class SupersetCycleTests
         row = Guid.CreateVersion7();
 
         var state = ActiveWorkoutState.Start(
+            Owner,
             Guid.CreateVersion7(),
             Start,
             new ActiveWorkoutExercise(press, "Bench press", "Chest", 80m, 8));

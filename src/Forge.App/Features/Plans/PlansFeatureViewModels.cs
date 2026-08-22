@@ -158,13 +158,13 @@ public sealed partial class PlanEditorViewModel(IPlanPersistenceService planStor
         IsLoading = true;
 
         plan = planId == Guid.Empty
-            ? new TrainingPlan { Name = "My plan", Description = "A custom training plan.", IsActive = true }
+            ? await planStore.CreateDraftPlanAsync(cancellationToken).ConfigureAwait(false)
             : await planStore.GetPlanAsync(planId, cancellationToken).ConfigureAwait(false)
-                ?? new TrainingPlan { Name = "My plan", Description = "A custom training plan.", IsActive = true };
+                ?? await planStore.CreateDraftPlanAsync(cancellationToken).ConfigureAwait(false);
 
         if (plan.Days.Count == 0)
         {
-            plan.Days.Add(new PlanDay { Name = "Day 1", Ordinal = 0 });
+            plan.Days.Add(new PlanDay { UserProfileId = plan.UserProfileId, Name = "Day 1", Ordinal = 0 });
         }
 
         await MainThread.InvokeOnMainThreadAsync(() =>
@@ -215,7 +215,7 @@ public sealed partial class PlanEditorViewModel(IPlanPersistenceService planStor
             return;
         }
 
-        plan.Days.Add(new PlanDay { Name = $"Day {plan.Days.Count + 1}", Ordinal = plan.Days.Count });
+        plan.Days.Add(new PlanDay { UserProfileId = plan.UserProfileId, Name = $"Day {plan.Days.Count + 1}", Ordinal = plan.Days.Count });
         RefreshAnalysis();
     }
 
@@ -235,6 +235,7 @@ public sealed partial class PlanEditorViewModel(IPlanPersistenceService planStor
 
         var exercise = new PlannedExercise
         {
+            UserProfileId = plan.UserProfileId,
             ExerciseName = "New exercise",
             Pattern = MovementPattern.Push,
             PrimaryMuscle = "General",
@@ -243,7 +244,7 @@ public sealed partial class PlanEditorViewModel(IPlanPersistenceService planStor
         };
         for (var set = 1; set <= 3; set++)
         {
-            exercise.Sets.Add(new PlannedSet { Ordinal = set, TargetRepsMin = 8, TargetRepsMax = 10, Rest = TimeSpan.FromSeconds(90), TargetRpe = 8m });
+            exercise.Sets.Add(new PlannedSet { UserProfileId = plan.UserProfileId, Ordinal = set, TargetRepsMin = 8, TargetRepsMax = 10, Rest = TimeSpan.FromSeconds(90), TargetRpe = 8m });
         }
 
         day.Exercises.Add(exercise);
@@ -262,6 +263,7 @@ public sealed partial class PlanEditorViewModel(IPlanPersistenceService planStor
         var previous = exercise.Sets.OrderBy(set => set.Ordinal).LastOrDefault();
         exercise.Sets.Add(new PlannedSet
         {
+            UserProfileId = exercise.UserProfileId,
             Ordinal = exercise.Sets.Count + 1,
             TargetRepsMin = previous?.TargetRepsMin ?? 8,
             TargetRepsMax = previous?.TargetRepsMax ?? 10,

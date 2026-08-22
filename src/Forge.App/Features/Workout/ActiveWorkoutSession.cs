@@ -309,7 +309,8 @@ internal sealed class ActiveWorkoutSession(
         activityScope = null;
     }
 
-    private Task Enqueue(Func<CancellationToken, Task> operation)    {
+    private Task Enqueue(Func<CancellationToken, Task> operation)
+    {
         lock (persistenceGate)
         {
             var queued = persistenceTail.ContinueWith(

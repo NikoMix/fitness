@@ -21,6 +21,7 @@ public sealed class RecipeConfigurations : IEntityTypeConfiguration<Recipe>
         builder.Property(recipe => recipe.CookTime).HasConversion(t => t.TotalMinutes, minutes => TimeSpan.FromMinutes(minutes));
         builder.Property(recipe => recipe.Provenance).HasMaxLength(300).IsRequired();
         builder.HasIndex(recipe => recipe.Name);
+        builder.HasIndex(recipe => recipe.UserProfileId);
 
         builder.OwnsMany(recipe => recipe.Ingredients, ingredient =>
         {

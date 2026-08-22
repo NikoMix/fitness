@@ -77,6 +77,7 @@ public sealed class RecipeTests
     {
         var recipe = new Recipe
         {
+            UserProfileId = Guid.Empty,
             Name = "Test bowl",
             BaseServings = 2,
             Description = "Test recipe",

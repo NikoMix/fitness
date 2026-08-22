@@ -1,8 +1,10 @@
 using System.Text.Json;
 using Forge.App.Composition;
+using Forge.App.Features.Profile;
 using Forge.Core.Abstractions.Data;
 using Forge.Domain.Measurement;
 using Forge.Domain.Nutrition;
+using Forge.Domain.Profile;
 using Forge.Infrastructure.Content;
 
 namespace Forge.App.Features.Nutrition.Services;
@@ -45,7 +47,15 @@ public sealed record HydrationHistorySnapshot(string Time, string Beverage, stri
 
 public sealed record HydrationDaySnapshot(decimal ConsumedMillilitres, IReadOnlyList<HydrationHistorySnapshot> History);
 
-internal sealed class NutritionPersistenceService(ForgeStartupService startup, IDataSessionFactory sessions) : INutritionPersistenceService
+/// <summary>
+/// Reads and writes the food and hydration log for the active profile.
+/// </summary>
+/// <remarks>
+/// The food catalogue is deliberately shared between profiles and is read unscoped: it is shipped
+/// reference data, not somebody's record of what they ate. The log entries that point at it are
+/// scoped, so two people sharing a device see the same foods and different days.
+/// </remarks>
+internal sealed class NutritionPersistenceService(ForgeStartupService startup, IDataSessionFactory sessions, ProfileStore profiles) : INutritionPersistenceService
 {
     private const string FoodCatalogueResourceName = "Forge.Infrastructure.Content.food-catalogue.json";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -53,12 +63,12 @@ internal sealed class NutritionPersistenceService(ForgeStartupService startup, I
 
     public async Task<NutritionDaySnapshot> LoadNutritionDayAsync(DateOnly day, CancellationToken cancellationToken)
     {
-        return await WithRepositoriesAsync(async (foods, foodLogs, _, unitOfWork) =>
+        return await WithRepositoriesAsync(async (foods, foodLogs, _, unitOfWork, scope) =>
         {
             await EnsureFoodCatalogueAsync(foods, unitOfWork, cancellationToken).ConfigureAwait(false);
             var allFoods = await foods.ListAsync(cancellationToken).ConfigureAwait(false);
             var foodLookup = allFoods.ToDictionary(food => food.Id);
-            var dayEntries = FilterByDate(await foodLogs.ListAsync(cancellationToken).ConfigureAwait(false), day)
+            var dayEntries = FilterByDate(await OwnedLogsAsync(foodLogs, scope, cancellationToken).ConfigureAwait(false), day)
                 .OrderBy(entry => entry.ConsumedUtc)
                 .ToList();
             var total = SumNutrients(dayEntries, foodLookup);
@@ -72,11 +82,11 @@ internal sealed class NutritionPersistenceService(ForgeStartupService startup, I
 
     public async Task<FoodLogSnapshot> LoadFoodLogAsync(DateOnly day, CancellationToken cancellationToken)
     {
-        return await WithRepositoriesAsync(async (foods, foodLogs, _, unitOfWork) =>
+        return await WithRepositoriesAsync(async (foods, foodLogs, _, unitOfWork, scope) =>
         {
             await EnsureFoodCatalogueAsync(foods, unitOfWork, cancellationToken).ConfigureAwait(false);
             var allFoods = await foods.ListAsync(cancellationToken).ConfigureAwait(false);
-            var allLogs = await foodLogs.ListAsync(cancellationToken).ConfigureAwait(false);
+            var allLogs = await OwnedLogsAsync(foodLogs, scope, cancellationToken).ConfigureAwait(false);
             var foodLookup = allFoods.ToDictionary(food => food.Id);
             var dayEntries = FilterByDate(allLogs, day)
                 .OrderByDescending(entry => entry.ConsumedUtc)
@@ -94,7 +104,7 @@ internal sealed class NutritionPersistenceService(ForgeStartupService startup, I
     {
         return await Task.Run(async () =>
         {
-            return await WithRepositoriesAsync(async (foods, _, _, unitOfWork) =>
+            return await WithRepositoriesAsync(async (foods, _, _, unitOfWork, _) =>
             {
                 await EnsureFoodCatalogueAsync(foods, unitOfWork, cancellationToken).ConfigureAwait(false);
                 var normalized = query.Trim();
@@ -115,7 +125,7 @@ internal sealed class NutritionPersistenceService(ForgeStartupService startup, I
 
     public async Task LogFoodAsync(Guid foodItemId, MealSlot mealSlot, CancellationToken cancellationToken)
     {
-        await WithRepositoriesAsync(async (foods, foodLogs, _, unitOfWork) =>
+        await WithRepositoriesAsync(async (foods, foodLogs, _, unitOfWork, scope) =>
         {
             await EnsureFoodCatalogueAsync(foods, unitOfWork, cancellationToken).ConfigureAwait(false);
             var food = await foods.GetAsync(foodItemId, cancellationToken).ConfigureAwait(false);
@@ -134,6 +144,7 @@ internal sealed class NutritionPersistenceService(ForgeStartupService startup, I
             await foodLogs.AddAsync(new FoodLogEntry
             {
                 Id = Guid.CreateVersion7(),
+                UserProfileId = scope.ProfileId,
                 FoodItemId = food.Id,
                 MealSlot = mealSlot,
                 Serving = serving,
@@ -146,10 +157,10 @@ internal sealed class NutritionPersistenceService(ForgeStartupService startup, I
 
     public async Task<int> CopyPreviousDayAsync(DateOnly targetDate, CancellationToken cancellationToken)
     {
-        return await WithRepositoriesAsync(async (foods, foodLogs, _, unitOfWork) =>
+        return await WithRepositoriesAsync(async (foods, foodLogs, _, unitOfWork, scope) =>
         {
             await EnsureFoodCatalogueAsync(foods, unitOfWork, cancellationToken).ConfigureAwait(false);
-            var previous = FilterByDate(await foodLogs.ListAsync(cancellationToken).ConfigureAwait(false), targetDate.AddDays(-1))
+            var previous = FilterByDate(await OwnedLogsAsync(foodLogs, scope, cancellationToken).ConfigureAwait(false), targetDate.AddDays(-1))
                 .OrderBy(entry => entry.ConsumedUtc)
                 .ToList();
             var targetStart = StartOfLocalDate(targetDate);
@@ -160,6 +171,7 @@ internal sealed class NutritionPersistenceService(ForgeStartupService startup, I
                 await foodLogs.AddAsync(new FoodLogEntry
                 {
                     Id = Guid.CreateVersion7(),
+                    UserProfileId = scope.ProfileId,
                     FoodItemId = entry.FoodItemId,
                     MealSlot = entry.MealSlot,
                     Serving = entry.Serving,
@@ -174,9 +186,11 @@ internal sealed class NutritionPersistenceService(ForgeStartupService startup, I
 
     public async Task<HydrationDaySnapshot> LoadHydrationDayAsync(DateOnly day, CancellationToken cancellationToken)
     {
-        return await WithRepositoriesAsync(async (_, _, hydrationEntries, _) =>
+        return await WithRepositoriesAsync(async (_, _, hydrationEntries, _, scope) =>
         {
-            var dayEntries = FilterByDate(await hydrationEntries.ListAsync(cancellationToken).ConfigureAwait(false), day)
+            var dayEntries = FilterByDate(
+                    (await hydrationEntries.ListAsync(cancellationToken).ConfigureAwait(false)).OwnedBy(scope),
+                    day)
                 .OrderByDescending(entry => entry.ConsumedUtc)
                 .ToList();
             return new HydrationDaySnapshot(
@@ -190,11 +204,12 @@ internal sealed class NutritionPersistenceService(ForgeStartupService startup, I
 
     public async Task LogHydrationAsync(Volume volume, BeverageType beverageType, decimal caffeineMilligrams, DateTimeOffset consumedUtc, CancellationToken cancellationToken)
     {
-        await WithRepositoriesAsync(async (_, _, hydrationEntries, unitOfWork) =>
+        await WithRepositoriesAsync(async (_, _, hydrationEntries, unitOfWork, scope) =>
         {
             await hydrationEntries.AddAsync(new HydrationEntry
             {
                 Id = Guid.CreateVersion7(),
+                UserProfileId = scope.ProfileId,
                 Volume = volume,
                 BeverageType = beverageType,
                 CaffeineMilligrams = caffeineMilligrams,
@@ -205,17 +220,31 @@ internal sealed class NutritionPersistenceService(ForgeStartupService startup, I
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Reads this profile's food log entries.</summary>
+    /// <remarks>
+    /// The materialised overload is used because the repository already returns a list. An
+    /// unresolved scope yields nothing, so a day opened before the profile is known shows an empty
+    /// log rather than the household's combined calories.
+    /// </remarks>
+    private static async Task<IReadOnlyList<FoodLogEntry>> OwnedLogsAsync(
+        IRepository<FoodLogEntry> foodLogs,
+        ProfileScope scope,
+        CancellationToken cancellationToken)
+        => [.. (await foodLogs.ListAsync(cancellationToken).ConfigureAwait(false)).OwnedBy(scope)];
+
     private async Task<TResult> WithRepositoriesAsync<TResult>(
-        Func<IRepository<FoodItem>, IRepository<FoodLogEntry>, IRepository<HydrationEntry>, IDataSession, Task<TResult>> action,
+        Func<IRepository<FoodItem>, IRepository<FoodLogEntry>, IRepository<HydrationEntry>, IDataSession, ProfileScope, Task<TResult>> action,
         CancellationToken cancellationToken)
     {
         await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        var scope = await profiles.GetActiveScopeAsync(cancellationToken).ConfigureAwait(false);
         await using var session = sessions.Create();
         return await action(
             session.Repository<FoodItem>(),
             session.Repository<FoodLogEntry>(),
             session.Repository<HydrationEntry>(),
-            session).ConfigureAwait(false);
+            session,
+            scope).ConfigureAwait(false);
     }
 
     private async Task EnsureDatabaseReadyAsync(CancellationToken cancellationToken)
