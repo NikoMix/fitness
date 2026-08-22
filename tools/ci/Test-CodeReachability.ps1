@@ -142,6 +142,67 @@ foreach ($file in $testFiles) {
 }
 
 $allTestText = $testText.ToString()
+
+# One pass over every production line, recording for each declared type whether the line that
+# mentions it is a DI registration or a real use.
+#
+# A registration is indistinguishable from a use to a naive text search, and that is the worst
+# possible blind spot: being registered in the container is exactly what an unfinished feature
+# looks like. PlateauDetector and DeloadRecommender are registered one line apart from
+# NextSessionRecommender in CoachingFeatureRegistration; the third is resolved twice in
+# CoachingDataService and the first two are resolved nowhere. Counting mentions reports none of
+# them.
+$registrationLine = [regex]'\.(?:Try)?Add(?:Singleton|Scoped|Transient|HostedService)\s*<(?<args>[^>]*)>'
+$identifier = [regex]'\b[A-Za-z_][A-Za-z0-9_]*\b'
+
+$realUses = @{}
+$registrationOnly = @{}
+
+foreach ($path in $sourceText.Keys) {
+    $lineNumber = 0
+    foreach ($line in ($sourceText[$path] -split "`r?`n")) {
+        $lineNumber++
+        if ($line.TrimStart().StartsWith('//')) {
+            continue
+        }
+
+        # Only a type registered as its OWN service type is a candidate. When it is registered as
+        # the implementation behind an interface - Add<IFoo, FooImpl> - resolution happens through
+        # the interface, so the implementation is genuinely reached. Taking the first type argument
+        # handles both: for a self-registration it is the type itself, and for a pair it is the
+        # interface, which is then correctly the thing under scrutiny - a service type nobody
+        # injects will itself appear only on registration lines.
+        $selfRegistered = $null
+        $match = $registrationLine.Match($line)
+        if ($match.Success) {
+            # A registration may be namespace-qualified, so compare on the final segment.
+            $selfRegistered = (($match.Groups['args'].Value -split ',')[0].Trim() -split '\.')[-1].Trim()
+        }
+
+        foreach ($token in $identifier.Matches($line)) {
+            $name = $token.Value
+            if (-not $declared.ContainsKey($name)) {
+                continue
+            }
+
+            # A file mentioning the type it declares says nothing about whether anyone else uses it.
+            if ($declared[$name].File -eq $path) {
+                continue
+            }
+
+            if ($null -ne $selfRegistered -and $name -eq $selfRegistered) {
+                if (-not $registrationOnly.ContainsKey($name)) {
+                    $relative = $path.Substring($RepositoryRoot.Length).TrimStart('\', '/')
+                    $registrationOnly[$name] = "$($relative -replace '\\', '/'):$lineNumber"
+                }
+            }
+            else {
+                $realUses[$name] = $true
+            }
+        }
+    }
+}
+
 $findings = [System.Collections.Generic.List[object]]::new()
 
 foreach ($name in ($declared.Keys | Sort-Object)) {
@@ -158,23 +219,23 @@ foreach ($name in ($declared.Keys | Sort-Object)) {
         continue
     }
 
+    # XAML markup extensions are written without the suffix: a class named TranslateExtension is
+    # used as {local:Translate ...}, so searching for the declared name finds nothing.
+    if ($name.EndsWith('Extension') -and $name.Length -gt 'Extension'.Length) {
+        $markupName = $name.Substring(0, $name.Length - 'Extension'.Length)
+        if ($allMarkupText.Length -gt 0 -and [regex]::IsMatch($allMarkupText, "\b$([regex]::Escape($markupName))\b")) {
+            continue
+        }
+    }
+
     # A type declared and used inside one file is a local helper, not dead code. The declaration
     # itself is one match, so anything beyond that is a use.
     if ($word.Matches($sourceText[$info.File]).Count -gt 1) {
         continue
     }
 
-    $referencedInSource = $false
-    foreach ($path in $sourceText.Keys) {
-        if ($path -eq $info.File) {
-            continue
-        }
-
-        if ($word.IsMatch($sourceText[$path])) {
-            $referencedInSource = $true
-            break
-        }
-    }
+    $referencedInSource = $realUses.ContainsKey($name)
+    $registeredOnly = (-not $referencedInSource) -and $registrationOnly.ContainsKey($name)
 
     if ($referencedInSource) {
         continue
@@ -185,22 +246,36 @@ foreach ($name in ($declared.Keys | Sort-Object)) {
     $relativePath = $info.File.Substring($RepositoryRoot.Length).TrimStart('\', '/')
 
     $findings.Add([pscustomobject]@{
-        Name           = $name
-        File           = ($relativePath -replace '\\', '/')
-        Line           = $info.Line
-        TestedOnly     = $referencedInTests
-        Allowed        = $allowlist.ContainsKey($name)
-        AllowedReason  = if ($allowlist.ContainsKey($name)) { $allowlist[$name] } else { $null }
+        Name            = $name
+        File            = ($relativePath -replace '\\', '/')
+        Line            = $info.Line
+        TestedOnly      = $referencedInTests
+        RegisteredOnly  = $registeredOnly
+        RegisteredAt    = if ($registeredOnly) { $registrationOnly[$name] } else { $null }
+        Allowed         = $allowlist.ContainsKey($name)
+        AllowedReason   = if ($allowlist.ContainsKey($name)) { $allowlist[$name] } else { $null }
     })
 }
 
 $reportable = @($findings | Where-Object { -not $_.Allowed })
-$testedOnly = @($reportable | Where-Object { $_.TestedOnly })
-$entirelyUnused = @($reportable | Where-Object { -not $_.TestedOnly })
+$registeredOnly = @($reportable | Where-Object { $_.RegisteredOnly })
+$testedOnly = @($reportable | Where-Object { $_.TestedOnly -and -not $_.RegisteredOnly })
+$entirelyUnused = @($reportable | Where-Object { -not $_.TestedOnly -and -not $_.RegisteredOnly })
 
 if ($reportable.Count -eq 0) {
     Write-Host "Code reachability OK: every public type in src/ is referenced by other production code." -ForegroundColor Green
     exit 0
+}
+
+if ($registeredOnly.Count -gt 0) {
+    Write-Host "`nRegistered in DI and never resolved:" -ForegroundColor Red
+    Write-Host "  The container knows about these and nothing asks for them. This is the most" -ForegroundColor DarkGray
+    Write-Host "  misleading shape: a registration line is what a wired-up feature looks like, so" -ForegroundColor DarkGray
+    Write-Host "  these read as finished to a human scanning the file.`n" -ForegroundColor DarkGray
+    foreach ($item in $registeredOnly) {
+        Write-Host ("  {0,-42} {1}:{2}" -f $item.Name, $item.File, $item.Line) -ForegroundColor Red
+        Write-Host ("  {0,-42} registered at {1}" -f '', $item.RegisteredAt) -ForegroundColor DarkGray
+    }
 }
 
 if ($testedOnly.Count -gt 0) {
@@ -219,7 +294,7 @@ if ($entirelyUnused.Count -gt 0) {
     }
 }
 
-Write-Host "`n$($reportable.Count) unreferenced type(s): $($testedOnly.Count) tested-but-uncalled, $($entirelyUnused.Count) unreferenced entirely." -ForegroundColor Yellow
+Write-Host "`n$($reportable.Count) unreferenced type(s): $($registeredOnly.Count) registered-never-resolved, $($testedOnly.Count) tested-but-uncalled, $($entirelyUnused.Count) unreferenced entirely." -ForegroundColor Yellow
 Write-Host "Each is either dead code to delete or a feature that was built and never wired up." -ForegroundColor DarkGray
 Write-Host "Record deliberate exceptions in tools/ci/code-reachability-allowlist.txt with a reason." -ForegroundColor DarkGray
 
