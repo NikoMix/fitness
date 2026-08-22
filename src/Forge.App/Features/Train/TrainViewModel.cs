@@ -22,4 +22,20 @@ public sealed partial class TrainViewModel : ObservableObject
     [RelayCommand]
     private static Task OpenPlateCalculatorAsync()
         => Microsoft.Maui.Controls.Shell.Current.GoToAsync(ForgeRoutes.PlateCalculator);
+
+    [RelayCommand]
+    private static Task OpenVideoLibraryAsync()
+        => Microsoft.Maui.Controls.Shell.Current.GoToAsync(ForgeRoutes.VideoLibrary);
+
+    [RelayCommand]
+    private static Task OpenMorningCheckInAsync()
+        => Microsoft.Maui.Controls.Shell.Current.GoToAsync(ForgeRoutes.MorningCheckIn);
+
+    [RelayCommand]
+    private static Task OpenReadinessAsync()
+        => Microsoft.Maui.Controls.Shell.Current.GoToAsync(ForgeRoutes.Readiness);
+
+    [RelayCommand]
+    private static Task OpenCoachingAsync()
+        => Microsoft.Maui.Controls.Shell.Current.GoToAsync(ForgeRoutes.Coaching);
 }

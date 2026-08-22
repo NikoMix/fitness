@@ -17,11 +17,19 @@
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="Exercise library" Style="{StaticResource TitleText}" />
                     <Label Text="Browse the offline catalogue, review form notes, and find substitutions for the equipment you have today." Style="{StaticResource BodyText}" />
-                    <dx:DXButton Content="Browse exercises"
-                                 Style="{StaticResource PrimaryButton}"
-                                 SemanticProperties.Description="Browse exercises"
-                                 SemanticProperties.Hint="Opens the offline exercise library"
-                                 Command="{Binding OpenExerciseLibraryCommand}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceS}">
+                        <dx:DXButton Content="Browse exercises"
+                                     Style="{StaticResource PrimaryButton}"
+                                     SemanticProperties.Description="Browse exercises"
+                                     SemanticProperties.Hint="Opens the offline exercise library"
+                                     Command="{Binding OpenExerciseLibraryCommand}" />
+                        <dx:DXButton Grid.Column="1"
+                                     Content="Video library"
+                                     Style="{StaticResource SecondaryButton}"
+                                     SemanticProperties.Description="Open the video library"
+                                     SemanticProperties.Hint="Manage downloaded technique videos and their quality"
+                                     Command="{Binding OpenVideoLibraryCommand}" />
+                    </Grid>
                 </VerticalStackLayout>
             </dx:DXBorder>
 
@@ -34,6 +42,31 @@
                                  SemanticProperties.Description="Start a workout"
                                  SemanticProperties.Hint="Opens the active workout screen"
                                  Command="{Binding StartWorkoutCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource ElevatedCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Readiness and coaching" Style="{StaticResource TitleText}" />
+                    <Label Text="Log how you slept and how sore you are, and Forge will say whether today looks like a day to push or a day to hold back. It is guidance from your own logs, not a diagnosis." Style="{StaticResource BodyText}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceS}">
+                        <dx:DXButton Content="Morning check-in"
+                                     Style="{StaticResource PrimaryButton}"
+                                     SemanticProperties.Description="Open the morning check-in"
+                                     SemanticProperties.Hint="Record sleep, soreness and energy for today"
+                                     Command="{Binding OpenMorningCheckInCommand}" />
+                        <dx:DXButton Grid.Column="1"
+                                     Content="Today's readiness"
+                                     Style="{StaticResource SecondaryButton}"
+                                     SemanticProperties.Description="View today's readiness"
+                                     SemanticProperties.Hint="Shows how ready you are to train, based on your own check-ins"
+                                     Command="{Binding OpenReadinessCommand}" />
+                    </Grid>
+                    <dx:DXButton Content="Coaching guidance"
+                                 Style="{StaticResource SecondaryButton}"
+                                 SemanticProperties.Description="Open coaching guidance"
+                                 SemanticProperties.Hint="Suggestions drawn from your recent training and recovery"
+                                 Command="{Binding OpenCoachingCommand}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
 

@@ -96,6 +96,12 @@
                              Command="{Binding GoToHydrationCommand}" />
             </Grid>
 
+            <dx:DXButton Content="Recipes"
+                         SemanticProperties.Description="Browse recipes"
+                         SemanticProperties.Hint="Opens the recipe catalogue, with per-serving nutrition you can log straight to a meal"
+                         Style="{StaticResource SecondaryButton}"
+                         Command="{Binding GoToRecipesCommand}" />
+
             <Label Text="Meals" Style="{StaticResource SectionHeaderText}" IsVisible="{Binding HasNutritionData}" SemanticProperties.HeadingLevel="Level2" />
             <dx:DXCollectionView ItemsSource="{Binding MealSummaries}" HeightRequest="360" IsVisible="{Binding HasNutritionData}">
                                  ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"

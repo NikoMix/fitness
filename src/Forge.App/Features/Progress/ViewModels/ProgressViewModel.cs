@@ -27,6 +27,8 @@ public sealed partial class ProgressViewModel(IInsightsDataService dataService) 
         new ProgressDestinationViewModel("Exercise progress", "Estimated 1RM progression, labelled with the formula that produced it.", ForgeRoutes.ExerciseProgress),
         new ProgressDestinationViewModel("Personal records", "Heaviest loads, reps at a load and session-volume records, each with its date.", ForgeRoutes.PersonalRecords),
         new ProgressDestinationViewModel("Body metrics", "Smoothed weight trend with the raw entries kept visible.", ForgeRoutes.BodyMetrics),
+        new ProgressDestinationViewModel("Consistency", "How regularly you have trained against your own plan, counted by week rather than by day.", ForgeRoutes.Streaks),
+        new ProgressDestinationViewModel("Achievements", "Milestones drawn from what you have actually logged.", ForgeRoutes.Achievements),
     ];
 
     /// <summary>Weekly volume and intensity, oldest first.</summary>

@@ -32,6 +32,13 @@
                          SemanticProperties.Hint="Results appear below as you type"
                          Style="{StaticResource ForgeTextEdit}" />
 
+            <dx:DXButton Content="Scan barcode"
+                         IsVisible="{Binding CanScanBarcode}"
+                         SemanticProperties.Description="Scan a barcode"
+                         SemanticProperties.Hint="Opens the camera to look up a packaged food by its barcode"
+                         Style="{StaticResource SecondaryButton}"
+                         Command="{Binding ScanBarcodeCommand}" />
+
             <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="96" />
 
             <controls:EmptyState IsVisible="{Binding HasNoLoggedFoods}"

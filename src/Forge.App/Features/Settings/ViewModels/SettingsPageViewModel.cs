@@ -15,7 +15,11 @@ public sealed partial class SettingsPageViewModel : ObservableObject
         [
             Create("Preferences", "Preferences", "Units, theme, video downloads, haptics, rest timer and calendar week.", "kg lb cm feet inches ml fl oz theme dark light video quality haptics rest timer week", ForgeRoutes.UnitsSettings),
             Create("Preferences", "Notifications", "Workout reminders, quiet hours and local nudges.", "reminders quiet hours notifications", ForgeRoutes.NotificationSettings),
+            Create("Preferences", "Language", "The language Forge speaks.", "language english german deutsch sprache locale translation", ForgeRoutes.LanguageSettings),
+            Create("Health", "Health connections", "What Forge reads from Health Connect or Apple Health, and what it writes back.", "health connect apple healthkit steps sleep permissions samsung", ForgeRoutes.HealthConnections),
+            Create("Privacy", "App lock", "Require your fingerprint, face or passcode before Forge opens.", "lock biometric fingerprint face id passcode privacy security", ForgeRoutes.AppLockSettings),
             Create("Data", "Data management", "Storage use, backup, export and deletion.", "storage backup restore export delete data", ForgeRoutes.DataManagement),
+            Create("Shop", "Shop", "Forge Pro, exercise video packs and anything else for sale.", "shop store buy purchase pro premium upgrade video packs", ForgeRoutes.Shop),
             Create("Legal", "Privacy policy", "How Forge protects local health data.", "privacy health data local gdpr", ForgeRoutes.PrivacyPolicy),
             Create("Legal", "Terms of service", "The rules for using Forge.", "terms service conditions", ForgeRoutes.TermsOfService),
             Create("Legal", "Medical disclaimer", "Important safety guidance before training or changing nutrition.", "medical safety pain pregnancy cardiac injury", ForgeRoutes.MedicalDisclaimer),

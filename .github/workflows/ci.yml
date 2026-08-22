@@ -127,6 +127,14 @@ jobs:
         shell: pwsh
         run: ./tools/ci/Test-LocalizationManifests.ps1
 
+      # Routes were pre-declared so parallel streams never had to edit a shared file, which means a
+      # stream could build its screens and never add a link. Eleven were stranded that way -
+      # including Recipes and the Shop - all registered, DI-resolvable, tested, and impossible to
+      # open. Nothing failed, because nothing was broken; the screens had no door.
+      - name: Verify every route can be reached from the tab bar
+        shell: pwsh
+        run: ./tools/ci/Test-RouteReachability.ps1
+
       - name: Test with coverlet coverage
         run: |
           dotnet test tests/Forge.Domain.Tests/Forge.Domain.Tests.csproj --no-build -c Release -- --results-directory artifacts/coverage/Domain --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml

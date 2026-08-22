@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Forge.App.Features.Nutrition.Services;
+using Forge.App.Features.Scanning;
 using Forge.Domain.Nutrition;
 
 namespace Forge.App.Features.Nutrition.ViewModels;
@@ -100,6 +101,9 @@ public sealed partial class NutritionViewModel : ObservableObject
 
     [RelayCommand]
     private static async Task GoToHydration() => await global::Microsoft.Maui.Controls.Shell.Current.GoToAsync(Forge.App.Navigation.ForgeRoutes.Hydration);
+
+    [RelayCommand]
+    private static async Task GoToRecipes() => await global::Microsoft.Maui.Controls.Shell.Current.GoToAsync(Forge.App.Navigation.ForgeRoutes.Recipes);
 }
 
 public sealed record FoodSearchResultViewModel(Guid Id, string Name, string Brand, string Nutrition);
@@ -109,16 +113,24 @@ public sealed record LoggedFoodViewModel(string Meal, string Food, string Detail
 public sealed partial class FoodLogViewModel : ObservableObject, IDisposable
 {
     private readonly INutritionPersistenceService persistence;
+    private readonly IBarcodeScanCoordinator? scanner;
     private CancellationTokenSource? searchCancellation;
 
-    public FoodLogViewModel(INutritionPersistenceService persistence)
+    public FoodLogViewModel(INutritionPersistenceService persistence, IBarcodeScanCoordinator? scanner = null)
     {
         this.persistence = persistence ?? throw new ArgumentNullException(nameof(persistence));
+
+        // Optional so the existing tests, which construct this directly, keep working. A null
+        // scanner hides the button rather than offering one that does nothing.
+        this.scanner = scanner;
         SearchResults = [];
         RecentFoods = [];
         FrequentFoods = [];
         LoggedFoods = [];
     }
+
+    /// <summary>Whether this device can offer a barcode scan at all.</summary>
+    public bool CanScanBarcode => scanner is not null;
 
     public ObservableCollection<FoodSearchResultViewModel> SearchResults { get; }
 
@@ -180,6 +192,27 @@ public sealed partial class FoodLogViewModel : ObservableObject, IDisposable
     private async Task CopyPreviousDayAsync()
     {
         await persistence.CopyPreviousDayAsync(DateOnly.FromDateTime(DateTime.Now), CancellationToken.None);
+        await LoadAsync();
+    }
+
+    [RelayCommand]
+    private async Task ScanBarcodeAsync()
+    {
+        if (scanner is null)
+        {
+            return;
+        }
+
+        var result = await scanner.ScanAsync(CancellationToken.None);
+        if (result.Outcome != BarcodeScanOutcome.FoodResolved || result.FoodItemId is not { } foodItemId)
+        {
+            // Cancelled, unreadable, or a barcode no local catalogue knows. The scanner screen has
+            // already explained which of those it was; silently logging nothing here is the only
+            // honest response, and guessing a food would put a wrong number in someone's day.
+            return;
+        }
+
+        await persistence.LogFoodAsync(foodItemId, MealSlot.Snack, CancellationToken.None);
         await LoadAsync();
     }
 
