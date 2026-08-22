@@ -308,10 +308,22 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         // The exercise catalogue is shared between profiles on purpose and carries no personal
         // data, so it is the one table here that is read unscoped.
         var exercises = await context.Set<Exercise>().ToDictionaryAsync(e => e.Id, cancellationToken);
-        var previousSets = await context.Set<SetEntry>()
+
+        // The date filter runs client-side. SQLite has no DateTimeOffset - EF stores one as text
+        // with an offset suffix - so comparing two of them inside a translated predicate throws,
+        // exactly as ordering by one does. This shipped as a visible EF error message on the
+        // workout summary screen; SqliteOrderingTests pins the ordering half of the same trap.
+        //
+        // Only the owner's sets are fetched, so the set being materialised here is already bounded
+        // by the profile rather than being the whole table.
+        var ownedSets = await context.Set<SetEntry>()
             .OwnedBy(scope)
-            .Where(s => s.WorkoutSessionId != session.Id && s.CompletedUtc < session.StartedUtc)
+            .Where(s => s.WorkoutSessionId != session.Id)
             .ToListAsync(cancellationToken);
+
+        var previousSets = ownedSets
+            .Where(s => s.CompletedUtc < session.StartedUtc)
+            .ToList();
 
         return WorkoutSummaryCalculator.Calculate(session, exercises, session.CompletedUtc ?? nowUtc, previousSets);
     }

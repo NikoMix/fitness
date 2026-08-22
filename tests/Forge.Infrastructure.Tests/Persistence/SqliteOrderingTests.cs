@@ -65,6 +65,70 @@ public sealed class SqliteOrderingTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Comparing_two_DateTimeOffsets_in_the_database_is_rejected_by_SQLite()
+    {
+        await using var context = CreateContext();
+
+        var cutoff = DateTimeOffset.UtcNow.AddHours(-1);
+
+        // The ORDER BY form of this was fixed once and the same root cause grew back in a WHERE,
+        // where it reached a user as a raw EF translation message on the workout summary screen.
+        // Ordering is not the special case - any DateTimeOffset comparison the provider has to
+        // translate is, because SQLite has no such type and EF stores it as offset-suffixed text.
+        //
+        // Note the exception type differs from the ordering case: an untranslatable predicate is
+        // InvalidOperationException, while ordering raises NotSupportedException from the provider
+        // itself. Both were verified against real SQLite rather than assumed - the first draft of
+        // this test expected NotSupportedException here and was wrong.
+        var comparison = () => context.Set<SetEntry>()
+            .Where(entry => entry.CompletedUtc < cutoff)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await comparison.ShouldThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Comparing_DateTimeOffsets_after_materialising_works_against_real_SQLite()
+    {
+        var exerciseId = Guid.CreateVersion7();
+        var sessionId = Guid.CreateVersion7();
+        var cutoff = DateTimeOffset.UtcNow.AddHours(-1);
+
+        await using (var seed = CreateContext())
+        {
+            seed.Set<Exercise>().Add(new Exercise { Id = exerciseId, Name = "Bench" });
+            seed.Set<WorkoutSession>().Add(new WorkoutSession { UserProfileId = Owner, Id = sessionId, StartedUtc = DateTimeOffset.UtcNow.AddHours(-4) });
+            seed.Set<SetEntry>().Add(new SetEntry
+            {
+                UserProfileId = Owner,
+                WorkoutSessionId = sessionId,
+                ExerciseId = exerciseId,
+                Ordinal = 1,
+                CompletedUtc = DateTimeOffset.UtcNow.AddHours(-3),
+            });
+            seed.Set<SetEntry>().Add(new SetEntry
+            {
+                UserProfileId = Owner,
+                WorkoutSessionId = sessionId,
+                ExerciseId = exerciseId,
+                Ordinal = 2,
+                CompletedUtc = DateTimeOffset.UtcNow.AddMinutes(-10),
+            });
+            await seed.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using var context = CreateContext();
+        var entries = await context.Set<SetEntry>()
+            .Where(entry => entry.WorkoutSessionId == sessionId)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        var before = entries.Where(entry => entry.CompletedUtc < cutoff).ToList();
+
+        before.Count.ShouldBe(1);
+        before[0].Ordinal.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task Materialising_first_then_ordering_works_against_real_SQLite()
     {
         var older = DateTimeOffset.UtcNow.AddHours(-3);
