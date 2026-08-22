@@ -111,6 +111,17 @@ otherwise run a mixture of two builds and report the result as if it meant somet
 UI on one emulator, and an app disappearing usually turns out to be `Force stopping ... from pid
 NNNN` in logcat rather than a crash. Check for both before believing a failure.
 
+### Release, where trimming and AOT could have undone it
+
+A Release Android build was inspected as well, because `SdkOnly` linking and profiled AOT are not
+the same code path as Debug. The APK carries `libe_sqlcipher.so` for both shipping ABIs
+(`arm64-v8a`, `armeabi-v7a`) and AOT images for `provider.e_sqlcipher`, `lib.e_sqlcipher.android`,
+`batteries_v2` and `core`. There is no `e_sqlite3` in it at all: the plain provider is gone rather
+than merely outvoted.
+
+iOS has been confirmed only as far as the build output containing
+`SQLitePCLRaw.lib.e_sqlcipher.ios.dll`. Nobody has run it on iOS hardware.
+
 ## What this does and does not protect
 
 It protects the database file if it is extracted from the device - from a backup, from a rooted or
