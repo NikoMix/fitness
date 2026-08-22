@@ -5,8 +5,7 @@ Verdicts are grounded in file/line evidence. Criteria that cannot be settled by 
 (frame timings, device rendering, screen-reader behaviour, text scaling) are called out as
 ungrounded rather than credited or failed.
 
-> **Status: E01, E04 and E05 complete.** E06 is in progress and will be appended to this file
-> and to the accompanying JSON.
+**80 entries: 4 epics, 19 features, 57 stories. Every key in the four YAML files is covered.**
 
 ## Counts
 
@@ -15,9 +14,34 @@ ungrounded rather than credited or failed.
 | E01 Platform Foundation and Application Shell | 8 | 1 | 5 | 2 | 0 | 0 |
 | E04 Local Data Platform and Persistence | 15 | 1 | 11 | 3 | 0 | 0 |
 | E05 Onboarding, Local Accounts and Authentication | 17 | 0 | 14 | 3 | 0 | 0 |
-| E06 User Profile, Goals and Personalisation | 17 | — | — | — | — | — |
+| E06 User Profile, Goals and Personalisation | 17 | 0 | 7 | 10 | 0 | 0 |
+| **Total** | **57** | **2** | **37** | **18** | **0** | **0** |
+
+Feature roll-ups: 1 `NOT-DONE` (F01.03), 1 `NOT-DONE` (F06.04), 1 `NOT-DONE` (F06.05), the
+remaining 16 `PARTIAL`. All four epics `PARTIAL`.
 
 ## Most deserving of attention
+
+### The single most consequential finding
+
+**A declared injury changes nothing, anywhere.** `S06.04` — respect injuries and
+contraindicated movements — is `NOT-DONE` in all three stories, and the failure is a chain:
+
+1. `UserProfile.MovementLimitations` is a single free-text `string` (`UserProfile.cs:58`,
+   `HasMaxLength(1000)`), collected by one `dx:TextEdit` at `GoalWizardPage.xaml:132`. There is
+   no body area, no movement pattern and no severity — so there is no *avoid entirely* to act on.
+2. `ExerciseFilter.FromDeclaredInjuries` (`ExerciseFilter.cs:129`) is implemented and unit
+   tested and has **zero callers in `src/`**.
+3. `ExerciseLibraryViewModel` filters only by chips the user ticks by hand; it never reads
+   `MovementLimitations` and never builds an `ExerciseFilter` from the profile.
+4. `NextSessionRecommender` *does* understand contraindications — and its only production
+   caller, `CoachingDataService.cs:57`, passes `Contraindications: []`, a hard-coded empty list.
+
+So a user can type *"avoid overhead pressing — shoulder"* during onboarding, see it echoed back
+on the review step, and then be recommended overhead pressing in the library, in the
+alternatives screen and in the coaching recommendation, with no warning. **This is the
+`ExerciseFilter.FromDeclaredInjuries` case the brief predicted, and it is worse than predicted,
+because the data that would feed it was never given a structure either.**
 
 ### Claimed-done but broken
 
@@ -70,6 +94,30 @@ can later attach to"*. `UserProfile` has no `externalIdentityId` or equivalent n
 no migration adds one, and `ForgeRoutes` declares no `AccountAttach` route. The sentence
 describes an intention, not the schema.
 
+**`EnergyExpenditureCalculator` is correct, tested, and called by nothing.**
+`EnergyExpenditureCalculator.cs:18-30` implements Mifflin-St Jeor exactly as `S06.01.03 REQ4`
+specifies, with the five standard activity multipliers on lines 40-48. Grep for
+`EnergyExpenditureCalculator|CalculateBmr|CalculateTdee|GetActivityMultiplier` across `src/`
+returns matches **only inside that one file** — its only callers are its own tests. There is no
+energy estimate screen, no energy route, and `ActivityLevel` (declared at `ProfileEnums.cs:81`)
+is a property of no entity, so TDEE could not be computed from stored data even if a screen
+existed. Meanwhile the wizard asks the user to type `TargetDailyCalories` by hand — the exact
+number this story exists to help them derive.
+
+**`ExperienceLevel` is collected, validated, persisted — and shapes nothing.**
+Its only reads across `src/` are `ProfileViewModel.cs:317` echoing it back as a summary string
+and `ProfileCompletionCalculator.cs:78` checking it is not `Unspecified`. No exercise is hidden,
+no volume is capped, no recommendation changes. Together with `MovementLimitations` and the
+unused equipment availability, **all three inputs `F06.03` collects "for recommendations" are
+inert**, which is why that feature's outcome is unmet on every count.
+
+**"Add body metric" leads to a screen with no way to add a body metric.**
+`BodyMetricsViewModel.cs:111-112` — the only command on the body-metrics trend screen — is
+`GoToAsync(ForgeRoutes.Profile)`. `ProfilePage.xaml` contains **no `TextEdit`, `NumericEdit` or
+`Entry` at all**; every `Command` binding on it is a navigation. The only route to recording a
+weight is re-running the six-step onboarding wizard. There is no edit path and no delete path
+for any metric row, so `S06.01.04` has nothing to verify.
+
 **`AppShell` is bound twice, and the app depends on registration order.**
 `src/Forge.App/MauiProgram.cs:124` registers `AddSingleton<AppShell>()`;
 `src/Forge.App/Features/Onboarding/OnboardingFeatureRegistration.cs:34-57` registers a second
@@ -96,6 +144,13 @@ destructive action, no free-space precondition, no operation journal, no reconci
 across `src/` for `quick_check|OperationJournal|SafetyCopy|abnormal|IntegrityService` returns
 exactly one hit — the startup check. And because F01.03 was never built, a detected
 `DatabaseInitializationStatus.Corrupt` has nowhere to surface.
+
+**F06.05 (private profile imagery) does not exist at all.** Grep across `src/` for `Avatar`,
+`avatar` and `ProgressPhoto` returns **zero matches**. No avatar field, no image in the switcher
+row, no photo entity in any configuration or migration, no capture flow, no comparison screen.
+The absence is load-bearing elsewhere: `S05.04.01 REQ4` asks duplicate profile names to be
+disambiguated by a generated avatar, which is precisely why `ProfileNameRules` rejects duplicates
+outright instead.
 
 ### Performance premise contradicted by the project's own measurement
 
@@ -184,6 +239,25 @@ lock already covers. It is described in `docs/security/app-lock-threat-model.md`
 ADR**, and it silently changes the meaning of every "PIN" reference in `F05.05`. Recorded as
 `NOT-DONE` against the written criteria, flagged for a backlog rewrite rather than a code fix.
 
+**Body-metric plausibility bands are wider than the criteria.** `S06.01.01` specifies 100–250 cm
+and 30–300 kg; `OnboardingFlow.cs:42-45` uses 90–272 cm and 20–500 kg, inclusive. `AC2`'s two
+example values therefore *both* pass — 20 kg at the boundary and 400 kg comfortably inside. The
+comment at lines 39-41 explains the split deliberately: wide bands catch a unit mix-up, and
+anything genuinely a health question is left to `GoalSafetyEvaluator`, which explains itself and
+signposts a clinician. That is a good split, but the criterion as written fails and the two
+should be reconciled explicitly.
+
+**`S06.02.01` asks for endurance and mobility goals that the label set does not offer.** The five
+labels are Lose weight / Maintain / Gain weight / Build strength / Improve fitness. Two of the
+six goals the story names have no counterpart. Recorded as part of the `NOT-DONE`, but worth
+deciding deliberately rather than by omission.
+
+**Equipment: 5 options against the 10 the story names.** `ProfileLabels.cs:26-27` offers
+Bodyweight, Dumbbells, Barbell, Machines, Bands. Rack, bench, cable, kettlebell, cardio machine
+and custom are absent. Given the shipped catalogue is 60 exercises, a smaller equipment
+vocabulary may be the right call — but it is undocumented, and it makes `S06.03.02 REQ1`
+unsatisfiable as written.
+
 ### Cross-cutting rule violation
 
 **`ex.Message` is interpolated into user-facing text in ten places.** The contributor rules
@@ -199,7 +273,7 @@ and E05 own.
 
 ---
 
-## E01 — Platform Foundation and Application Shell
+## E01 — Platform Foundation and Application Shell — PARTIAL
 
 ### F01.01 Establish solution structure and build configuration — PARTIAL
 
@@ -328,7 +402,7 @@ restored — and the 13-hour workout case prompts rather than discarding silentl
 
 ---
 
-## E04 — Local Data Platform and Persistence
+## E04 — Local Data Platform and Persistence — PARTIAL
 
 ### F04.01 Establish encrypted EF Core storage — PARTIAL
 
@@ -527,7 +601,7 @@ specified here, and nothing verifies it.
 
 ---
 
-## E05 — Onboarding, Local Accounts and Authentication
+## E05 — Onboarding, Local Accounts and Authentication — PARTIAL
 
 ### F05.01 Create value-first first-run onboarding — PARTIAL
 
@@ -776,3 +850,227 @@ guideline 4.8 requires it once any third-party login ships. `REQ3`: nothing desc
 identity to the local profile id, and there is no migration test for unchanged row counts, so
 `AC2` cannot be run. `REQ5`: nothing covers delete and export consequences. This is a
 documentation story whose deliverable is roughly 40 per cent written.
+
+---
+
+## E06 — User Profile, Goals and Personalisation — PARTIAL
+
+### F06.01 Capture body metrics and energy estimates — PARTIAL
+
+#### S06.01.01 Record body metrics with canonical storage — PARTIAL
+
+Canonical storage is right: `Mass`, `Length` and `Percentage` are decimal-backed value types
+converted at the mapping boundary with explicit precision, so no float drift is possible.
+`OnboardingFlow` refuses to build a safety proposal from zero or negative height/weight, so no
+BMI is ever computed from undefined inputs (`REQ5`). Round-trip integrity is structural — display
+units are a presentation-time preference over an unchanged canonical value.
+
+**Gaps.** Bands are 90–272 cm and 20–500 kg, not 100–250 / 30–300, so **`AC2`'s two example
+values both save** (divergence note above). `REQ3` unmet: `BodyMetric` stores no display unit, so
+how a row was originally typed is unrecoverable. `REQ4` unmet: **BMI is never displayed** — it is
+computed only inside `GoalSafetyEvaluator` to refuse a target, so there is no surface on which to
+label it a screening estimate. `AC1` cannot be exercised from Profile at all, which has no
+editable numeric control.
+
+#### S06.01.02 Choose profile-level body unit preference — PARTIAL
+
+`MeasurementSystemPreference` is Metric/Imperial with Metric default. `MassUnit`, `LengthUnit`,
+`VolumeUnit` and `EnergyUnit` are all computed projections of one `UnitSystem` value, and nothing
+in the preference layer writes to a `BodyMetric` row — so `AC2` holds structurally: a unit switch
+touches only a preference key and cannot create duplicate rows.
+
+**Gaps.** `REQ1`'s **"profile-level" scoping is unmet** — the unit system is one global key, so
+on a shared device every profile shares it, which is inconsistent with E05's multi-profile model.
+`REQ4` and `REQ5` could only be partly grounded: several view models build display strings
+directly rather than through `IUnitFormatter`, and I did not audit every editable control for a
+unit label. The 100 ms bounds are ungroundable.
+
+#### S06.01.03 Calculate BMR and TDEE with visible assumptions — NOT-DONE
+
+See the claimed-done-but-broken section: a correct, tested Mifflin-St Jeor implementation with
+**zero callers**, no energy screen, no route, and `ActivityLevel` on no entity. Every
+user-facing requirement is unmet and all three ACs describe a screen that does not exist.
+
+#### S06.01.04 Edit and delete metric history entries — NOT-DONE
+
+No edit path, no delete path, no add path. The "Add body metric" button navigates to a dead end
+(above). `REQ2`'s timestamp preservation has nothing to preserve; `REQ4`'s dependent
+recalculation has no dependent surface; `AC1`'s 500-row scroll is moot because a user cannot
+create 500 rows. The dead-end navigation is worth fixing on its own merits.
+
+### F06.02 Manage goals with safety guardrails — PARTIAL
+
+#### S06.02.01 Select and rank multiple fitness goals — NOT-DONE
+
+`UserProfile.Goal` is **one** `FitnessGoal` enum — no collection, no rank, no join entity, no
+goals table in any migration. The picker is single-selection over five labels, and two of the six
+required goals (endurance, mobility) are not offered. `REQ5` is the only part that holds, and it
+holds for the single-goal model this story was meant to replace.
+
+#### S06.02.02 Block unsafe rates of weight change — PARTIAL
+
+Three of five requirements are implemented precisely and are reachable: the **1.0 % weekly cap**
+(`EvaluateWeightRate`, default `MaximumWeeklyBodyWeightChangePercent = 1.0m`, message states the
+limit → `AC1`), the **BMI 18.5 floor** (`EvaluateTargetBmi`, WHO/CDC cited → `AC2` blocking
+half), and **sex-specific calorie floors** (1200/1500/1200 kcal, sourced in comments). The
+refusal genuinely blocks — `SaveSetupAsync` writes nothing when `IsAccepted` is false — and
+`GoalWizardViewModel` narrates live at lines 382 and 503.
+
+**Gaps.** `REQ3`'s **safer editable alternative is not computed or pre-filled**, so `AC3`'s
+"focused" alternative has no control to focus. `REQ5` half unmet: the signposts are hard-coded
+English sentences with **no link, resource id or per-market configuration**, and the safety copy
+carries no "not medical advice" statement (that lives on a separate disclaimer page the refusal
+does not link to).
+
+#### S06.02.03 Surface disordered-eating signposts without diagnosis — PARTIAL
+
+Copy is non-diagnostic throughout — thresholds are described, never the person. `REQ3` is met
+*structurally*: `SaveSetupAsync` refuses on `IsAccepted == false`, so dismissing the message
+cannot unblock the save (`AC2`). Unsafe inputs are retained exactly as typed, and
+`RefusedReassurance` says so.
+
+**Gap.** `REQ2` unmet: **no configurable professional-help resource placeholder** — the signposts
+are literals inside `GoalSafetyEvaluator` (lines 58, 75, 93). `GoalSafetyOptions` makes
+thresholds configurable but not support resources. That matters beyond tidiness: a
+disordered-eating signpost that cannot be localised or pointed at a country-appropriate service
+is not deployable outside en-GB/en-US, and E24 has no key to translate.
+
+### F06.03 Capture training context for recommendations — PARTIAL
+
+#### S06.03.01 Set training experience and volume limits — PARTIAL
+
+Experience level is captured, validated, persisted, displayed and counted toward completeness.
+
+**Gaps.** It changes nothing (above). Levels are Beginner/Intermediate/Advanced, **not the four
+the story names** — there is no newcomer-vs-returning distinction, which is exactly what `REQ2`
+and `AC3` turn on. `TrainingDaysPerWeek` defaults to 3 for *every* profile with no level-based
+cap. Difficulty chips exist but nothing hides advanced variations by default (`AC1`). Lowering
+the level revalidates nothing (`REQ4`, `AC3`). Five days for a returner triggers no warning and
+no confirmation (`REQ5`, `AC2`).
+
+#### S06.03.02 Select available equipment for exercise filtering — PARTIAL
+
+`EquipmentAvailability` is a good type — synonym normalisation, always-available bodyweight,
+`Allows(Exercise)` — and `ExerciseDataStore` builds it from the active profile on every library
+load. The **alternatives** screen genuinely respects it.
+
+**Gaps.** The **library does not**. `ExerciseLibraryViewModel` filters on manually ticked chips;
+the `EquipmentAvailability` carried on `ExerciseLibrarySnapshot` is never applied to the default
+list, so a user who declared dumbbells and bench still sees every barbell exercise (`AC1`
+unmet). There is no *Show unavailable* toggle and no *Missing equipment* label anywhere
+(`AC2` has nothing to exercise). Five options against ten (divergence note). No custom-equipment
+entry and no canonical custom id (`REQ4`). `REQ5`/`AC3` cannot hold because contraindication
+filtering does not exist at all.
+
+#### S06.03.03 Capture training availability and session length — PARTIAL
+
+Day count is captured, validated against a stated range with a good message, and persisted. No
+calendar permission is requested anywhere (`REQ2`'s permission constraint).
+
+**Gaps.** **Session length does not exist** — no minutes field on `OnboardingAnswers`, on
+`UserProfile`, in any configuration or migration — so `REQ1`'s 10–180 minutes, `REQ5`'s
+minutes-storage and `AC1`'s "two days and 20 minutes" have nothing behind them. Preferred *days*
+are not captured either, only a count, so `AC2` has no list. `REQ4`/`AC3`: a newcomer selecting
+seven days is accepted without confirmation, because no experience-linked cap exists.
+
+#### S06.03.04 Explain recommendation impacts after profile edits — NOT-DONE
+
+Nothing implements it. `SaveSetupAsync` computes no before-and-after comparison; there is no
+profile change history entity in any migration; the wizard navigates away without a summary.
+The story also depends on machinery that does not exist: `AC1` needs equipment filtering and
+`AC3` needs limitation filtering. Without it, a profile edit produces **no feedback at all**.
+
+### F06.04 Respect injuries and contraindicated movements — NOT-DONE
+
+#### S06.04.01 Record limitations with movement patterns — NOT-DONE
+
+One free-text string, one `TextEdit`. No body area, no movement pattern, no severity — and
+therefore no *avoid entirely*, which everything in `S06.04.02` depends on. `MovementPattern`
+exists as a controlled taxonomy on the *exercise* side only.
+
+`REQ3`/`AC2` are met **by omission rather than design**: the note appears in zero log entries
+because in a Release build there are zero log entries (see `S01.03.01`). `REQ5`'s encryption half
+is genuinely met — the column lives in the SQLCipher database, proven by
+`DatabaseEncryptionTests`.
+
+#### S06.04.02 Filter contraindicated exercises from recommendations — NOT-DONE
+
+The chain described at the top of this report. Nothing is hidden, no *Show filtered items*
+toggle, no *Contraindicated* label, no severity tiers, no explanation id. **Highest-severity
+finding in E06.**
+
+#### S06.04.03 Handle no safe exercise matches — NOT-DONE
+
+The empty state exists but is a literal: *"Nothing matches / Try a different search, clear a
+filter, or create your own exercise."* It names no filter, offers no *Edit limitations* action —
+and could not navigate to one, because no limitations screen is registered in `ForgeRoutes` — and
+carries no professional-help guidance. All three ACs require limitation-driven filtering, so the
+state they describe can never be reached by the route they describe.
+
+### F06.05 Manage private profile imagery — NOT-DONE
+
+#### S06.05.01 Set a local avatar from initials, colour or photo — NOT-DONE
+
+No avatar, initials or colour field on `UserProfile`; no image property on the switcher row; no
+image control in the switcher XAML; no `MediaPicker`/`FilePicker` in the profile feature. The
+downstream consequence is visible: with no avatar and no generated initials, two profiles cannot
+be told apart except by name, which is why `ProfileNameRules` rejects duplicates outright.
+
+#### S06.05.02 Store progress photos with explicit privacy copy — NOT-DONE
+
+None of the three named locations exists; no photo entity in any configuration or migration; the
+only camera surface is the barcode scanner, which streams frames and writes no file.
+`Features/Media` is exercise video packs, not user photos. `REQ5` is trivially true because no
+metadata exists. Note this also leaves `S05.03.02 AC1` ("the photo flow resumes") partly
+unanchored.
+
+#### S06.05.03 Compare progress photos behind a privacy overlay — NOT-DONE
+
+No comparison screen, no photos, no `src/Forge.App/Privacy`. The one reusable piece —
+`PlatformPrivacyScreenController` (FLAG_SECURE on Android, blur cover on iOS) — exists but is
+gated entirely on the app-lock setting (`docs/security/app-lock-threat-model.md:164-165` states
+hiding applies only while the lock is enabled), so it would **not** protect a photo screen for a
+user who has not turned app lock on. `REQ5` would need that controller decoupled from the lock
+setting and driven by screen sensitivity — a small change to a working component, not new
+infrastructure.
+
+---
+
+## What could not be decided by reading
+
+No story was left `UNCLEAR`, but the following criteria were **excluded from their verdicts**
+rather than credited or failed, because settling them needs execution or a device:
+
+- **Frame timings and frame rates** — `S01.03.01 AC3` (16.6 ms attributable to logging),
+  `S05.04.01 AC2` (60 fps switcher scroll), `S06.01.04 AC1` (500 rows at 60 fps).
+- **Millisecond latency budgets** — `S04.01.01 AC1` (50 ms `SELECT 1`, though the project's own
+  469 ms measurement contradicts it), all of F04.04's 150/200/100 ms bounds, `S05.04.02 AC2`
+  (200 ms switch), `S06.01.02` (100 ms re-render), `S05.05.03 AC1` (500 ms obscure),
+  `S06.02.01 REQ3` (250 ms), `S06.03.03 REQ3` (250 ms), `S01.03.03 AC3` (100 ms cold-start
+  delta).
+- **On-device rendering and platform behaviour** — `S01.01.02 AC1/AC2` (DevExpress rendering,
+  live light/dark switch), `S01.02.01 AC4` (gesture-navigation safe area), `S05.05.01 AC1`
+  (platform prompt), `S05.05.03 AC1` (iOS cover before the system snapshot).
+- **Screen-reader announcement** — `S01.02.01 AC3` (selected-state announcement),
+  `S05.02.01 REQ5` (validation announced through accessible labels), `S05.04.02 REQ5`.
+- **Build outcomes** — `S01.01.01 AC1` ("zero warnings") and `AC2`/`AC3` as build results, and
+  `S01.01.02 AC3` (analyzer DXM001 firing). A read-only task; a multi-TFM build was out of
+  scope. Note `Directory.Build.props` only sets `TreatWarningsAsErrors` when
+  `ContinuousIntegrationBuild` is true, so a local zero-warning build is not enforced.
+- **Process-kill resilience** — the `AC3` repeated on all 15 E04 stories. Needs fault injection.
+  Where a design is demonstrably interruption-safe (`LocalDatabaseEncryption.ConvertAsync` writes
+  to a side file and moves on success; WAL journal mode; single-transaction saves) that is noted
+  as supporting evidence rather than as a pass.
+
+Two coverage caveats I want to be explicit about, because they are the kind of thing this
+exercise exists to catch:
+
+1. **`S06.01.02 REQ4`/`REQ5`** — I confirmed `IUnitFormatter` exists and is used, but did **not**
+   audit every profile / progress / workout-load / goal surface for whether it formats through
+   the formatter or builds a string from a raw decimal. Several view models do the latter. A
+   targeted grep for `ToString("F` and interpolated decimals across the feature folders would
+   settle it.
+2. **`S06.02.02 AC2` / `S06.02.03 AC1`/`AC3`** — I verified that `GoalSafetyNarration.Signposts`
+   is populated for every refusal path, but did not check control-by-control that
+   `GoalWizardPage.xaml` renders `SignpostText` in every blocked state. Reading the wizard's
+   safety panel bindings would settle it.
