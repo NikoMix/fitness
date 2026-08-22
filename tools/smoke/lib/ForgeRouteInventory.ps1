@@ -211,9 +211,18 @@ function Get-ForgeRouteInventory {
             $rm = [regex]::Match($tag, 'Route\s*=\s*"([^"]+)"')
             if (-not $rm.Success) { continue }
             $tm = [regex]::Match($tag, 'Title\s*=\s*"([^"]+)"')
+
+            # A tab declares its page inline as ContentTemplate="{DataTemplate x:SomePage}" and is
+            # never passed to Routing.RegisterRoute, so without this the tab has no page type at
+            # all. That is not cosmetic: page type is how the harness finds the source files that
+            # say where a screen can navigate to, and the Nutrition tab is registered nowhere, so
+            # its two destinations were invisible to the planner.
+            $cm = [regex]::Match($tag, 'ContentTemplate\s*=\s*"\{\s*DataTemplate\s+(?:[\w]+:)?(\w+)\s*\}"')
+
             $tabRoutes[$rm.Groups[1].Value] = [pscustomobject]@{
-                Index = $index
-                Label = $(if ($tm.Success) { $tm.Groups[1].Value } else { $null })
+                Index    = $index
+                Label    = $(if ($tm.Success) { $tm.Groups[1].Value } else { $null })
+                PageType = $(if ($cm.Success) { $cm.Groups[1].Value } else { $null })
             }
             $index++
         }
@@ -237,6 +246,10 @@ function Get-ForgeRouteInventory {
         if ($null -ne $reg) {
             $pageType = $reg.PageType
             $registeredIn = $reg.File
+        }
+        elseif ($isTab -and $tabRoutes[$route].PageType) {
+            $pageType = $tabRoutes[$route].PageType
+            $registeredIn = 'AppShell.xaml (ShellContent ContentTemplate)'
         }
 
         $title = $null

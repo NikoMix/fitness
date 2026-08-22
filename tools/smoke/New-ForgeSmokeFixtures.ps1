@@ -139,6 +139,68 @@ else {
         -Description "made the node at $($victim.GetAttribute('bounds')) clickable and stripped its label"
 }
 
+# --- Seeded defect 4: every binding dead, but a static content-desc survived --------------------
+# This is the shape Test-ForgeBlankPage cannot see and Test-ForgeUnboundContent can. A
+# content-desc written as a XAML literal is not a binding, so it survives the ContentPresenter
+# trap; one of them is enough to make a page with 98 dead bindings look populated to a check that
+# needs both text and descriptions to be absent.
+$doc = New-Object System.Xml.XmlDocument
+$doc.LoadXml($raw)
+foreach ($node in @($doc.SelectNodes('//node'))) {
+    if ($node.GetAttribute('package') -ne $PackageName) { continue }
+    $node.SetAttribute('text', '')
+}
+Save-Mutation -Name 'seeded-unbound-page.xml' -Document $doc `
+    -Description 'stripped every bound text but left the static content-descs in place'
+
+# --- Seeded defect 5: an exception message rendered to the user --------------------------------
+# The literal string is the one that actually shipped: starting a workout showed the user the
+# SQLite provider's translation failure.
+$doc = New-Object System.Xml.XmlDocument
+$doc.LoadXml($raw)
+$textNodes = @($doc.SelectNodes('//node') | Where-Object {
+        $_.GetAttribute('package') -eq $PackageName -and $_.GetAttribute('text')
+    })
+if ($textNodes.Count -eq 0) {
+    throw 'No text node was found to replace with an error message.'
+}
+$textNodes[0].SetAttribute('text', "SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY clauses.")
+Save-Mutation -Name 'seeded-visible-error.xml' -Document $doc `
+    -Description "replaced the text at $($textNodes[0].GetAttribute('bounds')) with the shipped SQLite ORDER BY message"
+
+# --- Seeded defect 6: text that does not fit where it was put ----------------------------------
+$doc = New-Object System.Xml.XmlDocument
+$doc.LoadXml($raw)
+$textNodes = @($doc.SelectNodes('//node') | Where-Object {
+        $_.GetAttribute('package') -eq $PackageName -and $_.GetAttribute('text')
+    })
+if ($textNodes.Count -lt 2) {
+    throw 'At least two text nodes are needed to seed both overflow shapes.'
+}
+
+# Collapsed: a label with text laid out at zero height, which is what a fixed-height row does to
+# a string that needs two lines.
+$collapse = $textNodes[0]
+$cm = [regex]::Match($collapse.GetAttribute('bounds'), '\[(\d+),(\d+)\]\[(\d+),(\d+)\]')
+$collapse.SetAttribute('bounds', "[$($cm.Groups[1].Value),$($cm.Groups[2].Value)][$($cm.Groups[3].Value),$($cm.Groups[2].Value)]")
+
+# Overflow: a label wider than the box that clips it.
+$overflow = $textNodes[1]
+$parent = $overflow.ParentNode
+$om = [regex]::Match($overflow.GetAttribute('bounds'), '\[(\d+),(\d+)\]\[(\d+),(\d+)\]')
+$pm = [regex]::Match($parent.GetAttribute('bounds'), '\[(\d+),(\d+)\]\[(\d+),(\d+)\]')
+if ($pm.Success) {
+    $newRight = [int]$pm.Groups[3].Value + 60
+    $overflow.SetAttribute('bounds', "[$($om.Groups[1].Value),$($om.Groups[2].Value)][$newRight,$($om.Groups[4].Value)]")
+}
+Save-Mutation -Name 'seeded-text-overflow.xml' -Document $doc `
+    -Description 'collapsed one label to zero height and pushed another past its parent'
+
 Write-Host ''
 Write-Host 'Fixtures regenerated. Run tools/smoke/Test-ForgeSmokeChecks.ps1 to confirm they still' -ForegroundColor Cyan
 Write-Host 'make the checks fail, and that the unmutated capture still passes.' -ForegroundColor Cyan
+Write-Host ''
+Write-Host 'The logcat fixtures under fixtures/logcat are hand-written and not regenerated here: a' -ForegroundColor DarkGray
+Write-Host 'device cannot be asked to throw a particular exception on demand, and a captured log' -ForegroundColor DarkGray
+Write-Host 'would drift with every unrelated change on the emulator.' -ForegroundColor DarkGray
+

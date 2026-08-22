@@ -1,0 +1,8 @@
+--------- beginning of crash
+08-22 01:22:48.117  9604  9604 E AndroidRuntime: FATAL EXCEPTION: main
+08-22 01:22:48.117  9604  9604 E AndroidRuntime: Process: com.nikomix.forge, PID: 9604
+08-22 01:22:48.117  9604  9604 E AndroidRuntime: android.runtime.JavaProxyThrowable: System.NullReferenceException: Object reference not set to an instance of an object.
+08-22 01:22:48.117  9604  9604 E AndroidRuntime:    at Forge.App.Hosting.AppShell..ctor()
+08-22 01:22:48.117  9604  9604 E AndroidRuntime:    at Forge.App.App.CreateWindow(IActivationState activationState)
+08-22 01:22:48.117  9604  9604 E AndroidRuntime:    at Microsoft.Maui.MauiApplication.OnCreate()
+08-22 01:22:48.290  1611  1798 W ActivityTaskManager:   Force finishing activity com.nikomix.forge/crc64e1fb321c08285b90.MainActivity

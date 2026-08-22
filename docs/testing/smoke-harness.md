@@ -40,7 +40,9 @@ The inventory also reads:
 
 - `src/Forge.App/Features/**/*FeatureRegistration.cs` to learn which routes are actually
   registered, and which page type each one resolves to
-- `src/Forge.App/Hosting/AppShell.xaml` to learn which routes are shell tabs
+- `src/Forge.App/Hosting/AppShell.xaml` to learn which routes are shell tabs, and which page each
+  tab hosts — a tab is never passed to `Routing.RegisterRoute`, so its `ContentTemplate` is the
+  only place its page type is written down
 - each page's XAML or C# to learn the title and text literals it draws, which is how the harness
   recognises a screen once it is on it
 
@@ -52,50 +54,144 @@ Routes are classified honestly:
 | `Registered` | passed to `Routing.RegisterRoute`, reachable if some screen links to it |
 | `Declared` | declared in `ForgeRoutes.cs` and never registered, so **no page exists to visit** |
 
-### 2. The app is still alive
+### 2. A path to every route, also from source
+
+The first version of this harness crawled outward from the tab bar and reached **12 of 53
+routes**. Coverage was the binding constraint on the entire tool: 41 screens had never been opened
+by anything except a person clicking around.
+
+Android offers no way to make a MAUI app navigate to an arbitrary Shell route from outside. There
+is no intent filter, no exported activity per route and no broadcast receiver, so
+`adb shell am start` cannot reach `Shell.Current.GoToAsync`. What is available is the source:
+every navigation in Forge names its destination with a `ForgeRoutes` constant.
+
+[`lib/ForgeNavigationGraph.ps1`](../../tools/smoke/lib/ForgeNavigationGraph.ps1) turns those
+references into a directed graph, computes a shortest path from a tab root to each route, and the
+harness walks it — ranking each screen's controls by how well their label matches the
+destination's title, tapping the best one, and **confirming which screen actually appeared**.
+
+Edges are graded by how strongly source supports them:
+
+| Kind | Evidence |
+|---|---|
+| `Navigation` | a file belonging to exactly one page calls `GoToAsync` with the route |
+| `Reference` | that file names the route elsewhere — how `SettingsPageViewModel` and `ProgressViewModel` build their destination lists |
+| `Feature` | a shared view-model file in the same feature folder names it. `PlansFeatureViewModels.cs` owns four pages; without this the plan builder, templates and schedule are invisible |
+
+`*FeatureRegistration.cs` is deliberately excluded. It names every route in its feature, so
+treating it as navigation would make each feature a fully connected clique and every path
+meaningless.
+
+Three properties fall out of this that are worth stating plainly:
+
+- **Ranking, not filtering.** Keyword matches are tried first, but unmatched controls are still
+  tried afterwards. That is what reaches parameterised routes: the entry to `exercise-detail` is a
+  list row saying *"Barbell back squat"*, which matches no keyword at all.
+- **A failed hop names itself.** *"No control on `settings` led to `licences`"* is actionable.
+  *"Not found within the crawl budget"* is not.
+- **A route with no inbound reference cannot be reached, and that is a finding about the app.**
+  Fourteen registered routes currently have no path from any tab. They are reported by name rather
+  than blamed on the harness.
+
+### 3. Phase budgets, so one screen cannot eat the run
+
+The crawl's branching factor is enormous and it runs first, so with a single shared budget it
+always won and the directed pass never started. Three separate caps now apply:
+
+| Cap | Default | Protects against |
+|---|---|---|
+| `-MaxCrawlActions` | 160 | the crawl consuming the whole run before the directed pass begins |
+| `-MaxSecondsPerRoute` | 150 | one hung or endlessly-changing screen consuming everything |
+| `-MaxRunMinutes` | 75 | a run that never terminates |
+
+A screen the harness has already navigated to is always checked, even when the crawl budget is
+spent — the cap stops it descending further, not seeing where it is.
+
+### 4. The app is still alive
 
 After every action, `adb shell pidof com.nikomix.forge`. If the process is gone, the harness reads
 logcat and works out why before saying anything:
 
 - **Crash** — a fatal record naming Forge is in the log. Reported as a failure with the stack.
 - **External** — `ActivityManager: Force stopping com.nikomix.forge ... from pid N`. Another work
-  stream stopped the app on a shared emulator. Reported as interference, *not* as a Forge defect.
+  stream stopped the app on a shared emulator. Reported as interference, *not* as a Forge defect,
+  and the stopping process is named: `[pid 9471 is 'com.android.shell']` says immediately that
+  somebody ran an adb command. This has been mistaken for a crash twice.
 - **Unknown** — the process is gone and nothing explains it. Reported as a failure, because "I do
   not know" is not a pass.
 
-### 3. Nothing fatal in logcat
+### 5. Exceptions, fatal and otherwise
 
-`FATAL EXCEPTION`, `Fatal signal`, `Unhandled Exception` and the mono runtime variants. A block of
-following lines is captured with each hit, and hits that do not mention the Forge package are
-ignored so another app's crash cannot fail a Forge run.
+`FATAL EXCEPTION`, `Fatal signal`, `Unhandled Exception` and the mono runtime variants kill the
+process and are reported with a block of following lines.
 
-### 4. Blank content — the `ForgeCard` class of bug
+A MAUI app swallows far more than it dies from, and those matter just as much: a task continuation
+that throws, a binding that fails, an EF query the SQLite provider refuses to translate. Each
+screen stamps the device clock on arrival, so an exception the app survived is attributed to the
+route that was open when it was thrown — *"the readiness screen threw
+InvalidOperationException"*, not *"something threw during a forty-minute run"*.
 
-Two checks on the accessibility tree.
+### 6. Blank content — the `ForgeCard` class of bug
 
-**Blank screen.** The page's content region contains no text and no `content-desc` at all. This is
-exactly what defect 6 produced across sixteen pages.
+Three checks on the accessibility tree, in decreasing severity.
+
+**Blank screen.** The page's content region contains no text and no `content-desc` at all.
+
+**No bound data.** The page laid out plenty of nodes and rendered **no text anywhere**. This is
+strictly weaker than "blank", and that is the point: a `content-desc` written as a XAML literal is
+not a binding, so it survives the `ContentPresenter` trap, and a single surviving one is enough to
+make a page with 98 dead bindings look populated to the blank check. Every Forge page draws text;
+one with controls and none is broken.
 
 **Blank container.** A container that renders at card size but whose entire subtree has no text,
-no `content-desc` and no drawn content. Only the outermost such container is reported, so one
-broken card produces one finding rather than a dozen.
+no `content-desc` and no drawn content. Only the outermost such container is reported.
 
-Getting this to be useful meant making it quiet in three specific ways, each learned by watching
-it be wrong:
+Getting these to be useful meant making them quiet in specific ways, each learned by watching them
+be wrong:
 
-- **Genuine empty states are not flagged.** Forge deliberately shows empty states, and they carry
-  explanatory copy — *"Nothing logged yet. After your first workout or weight entry a short recap
-  appears here. Forge leaves this empty rather than filling it with sample data you did not do."*
-  That copy is text, so those screens pass. If an empty state ever loses its copy the check fires,
-  which is correct: a wordless empty state is a bug.
-- **Charts are not flagged.** Forge's charts and progress rings are custom-drawn
-  `android.view.View` surfaces with no text inside them; the description sits in a sibling label.
-  The first version of this check reported all three charts on the progress screen as broken
-  cards. `healthy-charts-screen.xml` is a regression fixture so that cannot come back.
-- **System UI is not flagged.** Everything is filtered to the app's own package, and childless
-  containers are ignored because those are scrims and spacers, not cards.
+- **Genuine empty states are not flagged.** Forge's empty states carry explanatory copy, so they
+  contain text and pass. If one ever loses its copy the check fires, which is correct.
+- **Charts are not flagged.** Forge's charts are custom-drawn `android.view.View` surfaces with no
+  text inside them. `healthy-charts-screen.xml` is a regression fixture so that cannot come back.
+- **Icon-only and camera screens are not flagged as unbound.** The check needs a substantial node
+  count before "no text" means anything.
 
-### 5. Accessibility exposure
+### 7. Error text rendered to the user
+
+A caught exception whose `Message` is bound into a label never reaches logcat as a fatal. The
+process stays alive, every other check passes, and the user is reading:
+
+> SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY clauses.
+
+That shipped. The harness scans every rendered string for exception-shaped patterns — CLR type
+names, stack frames, EF translation failures, SQL constraint messages, Android's *"keeps
+stopping"*.
+
+The patterns deliberately avoid bare words. `error` and `failed` appear in legitimate copy —
+*"Import failed, nothing was changed"* — and matching those would make the check useless within a
+week. The self-test asserts exactly that, against four realistic strings.
+
+### 8. Text that does not fit
+
+`uiautomator` reports a label's full string rather than the truncated text actually drawn, so
+*"does this end in an ellipsis"* is unanswerable from a hierarchy. Geometry is answerable, and
+geometry is where the real failures are:
+
+| Shape | Meaning |
+|---|---|
+| `Collapsed` | the node has text and zero width or height — the string exists and no pixel is on screen |
+| `OffScreen` | the node has text and extends past the screen edge |
+| `Overflow` | the node extends past its parent's box, so whatever the parent clips to is cutting it |
+
+A two-pixel tolerance keeps sub-pixel layout rounding out of the report.
+
+`-FontScalePass` then re-opens every route already reached with the system font scale at 1.3x and
+runs only this check. That is how a row laid out against the default text size and clipping the
+moment someone turns text up gets caught. The original scale is always restored, including on
+failure — leaving a shared emulator at 1.3x would silently change what every other work stream
+sees.
+
+### 9. Accessibility exposure
 
 **Unlabelled interactive elements** — a node Android reports as actionable whose subtree has no
 text and no `content-desc`. A screen reader announces an anonymous control.
@@ -117,6 +213,37 @@ worth keeping:
 A check that cries wolf on a healthy screen is worse than no check, so the static version was
 dropped in favour of the interaction-driven one.
 
+## Output that behaves like a test
+
+Every finding carries a stable id derived from its kind, its route and the element it is about —
+never from its position in the run — so the same defect keeps the same id across devices and
+across reordered crawls.
+
+| Exit code | Meaning |
+|---|---|
+| `0` | nothing that an ignore entry does not already accept |
+| `1` | findings to look at |
+| `2` | the harness could not finish, so zero findings does not mean zero defects |
+
+A known finding can be accepted in [`tools/smoke/smoke-ignore.json`](../../tools/smoke/smoke-ignore.json):
+
+```json
+{ "id": "a1b2c3d4e5", "reason": "shop is a stub until Wave 9", "owner": "commerce" }
+```
+
+Three rules are enforced rather than documented, and the self-test proves each one:
+
+1. **Every entry must carry a `reason`.** An entry without one fails the run, so "accepted" can
+   never quietly mean "somebody was in a hurry".
+2. **Every entry must name an `owner`**, so a reader knows who to ask.
+3. **There is no blanket suppression.** An entry naming a kind with no route and no substring is
+   rejected. Accepting *"the blank container on the shop screen"* cannot also accept one that
+   appears tomorrow on the today screen.
+
+Accepted findings stay in the console output, the Markdown report and the JSON, with their reason
+and owner beside them. They simply do not fail the run. An accepted defect that has fallen off the
+report is worse than one nobody has triaged.
+
 ## Running it
 
 Prerequisites: an Android emulator running, `adb` on `PATH` or an Android SDK in the usual place,
@@ -132,8 +259,8 @@ pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -Install
 # First-run behaviour: wipe the profile, then walk with onboarding skipped.
 pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -CleanState -OnboardingMode Skip
 
-# Walk as a user who finished onboarding.
-pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -OnboardingMode Complete
+# Walk as a user who finished onboarding, and check layout at a large system font scale.
+pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5556 -OnboardingMode Complete -FontScalePass
 ```
 
 Useful switches:
@@ -144,12 +271,15 @@ Useful switches:
 | `-Install` | build and install the current working tree before walking |
 | `-CleanState` | uninstall and reinstall for a genuinely first-run device |
 | `-OnboardingMode` | `Skip`, `Complete` or `None` |
-| `-MaxDepth`, `-MaxActionsPerScreen`, `-MaxTotalActions` | crawl budget |
+| `-RouteMode` | `Directed` (default) walks to every route; `Crawl` is the old tab-bar-only behaviour |
+| `-FontScalePass`, `-LargeFontScale` | re-check reached routes for clipping at a large text size |
+| `-MaxCrawlActions`, `-MaxSecondsPerRoute`, `-MaxRunMinutes`, `-MaxDepth` | budgets |
 | `-CaptureScreenshots` | save a PNG per screen next to each hierarchy dump |
 | `-FailOnAccessibilityExposure` | promote "actionable but not exposed" from warning to failure |
+| `-IgnoreListPath` | use a different accepted-findings file |
 
 Output lands in `artifacts/smoke/`: `smoke-report.md`, `smoke-report.json`, and every hierarchy
-dump and screenshot under `dumps/`. Exit code is non-zero when there are failures.
+dump and screenshot under `dumps/`.
 
 ### Always pass `-Serial`
 
@@ -197,6 +327,23 @@ Switches appended by response files: Switch: emulator-5554
 The harness invokes `dotnet` natively so PowerShell quotes it correctly. From a shell, quote the
 value: `-p:AdbTarget="-s emulator-5554"`.
 
+### Never name a local `$path` inside a function with a `$Path` parameter
+
+PowerShell variable names are case-insensitive, so a local `$path` **is** the function's `$Path`
+parameter. `Write-ForgeSmokeMarkdownReport` did exactly that while formatting the list of routes it
+had failed to reach, which blanked its own output path and threw on the last line of the run:
+
+```
+Write-ForgeSmokeMarkdownReport: Invoke-ForgeSmoke.ps1:1591
+ | Cannot bind argument to parameter 'Path' because it is an empty string.
+```
+
+Two forty-minute device runs finished, printed every finding to the console, and wrote no report.
+The branch only executes when a route-directed walk fails, so nothing before Wave 8 could reach
+it. `Test-ForgeSmokeChecks.ps1` now builds a synthetic result with failed walks in it and asserts
+that both files are written and that the reader can find the route, the path, the accepted
+findings and the ids — so this cannot come back silently.
+
 ### A shared emulator will interfere with you
 
 When several worktrees are active, another stream may install its own build or force-stop the app
@@ -214,21 +361,54 @@ This is a smoke harness. It is worth being precise about what it does not do, be
 the whole thing depends on its output being believable.
 
 - **Coverage is what it reached, not what exists.** Screens behind state the harness cannot create
-  — an in-progress workout, a completed session, a purchased entitlement — are listed as
-  **unvisited** with the reason. Unvisited is never folded into "passed". Read that list; it is
-  usually longer than the visited list.
+  — a purchased entitlement, a health-platform connection — are listed as **unvisited** with the
+  reason. Unvisited is never folded into "passed". Read that list.
+- **Fourteen registered routes have no inbound reference in source.** No amount of tapping reaches
+  a screen nothing links to. The harness reports them by name; fixing them is an app change, not a
+  harness change.
 - **It reads the accessibility tree, not pixels.** Content drawn with no accessible representation
-  is indistinguishable from a blank card. The chart exception above is exactly this problem, and
-  it is handled by a rule rather than by seeing.
+  is indistinguishable from a blank card. The chart exception is exactly this problem, handled by
+  a rule rather than by seeing.
+- **Truncation inside a label's own bounds is invisible.** `uiautomator` reports the full string,
+  not the drawn one, so a label ellipsised at its own edge looks identical to one that fits. Only
+  clipping that shows up in geometry — zero size, off screen, outside the parent — is detectable.
 - **Correct rendering is not correct data.** A screen showing confidently wrong numbers passes.
 - **Destructive and paid actions are not taken.** Anything matching the forbidden-action pattern —
-  data deletion, purchases, restore — is skipped and listed. The screens are still visited where
-  they can be reached; only the confirming action is left alone.
+  data deletion, purchases, restore — is skipped and listed.
 - **It cannot name every screen.** Identification uses the page title, then a text literal unique
   to one page, then the selected shell tab. A screen matching none of those is reported as
   *unidentified* and is checked, but is not counted as coverage of any route.
-- **A crawl is not deterministic.** Different budgets and different device state reach different
-  screens. Two runs are not directly comparable.
+- **A run is not perfectly reproducible.** Different budgets and different device state reach
+  different screens. The directed pass makes this far less true than it was — a route either has a
+  path or it does not — but the crawl half remains order-dependent.
+
+## What would make this better
+
+One small app-side change would remove most of the remaining limits, and it is deliberately *not*
+made here because the harness owns none of `src/`.
+
+**A debug-only deep-link intent filter.** If `MainActivity` accepted
+`android.intent.action.VIEW` for a `forge://route/<name>` URI in `Debug` builds only, and passed
+the route to `Shell.Current.GoToAsync`, then:
+
+```powershell
+adb -s emulator-5554 shell am start -a android.intent.action.VIEW -d "forge://route/licences"
+```
+
+would open any screen directly. The consequences are large:
+
+- Every registered route becomes reachable in one step, including the fourteen nothing links to,
+  so the harness could check them *and still report that a user cannot get to them* — those are
+  two different findings and today they collapse into one.
+- Run time collapses. Most of a run is spent walking multi-hop paths and recovering position.
+- Runs become deterministic and directly comparable between devices.
+
+The harness is already written to take advantage of it: `Move-ToRoute` is the only place that
+would need a deep-link branch, with the path walk kept as the fallback for when the intent filter
+is absent — which is how a `Release` build would behave.
+
+Until that exists, path-walking is the honest best available, and its failures are reported
+individually rather than aggregated into a coverage percentage.
 
 ## Should this gate CI?
 

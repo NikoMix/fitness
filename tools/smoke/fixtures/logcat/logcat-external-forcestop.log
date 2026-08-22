@@ -1,0 +1,5 @@
+--------- beginning of main
+08-22 01:20:11.004  1611  1798 I ActivityManager: Force stopping com.nikomix.forge appid=10173 user=0: from pid 9471
+08-22 01:20:11.010  1611  1798 I ActivityManager: Killing 9302:com.nikomix.forge/u0a173 (adj 0): stop com.nikomix.forge due to from pid 9471
+08-22 01:20:11.188  1611  1798 W ActivityTaskManager: Force removing ActivityRecord{f2a0c11 u0 com.nikomix.forge/crc64e1fb321c08285b90.MainActivity t142}: app died, no saved state
+08-22 01:20:12.771  1611  1798 I ActivityManager: Killing 9302:com.nikomix.forge/u0a173 (adj 0): remove task

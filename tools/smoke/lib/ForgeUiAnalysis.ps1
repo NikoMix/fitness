@@ -22,6 +22,20 @@
                        are correctly ignored. If an empty state ever loses its copy this check
                        will fire, which is the right outcome: a wordless empty state is a bug.
 
+      Unbound page   - a page with plenty of controls and no text anywhere. Weaker than "blank"
+                       and therefore able to see what "blank" misses: one surviving static
+                       content-desc is enough to make a page with 98 dead bindings look
+                       populated to the blank check, and not to this one.
+
+      Visible error  - an exception message rendered into the UI. Nothing else in the harness can
+                       see this: a caught exception bound into a label leaves the process alive
+                       and logcat clean, and the user reads "SQLite does not support expressions
+                       of type 'DateTimeOffset' in ORDER BY clauses" on the workout screen.
+
+      Text overflow  - a label that renders at zero size, past the screen edge, or outside its
+                       parent's box. Run again at a large system font scale, this is how a row
+                       that fits at 1.0x and clips at 1.3x is caught.
+
       Accessibility  - interactive nodes a screen reader cannot announce, and the inverse
                        DevExpress signature where a node carries a content-desc but is exposed
                        as neither clickable nor focusable, so assistive technology cannot reach
@@ -502,6 +516,219 @@ function Find-ForgeAccessibilityIssues {
     return [pscustomobject]@{
         UnlabelledInteractive = @($unlabelled.ToArray())
     }
+}
+
+function Test-ForgeUnboundContent {
+    <#
+        The ContentPresenter shape, stated precisely: a page that has plenty of controls and no
+        text anywhere.
+
+        Test-ForgeBlankPage is stricter - it needs the content region to have neither text nor a
+        content-desc - and that strictness is what let the 16-page outage slip past a check like
+        it. ForgeCard's children were laid out; a static content-desc declared in XAML on a
+        wrapper survives a dead binding, because it is a literal rather than a binding, and a
+        single one of those is enough to make the page look non-blank. What did not survive was
+        every single {Binding} that would have produced text.
+
+        So this asks the narrower question the defect actually answers: does this page render any
+        text at all? A Forge page always does. The Today screen alone draws a greeting, five ring
+        labels and a next-action prompt; the emptiest legitimate screen in the app, a fresh
+        exercise library, still draws its search placeholder and its empty-state copy.
+
+        Screens that legitimately have no text are the reason for MinimumNodes: a camera preview
+        is a handful of nodes, and a page whose bindings all died is dozens. The threshold is
+        deliberately generous, because a false "this page renders nothing" is expensive to chase
+        and the check is worthless if people stop believing it.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Tree,
+        [string]$PackageName,
+        [int]$MinimumNodes = 12
+    )
+
+    $region = Get-ForgeContentRegion -Tree $Tree
+    $texts = [System.Collections.Generic.List[string]]::new()
+    $nodeCount = 0
+    $interactiveCount = 0
+
+    foreach ($n in $Tree.Nodes) {
+        if ($PackageName -and $n.Package -and $n.Package -ne $PackageName) { continue }
+        if (-not (Test-UiNodeInRegion -Node $n -Region $region)) { continue }
+
+        $nodeCount++
+        if ($n.Clickable -or $n.Focusable -or $n.Checkable) { $interactiveCount++ }
+        if (-not [string]::IsNullOrWhiteSpace($n.Text)) { [void]$texts.Add($n.Text.Trim()) }
+    }
+
+    return [pscustomobject]@{
+        IsUnbound        = (($texts.Count -eq 0) -and ($nodeCount -ge $MinimumNodes))
+        TextCount        = $texts.Count
+        NodeCount        = $nodeCount
+        InteractiveCount = $interactiveCount
+        Texts            = @($texts.ToArray())
+    }
+}
+
+# Strings that only ever reach a Forge screen because something threw and the message was bound
+# straight into the UI. Each one is anchored on machinery a user-facing string would never name.
+#
+# The live example this is built from is the P0 that shipped: starting a workout rendered
+# "SQLite Error 1: 'no such function: ...'" - actually surfaced as
+# "SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY clauses" - into the
+# screen, where it sat looking like an intentional message.
+#
+# The patterns avoid bare words. "error" and "failed" appear in legitimate copy ("Import failed,
+# nothing was changed") and matching them would make this check useless within a week.
+$script:ForgeErrorTextPatterns = @(
+    [pscustomobject]@{ Name = 'clr-exception-type'; Pattern = '\b(System|Microsoft|Forge|SQLite|Java|Android)[\w.]*\.\w*Exception\b' }
+    [pscustomobject]@{ Name = 'exception-suffix'; Pattern = '\b\w*(Exception|Error)\s*:\s*\S' }
+    [pscustomobject]@{ Name = 'stack-frame'; Pattern = '(^|\s)at\s+[\w.<>+`]+\.[\w.<>+`]+\s*\(' }
+    [pscustomobject]@{ Name = 'null-reference'; Pattern = 'Object reference not set to an instance' }
+    [pscustomobject]@{ Name = 'argument-null'; Pattern = 'Value cannot be null' }
+    [pscustomobject]@{ Name = 'sqlite-translation'; Pattern = "(?i)SQLite\s+(?:does not support|Error\b)" }
+    [pscustomobject]@{ Name = 'ef-translation'; Pattern = '(?i)could not be translated|LINQ expression .* could not' }
+    [pscustomobject]@{ Name = 'sql-constraint'; Pattern = '(?i)(UNIQUE|FOREIGN KEY|NOT NULL) constraint failed' }
+    [pscustomobject]@{ Name = 'unhandled'; Pattern = '(?i)unhandled (exception|error)' }
+    [pscustomobject]@{ Name = 'binding-failure'; Pattern = "(?i)binding: '.*' property not found" }
+    [pscustomobject]@{ Name = 'xaml-parse'; Pattern = '(?i)XamlParseException|Position \d+:\d+\.' }
+    [pscustomobject]@{ Name = 'android-anr'; Pattern = "(?i)isn't responding|keeps stopping|has stopped" }
+)
+
+function Find-ForgeVisibleErrorText {
+    <#
+        Reports exception-shaped strings that the app has drawn on screen.
+
+        This is not a log check. A caught exception whose Message is bound into a label never
+        reaches logcat as a fatal, the process stays alive, every other check passes, and the user
+        is looking at a database error. That is a live P0 shape in this project, and it is
+        invisible to everything else the harness does.
+
+        Both text and content-desc are searched: a summarising content-desc is built from the same
+        bound values, so an error message reaches the accessibility tree by both routes.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Tree,
+        [string]$PackageName
+    )
+
+    $findings = [System.Collections.Generic.List[psobject]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new()
+
+    foreach ($n in $Tree.Nodes) {
+        if ($PackageName -and $n.Package -and $n.Package -ne $PackageName) { continue }
+
+        foreach ($source in @(
+                [pscustomobject]@{ Where = 'text'; Value = $n.Text }
+                [pscustomobject]@{ Where = 'content-desc'; Value = $n.ContentDesc }
+            )) {
+            $value = [string]$source.Value
+            if ([string]::IsNullOrWhiteSpace($value)) { continue }
+
+            foreach ($rule in $script:ForgeErrorTextPatterns) {
+                if ($value -notmatch $rule.Pattern) { continue }
+                $key = "$($rule.Name)|$($value.Trim())"
+                if (-not $seen.Add($key)) { continue }
+
+                $findings.Add([pscustomobject]@{
+                        Rule      = $rule.Name
+                        Where     = $source.Where
+                        Text      = $value.Trim()
+                        Class     = $n.Class
+                        Bounds    = "[$($n.X1),$($n.Y1)][$($n.X2),$($n.Y2)]"
+                        Path      = Get-UiNodePath -Tree $Tree -Index $n.Index
+                    })
+                break
+            }
+        }
+    }
+
+    return @($findings.ToArray())
+}
+
+function Find-ForgeTextOverflow {
+    <#
+        Text that does not fit where it was put.
+
+        uiautomator reports a label's full text rather than the truncated string actually drawn,
+        so "does this end in an ellipsis" is not answerable from a hierarchy. What is answerable
+        is geometry, and geometry is where the real failures live - especially at a large system
+        font scale, which is when a row designed against a 14sp measurement stops fitting.
+
+        Three shapes, each independently reportable:
+
+          Collapsed  the node has text and zero width or zero height. The string exists and no
+                     pixel of it is on screen. This is what a fixed-height row does to a
+                     two-line label.
+          OffScreen  the node has text and extends past the screen edge.
+          Overflow   the node has text and extends past its parent's box by more than the
+                     tolerance, so whatever the parent clips to is cutting the text.
+
+        Tolerance exists because sub-pixel layout rounding routinely produces one- or two-pixel
+        overhangs that nobody can see and nobody should be paged about.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Tree,
+        [string]$PackageName,
+        [int]$ToleranceDp = 2
+    )
+
+    $findings = [System.Collections.Generic.List[psobject]]::new()
+
+    foreach ($n in $Tree.Nodes) {
+        if ($PackageName -and $n.Package -and $n.Package -ne $PackageName) { continue }
+        if ([string]::IsNullOrWhiteSpace($n.Text)) { continue }
+
+        $text = $n.Text.Trim()
+
+        if ($n.Width -le 0 -or $n.Height -le 0) {
+            $findings.Add([pscustomobject]@{
+                    Shape  = 'Collapsed'
+                    Text   = $text
+                    Class  = $n.Class
+                    Bounds = "[$($n.X1),$($n.Y1)][$($n.X2),$($n.Y2)]"
+                    Detail = "the label has text but renders at $($n.Width)x$($n.Height), so none of it is visible"
+                    Path   = Get-UiNodePath -Tree $Tree -Index $n.Index
+                })
+            continue
+        }
+
+        if ($n.X1 -lt (-$ToleranceDp) -or ($Tree.ScreenWidth -gt 0 -and $n.X2 -gt ($Tree.ScreenWidth + $ToleranceDp))) {
+            $findings.Add([pscustomobject]@{
+                    Shape  = 'OffScreen'
+                    Text   = $text
+                    Class  = $n.Class
+                    Bounds = "[$($n.X1),$($n.Y1)][$($n.X2),$($n.Y2)]"
+                    Detail = "the label extends outside the $($Tree.ScreenWidth)px-wide screen"
+                    Path   = Get-UiNodePath -Tree $Tree -Index $n.Index
+                })
+            continue
+        }
+
+        if ($n.ParentIndex -lt 0) { continue }
+        $parent = $Tree.Nodes[$n.ParentIndex]
+        if ($parent.Width -le 0 -or $parent.Height -le 0) { continue }
+
+        $overRight = $n.X2 - ($parent.X2 + $ToleranceDp)
+        $overLeft = ($parent.X1 - $ToleranceDp) - $n.X1
+        $overBottom = $n.Y2 - ($parent.Y2 + $ToleranceDp)
+        $overTop = ($parent.Y1 - $ToleranceDp) - $n.Y1
+        $worst = @($overRight, $overLeft, $overBottom, $overTop | Measure-Object -Maximum).Maximum
+        if ($worst -le 0) { continue }
+
+        $findings.Add([pscustomobject]@{
+                Shape  = 'Overflow'
+                Text   = $text
+                Class  = $n.Class
+                Bounds = "[$($n.X1),$($n.Y1)][$($n.X2),$($n.Y2)]"
+                Detail = "the label overhangs its $(($parent.Class -split '\.')[-1]) parent at [$($parent.X1),$($parent.Y1)][$($parent.X2),$($parent.Y2)] by ${worst}px, so it is clipped"
+                Path   = Get-UiNodePath -Tree $Tree -Index $n.Index
+            })
+    }
+
+    return @($findings.ToArray())
 }
 
 function Get-ForgeScreenTitleCandidates {

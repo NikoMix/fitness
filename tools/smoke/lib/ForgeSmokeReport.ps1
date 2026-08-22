@@ -48,12 +48,25 @@ function Write-ForgeSmokeConsoleReport {
     Write-Host "  Navigations observed       : $($Result.NavigationsObserved)"
     Write-Host "  Process deaths             : $($Result.ProcessDeaths.Count)"
     Write-Host "  Fatal exceptions           : $($Result.FatalExceptions.Count)"
+    Write-Host "  Runtime exceptions         : $($Result.RuntimeExceptions.Count)"
+    Write-Host "  Visible error text         : $($Result.VisibleErrors.Count)" -ForegroundColor $(if ($Result.VisibleErrors.Count -gt 0) { 'Red' } else { 'Gray' })
     Write-Host "  Blank screens              : $($Result.BlankScreens.Count)"
     Write-Host "  Blank containers           : $($Result.BlankContainers.Count)"
+    Write-Host "  Screens with no text       : $($Result.UnboundScreens.Count)"
+    Write-Host "  Clipped or collapsed text  : $($Result.TextOverflow.Count)"
     Write-Host "  Unlabelled interactive     : $($Result.UnlabelledInteractive.Count)"
     Write-Host "  Actionable but not exposed : $($Result.ActionableNotExposed.Count)"
     Write-Host "  Dump failures              : $($Result.DumpFailures.Count)"
     Write-Host ''
+
+    if ($Result.AcceptedFindings.Count -gt 0) {
+        Write-Host "Accepted by the ignore list ($($Result.IgnoreListPath))" -ForegroundColor DarkGray
+        foreach ($a in $Result.AcceptedFindings) {
+            Write-Host "  [$($a.Id)] $($a.Kind) on $($a.Route)" -ForegroundColor DarkGray
+            Write-Host "      accepted by $($a.Owner): $($a.Reason)" -ForegroundColor DarkGray
+        }
+        Write-Host ''
+    }
 
     if ($Result.Interference.Count -gt 0) {
         Write-Host 'External interference detected on this device:' -ForegroundColor Yellow
@@ -65,7 +78,7 @@ function Write-ForgeSmokeConsoleReport {
     if ($Result.Failures.Count -gt 0) {
         Write-Host 'Failures' -ForegroundColor Red
         foreach ($f in $Result.Failures) {
-            Write-Host "  [$($f.Kind)] $($f.Route)" -ForegroundColor Red
+            Write-Host "  [$($f.Id)] $($f.Kind) on $($f.Route)" -ForegroundColor Red
             Write-Host "      $($f.Detail)"
         }
         Write-Host ''
@@ -135,12 +148,31 @@ function Write-ForgeSmokeMarkdownReport {
     Add-Line "| Navigations observed | $($Result.NavigationsObserved) |"
     Add-Line "| Process deaths | $($Result.ProcessDeaths.Count) |"
     Add-Line "| Fatal exceptions | $($Result.FatalExceptions.Count) |"
+    Add-Line "| Runtime exceptions (app survived) | $($Result.RuntimeExceptions.Count) |"
+    Add-Line "| Screens showing error text to the user | $($Result.VisibleErrors.Count) |"
     Add-Line "| Blank screens | $($Result.BlankScreens.Count) |"
     Add-Line "| Blank containers | $($Result.BlankContainers.Count) |"
+    Add-Line "| Screens with controls and no text | $($Result.UnboundScreens.Count) |"
+    Add-Line "| Clipped or collapsed labels | $($Result.TextOverflow.Count) |"
     Add-Line "| Unlabelled interactive elements | $($Result.UnlabelledInteractive.Count) |"
     Add-Line "| Actionable but not exposed to a11y | $($Result.ActionableNotExposed.Count) |"
     Add-Line "| Hierarchy dump failures | $($Result.DumpFailures.Count) |"
+    Add-Line "| Findings accepted by the ignore list | $($Result.AcceptedFindings.Count) |"
     Add-Line ''
+
+    if ($Result.AcceptedFindings.Count -gt 0) {
+        Add-Line '## Accepted findings'
+        Add-Line ''
+        Add-Line "These were found and are not failing the run, because ``$($Result.IgnoreListPath)`` accepts"
+        Add-Line 'them. They are still findings. Every entry has to name a reason and an owner.'
+        Add-Line ''
+        Add-Line '| Id | Kind | Route | Owner | Reason |'
+        Add-Line '|---|---|---|---|---|'
+        foreach ($a in $Result.AcceptedFindings) {
+            Add-Line "| ``$($a.Id)`` | $($a.Kind) | ``$($a.Route)`` | $($a.Owner) | $($a.Reason) |"
+        }
+        Add-Line ''
+    }
 
     if ($Result.Interference.Count -gt 0) {
         Add-Line '## External interference'
@@ -156,7 +188,7 @@ function Write-ForgeSmokeMarkdownReport {
         Add-Line '## Failures'
         Add-Line ''
         foreach ($f in $Result.Failures) {
-            Add-Line "### $($f.Kind) - $($f.Route)"
+            Add-Line "### ``$($f.Id)`` $($f.Kind) - $($f.Route)"
             Add-Line ''
             Add-Line $f.Detail
             Add-Line ''
@@ -166,6 +198,12 @@ function Write-ForgeSmokeMarkdownReport {
                 Add-Line '```'
                 Add-Line ''
             }
+            Add-Line 'To accept this finding, add an entry to the ignore list with a reason and an owner:'
+            Add-Line ''
+            Add-Line '```json'
+            Add-Line "{ `"id`": `"$($f.Id)`", `"reason`": `"why this is acceptable for now`", `"owner`": `"which area owns the fix`" }"
+            Add-Line '```'
+            Add-Line ''
         }
     }
 
@@ -180,6 +218,8 @@ function Write-ForgeSmokeMarkdownReport {
 
     Add-Line '## Route coverage'
     Add-Line ''
+    Add-Line "Reached $($Result.VisitedRoutes.Count) of $($Result.Routes.Count) declared routes. Route mode: ``$($Result.RouteMode)``."
+    Add-Line ''
     Add-Line '| Route | Kind | Page | Status | Detail |'
     Add-Line '|---|---|---|---|---|'
     foreach ($r in $Result.RouteReport) {
@@ -187,6 +227,26 @@ function Write-ForgeSmokeMarkdownReport {
         Add-Line "| ``$($r.Route)`` | $($r.Kind) | $page | $($r.Status) | $($r.Detail) |"
     }
     Add-Line ''
+
+    if ($Result.RouteAttempts.Count -gt 0) {
+        $failedWalks = @($Result.RouteAttempts | Where-Object { -not $_.Reached })
+        if ($failedWalks.Count -gt 0) {
+            Add-Line '## Routes the harness set out to reach and could not'
+            Add-Line ''
+            Add-Line 'Each of these had a path computed from the navigation graph in source. The walk was'
+            Add-Line 'attempted and stopped for the stated reason. None of them is counted as passing.'
+            Add-Line ''
+            foreach ($a in $failedWalks) {
+                # Deliberately not named $path: PowerShell variable names are case-insensitive, so
+                # a local $path silently overwrites this function's $Path parameter and the report
+                # then fails to write with "Cannot bind argument to parameter 'Path'" attributed to
+                # the caller. That cost two full device runs, whose output was lost at the end.
+                $walk = if ($a.Path -and @($a.Path).Count -gt 0) { ' via `' + (@($a.Path) -join ' -> ') + '`' } else { '' }
+                Add-Line "- **``$($a.Route)``**$walk - $($a.Reason)"
+            }
+            Add-Line ''
+        }
+    }
 
     if ($Result.UnidentifiedScreens.Count -gt 0) {
         Add-Line '## Screens the harness reached but could not name'
@@ -202,12 +262,18 @@ function Write-ForgeSmokeMarkdownReport {
 
     Add-Line '## Limits of this run'
     Add-Line ''
-    Add-Line '- Only screens reachable by tapping from the launch state were visited. Anything behind'
-    Add-Line '  a state the harness cannot create is listed above as unvisited.'
+    Add-Line '- Coverage is what the harness reached. Anything behind a state it could not create is'
+    Add-Line '  listed above as unvisited, with the reason. Unvisited is never folded into passed.'
     Add-Line '- The blank-content check reads the accessibility tree, not pixels. Content drawn'
     Add-Line '  without any accessible representation would be indistinguishable from a blank card.'
+    Add-Line '- Clipping is inferred from geometry. A label truncated to an ellipsis inside its own'
+    Add-Line '  bounds still reports the full string to the accessibility tree, so that shape is'
+    Add-Line '  invisible here.'
     Add-Line '- A screen that renders correctly but shows wrong data passes. This is a smoke harness,'
     Add-Line '  not an assertion suite.'
+    if ($Result.Aborted) {
+        Add-Line "- **This run aborted**: $($Result.AbortReason) Everything after that point was not checked."
+    }
     Add-Line ''
 
     $directory = Split-Path -Parent $Path

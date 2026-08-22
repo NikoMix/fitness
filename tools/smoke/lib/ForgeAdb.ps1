@@ -298,24 +298,34 @@ function Get-ForgeProcessDeathCause {
     foreach ($line in $LogLines) {
         if ($line -match "ActivityManager:\s+Force stopping $escaped\b.*from pid (\d+)") {
             return [pscustomobject]@{
-                Cause  = 'External'
-                Detail = $line.Trim()
-                Block  = @($line.Trim())
+                Cause     = 'External'
+                Detail    = $line.Trim()
+                Block     = @($line.Trim())
+                StopperId = $Matches[1]
             }
         }
         if ($line -match "ActivityManager:\s+Killing \d+:$escaped.*\(adj \d+\):\s*(.+)$") {
+            $why = $Matches[1].Trim()
+            $detail = $line.Trim()
+            if ($why -match 'installPackageLI') {
+                # Another work stream deploying its own build onto the shared emulator. Nothing
+                # about this is a Forge defect, and reading it as one has cost real time here.
+                $detail = "$detail  [another process is reinstalling the package]"
+            }
             return [pscustomobject]@{
-                Cause  = 'External'
-                Detail = $line.Trim()
-                Block  = @($line.Trim())
+                Cause     = 'External'
+                Detail    = $detail
+                Block     = @($line.Trim())
+                StopperId = $null
             }
         }
     }
 
     return [pscustomobject]@{
-        Cause  = 'Unknown'
-        Detail = 'The process is gone and logcat carries no fatal record and no force-stop.'
-        Block  = @()
+        Cause     = 'Unknown'
+        Detail    = 'The process is gone and logcat carries no fatal record and no force-stop.'
+        Block     = @()
+        StopperId = $null
     }
 }
 
@@ -386,6 +396,231 @@ function Get-ForgeUiDump {
     }
 
     return [pscustomobject]@{ Success = $false; Path = $null; Detail = 'exhausted attempts' }
+}
+
+function ConvertTo-ForgeLogcatTimestamp {
+    <#
+        Turns the device's own clock reading into the string `logcat -T` expects.
+
+        The device is asked for `%m-%dT%H:%M:%S.000` rather than `%m-%d %H:%M:%S.000` because
+        `adb shell` does not escape its remaining argv: it joins the arguments with spaces and
+        lets the device's shell re-tokenise them. A format string containing a space therefore
+        arrives as two arguments and toybox's date rejects it with
+        "date: Max 1 argument", leaving this function silently returning nothing.
+
+        That is not a degraded fallback, it is a dead detector: with no timestamp the caller has
+        no window to read and the runtime-exception check never runs at all. Keeping the format
+        space-free and putting the space back here is the fix that cannot regress by quoting.
+
+        A second is subtracted because `logcat -T` is inclusive and the tap that starts a step can
+        log before the clock is read.
+    #>
+    [CmdletBinding()]
+    param([AllowEmptyString()][AllowNull()][string]$DeviceDate)
+
+    $value = ([string]$DeviceDate).Trim()
+    $m = [regex]::Match($value, '^(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})$')
+    if (-not $m.Success) { return $null }
+
+    # logcat prints no year, so the year comes from the host. Wrapped because a device sitting on
+    # 29 February while the host is not in a leap year would otherwise throw and abort the run.
+    try {
+        $reference = [DateTime]::UtcNow
+        $stamp = [DateTime]::new($reference.Year, [int]$m.Groups[1].Value, [int]$m.Groups[2].Value,
+            [int]$m.Groups[3].Value, [int]$m.Groups[4].Value, [int]$m.Groups[5].Value)
+        return $stamp.AddSeconds(-1).ToString('MM-dd HH:mm:ss.000')
+    }
+    catch {
+        Write-Verbose "Could not build a logcat timestamp from '$value': $_"
+        return $null
+    }
+}
+
+function Get-ForgeDeviceLogTime {
+    <#
+        The device's own clock, formatted the way logcat -T expects.
+
+        Host time is not usable here: an emulator's clock drifts from the host's by seconds, and a
+        logcat window opened at the wrong second either misses the exception that was just thrown
+        or scoops up the previous screen's. Asking the device is the only correct answer.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial
+    )
+
+    $result = Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('shell', 'date', '+%m-%dT%H:%M:%S.000') -TimeoutSeconds 30
+    return ConvertTo-ForgeLogcatTimestamp -DeviceDate $result.StdOut
+}
+
+function Get-ForgeLogcatSince {
+    <#
+        Everything logged since a device timestamp. This is what makes "which screen was open when
+        this exception was thrown" answerable: the harness stamps the clock as it arrives on a
+        screen and reads the window when it leaves, so a finding names a route rather than a run.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial,
+        [string]$Since,
+        [int]$MaxLines = 4000
+    )
+
+    if (-not $Since) { return @(Get-ForgeLogcat -AdbPath $AdbPath -Serial $Serial -MaxLines $MaxLines) }
+
+    $result = Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('logcat', '-d', '-b', 'all', '-T', $Since) -TimeoutSeconds 90
+    $lines = @($result.StdOut -split "`r?`n" | Where-Object { $_ -ne '' })
+    if ($lines.Count -gt $MaxLines) { $lines = @($lines | Select-Object -Last $MaxLines) }
+    return @($lines)
+}
+
+function Find-ForgeRuntimeExceptions {
+    <#
+        Exceptions that did not kill the process.
+
+        Find-ForgeFatalExceptions only sees crashes. A MAUI app swallows far more than it dies
+        from: a task continuation that throws, a binding that fails, an EF query the SQLite
+        provider refuses to translate. All of those leave the app running and a screen wrong, and
+        all of them print. The workout P0 in this project was exactly that shape.
+
+        Only lines that name the Forge package or a Forge type are reported, because a shared
+        emulator's logcat is full of other people's stack traces.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowEmptyCollection()][string[]]$LogLines = @(),
+        [Parameter(Mandatory)][string]$PackageName,
+        [int]$ContextLines = 12
+    )
+
+    $patterns = @(
+        '(?<!\w)System\.\w*Exception\b'
+        '(?<!\w)Microsoft\.\w[\w.]*Exception\b'
+        '(?<!\w)SqliteException\b'
+        '(?<!\w)Forge\.\w[\w.]*Exception\b'
+        'Unhandled Exception'
+        'UnobservedTaskException'
+        'could not be translated'
+        'constraint failed'
+    )
+
+    # Noise that is not Forge's to answer for, even when the line mentions the package.
+    $benign = @(
+        'ExceptionHandled'
+        'ProcessException'
+        'MonoDroid.*Trace'
+        'chatty.*identical'
+    )
+
+    $findings = [System.Collections.Generic.List[psobject]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new()
+
+    for ($i = 0; $i -lt $LogLines.Count; $i++) {
+        $line = $LogLines[$i]
+
+        $matched = $false
+        foreach ($p in $patterns) {
+            if ($line -match $p) { $matched = $true; break }
+        }
+        if (-not $matched) { continue }
+
+        $skip = $false
+        foreach ($b in $benign) {
+            if ($line -match $b) { $skip = $true; break }
+        }
+        if ($skip) { continue }
+
+        $end = [Math]::Min($LogLines.Count - 1, $i + $ContextLines)
+        $block = @($LogLines[$i..$end])
+        $blockText = $block -join "`n"
+        if ($blockText -notmatch [regex]::Escape($PackageName) -and $blockText -notmatch '(?<!\w)Forge\.') { continue }
+
+        # Timestamps differ between two prints of the same fault; the message does not.
+        $signature = ($line -replace '^\d{2}-\d{2} [\d:.]+\s+\d+\s+\d+\s+', '').Trim()
+        if (-not $seen.Add($signature)) { continue }
+
+        $findings.Add([pscustomobject]@{
+                Line      = $line.Trim()
+                Signature = $signature
+                Block     = $block
+            })
+    }
+
+    return @($findings.ToArray())
+}
+
+function Get-ForgeProcessName {
+    <#
+        Turns a pid into something a reader can act on. When another work stream force-stops the
+        app, "from pid 9471" is unusable and "from pid 9471 (com.android.shell)" says immediately
+        that somebody ran an adb command against this emulator.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$ProcessId
+    )
+
+    $result = Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('shell', 'ps', '-p', $ProcessId, '-o', 'NAME=') -TimeoutSeconds 30
+    $value = ([string]$result.StdOut).Trim()
+    if ($value) { return $value }
+    return $null
+}
+
+function Get-ForgeFontScale {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial
+    )
+
+    $result = Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('shell', 'settings', 'get', 'system', 'font_scale') -TimeoutSeconds 30
+    $value = ([string]$result.StdOut).Trim()
+    if (-not $value -or $value -eq 'null') { return '1.0' }
+    return $value
+}
+
+function Set-ForgeFontScale {
+    <#
+        Changing font_scale sends a configuration change to every running app, which is itself
+        worth doing: a MAUI page that throws on configuration change is a real defect, and this is
+        the only thing in the harness that provokes one.
+
+        The caller is responsible for restoring the original value in a finally block. Leaving a
+        shared emulator at 1.3x would silently change what every other work stream sees.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$Scale,
+        [int]$SettleSeconds = 4
+    )
+
+    [void](Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('shell', 'settings', 'put', 'system', 'font_scale', $Scale) -TimeoutSeconds 30)
+    Start-Sleep -Seconds $SettleSeconds
+}
+
+function Invoke-ForgeSwipe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][int]$X1,
+        [Parameter(Mandatory)][int]$Y1,
+        [Parameter(Mandatory)][int]$X2,
+        [Parameter(Mandatory)][int]$Y2,
+        [int]$DurationMilliseconds = 350,
+        [double]$SettleSeconds = 1.2
+    )
+
+    [void](Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @(
+            'shell', 'input', 'swipe', "$X1", "$Y1", "$X2", "$Y2", "$DurationMilliseconds"
+        ) -TimeoutSeconds 30)
+    Start-Sleep -Seconds $SettleSeconds
 }
 
 function Invoke-ForgeTap {
