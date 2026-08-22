@@ -273,6 +273,13 @@ jobs:
       - name: Install MAUI Android workload
         run: dotnet workload install maui-android --skip-sign-check
 
+      # Forge.App was outside the format gate entirely - the largest project in the repository and
+      # the only one nothing checked. It could not go in the core job, which runs without the MAUI
+      # workload, so it lives here where the workload is already installed. Four violations had
+      # accumulated in it unnoticed before this was added.
+      - name: Format gate for the app head
+        run: dotnet format src/Forge.App/Forge.App.csproj --verify-no-changes --verbosity minimal
+
       - name: Build
         run: dotnet build src/Forge.App/Forge.App.csproj -f net10.0-android -c Release
 

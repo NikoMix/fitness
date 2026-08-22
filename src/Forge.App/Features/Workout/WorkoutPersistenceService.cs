@@ -7,6 +7,7 @@ using Forge.Domain.Workout;
 using Forge.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Forge.Core.Abstractions;
 
 namespace Forge.App.Features.Workout;
 
@@ -379,8 +380,8 @@ internal sealed class WorkoutPersistenceService(ForgeStartupService startup, ISe
         var scope = await ResolveScopeAsync(cancellationToken);
         if (!scope.IsResolved)
         {
-            throw new InvalidOperationException(
-                "Forge could not determine which profile this workout belongs to, so it was not started. Sets logged without an owner would not be visible to any profile.");
+            throw new ForgeUserFacingException(
+                "Forge could not tell which profile this workout belongs to, so it was not started. Choose a profile and try again.");
         }
 
         return scope;

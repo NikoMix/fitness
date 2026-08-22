@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Forge.App.Navigation;
 using Forge.Domain.Workout;
+using Forge.Core.Abstractions;
 
 namespace Forge.App.Features.Workout;
 
@@ -67,7 +68,9 @@ public sealed partial class WorkoutHistoryPageViewModel(
             // failure has to be shown as a message on a working screen rather than a crash that
             // takes away the user's only route to backup and export.
             IsEmpty = true;
-            SummaryText = $"Forge could not read your history: {ex.Message}";
+            SummaryText = ForgeUserFacingException.DescribeFor(
+                ex,
+                "Forge could not read your history just now. Nothing has been lost - pull to refresh or come back in a moment.");
         }
         finally
         {

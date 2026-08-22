@@ -7,6 +7,7 @@ using Forge.Domain.Measurement;
 using Forge.Domain.Training;
 using Forge.Domain.Workout;
 using Forge.Infrastructure.Content;
+using Forge.Core.Abstractions;
 
 namespace Forge.App.Features.Workout;
 
@@ -814,7 +815,9 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
             initializationTask = null;
             CanEditWorkout = false;
             HasRecoverableSession = true;
-            RecoveryMessage = $"Forge could not open your workout: {ex.Message}";
+            RecoveryMessage = ForgeUserFacingException.DescribeFor(
+                ex,
+                "Forge could not open your workout. Your logged sets are safe in the database; close this screen and try again.");
         }
         finally
         {
@@ -985,7 +988,9 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 
     private void OnPersistenceFailed(object? sender, Exception exception)
     {
-        RecoveryMessage = $"Workout save failed: {exception.Message}";
+        RecoveryMessage = ForgeUserFacingException.DescribeFor(
+            exception,
+            "Forge could not save that set. It is still on screen, so nothing has been lost - try again in a moment.");
         HasRecoverableSession = true;
     }
 
