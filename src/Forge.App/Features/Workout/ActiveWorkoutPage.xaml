@@ -96,40 +96,48 @@
                 </dx:DXBorder>
 
                 <dx:DXBorder Style="{StaticResource ElevatedCard}">
-                    <Grid ColumnDefinitions="140,*" ColumnSpacing="{StaticResource SpaceL}">
+                    <!--
+                        The rest controls sit below the ring rather than beside it. They were in the
+                        second column of a "140,*" grid, and six buttons plus two labels do not fit
+                        the width left over on a phone: the second row of buttons was laid out past
+                        the bottom of its own parent and reported negative height - [505,1907] to
+                        [986,1904] - so "-15", "Skip" and "Full screen" announced to a screen reader
+                        and drew nothing. Found by the smoke harness on a first run, because the
+                        active-workout screen was unreachable before that.
+                    -->
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                         <dx:RadialProgressBar Value="{Binding RestProgress}"
                                               StartAngle="-90"
                                               SweepAngle="360"
                                               HeightRequest="140"
                                               WidthRequest="140"
+                                              HorizontalOptions="Center"
                                               SemanticProperties.Description="Rest countdown progress" />
-                        <VerticalStackLayout Grid.Column="1" Spacing="{StaticResource SpaceS}" VerticalOptions="Center">
-                            <Label Text="{Binding RestRemainingText}" Style="{StaticResource MetricText}" />
-                            <Label Text="{Binding RestReasonText}" Style="{StaticResource CaptionText}" HorizontalTextAlignment="Center" />
-                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
-                                <dx:DXButton Content="+15"
-                                             SemanticProperties.Description="Add fifteen seconds of rest"
-                                             Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="15" />
-                                <dx:DXButton Grid.Column="1" Content="+30"
-                                             SemanticProperties.Description="Add thirty seconds of rest"
-                                             Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="30" />
-                                <dx:DXButton Grid.Column="2" Content="+60"
-                                             SemanticProperties.Description="Add sixty seconds of rest"
-                                             Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="60" />
-                            </Grid>
-                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
-                                <dx:DXButton Content="−15"
-                                             SemanticProperties.Description="Take fifteen seconds off the rest"
-                                             Style="{StaticResource TextButton}" Command="{Binding AdjustRestCommand}" CommandParameter="-15" />
-                                <dx:DXButton Grid.Column="1" Content="Skip"
-                                             SemanticProperties.Description="Skip the rest"
-                                             Style="{StaticResource TextButton}" Command="{Binding SkipRestCommand}" />
-                                <dx:DXButton Grid.Column="2" Content="Full screen"
-                                             SemanticProperties.Description="Open the full-screen rest timer"
-                                             Style="{StaticResource TextButton}" Command="{Binding OpenRestTimerCommand}" />
-                            </Grid>
-                        </VerticalStackLayout>
-                    </Grid>
+                        <Label Text="{Binding RestRemainingText}" Style="{StaticResource MetricText}" HorizontalTextAlignment="Center" />
+                        <Label Text="{Binding RestReasonText}" Style="{StaticResource CaptionText}" HorizontalTextAlignment="Center" />
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
+                            <dx:DXButton Content="+15"
+                                         SemanticProperties.Description="Add fifteen seconds of rest"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="15" />
+                            <dx:DXButton Grid.Column="1" Content="+30"
+                                         SemanticProperties.Description="Add thirty seconds of rest"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="30" />
+                            <dx:DXButton Grid.Column="2" Content="+60"
+                                         SemanticProperties.Description="Add sixty seconds of rest"
+                                         Style="{StaticResource SecondaryButton}" Command="{Binding AdjustRestCommand}" CommandParameter="60" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceS}">
+                            <dx:DXButton Content="−15"
+                                         SemanticProperties.Description="Take fifteen seconds off the rest"
+                                         Style="{StaticResource TextButton}" Command="{Binding AdjustRestCommand}" CommandParameter="-15" />
+                            <dx:DXButton Grid.Column="1" Content="Skip"
+                                         SemanticProperties.Description="Skip the rest"
+                                         Style="{StaticResource TextButton}" Command="{Binding SkipRestCommand}" />
+                            <dx:DXButton Grid.Column="2" Content="Full screen"
+                                         SemanticProperties.Description="Open the full-screen rest timer"
+                                         Style="{StaticResource TextButton}" Command="{Binding OpenRestTimerCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
                 </dx:DXBorder>
 
                 <dx:DXBorder Style="{StaticResource Card}">

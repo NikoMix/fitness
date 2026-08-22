@@ -142,9 +142,25 @@
         <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
     </Style>
 
+    <!--
+        Low-emphasis button.
+
+        Padding is set explicitly and deliberately. DevExpress's Text button type ships with no
+        padding of its own, and without it the content label is measured to zero height on Android:
+        the button still occupies its 48dp minimum and still announces its description, so a screen
+        reader reaches it and a sighted user sees nothing at all. The smoke harness caught six of
+        these on the active-workout screen - "Skip" and the rest-timer adjustments, reached
+        mid-set - and the style is used 57 times, so every low-emphasis action in the app was
+        affected.
+
+        The two grids of rest-timer buttons made the diagnosis for free: +15/+30/+60 in Outlined
+        and -15/Skip/Full screen in Text sit in adjacent, structurally identical grids, and only
+        the Text ones collapsed.
+    -->
     <Style x:Key="TextButton" TargetType="dx:DXButton">
         <Setter Property="ButtonType" Value="Text" />
         <Setter Property="MinimumHeightRequest" Value="{StaticResource TouchTargetMin}" />
+        <Setter Property="Padding" Value="{StaticResource TextButtonPadding}" />
     </Style>
 
     <!-- ===================== Pages and lists ===================== -->

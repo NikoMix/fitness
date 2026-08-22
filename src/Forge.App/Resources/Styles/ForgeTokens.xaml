@@ -48,6 +48,13 @@
              Tablet="20" />
     <Thickness x:Key="ListRowPadding">16,12</Thickness>
 
+    <!--
+        Padding for the low-emphasis button. Horizontal room so a label is not flush against the
+        touch target's edge, vertical room because DevExpress's Text button type supplies none and
+        the content collapses to zero height without it.
+    -->
+    <Thickness x:Key="TextButtonPadding">12,8</Thickness>
+
     <!-- Corner radii. Pill is deliberately large so it stays fully rounded at any height. -->
     <sys:Double x:Key="RadiusS">8</sys:Double>
     <sys:Double x:Key="RadiusM">12</sys:Double>
