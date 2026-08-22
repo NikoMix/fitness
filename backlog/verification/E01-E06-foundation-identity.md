@@ -125,7 +125,15 @@ for any metric row, so `S06.01.04` has nothing to verify.
 runs after `AddForgeShell()`, so the Onboarding binding wins — which is the intended one, by
 luck of ordering rather than by declaration. This is the `IDataErasureService` double-binding
 pattern: a second feature registering `AppShell` later would silently remove first-run routing
-with no build or test failure.
+with no build or test failure. Had the order ever changed, the app would have started with a
+shell that never routes a first run — and **first run is already the path nobody on this project
+could execute for four waves**.
+
+> **Fixed upstream in `afca838`.** The dead line was removed and
+> `tools/ci/Test-ServiceRegistrations.ps1` was extended to cover plain concrete registrations and
+> factory lambdas. The pre-existing guard matched only `AddSingleton<IFoo, Bar>()`, so this shape
+> slipped straight through it — a guard written from one example covers about one example. The
+> finding is retained here because the verdict describes the code as it was verified.
 
 ### Whole feature missing
 
@@ -319,9 +327,10 @@ transient, line 32 registers the store singleton — and
 `Composition/InfrastructureRegistration.cs:46-50` registers `ForgeDbContext` transient with a
 documented rationale, with `IDataSessionFactory` singleton on lines 57-61.
 
-**Gap.** The double `AppShell` binding described above is a live counter-example to AC1. AC2
-(every dependency resolves) needs a container validation pass or a device launch and has no
-test project that could catch it.
+**Gap.** The double `AppShell` binding described above is a live counter-example to AC1 (since
+fixed upstream in `afca838`, together with an extension to the CI registration guard that had
+not previously matched this shape). AC2 (every dependency resolves) needs a container validation
+pass or a device launch and has no test project that could catch it.
 
 ### F01.02 Build the navigation shell and routing — PARTIAL
 
@@ -881,9 +890,15 @@ touches only a preference key and cannot create duplicate rows.
 
 **Gaps.** `REQ1`'s **"profile-level" scoping is unmet** — the unit system is one global key, so
 on a shared device every profile shares it, which is inconsistent with E05's multi-profile model.
-`REQ4` and `REQ5` could only be partly grounded: several view models build display strings
-directly rather than through `IUnitFormatter`, and I did not audit every editable control for a
-unit label. The 100 ms bounds are ungroundable.
+`REQ4` is **unmet, confirmed by follow-up audit**: only two view models in the whole app consume
+the unit layer, against **48 hard-coded unit strings across 19 files**. `AC3` fails on precisely
+the pair it names — Profile formats through `IUnitFormatter`, Progress hard-codes kilograms at
+`BodyMetricsViewModel.cs:67,94,135` and `ProgressViewModel.cs:134,139,153`. `REQ5` is trivially
+true where labels are hard-coded, but for the wrong reason. The 100 ms bounds remain ungroundable.
+
+> **The unit preference is real, the formatter is real, and almost nothing calls it.** The
+> plate calculator is the sharpest instance: it carries genuine metric *and* imperial plate
+> inventories and then prints the result with a hard-coded `kg` eight times.
 
 #### S06.01.03 Calculate BMR and TDEE with visible assumptions — NOT-DONE
 
@@ -920,18 +935,19 @@ refusal genuinely blocks — `SaveSetupAsync` writes nothing when `IsAccepted` i
 "focused" alternative has no control to focus. `REQ5` half unmet: the signposts are hard-coded
 English sentences with **no link, resource id or per-market configuration**, and the safety copy
 carries no "not medical advice" statement (that lives on a separate disclaimer page the refusal
-does not link to).
+does not link to). `AC2` is **met** — see the closed caveat above.
 
 #### S06.02.03 Surface disordered-eating signposts without diagnosis — PARTIAL
 
 Copy is non-diagnostic throughout — thresholds are described, never the person. `REQ3` is met
 *structurally*: `SaveSetupAsync` refuses on `IsAccepted == false`, so dismissing the message
 cannot unblock the save (`AC2`). Unsafe inputs are retained exactly as typed, and
-`RefusedReassurance` says so.
+`RefusedReassurance` says so. `AC1` and `AC3` are **met** — the signpost genuinely renders (see
+the closed caveat above).
 
-**Gap.** `REQ2` unmet: **no configurable professional-help resource placeholder** — the signposts
-are literals inside `GoalSafetyEvaluator` (lines 58, 75, 93). `GoalSafetyOptions` makes
-thresholds configurable but not support resources. That matters beyond tidiness: a
+**Gap — now the only one.** `REQ2`: **no configurable professional-help resource placeholder** —
+the signposts are literals inside `GoalSafetyEvaluator` (lines 58, 75, 93). `GoalSafetyOptions`
+makes thresholds configurable but not support resources. That matters beyond tidiness: a
 disordered-eating signpost that cannot be localised or pointed at a country-appropriate service
 is not deployable outside en-GB/en-US, and E24 has no key to translate.
 
@@ -1063,14 +1079,25 @@ rather than credited or failed, because settling them needs execution or a devic
   as supporting evidence rather than as a pass.
 
 Two coverage caveats I want to be explicit about, because they are the kind of thing this
-exercise exists to catch:
+exercise exists to catch — **both have since been closed, and one of them resolved against the
+code**:
 
-1. **`S06.01.02 REQ4`/`REQ5`** — I confirmed `IUnitFormatter` exists and is used, but did **not**
-   audit every profile / progress / workout-load / goal surface for whether it formats through
-   the formatter or builds a string from a raw decimal. Several view models do the latter. A
-   targeted grep for `ToString("F` and interpolated decimals across the feature folders would
-   settle it.
-2. **`S06.02.02 AC2` / `S06.02.03 AC1`/`AC3`** — I verified that `GoalSafetyNarration.Signposts`
-   is populated for every refusal path, but did not check control-by-control that
-   `GoalWizardPage.xaml` renders `SignpostText` in every blocked state. Reading the wizard's
-   safety panel bindings would settle it.
+1. ~~**`S06.01.02 REQ4`/`REQ5`**~~ — **CLOSED, and worse than the hedge suggested.** Only **two
+   view models in the entire application** consume the unit layer: `ProfileViewModel` and
+   `UnitsSettingsPageViewModel`. A scan of `src/Forge.App` for interpolated unit suffixes returns
+   **48 hard-coded `kg`/`cm`/`kcal`/`km` strings across 19 files** — 9 in `InsightsDataService`,
+   8 in `PlateCalculatorPageViewModel`, 5 in `ActiveWorkoutPageViewModel`. `AC3` names Profile and
+   Progress specifically, and it fails on exactly that pair: Profile formats through
+   `IUnitFormatter`; `BodyMetricsViewModel.cs:67,94,135` and `ProgressViewModel.cs:134,139,153`
+   hard-code kilograms. **A user who selects imperial sees pounds on the profile screen and
+   kilograms everywhere else** — mid-set, in personal records, in coaching. `AC3` is now recorded
+   as unmet outright rather than ungrounded.
+2. ~~**`S06.02.02 AC2` / `S06.02.03 AC1`/`AC3`**~~ — **CLOSED, met.**
+   `GoalWizardPage.xaml:185-190` hosts a single `AdvisoryPanel` binding
+   `Signpost="{Binding SafetySignpost}"`, and `GoalWizardViewModel.cs:517` sets
+   `HasSafetyAdvisory = narration.HasContent && (narration.BlocksSaving || IsReviewStep)`, so
+   every blocking state shows the panel on every step and there is only one panel to keep in
+   sync. `AdvisoryPanel.xaml` is a `ContentView` binding through `x:Reference Root` — **not** the
+   `ContentPresenter` trap — and `AdvisoryPanel.xaml.cs:100-103` hides each label when its text is
+   empty rather than reserving a blank slab. Those criteria are no longer gaps; both stories
+   remain `PARTIAL` on other grounds (`S06.02.02` on `REQ3`/`AC3`, `S06.02.03` on `REQ2`).
