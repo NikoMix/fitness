@@ -14,6 +14,18 @@ The Android app requests these exact pack names:
 
 Keep pack names stable. They are persisted in UI state and must match the names in the Android App Bundle.
 
+## Asset file names
+
+The app derives the file name it asks a pack for from the exercise name: lower case, apostrophes
+removed, every other non-alphanumeric run collapsed to a single `-`, then `.mp4`. `Bodyweight Squat`
+becomes `bodyweight-squat.mp4`.
+
+Every tier must publish the same names, because a device plays whichever tier it holds and the app
+derives one name for all of them. A mismatch is undetectable at runtime - the asset is simply not
+found and the screen reports no video, exactly as it would for a pack that was never downloaded.
+`MediaAssetKeys.FileNameForExercise` and `MediaAssetKeysTests` are the definition. See
+[exercise-video-resolution.md](exercise-video-resolution.md).
+
 ## Building the packs
 
 1. Encode the same exercise catalogue into each tier. The tiers differ only by bitrate/resolution.

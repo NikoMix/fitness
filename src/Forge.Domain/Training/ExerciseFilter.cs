@@ -64,6 +64,16 @@ public sealed class ExerciseFilter
     /// <summary>A filter that accepts every exercise.</summary>
     public static ExerciseFilter None { get; } = new();
 
+    /// <summary>
+    /// The body areas Forge can map to movement patterns, in their canonical spelling.
+    /// </summary>
+    /// <remarks>
+    /// Published so that whatever turns a user's free text into injuries reads its vocabulary from
+    /// the same place the exclusions are defined. A second, hand-copied list would drift, and the
+    /// way it would fail is by quietly recognising nothing.
+    /// </remarks>
+    public static IReadOnlyCollection<string> RecognisedInjuryAreas { get; } = InjuryMovementExclusions.Keys.ToArray();
+
     /// <summary>Muscles to include, matched against primary and secondary muscles.</summary>
     public IReadOnlySet<string> Muscles { get; init; } = NoStrings;
 

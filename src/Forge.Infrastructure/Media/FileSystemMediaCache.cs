@@ -4,7 +4,24 @@ using Forge.Core.Abstractions.Media;
 
 namespace Forge.Infrastructure.Media;
 
-/// <summary>Reclaimable on-device cache for downloaded exercise media.</summary>
+/// <summary>
+/// Reclaimable on-device cache for locally stored media.
+/// </summary>
+/// <remarks>
+/// <para>
+/// This is storage accounting, not a source of exercise video. Settings measures and reclaims local
+/// media through <c>GetStorageUsedAsync</c>, <c>GetEntriesAsync</c> and <c>EvictAsync</c>, and those
+/// are the only members with a caller in the app.
+/// </para>
+/// <para>
+/// Do not route exercise demonstrations through this again. It used to be what
+/// <see cref="ExerciseMediaCatalogue"/> read, while the video library downloaded packs into an
+/// entirely different store, so the cache was permanently empty and no exercise ever had a video.
+/// <c>DownloadAsync</c> also takes an arbitrary source URI, and satisfying it would mean Forge
+/// hosting and paying for video bandwidth - the thing store-hosted asset packs exist to avoid. See
+/// docs/media/exercise-video-resolution.md.
+/// </para>
+/// </remarks>
 public sealed class FileSystemMediaCache : IMediaCache, IDisposable
 {
     public const long DefaultStorageCapBytes = 80L * 1024L * 1024L;

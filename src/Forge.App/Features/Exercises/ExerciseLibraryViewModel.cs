@@ -40,6 +40,7 @@ public sealed partial class ExerciseLibraryViewModel(
     private CancellationTokenSource filterCancellation = new();
     private ExerciseSearchIndex index = new(Array.Empty<Exercise>());
     private List<Exercise> catalogue = [];
+    private MovementLimitationDeclaration limitations = MovementLimitationDeclaration.Empty;
     private Guid? editingExerciseId;
     private bool isDisposed;
 
@@ -121,6 +122,40 @@ public sealed partial class ExerciseLibraryViewModel(
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FiltersButtonText))]
     private bool areFiltersVisible;
+
+    /// <summary>
+    /// Whether the declared movement limitations are narrowing the list right now.
+    /// </summary>
+    /// <remarks>
+    /// On by default, because someone who typed an injury into setup and was then shown every
+    /// movement anyway has been ignored - that is the state this replaced. It is a plain toggle
+    /// rather than a setting buried elsewhere, because a list that quietly hides things is worse
+    /// than no filter at all, and because the person is the only one who knows what they can
+    /// actually do today.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LimitationFilterButtonText))]
+    private bool isLimitationFilterActive = true;
+
+    /// <summary>Whether the profile declared anything at all about movement limitations.</summary>
+    [ObservableProperty]
+    private bool hasDeclaredLimitations;
+
+    /// <summary>What the limitation filter is doing, and what it does not know.</summary>
+    [ObservableProperty]
+    private string limitationSummary = string.Empty;
+
+    /// <summary>Anything the user wrote that Forge could not read, quoted back to them.</summary>
+    [ObservableProperty]
+    private string limitationUnreadNotice = string.Empty;
+
+    /// <summary>Whether part of the declaration was left unread.</summary>
+    [ObservableProperty]
+    private bool hasUnreadLimitations;
+
+    /// <summary>Whether there is a recognised area to toggle the filter over.</summary>
+    [ObservableProperty]
+    private bool canToggleLimitationFilter;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveExerciseCommand))]
@@ -216,7 +251,17 @@ public sealed partial class ExerciseLibraryViewModel(
     /// <summary>The label on the filter-panel toggle.</summary>
     public string FiltersButtonText => AreFiltersVisible ? "Hide filters" : "Filters";
 
+    /// <summary>The label on the movement-limitation toggle.</summary>
+    public string LimitationFilterButtonText =>
+        IsLimitationFilterActive ? "Show every exercise" : "Use my limitations";
+
     partial void OnSearchTextChanged(string? value) => _ = QueueFilterAsync();
+
+    partial void OnIsLimitationFilterActiveChanged(bool value)
+    {
+        RefreshLimitationCopy();
+        _ = QueueFilterAsync();
+    }
 
     /// <summary>Loads the library using the view model's own lifetime token.</summary>
     /// <returns>A task that completes when the library is loaded and filtered.</returns>
@@ -232,7 +277,7 @@ public sealed partial class ExerciseLibraryViewModel(
         ErrorMessage = string.Empty;
 
         var result = await Task.Run(
-            async () => await exerciseDataStore.ListAsync(cancellationToken).ConfigureAwait(false),
+            async () => await exerciseDataStore.LoadLibraryAsync(cancellationToken).ConfigureAwait(false),
             cancellationToken).ConfigureAwait(false);
 
         if (!result.Succeeded || result.Value is null)
@@ -240,8 +285,10 @@ public sealed partial class ExerciseLibraryViewModel(
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 catalogue = [];
+                limitations = MovementLimitationDeclaration.Empty;
                 index = new ExerciseSearchIndex(catalogue);
                 BuildChips();
+                RefreshLimitationCopy();
                 Exercises.Clear();
                 CountSummary = "Exercise library unavailable";
                 ErrorMessage = result.ErrorMessage ?? "The local exercise database is unavailable.";
@@ -253,14 +300,17 @@ public sealed partial class ExerciseLibraryViewModel(
             return;
         }
 
-        var loaded = result.Value;
+        var loaded = result.Value.Exercises;
+        var declared = result.Value.Limitations;
         var rebuilt = await Task.Run(() => new ExerciseSearchIndex(loaded), cancellationToken).ConfigureAwait(false);
 
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
             catalogue = [.. loaded];
+            limitations = declared;
             index = rebuilt;
             BuildChips();
+            RefreshLimitationCopy();
             IsLoading = false;
         });
 
@@ -532,7 +582,66 @@ public sealed partial class ExerciseLibraryViewModel(
         equipment: Selected<string>(EquipmentChips),
         patterns: Selected<MovementPattern>(PatternChips),
         difficulties: Selected<ExerciseDifficulty>(DifficultyChips),
-        scope: ScopeChips.FirstOrDefault(chip => chip.IsSelected)?.Value as ExerciseScope? ?? ExerciseScope.All);
+        scope: ScopeChips.FirstOrDefault(chip => chip.IsSelected)?.Value as ExerciseScope? ?? ExerciseScope.All,
+        injuries: IsLimitationFilterActive ? limitations.RecognisedAreas : null);
+
+    /// <summary>
+    /// Says plainly what the limitation filter is doing, and admits what it did not understand.
+    /// </summary>
+    /// <remarks>
+    /// Filtering a library on health grounds is a claim, so the copy is careful not to make a
+    /// larger one than Forge can support. It names the areas it read, names the whole patterns it
+    /// removed, states that it cannot assess an injury, and quotes back anything it could not
+    /// place. Silence on that last part would be the dishonest option: someone would have declared
+    /// a limitation, seen a filtered list, and reasonably concluded it had been accounted for.
+    /// </remarks>
+    private void RefreshLimitationCopy()
+    {
+        HasDeclaredLimitations = !limitations.IsEmpty;
+        CanToggleLimitationFilter = limitations.HasRecognisedAreas;
+        HasUnreadLimitations = limitations.HasUninterpretedPhrases;
+        LimitationUnreadNotice = limitations.HasUninterpretedPhrases
+            ? $"Forge could not interpret {Quote(limitations.UninterpretedPhrases)}, so nothing has been left out for that. Judge those movements yourself."
+            : string.Empty;
+
+        if (!limitations.HasRecognisedAreas)
+        {
+            LimitationSummary = limitations.HasUninterpretedPhrases
+                ? "You told Forge about a movement limitation, but none of it matched an area Forge knows how to work around. Every exercise is being shown."
+                : string.Empty;
+            return;
+        }
+
+        var areas = Join(limitations.RecognisedAreas);
+        if (!IsLimitationFilterActive)
+        {
+            LimitationSummary = $"Filtering by your declared limitations is off, so every exercise is shown, including movements linked to {areas}.";
+            return;
+        }
+
+        var patterns = Join(limitations.ExcludedMovements
+            .Select(pattern => pattern.ToDisplayName())
+            .OrderBy(name => name, StringComparer.CurrentCulture)
+            .ToArray());
+
+        LimitationSummary =
+            $"You told Forge about {areas}, so it is leaving out whole movement patterns linked to that: {patterns}. "
+            + "This is a blunt filter, not medical advice. Forge cannot assess an injury and does not know which movements are safe for you, so it removes a pattern rather than guessing which movements inside it you could tolerate. Nothing is blocked, and you can show everything at any time.";
+    }
+
+    private static string Quote(IReadOnlyList<string> values) =>
+        Join([.. values.Select(value => $"\u201c{value}\u201d")]);
+
+    private static string Join(IReadOnlyList<string> values) => values.Count switch
+    {
+        0 => string.Empty,
+        1 => values[0],
+        2 => $"{values[0]} and {values[1]}",
+        _ => $"{string.Join(", ", values.Take(values.Count - 1))} and {values[^1]}"
+    };
+
+    [RelayCommand]
+    private void ToggleLimitationFilter() => IsLimitationFilterActive = !IsLimitationFilterActive;
 
     private static List<T> Selected<T>(IEnumerable<FilterChipViewModel> chips)
         => [.. chips.Where(chip => chip.IsSelected).Select(chip => chip.Value).OfType<T>()];

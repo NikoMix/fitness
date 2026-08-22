@@ -14,6 +14,12 @@ The app knows exactly three ODR tags, one per quality tier:
 
 Keep the file names stable across tiers so callers can resolve the same `assetName` from the selected pack. If an exercise video is named `squat.mp4`, every tier should publish an asset with that logical name.
 
+The exact name is derived by `MediaAssetKeys.FileNameForExercise`: the exercise name lower-cased,
+apostrophes removed, every other non-alphanumeric run collapsed to a single `-`, then `.mp4`. So
+`Bodyweight Squat` is published as `bodyweight-squat.mp4`. See
+[exercise-video-resolution.md](exercise-video-resolution.md) for why this is a contract rather than
+an implementation detail.
+
 ## Tag resources in the MAUI/iOS build
 
 .NET for iOS enables ODR by default for iOS targets. The assets still need `ResourceTags` metadata so the Apple build tools can put them into asset packs. Put the real videos under an iOS-only folder such as `src/Forge.App/Platforms/iOS/Resources/OnDemand/<tier>/`, then add iOS-only `BundleResource` items in the app project or a shared props file owned by the release/build agent:
