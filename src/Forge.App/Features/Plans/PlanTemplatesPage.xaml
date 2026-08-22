@@ -100,7 +100,7 @@
                                      Command="{Binding AdoptTemplateCommand}"
                                      CommandParameter="{Binding SelectedTemplate}" />
 
-                        <Label Text="The week it produces" Style="{StaticResource SectionHeaderText}" />
+                        <Label Text="The week it produces" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding SelectedTemplate.Days}"
                                              Spacing="{StaticResource SpaceS}">
                             <BindableLayout.ItemTemplate>

@@ -50,6 +50,7 @@
                     </dx:DXBorder>
                     <dx:DXButton Content="{Binding FavouriteText}"
                                  SemanticProperties.Description="{Binding FavouriteText}"
+                                 SemanticProperties.Hint="Adds or removes this exercise from your favourites"
                                  Style="{StaticResource SecondaryButton}"
                                  Command="{Binding ToggleFavouriteCommand}" />
                     <!--

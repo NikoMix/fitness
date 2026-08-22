@@ -18,8 +18,16 @@
             <controls:ForgeCard Title="Format">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
-                        <CheckBox IsChecked="{Binding ExportJson}" />
-                        <Label Text="JSON archive (off = CSV zip)" Style="{StaticResource BodyText}" VerticalOptions="Center" />
+                        <!--
+                            The tick box carries the description because it is what a screen
+                            reader stops on. The label beside it is left out of the tree so the
+                            same words are not announced twice as two separate items.
+                        -->
+                        <CheckBox IsChecked="{Binding ExportJson}"
+                                  SemanticProperties.Description="JSON archive"
+                                  SemanticProperties.Hint="Unticked exports a CSV zip instead" />
+                        <Label Text="JSON archive (off = CSV zip)" Style="{StaticResource BodyText}" VerticalOptions="Center"
+                               AutomationProperties.IsInAccessibleTree="False" />
                     </HorizontalStackLayout>
                 </VerticalStackLayout>
             </controls:ForgeCard>
@@ -27,16 +35,22 @@
             <controls:ForgeCard Title="Data types">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
-                        <CheckBox IsChecked="{Binding IncludeTraining}" />
-                        <Label Text="Training" Style="{StaticResource BodyText}" VerticalOptions="Center" />
+                        <CheckBox IsChecked="{Binding IncludeTraining}"
+                                  SemanticProperties.Description="Include training" />
+                        <Label Text="Training" Style="{StaticResource BodyText}" VerticalOptions="Center"
+                               AutomationProperties.IsInAccessibleTree="False" />
                     </HorizontalStackLayout>
                     <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
-                        <CheckBox IsChecked="{Binding IncludeNutrition}" />
-                        <Label Text="Nutrition and hydration" Style="{StaticResource BodyText}" VerticalOptions="Center" />
+                        <CheckBox IsChecked="{Binding IncludeNutrition}"
+                                  SemanticProperties.Description="Include nutrition and hydration" />
+                        <Label Text="Nutrition and hydration" Style="{StaticResource BodyText}" VerticalOptions="Center"
+                               AutomationProperties.IsInAccessibleTree="False" />
                     </HorizontalStackLayout>
                     <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
-                        <CheckBox IsChecked="{Binding IncludeProfile}" />
-                        <Label Text="Profile and body metrics" Style="{StaticResource BodyText}" VerticalOptions="Center" />
+                        <CheckBox IsChecked="{Binding IncludeProfile}"
+                                  SemanticProperties.Description="Include profile and body metrics" />
+                        <Label Text="Profile and body metrics" Style="{StaticResource BodyText}" VerticalOptions="Center"
+                               AutomationProperties.IsInAccessibleTree="False" />
                     </HorizontalStackLayout>
                 </VerticalStackLayout>
             </controls:ForgeCard>
@@ -44,18 +58,26 @@
             <controls:ForgeCard Title="Date range">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
-                        <CheckBox IsChecked="{Binding LimitDateRange}" />
-                        <Label Text="Limit history by date" Style="{StaticResource BodyText}" VerticalOptions="Center" />
+                        <CheckBox IsChecked="{Binding LimitDateRange}"
+                                  SemanticProperties.Description="Limit history by date" />
+                        <Label Text="Limit history by date" Style="{StaticResource BodyText}" VerticalOptions="Center"
+                               AutomationProperties.IsInAccessibleTree="False" />
                     </HorizontalStackLayout>
-                    <DatePicker Date="{Binding FromDate}" />
-                    <DatePicker Date="{Binding ToDate}" />
+                    <DatePicker Date="{Binding FromDate}"
+                                MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                SemanticProperties.Description="Export from date" />
+                    <DatePicker Date="{Binding ToDate}"
+                                MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                SemanticProperties.Description="Export to date" />
                 </VerticalStackLayout>
             </controls:ForgeCard>
 
-            <ProgressBar Progress="{Binding Progress}" />
+            <ProgressBar Progress="{Binding Progress}"
+                         SemanticProperties.Description="Export progress" />
             <Label Text="{Binding Status}" Style="{StaticResource BodyText}" />
             <dx:DXButton Content="Export and share"
                          SemanticProperties.Description="Export and share"
+                         SemanticProperties.Hint="Writes the archive and opens the system share sheet"
                          Style="{StaticResource PrimaryButton}"
                          Command="{Binding ExportCommand}" />
         </VerticalStackLayout>

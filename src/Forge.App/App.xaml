@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.App">
     <Application.Resources>
         <ResourceDictionary>
@@ -22,6 +23,15 @@
                 <ResourceDictionary Source="Resources/Styles/ForgeAdaptive.xaml" />
                 <ResourceDictionary Source="Resources/Styles/ForgeMotion.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!--
+                A list that is given a height keeps that height when it empties, leaving a
+                container with nothing to draw and nothing for a screen reader to announce.
+                Sections bind their visibility through these so an empty list takes its heading
+                with it instead of leaving a title over a void.
+            -->
+            <controls:CollectionHasItemsConverter x:Key="HasItems" />
+            <controls:CollectionHasItemsConverter x:Key="HasNoItems" Invert="True" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

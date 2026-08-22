@@ -12,6 +12,9 @@
                    SemanticProperties.HeadingLevel="Level1" />
             <Label Text="Search settings" Style="{StaticResource CaptionText}" />
             <dx:TextEdit Text="{Binding SearchText}"
+                         PlaceholderText="Search settings"
+                         SemanticProperties.Description="Search settings"
+                         SemanticProperties.Hint="Filters the list below as you type"
                          Style="{StaticResource ForgeTextEdit}" />
         </VerticalStackLayout>
 
@@ -19,7 +22,9 @@
                              ItemsSource="{Binding FilteredItems}">
             <dx:DXCollectionView.ItemTemplate>
                 <DataTemplate>
-                    <dx:DXBorder Style="{StaticResource ListRow}">
+                    <dx:DXBorder Style="{StaticResource ListRow}"
+                                 SemanticProperties.Description="{Binding Title}"
+                                 SemanticProperties.Hint="{Binding Description}">
                         <dx:DXBorder.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding NavigateCommand}" />
                         </dx:DXBorder.GestureRecognizers>
@@ -32,10 +37,16 @@
                                 <Label Text="{Binding Description}"
                                        Style="{StaticResource SecondaryText}" />
                             </VerticalStackLayout>
+                            <!--
+                                Decorative. The chevron repeats what the row's own description
+                                already says, and a screen reader announcing a lone "›" between
+                                every setting is noise rather than information.
+                            -->
                             <Label Grid.Column="1"
                                    Text="›"
                                    Style="{StaticResource TitleText}"
-                                   VerticalOptions="Center" />
+                                   VerticalOptions="Center"
+                                   AutomationProperties.IsInAccessibleTree="False" />
                         </Grid>
                     </dx:DXBorder>
                 </DataTemplate>

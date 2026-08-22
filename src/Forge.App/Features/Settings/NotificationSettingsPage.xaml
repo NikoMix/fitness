@@ -15,23 +15,45 @@
 
             <dx:DXBorder Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <CheckBox IsChecked="{Binding WorkoutRemindersEnabled}" />
-                    <Label Text="Workout reminders" Style="{StaticResource TitleText}" />
-                    <CheckBox IsChecked="{Binding MealRemindersEnabled}" />
-                    <Label Text="Meal reminders" Style="{StaticResource TitleText}" />
-                    <CheckBox IsChecked="{Binding HydrationRemindersEnabled}" />
-                    <Label Text="Hydration reminders" Style="{StaticResource TitleText}" />
+                    <!--
+                        Each tick box carries its own description because it is the control a
+                        screen reader stops on; the visible label beside it would otherwise be
+                        announced as a second, separate item saying the same thing.
+                    -->
+                    <CheckBox IsChecked="{Binding WorkoutRemindersEnabled}"
+                              SemanticProperties.Description="Workout reminders" />
+                    <Label Text="Workout reminders" Style="{StaticResource TitleText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
+                    <CheckBox IsChecked="{Binding MealRemindersEnabled}"
+                              SemanticProperties.Description="Meal reminders" />
+                    <Label Text="Meal reminders" Style="{StaticResource TitleText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
+                    <CheckBox IsChecked="{Binding HydrationRemindersEnabled}"
+                              SemanticProperties.Description="Hydration reminders" />
+                    <Label Text="Hydration reminders" Style="{StaticResource TitleText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
                 </VerticalStackLayout>
             </dx:DXBorder>
 
             <dx:DXBorder Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <CheckBox IsChecked="{Binding QuietHoursEnabled}" />
-                    <Label Text="Quiet hours" Style="{StaticResource TitleText}" />
-                    <Label Text="Start, for example 22:00" Style="{StaticResource CaptionText}" />
-                    <dx:TextEdit Text="{Binding QuietHoursStart}" Style="{StaticResource ForgeTextEdit}" />
-                    <Label Text="End, for example 07:00" Style="{StaticResource CaptionText}" />
-                    <dx:TextEdit Text="{Binding QuietHoursEnd}" Style="{StaticResource ForgeTextEdit}" />
+                    <CheckBox IsChecked="{Binding QuietHoursEnabled}"
+                              SemanticProperties.Description="Quiet hours"
+                              SemanticProperties.Hint="Suppresses reminders between the times below" />
+                    <Label Text="Quiet hours" Style="{StaticResource TitleText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
+                    <Label Text="Start, for example 22:00" Style="{StaticResource CaptionText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
+                    <dx:TextEdit Text="{Binding QuietHoursStart}"
+                                 SemanticProperties.Description="Quiet hours start time"
+                                 SemanticProperties.Hint="Twenty-four hour time, for example 22:00"
+                                 Style="{StaticResource ForgeTextEdit}" />
+                    <Label Text="End, for example 07:00" Style="{StaticResource CaptionText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
+                    <dx:TextEdit Text="{Binding QuietHoursEnd}"
+                                 SemanticProperties.Description="Quiet hours end time"
+                                 SemanticProperties.Hint="Twenty-four hour time, for example 07:00"
+                                 Style="{StaticResource ForgeTextEdit}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
         </VerticalStackLayout>

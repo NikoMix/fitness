@@ -157,7 +157,7 @@
 
             <Label Text="{Binding Summary}" Style="{StaticResource SecondaryText}" />
 
-            <Label Text="Explore" Style="{StaticResource SectionHeaderText}" />
+            <Label Text="Explore" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
             <VerticalStackLayout Spacing="{StaticResource SpaceS}"
                                  BindableLayout.ItemsSource="{Binding Destinations}">
                 <BindableLayout.ItemTemplate>

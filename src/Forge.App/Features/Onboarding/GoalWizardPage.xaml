@@ -41,7 +41,14 @@
                                      PlaceholderText="Optional"
                                      SemanticProperties.Description="Display name"
                                      Style="{StaticResource ForgeTextEdit}" />
-                        <Label Text="Primary goal" Style="{StaticResource SecondaryText}" />
+                        <!--
+                            The visible label and the editor's description say the same thing, so
+                            the label is kept out of the accessibility tree. Left in, a screen
+                            reader stops on "Primary goal", then on the group "Primary goal", then
+                            on "Primary goal, edit box".
+                        -->
+                        <Label Text="Primary goal" Style="{StaticResource SecondaryText}"
+                               AutomationProperties.IsInAccessibleTree="False" />
                         <dx:ComboBoxEdit ItemsSource="{Binding Goals}"
                                          SelectedItem="{Binding SelectedGoal}"
                                          PlaceholderText="Choose a goal"
@@ -89,10 +96,12 @@
                                      IsVisible="{Binding SharesDateOfBirth}"
                                      SemanticProperties.Description="Date of birth"
                                      Style="{StaticResource ForgeTextEdit}" />
-                        <Label Text="Sex, used only where physiology formulas need it" Style="{StaticResource SecondaryText}" />
+                        <Label Text="Sex, used only where physiology formulas need it" Style="{StaticResource SecondaryText}"
+                               AutomationProperties.IsInAccessibleTree="False" />
                         <dx:ComboBoxEdit ItemsSource="{Binding SexOptions}"
                                          SelectedItem="{Binding SelectedSex}"
                                          SemanticProperties.Description="Biological sex"
+                                         SemanticProperties.Hint="Used only where physiology formulas need it"
                                          Style="{StaticResource ForgeTextEdit}" />
                     </VerticalStackLayout>
                 </dx:DXBorder>
@@ -100,7 +109,8 @@
                 <!-- Step 3: experience -->
                 <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding IsExperienceStep}">
                     <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                        <Label Text="Training background" Style="{StaticResource SecondaryText}" />
+                        <Label Text="Training background" Style="{StaticResource SecondaryText}"
+                               AutomationProperties.IsInAccessibleTree="False" />
                         <dx:ComboBoxEdit ItemsSource="{Binding ExperienceLevels}"
                                          SelectedItem="{Binding SelectedExperience}"
                                          PlaceholderText="Choose a level"
@@ -189,6 +199,7 @@
                              BackgroundColor="{dx:ThemeColor SurfaceContainer}">
             <dx:DXButton Content="{Binding PrimaryActionText}"
                          SemanticProperties.Description="{Binding PrimaryActionText}"
+                         SemanticProperties.Hint="Continues to the next step of setup"
                          Command="{Binding ContinueCommand}"
                          Style="{StaticResource PrimaryButton}" />
             <Label Text="Nothing is saved until the final step, and your answers are kept if you leave."

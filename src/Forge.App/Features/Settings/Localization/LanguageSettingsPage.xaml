@@ -30,12 +30,15 @@
                     <Label Text="{loc:Translate Key=settings.language.available}"
                            Style="{StaticResource TitleText}" />
                     <dx:CheckEdit Label="{loc:Translate Key=settings.language.follow-system}"
-                                  IsChecked="{Binding FollowSystemLanguage, Mode=TwoWay}" />
+                                  IsChecked="{Binding FollowSystemLanguage, Mode=TwoWay}"
+                                  SemanticProperties.Description="{loc:Translate Key=settings.language.follow-system}" />
                     <Label Text="{loc:Translate Key=settings.language.follow-system.description}"
                            Style="{StaticResource CaptionText}" />
                     <dx:ComboBoxEdit ItemsSource="{Binding Languages}"
                                      SelectedItem="{Binding SelectedLanguageName, Mode=TwoWay}"
-                                     IsEnabled="{Binding CanChooseLanguage}" />
+                                     IsEnabled="{Binding CanChooseLanguage}"
+                                     SemanticProperties.Description="{loc:Translate Key=settings.language.available}"
+                                     Style="{StaticResource ForgeTextEdit}" />
                     <Label Text="{Binding CurrentLanguageSummary}"
                            Style="{StaticResource SecondaryText}" />
                     <Label Text="{loc:Translate Key=settings.language.applies-immediately}"

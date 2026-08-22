@@ -17,18 +17,44 @@
 
             <controls:ForgeCard Title="Subjective recovery" Subtitle="Manual-first and local">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="Energy" Style="{StaticResource TitleText}" />
-                    <dx:NumericEdit Value="{Binding Energy}" Style="{StaticResource ForgeNumericEdit}" />
-                    <Label Text="Soreness" Style="{StaticResource TitleText}" />
-                    <dx:NumericEdit Value="{Binding Soreness}" Style="{StaticResource ForgeNumericEdit}" />
-                    <Label Text="Motivation" Style="{StaticResource TitleText}" />
-                    <dx:NumericEdit Value="{Binding Motivation}" Style="{StaticResource ForgeNumericEdit}" />
-                    <Label Text="Stress" Style="{StaticResource TitleText}" />
-                    <dx:NumericEdit Value="{Binding Stress}" Style="{StaticResource ForgeNumericEdit}" />
-                    <Label Text="Sleep hours (optional)" Style="{StaticResource TitleText}" />
-                    <dx:NumericEdit Value="{Binding SleepHours}" Style="{StaticResource ForgeNumericEdit}" />
+                    <!--
+                        Each field carries its own description. The visible label above it is left
+                        out of the accessibility tree so a screen reader announces "Energy, edit
+                        box" once rather than "Energy" and then an unnamed control.
+                    -->
+                    <Label Text="Energy" Style="{StaticResource TitleText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
+                    <dx:NumericEdit Value="{Binding Energy}"
+                                    SemanticProperties.Description="Energy"
+                                    SemanticProperties.Hint="Rate from 1 to 5"
+                                    Style="{StaticResource ForgeNumericEdit}" />
+                    <Label Text="Soreness" Style="{StaticResource TitleText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
+                    <dx:NumericEdit Value="{Binding Soreness}"
+                                    SemanticProperties.Description="Soreness"
+                                    SemanticProperties.Hint="Rate from 1 to 5"
+                                    Style="{StaticResource ForgeNumericEdit}" />
+                    <Label Text="Motivation" Style="{StaticResource TitleText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
+                    <dx:NumericEdit Value="{Binding Motivation}"
+                                    SemanticProperties.Description="Motivation"
+                                    SemanticProperties.Hint="Rate from 1 to 5"
+                                    Style="{StaticResource ForgeNumericEdit}" />
+                    <Label Text="Stress" Style="{StaticResource TitleText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
+                    <dx:NumericEdit Value="{Binding Stress}"
+                                    SemanticProperties.Description="Stress"
+                                    SemanticProperties.Hint="Rate from 1 to 5"
+                                    Style="{StaticResource ForgeNumericEdit}" />
+                    <Label Text="Sleep hours (optional)" Style="{StaticResource TitleText}"
+                           AutomationProperties.IsInAccessibleTree="False" />
+                    <dx:NumericEdit Value="{Binding SleepHours}"
+                                    SemanticProperties.Description="Sleep hours, optional"
+                                    Style="{StaticResource ForgeNumericEdit}" />
                     <dx:DXButton Content="Save check-in"
-    SemanticProperties.Description="Save check-in" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
+                                 SemanticProperties.Description="Save check-in"
+                                 Style="{StaticResource PrimaryButton}"
+                                 Command="{Binding SaveCommand}" />
                     <Label Text="{Binding SaveStatus}" Style="{StaticResource CaptionText}" />
                 </VerticalStackLayout>
             </controls:ForgeCard>

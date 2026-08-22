@@ -25,6 +25,7 @@
                                       SweepAngle="360"
                                       HorizontalOptions="Center"
                                       VerticalOptions="Center"
+                                      AutomationProperties.IsInAccessibleTree="False"
                                       Content="{Binding ValueText, Source={x:Reference Root}}">
                     <dx:RadialProgressBar.ContentTemplate>
                         <DataTemplate>
