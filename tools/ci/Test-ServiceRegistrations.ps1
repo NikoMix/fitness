@@ -43,7 +43,7 @@ if (-not (Test-Path -LiteralPath $SourceRoot)) {
     exit 1
 }
 
-$pattern = [regex]'\.(?:AddSingleton|AddScoped|AddTransient)<\s*(?<service>I[A-Za-z0-9_.]+)\s*,\s*(?<impl>[A-Za-z0-9_.]+)\s*>'
+$pattern = [regex]'\.(?<kind>Try)?Add(?:Singleton|Scoped|Transient)<\s*(?<service>I[A-Za-z0-9_.]+)\s*,\s*(?<impl>[A-Za-z0-9_.]+)\s*>'
 
 # The same trap exists without an interface. AppShell was registered by AddForgeShell as a plain
 # AddSingleton<AppShell>() and again by AddOnboardingFeature as a factory that news it up and
@@ -51,8 +51,8 @@ $pattern = [regex]'\.(?:AddSingleton|AddScoped|AddTransient)<\s*(?<service>I[A-Z
 # shell, so the plain registration was dead - and had the order been the other way, the app would
 # have started with a shell that never routes a first run. These two patterns catch that shape:
 # a single-type-argument registration, and a factory lambda constructing a type.
-$concretePattern = [regex]'\.(?:AddSingleton|AddScoped|AddTransient)<\s*(?<service>[A-Za-z0-9_.]+)\s*>\s*\('
-$factoryPattern = [regex]'\.(?:AddSingleton|AddScoped|AddTransient)\s*\(\s*(?:\w+|\([^)]*\))\s*=>[^;]*?\bnew\s+(?<service>[A-Za-z0-9_.]+)\s*\('
+$concretePattern = [regex]'\.(?<kind>Try)?Add(?:Singleton|Scoped|Transient)<\s*(?<service>[A-Za-z0-9_.]+)\s*>\s*\('
+$factoryPattern = [regex]'\.(?<kind>Try)?Add(?:Singleton|Scoped|Transient)\s*\(\s*(?:\w+|\([^)]*\))\s*=>[^;]*?\bnew\s+(?<service>[A-Za-z0-9_.]+)\s*\('
 
 $registrations = @{}
 $concreteRegistrations = @{}
@@ -63,7 +63,8 @@ function Add-Registration {
         [string]$Service,
         [string]$Implementation,
         [string]$File,
-        [int]$Line
+        [int]$Line,
+        [bool]$IsTryAdd
     )
 
     if (-not $Table.ContainsKey($Service)) {
@@ -74,6 +75,7 @@ function Add-Registration {
         Implementation = $Implementation
         File           = $File
         Line           = $Line
+        IsTryAdd       = $IsTryAdd
     })
 }
 
@@ -89,7 +91,8 @@ foreach ($file in Get-ChildItem -LiteralPath $SourceRoot -Recurse -Filter '*.cs'
 
         foreach ($match in $pattern.Matches($line)) {
             Add-Registration -Table $registrations -Service $match.Groups['service'].Value `
-                -Implementation $match.Groups['impl'].Value -File $file.FullName -Line $lineNumber
+                -Implementation $match.Groups['impl'].Value -File $file.FullName -Line $lineNumber `
+                -IsTryAdd $match.Groups['kind'].Success
         }
 
         foreach ($match in $concretePattern.Matches($line)) {
@@ -101,12 +104,14 @@ foreach ($file in Get-ChildItem -LiteralPath $SourceRoot -Recurse -Filter '*.cs'
             }
 
             Add-Registration -Table $concreteRegistrations -Service $service `
-                -Implementation $service -File $file.FullName -Line $lineNumber
+                -Implementation $service -File $file.FullName -Line $lineNumber `
+                -IsTryAdd $match.Groups['kind'].Success
         }
 
         foreach ($match in $factoryPattern.Matches($line)) {
             Add-Registration -Table $concreteRegistrations -Service $match.Groups['service'].Value `
-                -Implementation "$($match.Groups['service'].Value) (factory)" -File $file.FullName -Line $lineNumber
+                -Implementation "$($match.Groups['service'].Value) (factory)" -File $file.FullName -Line $lineNumber `
+                -IsTryAdd $match.Groups['kind'].Success
         }
     }
 }
@@ -118,8 +123,31 @@ function Format-Entries {
 
     return ($Entries | ForEach-Object {
         $relative = $_.File.Substring($SourceRoot.Length).TrimStart('\', '/')
-        "      $($_.Implementation)  <-  src/$($relative -replace '\\', '/'):$($_.Line)"
+        $prefix = if ($_.IsTryAdd) { 'TryAdd ' } else { '' }
+        "      $prefix$($_.Implementation)  <-  src/$($relative -replace '\\', '/'):$($_.Line)"
     }) -join [Environment]::NewLine
+}
+
+# TryAdd and Add do not compose the way a reader expects. Add always appends, so it wins over an
+# earlier TryAdd; TryAdd no-ops when anything is already registered, so it loses to an earlier Add.
+# Mixing the two across files therefore makes the winner depend on registration order in a way
+# neither call site shows, which is strictly harder to reason about than two plain Adds.
+function Get-ResolutionNote {
+    param([object[]]$Entries)
+
+    $kinds = @($Entries | Select-Object -ExpandProperty IsTryAdd -Unique)
+    if ($kinds.Count -gt 1) {
+        return '      These mix Add and TryAdd. Add appends unconditionally and TryAdd no-ops when the type' +
+            [Environment]::NewLine + '      is already registered, so which one survives depends on which file runs first.'
+    }
+
+    if ($kinds[0]) {
+        return '      These are all TryAdd, so the FIRST one to run wins and the rest silently no-op -' +
+            [Environment]::NewLine + '      decided by the order of the list in FeatureRegistration.cs, not by either call site.'
+    }
+
+    return '      The last one to run wins, so this is decided by the order of the list in' +
+        [Environment]::NewLine + '      FeatureRegistration.cs rather than by anything visible at either call site.'
 }
 
 foreach ($service in ($registrations.Keys | Sort-Object)) {
@@ -139,8 +167,8 @@ foreach ($service in ($registrations.Keys | Sort-Object)) {
     $failures.Add(@"
   $service is bound to $($distinctImplementations.Count) different implementations across $($distinctFiles.Count) files:
 $(Format-Entries -Entries $entries)
-      Whichever Add<Name>Feature() runs last wins, so this binding is decided by the alphabetical
-      order of the list in FeatureRegistration.cs. Register it once, beside its implementation.
+$(Get-ResolutionNote -Entries $entries)
+      Register it once, beside its implementation.
 "@)
 }
 
@@ -154,9 +182,10 @@ foreach ($service in ($concreteRegistrations.Keys | Sort-Object)) {
     $failures.Add(@"
   $service is registered in $($distinctFiles.Count) different files:
 $(Format-Entries -Entries $entries)
-      The last registration wins and the others are dead. If one of them configures the type -
-      a factory that wires up an event, say - then whether that configuration survives depends on
-      registration order rather than on anything visible at the call site. Register it once.
+$(Get-ResolutionNote -Entries $entries)
+      Only one survives and the rest are dead. If one of them configures the type - a factory that
+      wires up an event, say - then whether that configuration survives depends on registration
+      order rather than on anything visible at the call site. Register it once.
 "@)
 }
 
