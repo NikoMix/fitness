@@ -468,15 +468,17 @@ public sealed partial class ExerciseLibraryViewModel(
     {
         ArgumentNullException.ThrowIfNull(exercise);
 
-        exercise.Exercise.SetFavourite(!exercise.Exercise.IsFavourite);
-        var result = await exerciseDataStore.UpdateAsync(exercise.Exercise, disposal.Token).ConfigureAwait(false);
-        if (!result.Succeeded)
+        var result = await exerciseDataStore
+            .SetFavouriteAsync(exercise.Exercise.Id, !exercise.Exercise.IsFavourite, disposal.Token)
+            .ConfigureAwait(false);
+
+        if (!result.Succeeded || result.Value is null)
         {
-            exercise.Exercise.SetFavourite(!exercise.Exercise.IsFavourite);
             ShowError(result.ErrorMessage ?? "The favourite could not be saved.");
             return;
         }
 
+        exercise.Exercise.ApplyProfileState(result.Value);
         await LoadAsync(disposal.Token).ConfigureAwait(false);
     }
 

@@ -126,7 +126,7 @@ the delete is the reset and a second action would only add a weaker route to the
 | Nutrition, hydration | **Changes.** Totals count only the active profile's food and drinks. |
 | Insights / Progress | **Changes.** Strength trends, volume, records, consistency and the body-weight trend are all computed from the active profile's rows only. |
 | Coaching / readiness | **Changes.** Advice is computed from the active profile's check-ins, soreness and set history. |
-| Exercise library | Catalogue is shared on purpose. Favourites, custom exercises and "recently used" are still shared, which is not on purpose — see phase 4. |
+| Exercise library | Catalogue is shared on purpose. **Favourites and "recently used" now follow the profile.** Custom exercises are still shared, which is not on purpose — see phase 4. |
 | Recipes | **Changes** for recipes a user saves. The shipped catalogue is shared on purpose. |
 | Streaks, achievements | **No change.** `Streak` and `Achievement` have not adopted the seam yet, and reminders still read one shared streak. Those screens are otherwise placeholder view models with no database access. |
 | Reminders | **Changes**, except streak protection. Workout, hydration and check-in reminders read only the active profile; the streak-protection reminder still reads a shared streak. |
@@ -199,8 +199,9 @@ is scoped now.
 
 | # | Concern | Note |
 | --- | --- | --- |
-| 19 | `Exercise.IsFavourite`, `LastUsedUtc`, `IsUserCreated` | The catalogue is shared on purpose; these three are per-person state living on a shared row. A `UserProfileId` on `Exercise` is the wrong fix — it would fork the catalogue per profile and multiply the shipped content. Needs a small join entity (`ExerciseProfileState`) instead. |
-| 20 | `FoodItem.IsUserCreated` | Same shape. A user-added food is arguably fine to share on a family device; decide deliberately rather than by default. |
+| 19 | `Exercise.IsFavourite`, `LastUsedUtc` | **Done.** Both moved to an `ExerciseProfileState` join row keyed on `(UserProfileId, ExerciseId)`. The catalogue stays one shared set of rows; only the opinion of it is scoped. `Exercise` still exposes both properties, but they now read off state the data store attaches, and the mutators are gone — so a favourite cannot be changed anywhere except through `IExerciseDataStore`, which is the thing that persists it. |
+| 19a | `Exercise.IsUserCreated` | **Deliberately left on the row.** It was grouped with the other two in the original list, and it is not the same shape: it records where the row came from, not what one person thinks of it, and `SeedContentImporter` reads it at startup with no profile resolved. The real question hiding inside it — whether one profile's custom movement should appear in another's library — is unresolved and needs a nullable `CreatedByProfileId`, not a join row. Until then a custom exercise is visible to everyone on the device. |
+| 20 | `FoodItem.IsUserCreated` | Same shape as 19a, same open question. A user-added food is arguably fine to share on a family device; decide deliberately rather than by default. |
 | 21 | `Forge.Infrastructure/Backup/ForgeBackupService.cs`, `ForgeDataExporter`, `ForgeDataImporter` | Backup and export copy whole tables, so an export hands over every profile's health data. Under GDPR Article 20 a portability export should cover the requesting person. Needs a scoped export mode and an explicit "everything on this device" option. **Import now attributes incoming rows to the active profile**, which was forced by the owner becoming required; the export side is untouched. |
 | 22 | `Forge.App/Features/Legal/Services/LocalDataErasureService.cs` | Erasure is device-wide by design and stays that way; the profile delete is deliberately not a second, weaker route to "delete everything". |
 | 23 | `Forge.App/Features/Engagement/**` | `StreaksPageViewModel` and `AchievementsPageViewModel` are placeholders with hard-coded values. Wire them to scoped queries when they are implemented, rather than retrofitting later. |

@@ -156,12 +156,16 @@ public sealed partial class ExerciseDetailViewModel(
             return;
         }
 
-        exercise.SetFavourite(!exercise.IsFavourite);
-        var result = await exerciseDataStore.UpdateAsync(exercise, CancellationToken.None).ConfigureAwait(false);
-        if (!result.Succeeded)
+        // Persist first, then reflect what was stored. The old code flipped the model, saved, and
+        // flipped back on failure; with the favourite living in its own table there is nothing to
+        // roll back, and showing only what committed removes the window where the star and the
+        // database disagree.
+        var result = await exerciseDataStore
+            .SetFavouriteAsync(exercise.Id, !exercise.IsFavourite, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        if (!result.Succeeded || result.Value is null)
         {
-            // Put the model back where it was, so the button and the database do not disagree.
-            exercise.SetFavourite(!exercise.IsFavourite);
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 ActionMessage = result.ErrorMessage ?? "The favourite could not be saved.";
@@ -169,6 +173,8 @@ public sealed partial class ExerciseDetailViewModel(
             });
             return;
         }
+
+        exercise.ApplyProfileState(result.Value);
 
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
@@ -196,11 +202,16 @@ public sealed partial class ExerciseDetailViewModel(
 
     private async Task RecordUseAsync(Exercise loaded, CancellationToken cancellationToken)
     {
-        loaded.MarkUsed(DateTimeOffset.UtcNow);
-
         // A failure to record a visit is not worth an error banner over form guidance the user
         // is already reading, so it is deliberately swallowed.
-        await exerciseDataStore.UpdateAsync(loaded, cancellationToken).ConfigureAwait(false);
+        var result = await exerciseDataStore
+            .MarkUsedAsync(loaded.Id, DateTimeOffset.UtcNow, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.Succeeded && result.Value is not null)
+        {
+            loaded.ApplyProfileState(result.Value);
+        }
     }
 
     private async Task ShowErrorAsync(string message)

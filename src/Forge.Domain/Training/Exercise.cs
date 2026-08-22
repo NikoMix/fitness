@@ -4,8 +4,15 @@ using Forge.Domain.Profile;
 namespace Forge.Domain.Training;
 
 /// <summary>A movement in the exercise catalogue.</summary>
+/// <remarks>
+/// Shared between every profile on the device on purpose. The parts of it that belong to one
+/// person - whether they favourited it and when they last used it - live on
+/// <see cref="ExerciseProfileState"/> and are attached to this row when it is read.
+/// </remarks>
 public sealed class Exercise : Entity
 {
+    private ExerciseProfileState? profileState;
+
     /// <summary>Display name, for example "Barbell Back Squat".</summary>
     public required string Name { get; set; }
 
@@ -46,23 +53,49 @@ public sealed class Exercise : Entity
     /// Whether the user created this exercise, as opposed to it arriving with the catalogue.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Catalogue rows are replaced when a release ships updated content; user-created rows must
     /// survive that untouched. Conflating the two would silently destroy user data on update.
+    /// </para>
+    /// <para>
+    /// This stayed on the row when favourites and recency moved to <see cref="ExerciseProfileState"/>,
+    /// because it is not the same shape. It describes where the row came from, not what one person
+    /// thinks of it, and the seed importer that depends on it runs at startup with no profile
+    /// resolved. Whether one profile's custom movement should be visible to another is a separate,
+    /// open question - see phase 4 of docs/design/multi-profile.md.
+    /// </para>
     /// </remarks>
     public bool IsUserCreated { get; set; }
 
-    /// <summary>Whether the user pinned this exercise in their local library.</summary>
-    public bool IsFavourite { get; private set; }
+    /// <summary>
+    /// Whether the reading profile pinned this exercise in their library.
+    /// </summary>
+    /// <remarks>
+    /// Read from the profile state attached by the data store, not from a column. An exercise read
+    /// without one - for example when the workout summary resolves a name by identifier - reports
+    /// <see langword="false"/>, which is the correct answer to "is this a favourite of nobody in
+    /// particular".
+    /// </remarks>
+    public bool IsFavourite => profileState?.IsFavourite ?? false;
 
-    /// <summary>When the user last opened or selected this exercise, in UTC.</summary>
-    public DateTimeOffset? LastUsedUtc { get; private set; }
+    /// <summary>When the reading profile last opened or selected this exercise, in UTC.</summary>
+    public DateTimeOffset? LastUsedUtc => profileState?.LastUsedUtc;
 
-    /// <summary>Updates the local favourite marker for this exercise.</summary>
-    public void SetFavourite(bool isFavourite) => IsFavourite = isFavourite;
-
-    /// <summary>Records that the user recently interacted with this exercise.</summary>
-    /// <param name="usedUtc">The UTC moment of use.</param>
-    public void MarkUsed(DateTimeOffset usedUtc) => LastUsedUtc = usedUtc;
+    /// <summary>
+    /// Attaches the reading profile's personal state to this shared catalogue row.
+    /// </summary>
+    /// <remarks>
+    /// This mutates nothing that is persisted. Favourites and recency are stored on
+    /// <see cref="ExerciseProfileState"/> and are written through the exercise data store, so there
+    /// is no way to change one of them here and have it silently fail to save.
+    /// </remarks>
+    /// <param name="state">The state belonging to the profile doing the reading.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="state"/> is <see langword="null"/>.</exception>
+    public void ApplyProfileState(ExerciseProfileState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        profileState = state;
+    }
 }
 
 /// <summary>A single training session, whether planned or unplanned.</summary>
