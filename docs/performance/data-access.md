@@ -102,18 +102,25 @@ Desktop, A/B in one process, repeat launch through `DatabaseInitializer.Initiali
 per-connection pragma.
 
 Android emulator (x86_64, Debug, `-p:EmbedAssembliesIntoApk=true`), repeat launch with an existing
-encrypted database, read from `ForgePerf` phase marks and per-open instrumentation:
+encrypted database, read from `ForgePerf` phase marks:
 
-| Phase | Before | After |
+| Phase | Before | After (2 runs) |
 | --- | --- | --- |
-| `db-encryption-ready` - `db-key-ready` | 1846 ms | see below |
-| `db-schema-ready` - `db-encryption-ready` | 20760 ms | see below |
-| Key derivations per launch | **7 (6370 ms)** | see below |
+| `db-key-ready` to `db-encryption-ready` | 1846 ms | **615 / 757 ms** |
+| `db-encryption-ready` to `db-schema-ready` | 20760 ms | **7569 / 8738 ms** |
+| `db-schema-ready` to `db-seed-complete` | 2408 ms | 958 / 1057 ms |
+| `db-begin` to `db-seed-complete` | **26956 ms** | **9687 / 11495 ms** |
 
-**Attribute these carefully.** The desktop A/B runs both arms in one process minutes apart and is
-solidly attributable. The emulator numbers were taken on a host shared with five other build
-streams, where the same launch varied by more than a factor of two between runs, so the phase deltas
-carry that variance. The load-independent evidence is the derivation *count*.
+The before run additionally carried per-open instrumentation, which counted **7 key derivations
+totalling 6370 ms** in that launch, against 11 pooled opens costing 0.5-3.2 ms each.
+
+**Attribute these carefully.** The desktop A/B runs both arms in one process, minutes apart, and is
+solidly attributable: 1872 ms to 380 ms, five derivations to none. The emulator figures are not a
+controlled comparison. They were taken on a host shared with five other build streams that was
+sitting at 96-100% CPU, on a *different emulator instance* from the before run, and the same phase
+varied by a factor of four between runs on that host. They are consistent with removing five or six
+derivations at the 700-1200 ms each that was measured on device, and that is as strong a claim as
+they support. The honest headline is the derivation count, not the wall clock.
 
 ## What was rejected, and why
 
@@ -148,6 +155,18 @@ carry that variance. The load-independent evidence is the derivation *count*.
 
 Not covered, and worth knowing:
 
+- **A fresh install was verified end to end on device**, because this change moves when the database
+  file first comes into existence: `DatabaseInitializer` now opens the connection explicitly, which
+  creates the file before `AdoptPreMigrationDatabaseAsync` asks whether it exists. On a clean run it
+  reaches `db-seed-complete` with all three migrations applied, 27 tables and 60 exercises imported,
+  and the same sequence is asserted on desktop.
+
+  Along the way a device did report `no such table: SeedContentImport` and retried startup six
+  times. That was **not** this change: it happened while the host sat at 100% CPU, the app was
+  ANR-killed three times mid-initialisation, and `pm clear` raced a process that was still running.
+  It did not reproduce once the app was allowed to start uninterrupted, and it does not reproduce on
+  desktop. Recorded because the symptom looks exactly like a migration bug and the next person to
+  see it should check the host before checking the code.
 - **`LocalDataErasureService` deletes `forge.db` while pooled handles are open.** On Android that
   unlinks the inode rather than failing, so anything still holding the old handle writes into a file
   that no longer has a name. This is pre-existing - ordinary pooling already keeps handles open - and
@@ -156,3 +175,5 @@ Not covered, and worth knowing:
 - **iOS is unmeasured.** Every device number here is an x86_64 Android emulator. Key derivation on
   real ARM hardware is slower than on an emulator backed by a desktop CPU, so the absolute savings
   on a physical phone should be larger, not smaller - but nobody has run it.
+- **`docs/security/database-encryption.md` still says the fix is to stop opening a connection per
+  operation.** That sentence is now wrong and this branch does not own that file.
