@@ -1,0 +1,9 @@
+--------- beginning of crash
+08-22 11:02:41.310  4471  4471 F libc    : Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0000000000000008 in tid 4471 (id.apps.restore), pid 4471 (id.apps.restore)
+08-22 11:02:41.902  4488  4488 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+08-22 11:02:41.902  4488  4488 F DEBUG   : Build fingerprint: 'google/sdk_gphone64_x86_64/emu64xa:15/AE3A.240806.043/12960925:userdebug/dev-keys'
+08-22 11:02:41.903  4488  4488 F DEBUG   : Cmdline: com.google.android.apps.restore
+08-22 11:02:41.903  4488  4488 F DEBUG   : pid: 4471, tid: 4471, name: id.apps.restore  >>> com.google.android.apps.restore <<<
+08-22 11:02:41.903  4488  4488 F DEBUG   : signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0000000000000008
+08-22 11:02:41.904  4488  4488 F DEBUG   : backtrace:
+08-22 11:02:41.904  4488  4488 F DEBUG   :       #00 pc 00000000000a1234  /system/lib64/libutils.so (android::RefBase::decStrong+52)

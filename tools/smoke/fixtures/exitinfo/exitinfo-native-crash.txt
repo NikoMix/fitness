@@ -1,0 +1,8 @@
+ACTIVITY MANAGER PROCESS EXIT INFO (dumpsys activity exit-info)
+Last Timestamp of Persistence Into Persistent Storage: 2026-08-22 13:20:15.126
+  package: com.nikomix.forge
+    Historical Process Exit for uid=10238
+        ApplicationExitInfo #0:
+          timestamp=2026-08-22 13:30:30.874 pid=8029 realUid=10238 packageUid=10238 definingUid=10238 user=0
+          process=com.nikomix.forge reason=5 (APP CRASH(NATIVE)) subreason=0 (UNKNOWN) status=11
+          importance=100 pss=0.00 rss=314MB description=crash state=empty trace=null

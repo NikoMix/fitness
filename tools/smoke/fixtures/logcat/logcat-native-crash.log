@@ -1,0 +1,17 @@
+--------- beginning of crash
+08-22 13:30:15.794  8029  8029 F libc    : Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0000000000000010 in tid 8064 (Thread Pool Wor), pid 8029 (m.nikomix.forge)
+08-22 13:30:30.787  8180  8180 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+08-22 13:30:30.787  8180  8180 F DEBUG   : Build fingerprint: 'google/sdk_gphone64_x86_64/emu64xa:15/AE3A.240806.043/12960925:userdebug/dev-keys'
+08-22 13:30:30.787  8180  8180 F DEBUG   : Revision: '0'
+08-22 13:30:30.787  8180  8180 F DEBUG   : ABI: 'x86_64'
+08-22 13:30:30.788  8180  8180 F DEBUG   : Timestamp: 2026-08-22 13:30:30.100000000+0000
+08-22 13:30:30.788  8180  8180 F DEBUG   : Process uptime: 24s
+08-22 13:30:30.788  8180  8180 F DEBUG   : Cmdline: com.nikomix.forge
+08-22 13:30:30.788  8180  8180 F DEBUG   : pid: 8029, tid: 8064, name: Thread Pool Wor  >>> com.nikomix.forge <<<
+08-22 13:30:30.789  8180  8180 F DEBUG   : uid: 10238
+08-22 13:30:30.789  8180  8180 F DEBUG   : signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0000000000000010
+08-22 13:30:30.790  8180  8180 F DEBUG   : backtrace:
+08-22 13:30:30.790  8180  8180 F DEBUG   :       #00 pc 00000000000d41a2  /data/app/~~x9Qh/com.nikomix.forge-1/lib/x86_64/libe_sqlite3.so (sqlcipher_codec_key_derive+178)
+08-22 13:30:30.790  8180  8180 F DEBUG   :       #01 pc 00000000000d4f10  /data/app/~~x9Qh/com.nikomix.forge-1/lib/x86_64/libe_sqlite3.so (sqlite3CodecAttach+96)
+08-22 13:30:30.791  8180  8180 F DEBUG   :       #02 pc 0000000000061b34  /data/app/~~x9Qh/com.nikomix.forge-1/lib/x86_64/libe_sqlite3.so (sqlite3_step+340)
+08-22 13:30:30.791  8180  8180 F DEBUG   :       #03 pc 0000000000059394  [anon_shmem:dalvik-jit-code-cache] (offset 0x2000000)

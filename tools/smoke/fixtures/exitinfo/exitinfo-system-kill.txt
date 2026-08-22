@@ -1,0 +1,8 @@
+ACTIVITY MANAGER PROCESS EXIT INFO (dumpsys activity exit-info)
+Last Timestamp of Persistence Into Persistent Storage: 2026-08-22 13:20:15.126
+  package: com.nikomix.forge
+    Historical Process Exit for uid=10238
+        ApplicationExitInfo #0:
+          timestamp=2026-08-22 12:09:11.857 pid=2482 realUid=10238 packageUid=10238 definingUid=10238 user=0
+          process=com.nikomix.forge reason=13 (OTHER KILLS BY SYSTEM) subreason=3 (TOO MANY EMPTY PROCS) status=0
+          importance=400 pss=0.00 rss=0.00 description=too many empty state=empty trace=null

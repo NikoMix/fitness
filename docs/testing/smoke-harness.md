@@ -93,7 +93,98 @@ Three properties fall out of this that are worth stating plainly:
   Fourteen registered routes currently have no path from any tab. They are reported by name rather
   than blamed on the harness.
 
-### 3. Phase budgets, so one screen cannot eat the run
+### 3. First run and upgrade are different apps
+
+Every device run this project had ever done — including every run of this harness — tested the
+upgrade path and nothing else. Both `dotnet build -t:Install` and `adb install -r` preserve the
+app's data directory, and every emulator here has carried a database since the app started storing
+one. So the code that *creates* a database had never been entered on a device.
+
+A SQLCipher segfault lived in exactly that gap for four waves. It was a native fault inside
+`sqlcipher_codec_key_derive`, so there was no managed exception, no recovery screen and nothing in
+the main log buffer; and it only fired when the database did not already exist. Nothing could see
+it because nothing had opened a first run.
+
+`-DeviceState` makes the two paths distinct:
+
+| Value | What it does |
+|---|---|
+| `Existing` | walks whatever is on the device. The upgrade path only. Still the default, for compatibility. |
+| `Clean` | uninstalls first, so the app has no data and must create its database |
+| `CleanThenExisting` | both, as two labelled passes: a genuine first run, then a second walk against the state the first left behind |
+
+**Uninstall, never `pm clear`.** `pm clear` wipes the data directory while leaving the package
+installed, and on a Debug build that directory holds the FastDev `.__override__` folder the APK
+loads its assemblies from. Every launch afterwards fails with `XA0127` in a way that looks like an
+app defect.
+
+**The premise is verified, not assumed**, because a first-run pass that quietly ran against
+carried-over data is worse than no first-run pass at all — it produces a green result for a path it
+never entered. Two independent signals are required and both are reported:
+
+- the package's `firstInstallTime` equals its `lastUpdateTime`, which is true only when the install
+  landed on a device that did not have the package. No root needed.
+- the app actually shows its welcome screen.
+
+Either one failing is a `FirstRunNotAchieved` **failure**, not a quiet downgrade. And when a run
+did not test a first run, the report's limits section says so in as many words, so a green
+upgrade-path run can never be mistaken for coverage of an install.
+
+The two passes share a run budget, split evenly, so the first cannot spend it all and leave the
+second reported as "never attempted".
+
+### 4. Native crashes, which have no managed exception at all
+
+A native fault is written by libc and debuggerd, not by the runtime. There is no `FATAL EXCEPTION`,
+no managed stack, and often nothing whatsoever in the main log buffer. The evidence lives in
+`logcat -b crash`, which nothing here was reading:
+
+```
+F libc  : Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x10
+          in tid 8064 (Thread Pool Wor), pid 8029 (m.nikomix.forge)
+F DEBUG : Cmdline: com.nikomix.forge
+F DEBUG : pid: 8029, tid: 8064, name: Thread Pool Wor  >>> com.nikomix.forge <<<
+F DEBUG : backtrace:
+F DEBUG :   #00 pc 000d41a2  libe_sqlite3.so (sqlcipher_codec_key_derive+178)
+```
+
+Attribution needs care: Linux truncates a thread name to 15 characters, so the header says
+`m.nikomix.forge` rather than the package. Matching on the package alone would miss every native
+crash there is. The `Cmdline:` and `>>> package <<<` lines carry the full name and are what a block
+is matched on — asserted, with a fixture whose thread name is `Thread Pool Wor`.
+
+Native and managed crashes are kept in separate lanes and each is asserted not to fire on the
+other's evidence. One crash reported twice under two names makes both reports harder to act on.
+
+### 5. Why the process died, from Android rather than from prose
+
+`dumpsys activity exit-info <package>` is the authority. Android records why it killed each
+process, so "another work stream force-stopped us" and "we crashed natively" stop being inferences
+over log text and become a field:
+
+```
+process=com.nikomix.forge reason=5 (APP CRASH(NATIVE)) subreason=0 (UNKNOWN) status=11
+process=com.nikomix.forge reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0
+          description=stop com.nikomix.forge due to from pid 8273
+```
+
+Reason **codes** are the contract; the printed names vary between releases. They map to three
+verdicts:
+
+| Verdict | Reasons | Reported as |
+|---|---|---|
+| Defect | `APP CRASH`, `APP CRASH(NATIVE)`, `ANR`, `INITIALIZATION FAILURE`, `EXCESSIVE RESOURCE USAGE` | a failure, with the tombstone attached when there is one |
+| External | `USER REQUESTED`, `USER STOPPED`, `PACKAGE UPDATED`, `PACKAGE STATE CHANGE`, `PERMISSION CHANGE` | interference, with the stopping pid named |
+| Inconclusive | `LOW MEMORY`, `SIGNALED`, `EXIT SELF`, `DEPENDENCY DIED`, `OTHER KILLS BY SYSTEM`, `FREEZER` | inconclusive — never a pass |
+
+An unrecognised code is Inconclusive, so a future Android release cannot silently turn a defect
+into a pass.
+
+Every exit-info fixture in `tools/smoke/fixtures/exitinfo/` was captured from a real emulator
+rather than invented, because the printed format varies and a parser written against a guess is
+worth nothing.
+
+### 6. Phase budgets, so one screen cannot eat the run
 
 The crawl's branching factor is enormous and it runs first, so with a single shared budget it
 always won and the directed pass never started. Three separate caps now apply:
@@ -107,20 +198,23 @@ always won and the directed pass never started. Three separate caps now apply:
 A screen the harness has already navigated to is always checked, even when the crawl budget is
 spent — the cap stops it descending further, not seeing where it is.
 
-### 4. The app is still alive
+### 7. The app is still alive
 
 After every action, `adb shell pidof com.nikomix.forge`. If the process is gone, the harness reads
-logcat and works out why before saying anything:
+Android's exit record, the crash buffer and logcat, in that order of authority, and works out why
+before saying anything:
 
-- **Crash** — a fatal record naming Forge is in the log. Reported as a failure with the stack.
-- **External** — `ActivityManager: Force stopping com.nikomix.forge ... from pid N`. Another work
-  stream stopped the app on a shared emulator. Reported as interference, *not* as a Forge defect,
-  and the stopping process is named: `[pid 9471 is 'com.android.shell']` says immediately that
-  somebody ran an adb command. This has been mistaken for a crash twice.
+- **NativeCrash** — an exit reason of `APP CRASH(NATIVE)`, or a tombstone in the crash buffer.
+  Reported as a failure with the signal, the fault address and the native frames.
+- **Crash** — a fatal record naming Forge. Reported as a failure with the stack.
+- **External** — `USER REQUESTED / FORCE STOP`, `PACKAGE UPDATED`, or an ActivityManager
+  force-stop line. Another work stream on a shared emulator. Reported as interference, *not* as a
+  Forge defect, and the stopping process is named: `[pid 9471 is 'com.android.shell']` says
+  immediately that somebody ran an adb command. This has been mistaken for a crash twice.
 - **Unknown** — the process is gone and nothing explains it. Reported as a failure, because "I do
   not know" is not a pass.
 
-### 5. Exceptions, fatal and otherwise
+### 8. Exceptions, fatal and otherwise
 
 `FATAL EXCEPTION`, `Fatal signal`, `Unhandled Exception` and the mono runtime variants kill the
 process and are reported with a block of following lines.
@@ -131,7 +225,7 @@ screen stamps the device clock on arrival, so an exception the app survived is a
 route that was open when it was thrown — *"the readiness screen threw
 InvalidOperationException"*, not *"something threw during a forty-minute run"*.
 
-### 6. Blank content — the `ForgeCard` class of bug
+### 9. Blank content — the `ForgeCard` class of bug
 
 Three checks on the accessibility tree, in decreasing severity.
 
@@ -156,7 +250,7 @@ be wrong:
 - **Icon-only and camera screens are not flagged as unbound.** The check needs a substantial node
   count before "no text" means anything.
 
-### 7. Error text rendered to the user
+### 10. Error text rendered to the user
 
 A caught exception whose `Message` is bound into a label never reaches logcat as a fatal. The
 process stays alive, every other check passes, and the user is reading:
@@ -171,7 +265,7 @@ The patterns deliberately avoid bare words. `error` and `failed` appear in legit
 *"Import failed, nothing was changed"* — and matching those would make the check useless within a
 week. The self-test asserts exactly that, against four realistic strings.
 
-### 8. Text that does not fit
+### 11. Text that does not fit
 
 `uiautomator` reports a label's full string rather than the truncated text actually drawn, so
 *"does this end in an ellipsis"* is unanswerable from a hierarchy. Geometry is answerable, and
@@ -191,7 +285,7 @@ moment someone turns text up gets caught. The original scale is always restored,
 failure — leaving a shared emulator at 1.3x would silently change what every other work stream
 sees.
 
-### 9. Accessibility exposure
+### 12. Accessibility exposure
 
 **Unlabelled interactive elements** — a node Android reports as actionable whose subtree has no
 text and no `content-desc`. A screen reader announces an anonymous control.
@@ -253,11 +347,15 @@ and the .NET Android workload.
 # Fastest useful check - no device, no emulator, a couple of seconds.
 pwsh tools/smoke/Test-ForgeSmokeChecks.ps1
 
-# Full walk against a running emulator, installing the current working tree first.
-pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -Install
+# The one that covers a real install: wipe the device, walk the first run, then walk again
+# against the state that first run left behind.
+pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -DeviceState CleanThenExisting
 
-# First-run behaviour: wipe the profile, then walk with onboarding skipped.
-pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -CleanState -OnboardingMode Skip
+# A genuine first run only.
+pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -DeviceState Clean -OnboardingMode Complete
+
+# Full walk against whatever is already on the device. Upgrade path only.
+pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -Install
 
 # Walk as a user who finished onboarding, and check layout at a large system font scale.
 pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5556 -OnboardingMode Complete -FontScalePass
@@ -268,12 +366,14 @@ Useful switches:
 | Switch | Effect |
 |---|---|
 | `-Serial` | which device to drive. Always explicit — see below |
-| `-Install` | build and install the current working tree before walking |
-| `-CleanState` | uninstall and reinstall for a genuinely first-run device |
+| `-DeviceState` | `Existing`, `Clean`, or `CleanThenExisting`. **The one that matters most** |
+| `-Install` | build and install the current working tree first. Preserves app data |
+| `-CleanState` | older spelling of `-DeviceState Clean` |
 | `-OnboardingMode` | `Skip`, `Complete` or `None` |
 | `-RouteMode` | `Directed` (default) walks to every route; `Crawl` is the old tab-bar-only behaviour |
 | `-FontScalePass`, `-LargeFontScale` | re-check reached routes for clipping at a large text size |
-| `-MaxCrawlActions`, `-MaxSecondsPerRoute`, `-MaxRunMinutes`, `-MaxDepth` | budgets |
+| `-MaxDepth 1` | coverage-first: open and check every route without exploring it |
+| `-MaxCrawlActions`, `-MaxSecondsPerRoute`, `-MaxRunMinutes` | budgets. Two passes split `-MaxRunMinutes` evenly |
 | `-CaptureScreenshots` | save a PNG per screen next to each hierarchy dump |
 | `-FailOnAccessibilityExposure` | promote "actionable but not exposed" from warning to failure |
 | `-IgnoreListPath` | use a different accepted-findings file |

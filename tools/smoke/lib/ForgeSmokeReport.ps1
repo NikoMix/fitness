@@ -32,6 +32,7 @@ function Write-ForgeSmokeConsoleReport {
     Write-Host "Started       : $($Result.StartedUtc.ToString('u'))"
     Write-Host "Duration      : $([int]$Result.DurationSeconds)s"
     Write-Host "Onboarding    : $($Result.OnboardingOutcome)"
+    Write-Host "Device state  : $($Result.DeviceState)  ($(if ($Result.FreshInstall) { 'FRESH install - the app had to create its database' } else { 'app data carried over from an earlier install - upgrade path only' }))" -ForegroundColor $(if ($Result.FreshInstall) { 'Green' } else { 'DarkGray' })
     Write-Host ''
 
     Write-Host 'Route coverage' -ForegroundColor White
@@ -48,6 +49,7 @@ function Write-ForgeSmokeConsoleReport {
     Write-Host "  Navigations observed       : $($Result.NavigationsObserved)"
     Write-Host "  Process deaths             : $($Result.ProcessDeaths.Count)"
     Write-Host "  Fatal exceptions           : $($Result.FatalExceptions.Count)"
+    Write-Host "  Native crashes             : $($Result.NativeCrashes.Count)" -ForegroundColor $(if ($Result.NativeCrashes.Count -gt 0) { 'Red' } else { 'Gray' })
     Write-Host "  Runtime exceptions         : $($Result.RuntimeExceptions.Count)"
     Write-Host "  Visible error text         : $($Result.VisibleErrors.Count)" -ForegroundColor $(if ($Result.VisibleErrors.Count -gt 0) { 'Red' } else { 'Gray' })
     Write-Host "  Blank screens              : $($Result.BlankScreens.Count)"
@@ -131,6 +133,7 @@ function Write-ForgeSmokeMarkdownReport {
     Add-Line "| Started (UTC) | $($Result.StartedUtc.ToString('u')) |"
     Add-Line "| Duration | $([int]$Result.DurationSeconds)s |"
     Add-Line "| Onboarding | $($Result.OnboardingOutcome) |"
+    Add-Line "| Device state | ``$($Result.DeviceState)`` — $(if ($Result.FreshInstall) { '**fresh install**, so the app had to create its database' } else { 'app data carried over, so this is the upgrade path only' }) |"
     Add-Line "| Result | **$(if ($Result.Failures.Count -gt 0) { 'FAIL' } else { 'PASS' })** |"
     Add-Line ''
 
@@ -148,6 +151,7 @@ function Write-ForgeSmokeMarkdownReport {
     Add-Line "| Navigations observed | $($Result.NavigationsObserved) |"
     Add-Line "| Process deaths | $($Result.ProcessDeaths.Count) |"
     Add-Line "| Fatal exceptions | $($Result.FatalExceptions.Count) |"
+    Add-Line "| Native crashes (no managed exception exists for these) | $($Result.NativeCrashes.Count) |"
     Add-Line "| Runtime exceptions (app survived) | $($Result.RuntimeExceptions.Count) |"
     Add-Line "| Screens showing error text to the user | $($Result.VisibleErrors.Count) |"
     Add-Line "| Blank screens | $($Result.BlankScreens.Count) |"
@@ -188,7 +192,8 @@ function Write-ForgeSmokeMarkdownReport {
         Add-Line '## Failures'
         Add-Line ''
         foreach ($f in $Result.Failures) {
-            Add-Line "### ``$($f.Id)`` $($f.Kind) - $($f.Route)"
+            $pass = if ($f.PSObject.Properties.Name -contains 'Pass' -and $f.Pass) { " · pass ``$($f.Pass)``" } else { '' }
+            Add-Line "### ``$($f.Id)`` $($f.Kind) - $($f.Route)$pass"
             Add-Line ''
             Add-Line $f.Detail
             Add-Line ''
@@ -271,6 +276,11 @@ function Write-ForgeSmokeMarkdownReport {
     Add-Line '  invisible here.'
     Add-Line '- A screen that renders correctly but shows wrong data passes. This is a smoke harness,'
     Add-Line '  not an assertion suite.'
+    if (-not $Result.FreshInstall) {
+        Add-Line '- **This run tested the upgrade path only.** The device already carried app data, so the'
+        Add-Line '  code that creates a database was never entered and no first-run screen was reachable.'
+        Add-Line '  Re-run with `-DeviceState Clean`; that is the path a real install takes.'
+    }
     if ($Result.Aborted) {
         Add-Line "- **This run aborted**: $($Result.AbortReason) Everything after that point was not checked."
     }

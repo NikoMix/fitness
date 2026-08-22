@@ -85,6 +85,15 @@ param(
     [switch]$Install,
     [switch]$CleanState,
 
+    # Existing           walk whatever is on the device. Tests the upgrade path only.
+    # Clean              uninstall first, so the app has no data and must create its database.
+    # CleanThenExisting  both, in that order, as two labelled passes over the same run.
+    #
+    # Existing is the default only for compatibility. Clean is the one that finds first-run
+    # defects, and until Wave 8 nobody had run it since the app started storing data.
+    [ValidateSet('Existing', 'Clean', 'CleanThenExisting')]
+    [string]$DeviceState = 'Existing',
+
     [ValidateSet('Skip', 'Complete', 'None')]
     [string]$OnboardingMode = 'Skip',
 
@@ -159,6 +168,7 @@ $state = [pscustomobject]@{
     ProcessDeaths         = [System.Collections.Generic.List[psobject]]::new()
     FatalExceptions       = [System.Collections.Generic.List[psobject]]::new()
     RuntimeExceptions     = [System.Collections.Generic.List[psobject]]::new()
+    NativeCrashes         = [System.Collections.Generic.HashSet[string]]::new()
     BlankScreens          = [System.Collections.Generic.List[psobject]]::new()
     BlankContainers       = [System.Collections.Generic.List[psobject]]::new()
     UnboundScreens        = [System.Collections.Generic.List[psobject]]::new()
@@ -171,6 +181,8 @@ $state = [pscustomobject]@{
     RouteAttempts         = [System.Collections.Generic.List[psobject]]::new()
     LearnedEdges          = [System.Collections.Generic.List[psobject]]::new()
     VisitedRoutes         = [System.Collections.Generic.HashSet[string]]::new()
+    PassVisitedRoutes     = [System.Collections.Generic.HashSet[string]]::new()
+    RouteFirstPass        = @{}
     VisitedFingerprints   = [System.Collections.Generic.HashSet[string]]::new()
     CheckedRoutes         = [System.Collections.Generic.HashSet[string]]::new()
     ActionsAttempted      = 0
@@ -184,25 +196,40 @@ $state = [pscustomobject]@{
     FontScale             = '1.0'
     Phase                 = 'crawl'
     CrawlActions          = 0
+    Pass                  = 'existing-data'
+    PassClock             = $null
+    PassMinutes           = $MaxRunMinutes
+    SeenFindingIds        = [System.Collections.Generic.HashSet[string]]::new()
+    PassAborts            = [System.Collections.Generic.List[psobject]]::new()
 }
 
 function Add-Failure {
     param([string]$Kind, [string]$Route, [string]$Detail, [string[]]$Evidence = @(), [string]$Discriminator = '')
     $id = Get-ForgeFindingId -Kind $Kind -Route $Route -Discriminator $Discriminator
-    $state.Failures.Add([pscustomobject]@{ Id = $id; Kind = $Kind; Route = $Route; Detail = $Detail; Evidence = @($Evidence); FontScale = $state.FontScale })
+
+    # The id *is* the identity of the finding, so seeing it twice means the harness walked the
+    # same screen twice, not that there are two defects. Reporting one empty card as two findings
+    # makes a reader count wrong and trust the numbers less.
+    if (-not $state.SeenFindingIds.Add($id)) { return }
+
+    $state.Failures.Add([pscustomobject]@{ Id = $id; Kind = $Kind; Route = $Route; Detail = $Detail; Evidence = @($Evidence); FontScale = $state.FontScale; Pass = $state.Pass })
     Write-Host "    FAIL [$Kind] $Detail" -ForegroundColor Red
 }
 
 function Add-Warning {
     param([string]$Kind, [string]$Route, [string]$Detail, [string]$Discriminator = '')
     $id = Get-ForgeFindingId -Kind $Kind -Route $Route -Discriminator $Discriminator
-    $state.Warnings.Add([pscustomobject]@{ Id = $id; Kind = $Kind; Route = $Route; Detail = $Detail })
+    $state.Warnings.Add([pscustomobject]@{ Id = $id; Kind = $Kind; Route = $Route; Detail = $Detail; Pass = $state.Pass })
     Write-Host "    WARN [$Kind] $Detail" -ForegroundColor Yellow
 }
 
 function Test-GlobalBudgetExhausted {
     if ($stopwatch.Elapsed.TotalMinutes -ge $MaxRunMinutes) { return $true }
     if ($state.ActionsAttempted -ge $MaxTotalActions) { return $true }
+    # A pass clock as well as a run clock, so the first pass cannot spend the whole budget and
+    # leave the second one reported as "never attempted". Two passes that each cover half the app
+    # are worth more here than one that covers all of it, because they cover different app states.
+    if ($null -ne $state.PassClock -and $state.PassClock.Elapsed.TotalMinutes -ge $state.PassMinutes) { return $true }
     return $false
 }
 
@@ -236,17 +263,30 @@ Assert-ForgeDeviceReady -AdbPath $adb -Serial $Serial
 Write-Host "target     : $Serial" -ForegroundColor Green
 
 $projectPath = Join-Path $RepoRoot 'src/Forge.App/Forge.App.csproj'
-if ($CleanState) {
+
+# -CleanState is the older spelling of -DeviceState Clean and still works.
+if ($CleanState -and $DeviceState -eq 'Existing') { $DeviceState = 'Clean' }
+$wantsCleanDevice = ($DeviceState -in @('Clean', 'CleanThenExisting'))
+
+$freshInstall = $null
+if ($wantsCleanDevice) {
     Write-Host ''
-    Write-Host 'Resetting app state by uninstall + reinstall.' -ForegroundColor Cyan
-    Write-Host 'Not "pm clear": that deletes the FastDev .__override__ directory a Debug build' -ForegroundColor DarkGray
-    Write-Host 'loads its assemblies from, and every later launch fails for reasons that look' -ForegroundColor DarkGray
-    Write-Host 'like an app defect.' -ForegroundColor DarkGray
-    [void](Reset-ForgeAppState -AdbPath $adb -Serial $Serial -PackageName $PackageName -ProjectPath $projectPath)
+    Write-Host 'Wiping the device before installing, so this is a genuine first run.' -ForegroundColor Cyan
+    Write-Host 'Both -t:Install and adb install -r preserve app data, so every device run this' -ForegroundColor DarkGray
+    Write-Host 'project has ever done exercised the upgrade path and never the path that creates' -ForegroundColor DarkGray
+    Write-Host 'a database. A SQLCipher segfault lived there for four waves.' -ForegroundColor DarkGray
+    Write-Host 'Uninstall, not "pm clear": pm clear deletes the FastDev .__override__ directory a' -ForegroundColor DarkGray
+    Write-Host 'Debug build loads its assemblies from, and every later launch then fails for' -ForegroundColor DarkGray
+    Write-Host 'reasons that look like an app defect.' -ForegroundColor DarkGray
+
+    $removal = Uninstall-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName
+    Write-Host "  $($removal.Detail)" -ForegroundColor DarkGray
+    [void](Install-ForgeApp -AdbPath $adb -Serial $Serial -ProjectPath $projectPath)
 }
 elseif ($Install) {
     Write-Host ''
     Write-Host 'Installing the current working tree onto the device.' -ForegroundColor Cyan
+    Write-Host 'Note: this preserves app data, so it tests the upgrade path, not a first run.' -ForegroundColor DarkGray
     [void](Install-ForgeApp -AdbPath $adb -Serial $Serial -ProjectPath $projectPath)
 }
 
@@ -255,6 +295,13 @@ if (-not $installed.Installed) {
     throw "$PackageName is not installed on $Serial. Re-run with -Install."
 }
 Write-Host "installed  : versionName=$($installed.VersionName) versionCode=$($installed.VersionCode) lastUpdate=$($installed.LastUpdateTime)"
+
+# Whether the data directory is genuinely empty is not assumed, it is checked. firstInstallTime
+# equals lastUpdateTime only when the package was installed onto a device that did not have it,
+# which is the one state in which the app's database does not yet exist.
+$freshInstall = Test-ForgeFreshInstall -AdbPath $adb -Serial $Serial -PackageName $PackageName
+Write-Host "data state : $(if ($freshInstall.IsFresh) { 'FRESH - no data from an earlier build, so this is a real first run' } else { 'CARRIED OVER - app data from an earlier install is present, so this is the upgrade path' })" -ForegroundColor $(if ($freshInstall.IsFresh) { 'Green' } else { 'DarkGray' })
+
 
 # ---------------------------------------------------------------------------------------------
 # Route inventory and navigation graph, both derived from source
@@ -321,6 +368,24 @@ function Save-Screenshot {
     [void](Invoke-ForgeAdb -AdbPath $adb -Serial $Serial -Arguments @('pull', $remote, (Join-Path $dumpDirectory $name)) -TimeoutSeconds 60)
 }
 
+function Get-DeathCause {
+    <#
+        Gathers every source of evidence about why the process is gone, best first.
+
+        The crash buffer and the exit records are separate adb calls, and this is the only place
+        that pays for them, because it only runs when the process has actually died or restarted.
+    #>
+    param()
+
+    $log = @(Get-ForgeLogcat -AdbPath $adb -Serial $Serial)
+    $crash = @(Get-ForgeCrashLog -AdbPath $adb -Serial $Serial)
+    $exits = @()
+    try { $exits = @(Get-ForgeExitInfo -AdbPath $adb -Serial $Serial -PackageName $PackageName) }
+    catch { Write-Verbose "exit-info unavailable: $_" }
+
+    return Get-ForgeProcessDeathCause -LogLines $log -CrashLines $crash -PackageName $PackageName -ExitInfo $exits
+}
+
 function Test-ProcessAlive {
     <#
         Returns $true when the app is still running. When it is not, works out why and records it.
@@ -328,21 +393,25 @@ function Test-ProcessAlive {
         and saying otherwise would make every report untrustworthy.
 
         This has already mattered twice: an external uninstall was read as a crash on both
-        occasions and cost real debugging time. The stopping process is now named, so
-        "from pid 9471 (com.android.shell)" says immediately that somebody ran an adb command.
+        occasions and cost real debugging time. Android's own exit record is now consulted first,
+        so that is a field rather than an inference, and the stopping process is named.
     #>
     param([string]$Context)
 
     $currentPid = Get-ForgeAppPid -AdbPath $adb -Serial $Serial -PackageName $PackageName
     if ($currentPid) {
         if ($state.LaunchPid -and $currentPid -ne $state.LaunchPid) {
-            $log = @(Get-ForgeLogcat -AdbPath $adb -Serial $Serial)
-            $cause = Get-ForgeProcessDeathCause -LogLines $log -PackageName $PackageName
+            $cause = Get-DeathCause
             $state.ProcessDeaths.Add([pscustomobject]@{ Context = $Context; Cause = $cause.Cause; Detail = $cause.Detail })
 
-            if ($cause.Cause -eq 'Crash') {
+            if ($cause.Cause -eq 'NativeCrash') {
+                Add-Failure -Kind 'NativeCrash' -Route $Context -Discriminator $cause.Detail `
+                    -Detail "The process died on a native fault and restarted (pid $($state.LaunchPid) -> $currentPid). $($cause.Detail)" `
+                    -Evidence $cause.Block
+            }
+            elseif ($cause.Cause -eq 'Crash') {
                 Add-Failure -Kind 'ProcessRestartedAfterCrash' -Route $Context `
-                    -Detail "The process restarted (pid $($state.LaunchPid) -> $currentPid) after a fatal error." `
+                    -Detail "The process restarted (pid $($state.LaunchPid) -> $currentPid) after a fatal error. $($cause.Detail)" `
                     -Evidence $cause.Block -Discriminator $cause.Detail
             }
             elseif ($cause.Cause -eq 'External') {
@@ -351,18 +420,22 @@ function Test-ProcessAlive {
                 Add-Warning -Kind 'ExternalRestart' -Route $Context -Detail "Another process stopped the app; the run continued against a fresh process. $who"
             }
             else {
-                Add-Warning -Kind 'UnexplainedRestart' -Route $Context -Detail "The process restarted (pid $($state.LaunchPid) -> $currentPid) and nothing in logcat explains it."
+                Add-Warning -Kind 'UnexplainedRestart' -Route $Context -Detail "The process restarted (pid $($state.LaunchPid) -> $currentPid) and nothing explains it. $($cause.Detail)"
             }
             $state.LaunchPid = $currentPid
         }
         return $true
     }
 
-    $log = @(Get-ForgeLogcat -AdbPath $adb -Serial $Serial)
-    $cause = Get-ForgeProcessDeathCause -LogLines $log -PackageName $PackageName
+    $cause = Get-DeathCause
     $state.ProcessDeaths.Add([pscustomobject]@{ Context = $Context; Cause = $cause.Cause; Detail = $cause.Detail })
 
     switch ($cause.Cause) {
+        'NativeCrash' {
+            Add-Failure -Kind 'NativeCrash' -Route $Context -Discriminator $cause.Detail `
+                -Detail "The app died on a native fault. There is no managed exception for this, so nothing but the crash buffer and Android's exit record can see it. $($cause.Detail)" `
+                -Evidence $cause.Block
+        }
         'Crash' {
             Add-Failure -Kind 'ProcessDied' -Route $Context -Detail "The app process is gone: $($cause.Detail)" -Evidence $cause.Block -Discriminator $cause.Detail
         }
@@ -397,6 +470,26 @@ function Resolve-Stopper {
 
     if ($name) { return "$detail  [pid $stopperId is '$name']" }
     return "$detail  [pid $stopperId has already exited, which is what a one-shot adb command looks like]"
+}
+
+function Test-NoNativeCrash {
+    <#
+        Tombstones that appeared while a screen was open.
+
+        Separate from the fatal check because a native fault leaves nothing in the main buffer.
+        The process usually dies, so Test-ProcessAlive catches it too - but not always: a fault on
+        a background thread can leave the app apparently running, and a fault the harness recovers
+        from by relaunching would otherwise only be recorded as a restart.
+    #>
+    param([string]$RouteLabel)
+
+    $crash = @(Get-ForgeCrashLog -AdbPath $adb -Serial $Serial -MaxLines 800)
+    foreach ($n in @(Find-ForgeNativeCrash -LogLines $crash -PackageName $PackageName)) {
+        if (-not $state.NativeCrashes.Add($n.Signature)) { continue }
+        Add-Failure -Kind 'NativeCrash' -Route $RouteLabel -Discriminator $n.Signature `
+            -Detail "A native fault was recorded while '$RouteLabel' was open: $($n.Signature). No managed exception exists for this and the main log buffer says nothing." `
+            -Evidence $n.Block
+    }
 }
 
 function Test-NoFatalSinceStart {
@@ -837,6 +930,8 @@ function Invoke-ScreenVisit {
 
     if ($null -ne $screen) {
         [void]$state.VisitedRoutes.Add($screen.Route)
+        [void]$state.PassVisitedRoutes.Add($screen.Route)
+        if (-not $state.RouteFirstPass.ContainsKey($screen.Route)) { $state.RouteFirstPass[$screen.Route] = $state.Pass }
     }
     elseif ($firstVisit) {
         $state.UnidentifiedScreens.Add([pscustomobject]@{
@@ -863,6 +958,7 @@ function Invoke-ScreenVisit {
         Save-Screenshot -Label $routeLabel
         Invoke-ScreenChecks -Tree $tree -RouteLabel $routeLabel
         Test-NoFatalSinceStart -Context $routeLabel
+        Test-NoNativeCrash -RouteLabel $routeLabel
         Test-NoRuntimeException -RouteLabel $routeLabel -Since $arrivedAt
     }
 
@@ -1282,7 +1378,7 @@ function Invoke-DirectedRoutePass {
     param()
 
     $targets = @($inventory |
-            Where-Object { $_.Kind -eq 'Registered' -and -not $state.VisitedRoutes.Contains($_.Route) } |
+            Where-Object { $_.Kind -eq 'Registered' -and -not $state.PassVisitedRoutes.Contains($_.Route) } |
             ForEach-Object {
                 $walk = Get-ForgeRoutePath -Edges $navigationEdges -Roots $tabRouteNames -Target $_.Route
                 [pscustomobject]@{
@@ -1307,7 +1403,7 @@ function Invoke-DirectedRoutePass {
             # rest, and those are different findings.
             continue
         }
-        if ($state.VisitedRoutes.Contains($target.Route)) { continue }
+        if ($state.PassVisitedRoutes.Contains($target.Route)) { continue }
 
         Write-Host "  -> $($target.Route)" -ForegroundColor White
         $result = Move-ToRoute -Target $target.Route
@@ -1393,71 +1489,199 @@ function Invoke-FontScalePass {
 # ---------------------------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------------------------
-Write-Host ''
-Write-Host 'Launching' -ForegroundColor Cyan
-$onboardingOutcome = 'not reached'
-Clear-ForgeLogcat -AdbPath $adb -Serial $Serial
-Stop-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName
-Start-Sleep -Seconds 2
+function Assert-FirstRunPremise {
+    <#
+        Confirms that a pass claiming to be a first run really is one.
 
-$state.FontScale = Get-ForgeFontScale -AdbPath $adb -Serial $Serial
-$state.LaunchPid = Start-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName -SettleSeconds $LaunchSettleSeconds
-if (-not $state.LaunchPid) {
-    $log = @(Get-ForgeLogcat -AdbPath $adb -Serial $Serial)
-    $cause = Get-ForgeProcessDeathCause -LogLines $log -PackageName $PackageName
-    Add-Failure -Kind 'LaunchFailed' -Route 'launch' -Detail "The app did not stay alive after launch: $($cause.Detail)" -Evidence $cause.Block -Discriminator 'launch'
+        A first-run pass that quietly ran against carried-over data is worse than no first-run
+        pass at all, because it produces a green result for a path it never entered. That is
+        exactly how a SQLCipher segfault on database creation survived four waves here: every
+        device already had a database, so every run took the upgrade path and reported success.
+
+        Two independent signals, both required:
+          * the package's firstInstallTime equals its lastUpdateTime, so the data directory was
+            created by this install
+          * the app actually shows its first-run screen
+
+        Either one failing is reported as a failure of the run's premise, not as a passing walk.
+    #>
+    param($Fresh)
+
+    if (-not $Fresh.IsFresh) {
+        Add-Failure -Kind 'FirstRunNotAchieved' -Route 'first-run' -Discriminator 'stale-data' `
+            -Detail "This pass was supposed to test a first run, and did not: the package reports firstInstallTime '$($Fresh.FirstInstallTime)' and lastUpdateTime '$($Fresh.LastUpdateTime)', so app data from an earlier install survived. Everything below describes the upgrade path."
+        return $false
+    }
+
+    $tree = Get-Tree -Label 'first-run-check'
+    if ($null -eq $tree) {
+        Add-Warning -Kind 'FirstRunUnverified' -Route 'first-run' -Detail 'The hierarchy could not be dumped, so whether the app reached its first-run screen is unknown.'
+        return $false
+    }
+
+    $screen = Resolve-Screen -Tree $tree
+    if ($null -ne $screen -and $screen.Route -eq 'welcome') {
+        Write-Host '  first run confirmed: fresh data directory, and the app is showing its welcome screen' -ForegroundColor Green
+        return $true
+    }
+
+    $where = if ($null -ne $screen) { "'$($screen.Route)'" } else { 'a screen it could not name' }
+    Add-Failure -Kind 'FirstRunNotAchieved' -Route 'first-run' -Discriminator 'no-welcome' `
+        -Detail "The device had no app data, yet the app opened on $where rather than its welcome screen. Either onboarding was skipped for a profile that should not exist, or first-run startup did not complete."
+    return $false
 }
-else {
+
+function Invoke-WalkPass {
+    <#
+        One complete walk: launch, onboarding, crawl, route-directed pass, optional font pass.
+
+        Called once or twice. Two passes over one run is the shape that separates first-run
+        behaviour from upgrade behaviour instead of conflating them, which is the only way this
+        harness would have caught the database-creation crash.
+    #>
+    param([string]$PassName, [switch]$ExpectFirstRun)
+
+    $state.Pass = $PassName
+    $state.Phase = 'crawl'
+    $state.CrawlActions = 0
+    # Per-pass coverage. The union across passes is what the report counts, but the tab sweep and
+    # the route-directed pass must be gated on this pass alone: gating them on the union made the
+    # second pass skip every route the first had reached, so it degenerated to a bare crawl while
+    # the report still said those routes were "reached and checked" - a green result for a path
+    # that pass never entered, which is the exact failure this whole feature exists to prevent.
+    $state.PassVisitedRoutes.Clear()
+    $state.VisitedFingerprints.Clear()
+    $state.PassClock = [System.Diagnostics.Stopwatch]::StartNew()
+    $state.PassMinutes = $(if ($DeviceState -eq 'CleanThenExisting') { $MaxRunMinutes / 2 } else { $MaxRunMinutes })
+
+    Write-Host ''
+    Write-Host "Pass: $PassName" -ForegroundColor Cyan
+    Write-Host ('-' * (6 + $PassName.Length)) -ForegroundColor Cyan
+    Write-Host "  this pass may run for $([int]$state.PassMinutes) minutes" -ForegroundColor DarkGray
+
+    Clear-ForgeLogcat -AdbPath $adb -Serial $Serial
+    Stop-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName
+    Start-Sleep -Seconds 2
+
+    $state.LaunchPid = Start-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName -SettleSeconds $LaunchSettleSeconds
+    if (-not $state.LaunchPid) {
+        # Before blaming the app, check that the app is still the app. On a shared emulator the
+        # most common reason a launch fails is that another work stream has just uninstalled or
+        # replaced the package underneath the run - and reporting that as "Forge would not start"
+        # is the single most misleading thing this harness could say. It has happened twice.
+        if (-not (Test-ForgeAppInstalled -AdbPath $adb -Serial $Serial -PackageName $PackageName)) {
+            $state.Interference.Add("the package was uninstalled by another process before the '$PassName' pass could launch it")
+            Add-Warning -Kind 'PackageRemovedByAnotherProcess' -Route "launch:$PassName" -Discriminator $PassName `
+                -Detail "$PackageName is no longer installed on $Serial, so the '$PassName' pass could not run. Another work stream removed it. This is not a Forge defect, and nothing in this pass was checked."
+            return 'not attempted (another process uninstalled the package)'
+        }
+
+        $now = Get-ForgeInstalledVersion -AdbPath $adb -Serial $Serial -PackageName $PackageName
+        if ($now.LastUpdateTime -ne $installed.LastUpdateTime) {
+            $state.Interference.Add("the package was replaced during the run before the '$PassName' pass launched")
+            Add-Warning -Kind 'PackageReplacedBeforeLaunch' -Route "launch:$PassName" -Discriminator $PassName `
+                -Detail "The package changed underneath the run (lastUpdateTime '$($installed.LastUpdateTime)' -> '$($now.LastUpdateTime)'), so this launch failure is another stream's deploy rather than a Forge defect. Retrying once."
+            Start-Sleep -Seconds 10
+            $state.LaunchPid = Start-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName -SettleSeconds $LaunchSettleSeconds
+        }
+    }
+
+    if (-not $state.LaunchPid) {
+        $cause = Get-DeathCause
+        $kind = if ($cause.Cause -eq 'NativeCrash') { 'LaunchFailedNatively' } else { 'LaunchFailed' }
+        Add-Failure -Kind $kind -Route "launch:$PassName" -Discriminator "$PassName|$($cause.Detail)" `
+            -Detail "The app did not stay alive after launch on the '$PassName' pass: $($cause.Detail)" `
+            -Evidence $cause.Block
+        return 'not attempted (launch failed)'
+    }
+
     Write-Host "  pid $($state.LaunchPid)" -ForegroundColor Green
-    Test-NoFatalSinceStart -Context 'launch'
+    Test-NoFatalSinceStart -Context "launch:$PassName"
+    Test-NoNativeCrash -RouteLabel "launch:$PassName"
 
-    # The crawl is wrapped because an unhandled error must still produce a report. A harness that
-    # dies silently leaves the reader unable to tell "nothing was wrong" from "nothing was
-    # checked", which is the exact failure mode this whole tool exists to prevent.
-    try {
-        $onboardingOutcome = Invoke-Onboarding -Mode $OnboardingMode
-        Write-Host "  onboarding: $onboardingOutcome" -ForegroundColor DarkGray
+    if ($ExpectFirstRun) { [void](Assert-FirstRunPremise -Fresh $freshInstall) }
 
+    $outcome = Invoke-Onboarding -Mode $OnboardingMode
+    Write-Host "  onboarding: $outcome" -ForegroundColor DarkGray
+
+    Write-Host ''
+    Write-Host 'Crawling' -ForegroundColor Cyan
+    Write-Host "  the crawl may spend at most $MaxCrawlActions actions, so the route-directed pass is never starved" -ForegroundColor DarkGray
+    [void](Invoke-ScreenVisit -Depth 0 -ArrivedVia 'launch')
+
+    # Sweep the shell tabs explicitly. The crawl reaches them anyway, but only if it does not
+    # run out of budget first, and the tabs are the one part of the app that must always be
+    # covered. Each tab is opened from the launch state rather than from wherever the crawl
+    # finished, because a pushed page hides the tab bar.
+    $tabs = @($inventory | Where-Object { $_.Kind -eq 'Tab' } | Sort-Object TabIndex)
+    foreach ($tab in $tabs) {
+        if ($state.Aborted) { break }
+        if ($state.PassVisitedRoutes.Contains($tab.Route)) { continue }
+        if (Test-GlobalBudgetExhausted) { break }
+
+        $label = if ($tab.TabLabel) { $tab.TabLabel } else { $tab.Route }
+        $opened = Open-ShellTab -Tab $tab
+        if ($null -eq $opened) {
+            Add-Warning -Kind 'TabNotFound' -Route $tab.Route -Detail "The '$label' tab was not present in the hierarchy even from the launch state, so this tab was never opened."
+            continue
+        }
+
+        [void](Invoke-ScreenVisit -Depth 1 -ArrivedVia "tab:$label")
+    }
+
+    if ($RouteMode -eq 'Directed') {
+        $state.Phase = 'directed'
+        Invoke-DirectedRoutePass
+    }
+
+    if ($FontScalePass -and -not $state.Aborted) {
+        $state.Phase = 'fontscale'
+        Invoke-FontScalePass -Routes @($state.VisitedRoutes)
+    }
+
+    return $outcome
+}
+
+$onboardingOutcome = 'not reached'
+$state.FontScale = Get-ForgeFontScale -AdbPath $adb -Serial $Serial
+
+# The walk is wrapped because an unhandled error must still produce a report. A harness that dies
+# silently leaves the reader unable to tell "nothing was wrong" from "nothing was checked", which
+# is the exact failure mode this whole tool exists to prevent.
+try {
+    if ($wantsCleanDevice) {
+        $onboardingOutcome = Invoke-WalkPass -PassName 'first-run' -ExpectFirstRun
+    }
+    else {
+        $onboardingOutcome = Invoke-WalkPass -PassName 'existing-data'
+    }
+
+    if ($DeviceState -eq 'CleanThenExisting') {
+        # An abort in the first pass must not cancel the second one. On a shared emulator the
+        # usual cause is somebody else force-stopping or reinstalling the app, and giving up on
+        # the upgrade pass because of that would throw away the half of the run that was still
+        # available. The abort is recorded against the pass it happened in and the run continues.
+        if ($state.Aborted) {
+            $state.PassAborts.Add([pscustomobject]@{ Pass = 'first-run'; Reason = $state.AbortReason })
+            Add-Warning -Kind 'PassEndedEarly' -Route 'run' -Discriminator "first-run|$($state.AbortReason)" `
+                -Detail "The first-run pass ended early: $($state.AbortReason) Whatever it had not reached by then is unvisited, not passed. The upgrade pass was still attempted."
+            $state.Aborted = $false
+            $state.AbortReason = $null
+        }
+
+        # The second pass runs against exactly the state the first one left behind: a profile,
+        # a seeded database, whatever the walk logged. No reinstall, because reinstalling would
+        # only repeat the same install and prove nothing new.
         Write-Host ''
-        Write-Host 'Crawling' -ForegroundColor Cyan
-        Write-Host "  the crawl may spend at most $MaxCrawlActions actions, so the route-directed pass is never starved" -ForegroundColor DarkGray
-        [void](Invoke-ScreenVisit -Depth 0 -ArrivedVia 'launch')
-
-        # Sweep the shell tabs explicitly. The crawl reaches them anyway, but only if it does not
-        # run out of budget first, and the tabs are the one part of the app that must always be
-        # covered. Each tab is opened from the launch state rather than from wherever the crawl
-        # finished, because a pushed page hides the tab bar.
-        $tabs = @($inventory | Where-Object { $_.Kind -eq 'Tab' } | Sort-Object TabIndex)
-        foreach ($tab in $tabs) {
-            if ($state.Aborted) { break }
-            if ($state.VisitedRoutes.Contains($tab.Route)) { continue }
-            if (Test-GlobalBudgetExhausted) { break }
-
-            $label = if ($tab.TabLabel) { $tab.TabLabel } else { $tab.Route }
-            $opened = Open-ShellTab -Tab $tab
-            if ($null -eq $opened) {
-                Add-Warning -Kind 'TabNotFound' -Route $tab.Route -Detail "The '$label' tab was not present in the hierarchy even from the launch state, so this tab was never opened."
-                continue
-            }
-
-            [void](Invoke-ScreenVisit -Depth 1 -ArrivedVia "tab:$label")
-        }
-
-        if ($RouteMode -eq 'Directed') {
-            $state.Phase = 'directed'
-            Invoke-DirectedRoutePass
-        }
-
-        if ($FontScalePass -and -not $state.Aborted) {
-            $state.Phase = 'fontscale'
-            Invoke-FontScalePass -Routes @($state.VisitedRoutes)
-        }
+        Write-Host 'The device now carries the state the first pass created. Walking it again as' -ForegroundColor DarkGray
+        Write-Host 'the upgrade path, which is what every previous run in this project tested.' -ForegroundColor DarkGray
+        [void](Invoke-WalkPass -PassName 'existing-data')
     }
-    catch {
-        $state.Aborted = $true
-        $state.AbortReason = "The crawl stopped on an unexpected error: $($_.Exception.Message)"
-        Add-Failure -Kind 'HarnessError' -Route 'run' -Detail $state.AbortReason -Evidence @(($_.ScriptStackTrace -split "`r?`n")) -Discriminator $_.Exception.Message
-    }
+}
+catch {
+    $state.Aborted = $true
+    $state.AbortReason = "The walk stopped on an unexpected error: $($_.Exception.Message)"
+    Add-Failure -Kind 'HarnessError' -Route 'run' -Detail $state.AbortReason -Evidence @(($_.ScriptStackTrace -split "`r?`n")) -Discriminator $_.Exception.Message
 }
 
 $stopwatch.Stop()
@@ -1494,8 +1718,9 @@ $skipped = [System.Collections.Generic.List[psobject]]::new()
 foreach ($r in $inventory) {
     if ($state.VisitedRoutes.Contains($r.Route)) {
         $how = 'reached and checked'
+        if ($state.RouteFirstPass.ContainsKey($r.Route)) { $how = "reached and checked on the '$($state.RouteFirstPass[$r.Route])' pass" }
         if ($attemptByRoute.ContainsKey($r.Route) -and $attemptByRoute[$r.Route].Reached) {
-            $how = "reached and checked - $($attemptByRoute[$r.Route].Reason)"
+            $how = "$how - $($attemptByRoute[$r.Route].Reason)"
         }
         $routeReport.Add([pscustomobject]@{ Route = $r.Route; Kind = $r.Kind; PageType = $r.PageType; Status = 'visited'; Detail = $how })
         continue
@@ -1563,6 +1788,9 @@ $result = [pscustomobject]@{
     ScreenWidth           = $screenSize.Width
     ScreenHeight          = $screenSize.Height
     RouteMode             = $RouteMode
+    DeviceState           = $DeviceState
+    FreshInstall          = [bool]$freshInstall.IsFresh
+    FirstInstallTime      = $freshInstall.FirstInstallTime
     FontScalePass         = [bool]$FontScalePass
     LargeFontScale        = $(if ($FontScalePass) { $LargeFontScale } else { $null })
     OnboardingOutcome     = $(if ($state.LaunchPid) { $onboardingOutcome } else { 'not attempted (launch failed)' })
@@ -1584,6 +1812,7 @@ $result = [pscustomobject]@{
     ProcessDeaths         = @($state.ProcessDeaths.ToArray())
     FatalExceptions       = @($state.FatalExceptions.ToArray())
     RuntimeExceptions     = @($state.RuntimeExceptions.ToArray())
+    NativeCrashes         = @($state.NativeCrashes)
     BlankScreens          = @($state.BlankScreens.ToArray())
     BlankContainers       = @($state.BlankContainers.ToArray())
     UnboundScreens        = @($state.UnboundScreens.ToArray())
@@ -1596,6 +1825,7 @@ $result = [pscustomobject]@{
     ActionsAttempted      = $state.ActionsAttempted
     NavigationsObserved   = $state.NavigationsObserved
     Recoveries            = $state.Recoveries
+    PassAborts            = @($state.PassAborts.ToArray())
     Aborted               = $state.Aborted
     AbortReason           = $state.AbortReason
 }

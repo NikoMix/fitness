@@ -87,6 +87,15 @@ function Get-FixtureLog {
     return @(Get-Content -LiteralPath $path | Where-Object { $_ -ne '' })
 }
 
+function Get-FixtureExitInfo {
+    param([Parameter(Mandatory)][string]$Name)
+    $path = Join-Path $FixtureDirectory (Join-Path 'exitinfo' $Name)
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Exit-info fixture missing: $path"
+    }
+    return @(Get-Content -LiteralPath $path)
+}
+
 Write-Host ''
 Write-Host 'Forge smoke-harness self-test' -ForegroundColor Cyan
 Write-Host '=============================' -ForegroundColor Cyan
@@ -371,6 +380,169 @@ Assert-Condition -Name 'an empty device response yields no timestamp rather than
 Write-Host ''
 
 # ---------------------------------------------------------------------------------------------
+Write-Host 'Native crashes, which leave no managed exception at all' -ForegroundColor White
+
+# A SQLCipher segfault on first run survived four waves of this project. It is a native fault, so
+# there is no managed exception, no AndroidRuntime record, and nothing useful in the main log
+# buffer - the evidence is a tombstone in `logcat -b crash`. Nothing here was looking there.
+$nativeLog = Get-FixtureLog 'logcat-native-crash.log'
+$native = @(Find-ForgeNativeCrash -LogLines $nativeLog -PackageName $PackageName)
+Assert-Condition -Name 'a native crash in the crash buffer is detected' `
+    -Condition ($native.Count -ge 1) `
+    -Detail $(if ($native.Count -ge 1) { $native[0].Signature } else { 'nothing detected' })
+
+Assert-Condition -Name 'the faulting native frame is captured, not just the signal' `
+    -Condition (($native.Count -ge 1) -and (@($native[0].Frames | Where-Object { $_ -match 'sqlcipher_codec_key_derive' }).Count -ge 1)) `
+    -Detail $(if ($native.Count -ge 1 -and $native[0].Frames.Count -gt 0) { $native[0].Frames[0] } else { 'no frames captured' })
+
+# The thread name in a tombstone is truncated to 15 characters by the kernel, so matching on the
+# package alone would miss every one. The Cmdline and >>> package <<< lines are what identify it.
+Assert-Condition -Name 'a truncated thread name does not stop the crash being attributed' `
+    -Condition (($native.Count -ge 1) -and ($native[0].Block -join "`n") -match 'Thread Pool Wor') `
+    -Detail 'attribution uses Cmdline and the >>> package <<< marker, not the 15-character thread name'
+
+# Another app crashing on a shared emulator must not fail a Forge run.
+$otherLog = Get-FixtureLog 'logcat-native-crash-other-app.log'
+Assert-Condition -Name "another app's native crash is not attributed to Forge" `
+    -Condition ((@(Find-ForgeNativeCrash -LogLines $otherLog -PackageName $PackageName)).Count -eq 0) `
+    -Detail 'the tombstone names com.google.android.apps.restore, so it is somebody else'
+
+# And the harder version of the same thing. `logcat -b crash` holds nothing but tombstones, packed
+# back to back, so a fixed-size window routinely spans two of them. A window that reached into the
+# next tombstone reported the neighbour's frames under Forge's name and skipped Forge's own.
+$adjacent = @($otherLog + $nativeLog)
+$adjacentFindings = @(Find-ForgeNativeCrash -LogLines $adjacent -PackageName $PackageName)
+Assert-Condition -Name "a foreign tombstone immediately before Forge's own is not mistaken for it" `
+    -Condition (($adjacentFindings.Count -eq 1) -and (($adjacentFindings[0].Frames -join ' ') -match 'sqlcipher_codec_key_derive')) `
+    -Detail $(if ($adjacentFindings.Count -ge 1) { "$($adjacentFindings.Count) finding(s), first frame: $($adjacentFindings[0].Frames[0])" } else { "Forge's own crash was skipped entirely" })
+
+Assert-Condition -Name "and none of the neighbour's frames leak into it" `
+    -Condition (($adjacentFindings.Count -eq 1) -and (($adjacentFindings[0].Block -join "`n") -notmatch 'apps.restore')) `
+    -Detail 'the block stops at the next tombstone rather than spanning both'
+
+# Reversed order too: Forge first, foreign second.
+$reversed = @($nativeLog + $otherLog)
+$reversedFindings = @(Find-ForgeNativeCrash -LogLines $reversed -PackageName $PackageName)
+Assert-Condition -Name 'and the same holds when the foreign tombstone comes second' `
+    -Condition (($reversedFindings.Count -eq 1) -and (($reversedFindings[0].Block -join "`n") -notmatch 'apps.restore')) `
+    -Detail "$($reversedFindings.Count) finding(s), no foreign frames"
+
+Assert-Condition -Name 'an ordinary log contains no native crash' `
+    -Condition ((@(Find-ForgeNativeCrash -LogLines $cleanLog -PackageName $PackageName)).Count -eq 0) `
+    -Detail 'a clean startup produces no tombstone'
+
+# The managed-fatal check must stay quiet on a native fault, and vice versa: they are different
+# defects with different evidence, and conflating them makes both reports worse.
+Assert-Condition -Name 'a native crash is not also reported as a managed fatal' `
+    -Condition ((@(Find-ForgeFatalExceptions -LogLines $nativeLog -PackageName $PackageName)).Count -eq 0) `
+    -Detail 'there is no AndroidRuntime record in a tombstone, and one crash under two names helps nobody'
+
+# The inverse, so the two detectors stay in their own lanes in both directions.
+Assert-Condition -Name 'a managed fatal is not also reported as a native crash' `
+    -Condition ((@(Find-ForgeNativeCrash -LogLines $crashLog -PackageName $PackageName)).Count -eq 0) `
+    -Detail 'a JavaProxyThrowable has no signal and no tombstone'
+
+Assert-Condition -Name 'a managed fatal is still detected after the native patterns were split out' `
+    -Condition ((@(Find-ForgeFatalExceptions -LogLines $crashLog -PackageName $PackageName)).Count -ge 1) `
+    -Detail 'removing the signal patterns must not have removed managed crash detection'
+
+$nativeCause = Get-ForgeProcessDeathCause -LogLines @() -CrashLines $nativeLog -PackageName $PackageName
+Assert-Condition -Name 'a tombstone alone is enough to classify the death as a native crash' `
+    -Condition ($nativeCause.Cause -eq 'NativeCrash') `
+    -Detail "classified '$($nativeCause.Cause)' with no exit record and no main-buffer log"
+
+Write-Host ''
+
+# ---------------------------------------------------------------------------------------------
+Write-Host "Android's own exit records, which beat reading logcat prose" -ForegroundColor White
+
+# dumpsys activity exit-info is the authority on why a process died. Every sample below was
+# captured from emulator-5554 rather than invented, because the printed format varies by release
+# and a parser written against a guess is worth nothing.
+$exitNative = @(ConvertFrom-ForgeExitInfo -Lines (Get-FixtureExitInfo 'exitinfo-native-crash.txt') -PackageName $PackageName)
+Assert-Condition -Name 'an exit record is parsed out of dumpsys' `
+    -Condition ($exitNative.Count -eq 1) `
+    -Detail $(if ($exitNative.Count -ge 1) { "reason=$($exitNative[0].ReasonCode) ($($exitNative[0].ReasonName)) pid=$($exitNative[0].ProcessId) at $($exitNative[0].Timestamp)" } else { 'nothing parsed' })
+
+# The reason name itself contains brackets. A single expression that tries to capture the reason,
+# the subreason and the status together stops at the wrong ')' and silently drops the last two -
+# and status is the signal number, which is the one field worth having on a native crash.
+Assert-Condition -Name 'a reason name containing brackets is parsed whole' `
+    -Condition ($exitNative[0].ReasonName -eq 'APP CRASH(NATIVE)') `
+    -Detail "parsed '$($exitNative[0].ReasonName)'"
+
+Assert-Condition -Name 'the subreason and the status survive alongside it' `
+    -Condition (($exitNative[0].SubreasonName -eq 'UNKNOWN') -and ($exitNative[0].Status -eq '11')) `
+    -Detail "subreason='$($exitNative[0].SubreasonName)' status='$($exitNative[0].Status)' (11 is SIGSEGV)"
+
+Assert-Condition -Name 'APP CRASH(NATIVE) is a Forge defect' `
+    -Condition ((Get-ForgeExitVerdict -Record $exitNative[0]).Verdict -eq 'Defect') `
+    -Detail (Get-ForgeExitVerdict -Record $exitNative[0]).Detail
+
+# This is the shared-emulator case that has been misread as a Forge crash twice on this project.
+$exitStop = @(ConvertFrom-ForgeExitInfo -Lines (Get-FixtureExitInfo 'exitinfo-force-stop.txt') -PackageName $PackageName)
+Assert-Condition -Name 'the newest record is the one that decides the verdict' `
+    -Condition (($exitStop.Count -eq 2) -and ($exitStop[0].ReasonCode -eq 10)) `
+    -Detail "$($exitStop.Count) records, newest is reason=$($exitStop[0].ReasonCode) ($($exitStop[0].ReasonName))"
+
+Assert-Condition -Name 'USER REQUESTED / FORCE STOP is external interference, not a crash' `
+    -Condition ((Get-ForgeExitVerdict -Record $exitStop[0]).Verdict -eq 'External') `
+    -Detail (Get-ForgeExitVerdict -Record $exitStop[0]).Detail
+
+$exitUpdated = @(ConvertFrom-ForgeExitInfo -Lines (Get-FixtureExitInfo 'exitinfo-package-updated.txt') -PackageName $PackageName)
+Assert-Condition -Name 'PACKAGE UPDATED is external interference' `
+    -Condition ((Get-ForgeExitVerdict -Record $exitUpdated[0]).Verdict -eq 'External') `
+    -Detail 'another work stream deploying its own build cannot fail a Forge run'
+
+$exitSystem = @(ConvertFrom-ForgeExitInfo -Lines (Get-FixtureExitInfo 'exitinfo-system-kill.txt') -PackageName $PackageName)
+Assert-Condition -Name 'a system kill for memory pressure is inconclusive, not a pass and not a defect' `
+    -Condition ((Get-ForgeExitVerdict -Record $exitSystem[0]).Verdict -eq 'Inconclusive') `
+    -Detail (Get-ForgeExitVerdict -Record $exitSystem[0]).Detail
+
+# An unknown reason code must never be optimistic. A code this harness has not seen is exactly
+# when guessing is worst.
+$unknown = [pscustomobject]@{ Package = $PackageName; Timestamp = '2026-08-22 13:00:00.000'; ProcessId = '1'; Process = $PackageName; ReasonCode = 99; ReasonName = 'SOMETHING NEW'; SubreasonName = $null; Status = '0'; Description = 'null' }
+Assert-Condition -Name 'an exit reason the harness has never seen is inconclusive, never a pass' `
+    -Condition ((Get-ForgeExitVerdict -Record $unknown).Verdict -eq 'Inconclusive') `
+    -Detail 'a future Android release cannot silently turn a defect into a pass'
+
+Assert-Condition -Name "another package's exit records are filtered out" `
+    -Condition ((@(ConvertFrom-ForgeExitInfo -Lines (Get-FixtureExitInfo 'exitinfo-native-crash.txt') -PackageName 'com.example.other')).Count -eq 0) `
+    -Detail 'a shared emulator is full of other packages'
+
+# The whole point of preferring exit-info: it decides correctly even when logcat is empty, and it
+# overrules a misleading log line.
+$exitDecided = Get-ForgeProcessDeathCause -LogLines @() -CrashLines @() -PackageName $PackageName -ExitInfo $exitStop
+Assert-Condition -Name 'a force-stop is classified as external with no logcat evidence at all' `
+    -Condition (($exitDecided.Cause -eq 'External') -and ($exitDecided.StopperId -eq '8273')) `
+    -Detail "classified '$($exitDecided.Cause)', stopper pid '$($exitDecided.StopperId)'"
+
+$exitAndTombstone = Get-ForgeProcessDeathCause -LogLines @() -CrashLines $nativeLog -PackageName $PackageName -ExitInfo $exitNative
+Assert-Condition -Name 'a native crash record and its tombstone are reported together' `
+    -Condition (($exitAndTombstone.Cause -eq 'NativeCrash') -and (($exitAndTombstone.Block -join "`n") -match 'sqlcipher_codec_key_derive')) `
+    -Detail 'the verdict says what Android recorded and the evidence says where it faulted'
+
+# The one that matters most, and the one that was wrong. The harness force-stops the app when it
+# recovers and at the start of every pass, so a USER REQUESTED record routinely sits on top of a
+# genuine native crash. Trusting the newest record first turned the crash into a non-failing
+# "somebody else stopped us" warning - the precise defect class this feature exists to catch.
+$maskedCrash = Get-ForgeProcessDeathCause -LogLines @() -CrashLines $nativeLog -PackageName $PackageName -ExitInfo $exitStop
+Assert-Condition -Name 'a force-stop recorded after a native fault does not downgrade it to interference' `
+    -Condition ($maskedCrash.Cause -eq 'NativeCrash') `
+    -Detail "classified '$($maskedCrash.Cause)' even though the newest exit record says USER REQUESTED"
+
+Assert-Condition -Name 'and the report explains why the tombstone outranks the newer record' `
+    -Condition ($maskedCrash.Detail -like '*the tombstone is the authority here*') `
+    -Detail 'a reader can see the reasoning rather than having to trust it'
+
+# The inverse still has to work: a force-stop with no tombstone is still interference.
+Assert-Condition -Name 'a force-stop with no tombstone is still interference' `
+    -Condition ((Get-ForgeProcessDeathCause -LogLines @() -CrashLines @() -PackageName $PackageName -ExitInfo $exitStop).Cause -eq 'External') `
+    -Detail 'the tombstone is what changes the verdict, not the ordering rule alone'
+
+Write-Host ''
+
+# ---------------------------------------------------------------------------------------------
 Write-Host 'Finding identity and the ignore list' -ForegroundColor White
 
 $idA = Get-ForgeFindingId -Kind 'BlankContainer' -Route 'shop' -Discriminator 'FrameLayout/LinearLayout'
@@ -407,6 +579,15 @@ $emptySplit = Split-ForgeFindings -Findings $sampleFindings -Entries @()
 Assert-Condition -Name 'with no ignore entries every finding fails the run' `
     -Condition ($emptySplit.Active.Count -eq 2 -and $emptySplit.Accepted.Count -eq 0) `
     -Detail 'the default posture is to fail'
+
+# Walking the same screen twice must not double-count its defects. The id is the identity of
+# the finding, so two findings sharing one is one defect seen twice - which is exactly what a
+# two-pass run does, and what made a blank card on the food log appear twice in one report.
+$duplicated = @($sampleFindings[0], $sampleFindings[0], $sampleFindings[1])
+$distinctIds = @($duplicated | ForEach-Object { $_.Id } | Sort-Object -Unique)
+Assert-Condition -Name 'a repeated visit produces one id, so the harness can deduplicate on it' `
+    -Condition ($distinctIds.Count -eq 2) `
+    -Detail "$($duplicated.Count) observations collapse to $($distinctIds.Count) distinct findings"
 
 $tempIgnore = Join-Path ([System.IO.Path]::GetTempPath()) "forge-smoke-ignore-$([Guid]::NewGuid().ToString('n')).json"
 try {
@@ -557,6 +738,9 @@ try {
         ScreenWidth           = 1080
         ScreenHeight          = 2400
         RouteMode             = 'Directed'
+        DeviceState           = 'CleanThenExisting'
+        FreshInstall          = $true
+        FirstInstallTime      = '2026-08-22 13:20:15'
         FontScalePass         = $true
         LargeFontScale        = '1.30'
         OnboardingOutcome     = 'skipped'
@@ -574,7 +758,7 @@ try {
         LearnedEdges          = @([pscustomobject]@{ From = 'profile'; Label = 'Settings'; To = 'settings' })
         ScreenVisits          = @()
         UnidentifiedScreens   = @()
-        Failures              = @([pscustomobject]@{ Id = 'abcdef0123'; Kind = 'VisibleErrorText'; Route = 'workout-summary'; Detail = 'an exception message'; Evidence = @('matched rule: sqlite-translation') })
+        Failures              = @([pscustomobject]@{ Id = 'abcdef0123'; Kind = 'VisibleErrorText'; Route = 'workout-summary'; Pass = 'first-run'; Detail = 'an exception message'; Evidence = @('matched rule: sqlite-translation') })
         AcceptedFindings      = @([pscustomobject]@{ Id = '0123abcdef'; Kind = 'BlankContainer'; Route = 'shop'; Detail = 'an empty card'; Reason = 'stub until Wave 9'; Owner = 'commerce' })
         IgnoreListPath        = 'tools/smoke/smoke-ignore.json'
         Warnings              = @([pscustomobject]@{ Id = 'deadbeef01'; Kind = 'RouteTimeCapped'; Route = 'train'; Detail = 'capped' })
@@ -582,6 +766,7 @@ try {
         ProcessDeaths         = @()
         FatalExceptions       = @()
         RuntimeExceptions     = @()
+        NativeCrashes         = @('signal 11 (SIGSEGV) at #00 pc 00000000000d41a2 libe_sqlite3.so (sqlcipher_codec_key_derive+178)')
         BlankScreens          = @()
         BlankContainers       = @()
         UnboundScreens        = @()
@@ -623,6 +808,26 @@ try {
     Assert-Condition -Name 'every failure carries the id needed to accept it' `
         -Condition ($body -like '*abcdef0123*') `
         -Detail 'the report tells the reader exactly what to paste into the ignore list'
+
+    # A finding from a first-run pass and the same finding from an upgrade pass are different
+    # facts, so the report has to say which pass produced it.
+    Assert-Condition -Name 'a finding names the pass it came from' `
+        -Condition ($body -like '*pass*first-run*') `
+        -Detail 'first-run and upgrade behaviour are reported as distinct, not conflated'
+
+    Assert-Condition -Name 'the report states whether the device had carried-over data' `
+        -Condition ($body -like '*fresh install*') `
+        -Detail 'a reader can tell at a glance whether the database-creation path was entered'
+
+    # And when it did not, the limits section has to say so - a green upgrade-path run must never
+    # be mistaken for coverage of a first run.
+    $upgradeResult = $syntheticResult.PSObject.Copy()
+    $upgradeResult.FreshInstall = $false
+    $upgradeMarkdown = Join-Path $reportDirectory 'upgrade-report.md'
+    Write-ForgeSmokeMarkdownReport -Result $upgradeResult -Path $upgradeMarkdown
+    Assert-Condition -Name 'an upgrade-path run says in its limits that it never tested a first run' `
+        -Condition ((Get-Content -LiteralPath $upgradeMarkdown -Raw) -like '*upgrade path only*') `
+        -Detail 'the run that missed the SQLCipher crash for four waves would now say so'
 }
 finally {
     Remove-Item -LiteralPath $reportDirectory -Recurse -Force -ErrorAction SilentlyContinue
