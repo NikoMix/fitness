@@ -119,6 +119,34 @@ public sealed class WorkoutTargetTests
     }
 
     [Fact]
+    public void A_workout_in_progress_across_the_upgrade_does_not_relabel_the_old_constant_as_a_plan()
+    {
+        // Exactly what a snapshot written by the previous build contains: the fabricated 60 kg for
+        // 8 reps sitting in the two bare target fields, with no planned sets behind it. Reading
+        // those as a prescription would put the invented number back on screen captioned "from
+        // your plan" - the original defect, restated more confidently.
+        var legacy = new ActiveWorkoutExercise(ExerciseId, "Back squat", "Quads", 60m, 8);
+
+        var target = legacy.ResolveTarget(ordinal: 1);
+
+        target.Source.ShouldBe(WorkoutTargetSource.None);
+        target.LoadKilograms.ShouldBeNull();
+        WorkoutTargetNarrator.Caption(target).ShouldBe("No target · ad hoc");
+        WorkoutTargetNarrator.LoadText(target).ShouldBe("—");
+    }
+
+    [Fact]
+    public void A_legacy_entry_still_offers_the_users_own_last_set()
+    {
+        var legacy = new ActiveWorkoutExercise(ExerciseId, "Back squat", "Quads", 60m, 8);
+
+        var target = legacy.ResolveTarget(ordinal: 1, WorkoutTarget.FromLastPerformance(92.5m, 5));
+
+        target.Source.ShouldBe(WorkoutTargetSource.LastPerformance);
+        target.LoadKilograms.ShouldBe(92.5m);
+    }
+
+    [Fact]
     public void A_queue_entry_round_trips_its_planned_sets_by_value()
     {
         var original = WithPlannedSets();

@@ -193,6 +193,46 @@ public sealed class PlanWorkoutProjectionTests
         PlanWorkoutProjection.DayForDate(plan, new DateOnly(2026, 8, 19)).ShouldBeNull();
     }
 
+    [Fact]
+    public void A_template_that_prescribes_no_load_shows_reps_without_claiming_zero_kilograms()
+    {
+        var template = PlanTemplateCatalogue.Templates[0];
+        var day = template.Days.OrderBy(item => item.Ordinal).First();
+
+        var queue = PlanWorkoutProjection.BuildQueue(day, Catalogue);
+        var target = queue[0].ResolveTarget(ordinal: 1);
+
+        // Every shipped template sets Mass.Zero, meaning "we prescribe reps, you choose the load".
+        // Carrying that through literally would put "0 kg" on screen captioned "Target".
+        target.Source.ShouldBe(WorkoutTargetSource.Plan);
+        target.LoadKilograms.ShouldBeNull();
+        target.RepsMin!.Value.ShouldBeGreaterThan(0);
+        WorkoutTargetNarrator.LoadText(target).ShouldBe("—");
+        WorkoutTargetNarrator.Caption(target).ShouldBe("Target · from your plan");
+    }
+
+    [Fact]
+    public void A_zero_target_load_is_not_treated_as_a_prescription()
+    {
+        var day = new PlanDay { UserProfileId = Owner, Name = "Upper", Ordinal = 0 };
+        var exercise = Exercise("Back squat", SquatId, ordinal: 0, addSets: false);
+        exercise.Sets.Add(new PlannedSet
+        {
+            UserProfileId = Owner,
+            Ordinal = 1,
+            TargetRepsMin = 10,
+            TargetRepsMax = 12,
+            TargetLoad = Mass.Zero,
+            Rest = TimeSpan.FromSeconds(90)
+        });
+        day.Exercises.Add(exercise);
+
+        var queue = PlanWorkoutProjection.BuildQueue(day, Catalogue);
+
+        queue[0].PlannedSetFor(1)!.TargetLoadKilograms.ShouldBeNull();
+        queue[0].TargetLoadKilograms.ShouldBeNull();
+    }
+
     private static PlanDay BuildDay()
     {
         var day = new PlanDay { UserProfileId = Owner, Name = "Lower A", Ordinal = 0 };

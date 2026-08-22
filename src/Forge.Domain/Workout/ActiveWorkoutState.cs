@@ -616,6 +616,14 @@ public sealed record ActiveWorkoutExercise(
     /// <summary>
     /// Resolves what to show as the target for the set about to be performed.
     /// </summary>
+    /// <remarks>
+    /// Only <see cref="PlannedSets"/> can attribute a target to a plan. The bare
+    /// <see cref="TargetLoadKilograms"/> and <see cref="TargetRepetitions"/> are deliberately not
+    /// trusted as a prescription: a snapshot written by a build before this change carries the
+    /// fabricated 60 kg for 8 reps in exactly those two fields, and a workout in progress across
+    /// that upgrade would otherwise have the old invented number relabelled as coming from the
+    /// user's plan - the original defect, restated more confidently.
+    /// </remarks>
     /// <param name="ordinal">One-based position of the set about to be performed.</param>
     /// <param name="lastPerformance">The user's own last working set of this exercise, when known.</param>
     /// <returns>The target and its provenance, which is <see cref="WorkoutTargetSource.None"/> when nothing prescribes one.</returns>
@@ -626,16 +634,9 @@ public sealed record ActiveWorkoutExercise(
             return WorkoutTarget.FromPlan(planned);
         }
 
-        if (lastPerformance is { Source: WorkoutTargetSource.LastPerformance } previous)
-        {
-            return previous;
-        }
-
-        // Deliberately not a fallback constant. An entry with no plan and no history has no
-        // target, and saying so is the honest outcome.
-        return TargetLoadKilograms is null && TargetRepetitions is null
-            ? WorkoutTarget.None
-            : new WorkoutTarget(WorkoutTargetSource.Plan, TargetLoadKilograms, TargetRepetitions, TargetRepetitions);
+        return lastPerformance is { Source: WorkoutTargetSource.LastPerformance } previous
+            ? previous
+            : WorkoutTarget.None;
     }
 
     /// <summary>
