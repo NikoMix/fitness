@@ -34,14 +34,31 @@ contraindicated movements — is `NOT-DONE` in all three stories, and the failur
    tested and has **zero callers in `src/`**.
 3. `ExerciseLibraryViewModel` filters only by chips the user ticks by hand; it never reads
    `MovementLimitations` and never builds an `ExerciseFilter` from the profile.
-4. `NextSessionRecommender` *does* understand contraindications — and its only production
-   caller, `CoachingDataService.cs:57`, passes `Contraindications: []`, a hard-coded empty list.
+4. `NextSessionRecommender` is fed `Contraindications: []` — a hard-coded empty list — by its
+   only production caller, `CoachingDataService.cs:57`.
 
 So a user can type *"avoid overhead pressing — shoulder"* during onboarding, see it echoed back
 on the review step, and then be recommended overhead pressing in the library, in the
 alternatives screen and in the coaching recommendation, with no warning. **This is the
 `ExerciseFilter.FromDeclaredInjuries` case the brief predicted, and it is worse than predicted,
 because the data that would feed it was never given a structure either.**
+
+> **Correction to link 4, verified after the original pass.** This report first described
+> `NextSessionRecommender` as a recommender that *"does understand contraindications"* and is
+> merely starved of input — implying link 4 is a wiring job. **That was an overstatement.**
+> `FindContraindication` (`NextSessionRecommender.cs:126-131`) matches
+> `TrainingContraindication.MuscleGroup` by exact case-insensitive membership against the
+> exercise's **muscles**, while the recognised injury vocabulary
+> (`ExerciseFilter.cs:50-62`) is **joints and regions**. Intersecting the nine injury keys
+> against the 27 distinct muscle names in the 60 seeded exercises: **exactly one matches**
+> (`lower back`). Three of the eight failures are pure singular/plural —
+> `hip`/`Hips`, `shoulder`/`Shoulders`, `ankle`/`Ankles` — **so the two lists look
+> interchangeable when read side by side and are not.** A structured hand-off into this
+> recommender would compile, pass review and block essentially nothing, with eight of nine areas
+> silently no-opping and the ninth quietly working — so a tester who happened to declare a back
+> injury would see a blocked recommendation and conclude the feature worked. Link 4 is therefore
+> **not** sequenceable as a wiring fix behind links 1–3: the matching axis has to move to
+> movement pattern, which is what `ExerciseFilter` already models.
 
 ### Claimed-done but broken
 
@@ -1014,6 +1031,15 @@ is genuinely met — the column lives in the SQLCipher database, proven by
 The chain described at the top of this report. Nothing is hidden, no *Show filtered items*
 toggle, no *Contraindicated* label, no severity tiers, no explanation id. **Highest-severity
 finding in E06.**
+
+`REQ1` — *"exercise metadata maps required movement patterns and body areas to limitations"* —
+is the requirement the link-4 correction above bears on, and it is unmet in a way the original
+write-up understated. Two vocabularies exist and they do not meet: `NextSessionRecommender`
+matches on **muscle names**, `ExerciseFilter.InjuryMovementExclusions` is keyed on **joints and
+regions**, and the intersection over the shipped catalogue is **1 of 9**. The mapping this
+requirement asks for is precisely what is missing, and its absence is currently hidden by the
+empty list at `CoachingDataService.cs:57` — remove that and the mismatch surfaces as a feature
+that appears to run and blocks almost nothing.
 
 #### S06.04.03 Handle no safe exercise matches — NOT-DONE
 
