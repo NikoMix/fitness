@@ -221,9 +221,13 @@ function Get-ForgeLogcat {
 
 function Find-ForgeFatalExceptions {
     <#
-        A managed crash in a MAUI app reaches logcat in more than one shape depending on where it
-        is thrown, so all the known shapes are matched. The block that follows a FATAL line is
-        captured because a stack trace with no context is not actionable.
+        Managed crashes: an unhandled exception that reached the runtime and killed the process.
+
+        Native faults are deliberately NOT matched here even though `Fatal signal` appears in the
+        same buffer. They have their own detector, Find-ForgeNativeCrash, because they carry
+        completely different evidence - a signal, a fault address and a native backtrace rather
+        than a managed stack - and because one crash reported twice under two names makes both
+        reports harder to act on. The two are asserted to stay in their own lanes.
     #>
     [CmdletBinding()]
     param(
@@ -234,8 +238,6 @@ function Find-ForgeFatalExceptions {
 
     $patterns = @(
         'FATAL EXCEPTION'
-        'FATAL SIGNAL'
-        'Fatal signal \d+'
         'AndroidRuntime:\s+Process:'
         'Unhandled Exception'
         'UNHANDLED EXCEPTION'
@@ -269,10 +271,281 @@ function Find-ForgeFatalExceptions {
     return @($findings.ToArray())
 }
 
+function Get-ForgeCrashLog {
+    <#
+        The crash buffer, which is where a native fault actually lands.
+
+        A native crash writes a tombstone through libc and debuggerd, not through the runtime, so
+        there is no managed exception, no AndroidRuntime record and often nothing at all in the
+        main buffer. Reading `-b crash` explicitly is the difference between "the process vanished
+        and nothing explains it" and a signal, a fault address and a backtrace.
+
+        This matters here specifically: a SQLCipher segfault on first run survived four waves of
+        this project partly because nothing was looking in this buffer.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial,
+        [int]$MaxLines = 2000
+    )
+
+    $result = Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('logcat', '-d', '-b', 'crash', '-t', "$MaxLines") -TimeoutSeconds 90
+    return @($result.StdOut -split "`r?`n" | Where-Object { $_ -ne '' })
+}
+
+function Find-ForgeNativeCrash {
+    <#
+        Native faults attributed to the app under test.
+
+        Attribution needs care. Linux truncates a thread name to 15 characters, so the tombstone
+        header says `name: m.nikomix.forge` rather than the package - matching on the package alone
+        would miss every one of them. The `Cmdline:` and `>>> package <<<` lines carry the full
+        name and are what the block is matched on.
+
+        Verified against a real tombstone captured from emulator-5554:
+
+            F libc  : Fatal signal 11 (SIGSEGV), code 0 (SI_USER from pid 8176, uid 0)
+                      in tid 8029 (m.nikomix.forge), pid 8029 (m.nikomix.forge)
+            F DEBUG : Cmdline: com.nikomix.forge
+            F DEBUG : pid: 8029, tid: 8029, name: m.nikomix.forge  >>> com.nikomix.forge <<<
+            F DEBUG : signal 11 (SIGSEGV), code 0 (SI_USER from pid 8176, uid 0), fault addr --------
+            F DEBUG : backtrace:
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowEmptyCollection()][string[]]$LogLines = @(),
+        [Parameter(Mandatory)][string]$PackageName,
+        [int]$ContextLines = 30
+    )
+
+    $short = $PackageName
+    if ($short.Length -gt 15) { $short = $short.Substring($short.Length - 15) }
+    $escaped = [regex]::Escape($PackageName)
+    $escapedShort = [regex]::Escape($short)
+
+    # Where every tombstone starts. A block must stop at the next one: `logcat -b crash` contains
+    # nothing but tombstones, packed back to back with no filler, so a fixed-size window routinely
+    # spans two of them. That is not cosmetic - it made a neighbouring app's crash get reported
+    # with Forge's name on it while Forge's own crash was skipped entirely.
+    $fatalIndexes = [System.Collections.Generic.List[int]]::new()
+    for ($k = 0; $k -lt $LogLines.Count; $k++) {
+        if ($LogLines[$k] -match 'Fatal signal \d+ \([A-Z]+\)') { [void]$fatalIndexes.Add($k) }
+    }
+
+    $findings = [System.Collections.Generic.List[psobject]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new()
+
+    for ($n = 0; $n -lt $fatalIndexes.Count; $n++) {
+        $i = $fatalIndexes[$n]
+        $line = $LogLines[$i]
+        if ($line -notmatch 'Fatal signal (\d+) \(([A-Z]+)\)') { continue }
+
+        $signalNumber = $Matches[1]
+        $signalName = $Matches[2]
+
+        $limit = [Math]::Min($LogLines.Count - 1, $i + $ContextLines)
+        if ($n + 1 -lt $fatalIndexes.Count) { $limit = [Math]::Min($limit, $fatalIndexes[$n + 1] - 1) }
+        $block = @($LogLines[$i..$limit])
+
+        # Attribution reads only the tombstone's own identity lines, never the whole window. The
+        # thread name is truncated to 15 characters by the kernel, so `Cmdline:` and the
+        # `>>> package <<<` marker are what carry the full package.
+        $identity = @($block | Where-Object { $_ -match 'Cmdline:' -or $_ -match '>>>\s*\S+\s*<<<' })
+        $identity += $line
+        $identityText = $identity -join "`n"
+        if ($identityText -notmatch $escaped -and $identityText -notmatch $escapedShort) { continue }
+
+        $faultAddress = $null
+        $abortMessage = $null
+        foreach ($b in $block) {
+            if (-not $faultAddress -and $b -match 'fault addr (\S+)') { $faultAddress = $Matches[1] }
+            if (-not $abortMessage -and $b -match 'Abort message:\s*(.+)$') { $abortMessage = $Matches[1].Trim() }
+        }
+
+        # Frames naming a shared object are the actionable part: "sqlcipher_codec_key_derive" in
+        # libsqlite3 says far more than "SIGSEGV somewhere".
+        $frames = @($block |
+                Where-Object { $_ -match '#\d\d pc [0-9a-f]+\s+(\S+)' } |
+                ForEach-Object { ($_ -replace '^.*?F DEBUG\s*:\s*', '').Trim() } |
+                Select-Object -First 12)
+
+        $signature = "signal $signalNumber ($signalName)"
+        if ($abortMessage) { $signature = "${signature}: $abortMessage" }
+        elseif ($frames.Count -gt 0) { $signature = "$signature at $($frames[0])" }
+
+        if (-not $seen.Add($signature)) { continue }
+
+        $findings.Add([pscustomobject]@{
+                Signal       = [int]$signalNumber
+                SignalName   = $signalName
+                FaultAddress = $faultAddress
+                AbortMessage = $abortMessage
+                Frames       = @($frames)
+                Signature    = $signature
+                Block        = $block
+            })
+    }
+
+    return @($findings.ToArray())
+}
+
+# Android's ApplicationExitInfo reason codes. The codes are the contract; the names in brackets
+# are what dumpsys prints and vary between releases, so classification is by code.
+#
+# Verdicts, and why each one falls where it does:
+#   Defect        the runtime or the kernel killed the app because of what the app did
+#   External      somebody else stopped it - on a shared emulator that is another work stream
+#   Inconclusive  it went away for a reason that is neither, and saying "pass" would be a lie
+$script:ForgeExitReasonVerdicts = @{
+    1  = @{ Name = 'EXIT SELF'; Verdict = 'Inconclusive' }
+    2  = @{ Name = 'SIGNALED'; Verdict = 'Inconclusive' }
+    3  = @{ Name = 'LOW MEMORY'; Verdict = 'Inconclusive' }
+    4  = @{ Name = 'APP CRASH'; Verdict = 'Defect' }
+    5  = @{ Name = 'APP CRASH(NATIVE)'; Verdict = 'Defect' }
+    6  = @{ Name = 'ANR'; Verdict = 'Defect' }
+    7  = @{ Name = 'INITIALIZATION FAILURE'; Verdict = 'Defect' }
+    8  = @{ Name = 'PERMISSION CHANGE'; Verdict = 'External' }
+    9  = @{ Name = 'EXCESSIVE RESOURCE USAGE'; Verdict = 'Defect' }
+    10 = @{ Name = 'USER REQUESTED'; Verdict = 'External' }
+    11 = @{ Name = 'USER STOPPED'; Verdict = 'External' }
+    12 = @{ Name = 'DEPENDENCY DIED'; Verdict = 'Inconclusive' }
+    13 = @{ Name = 'OTHER KILLS BY SYSTEM'; Verdict = 'Inconclusive' }
+    14 = @{ Name = 'FREEZER'; Verdict = 'Inconclusive' }
+    15 = @{ Name = 'PACKAGE STATE CHANGE'; Verdict = 'External' }
+    16 = @{ Name = 'PACKAGE UPDATED'; Verdict = 'External' }
+}
+
+function ConvertFrom-ForgeExitInfo {
+    <#
+        Parses `dumpsys activity exit-info`.
+
+        This is a far better signal than reading logcat prose, and it is the one the harness now
+        trusts first. Android itself records why each process died, so "another stream force-stopped
+        us" and "we crashed natively" stop being an inference over log text and become a field.
+
+        The real shape, captured from emulator-5554:
+
+              package: com.nikomix.forge
+                Historical Process Exit for uid=10238
+                    ApplicationExitInfo #0:
+                      timestamp=2026-08-22 13:32:45.068 pid=8236 realUid=10238 ... user=0
+                      process=com.nikomix.forge reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0
+                      importance=100 pss=0.00 rss=0.00 description=stop com.nikomix.forge due to from pid 8273 state=empty trace=null
+
+        Records are returned newest first, which is the order dumpsys emits them.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowEmptyCollection()][AllowNull()][string[]]$Lines = @(),
+        [string]$PackageName
+    )
+
+    $records = [System.Collections.Generic.List[psobject]]::new()
+    $currentPackage = $null
+    $pending = $null
+
+    foreach ($line in @($Lines)) {
+        if ($line -match '^\s*package:\s*(\S+)\s*$') {
+            $currentPackage = $Matches[1]
+            continue
+        }
+
+        if ($line -match 'timestamp=(\d{4}-\d{2}-\d{2} [\d:.]+)\s+pid=(\d+)') {
+            $pending = [pscustomobject]@{
+                Package       = $currentPackage
+                Timestamp     = $Matches[1]
+                ProcessId     = $Matches[2]
+                Process       = $null
+                ReasonCode    = -1
+                ReasonName    = $null
+                SubreasonName = $null
+                Status        = $null
+                Description   = $null
+            }
+            continue
+        }
+
+        if ($null -eq $pending) { continue }
+
+        if ($line -match 'process=(\S+)\s+reason=(\d+)\s*\((.*?)\)(?=\s+subreason=|\s+status=|\s*$)') {
+            $pending.Process = $Matches[1]
+            $pending.ReasonCode = [int]$Matches[2]
+            $pending.ReasonName = $Matches[3].Trim()
+
+            # Parsed separately rather than as optional groups in the line above. The reason name
+            # itself contains brackets - "APP CRASH(NATIVE)" - so a single expression that tries
+            # to capture all three fields stops at the wrong ')' and then silently drops the
+            # subreason and the status, which is where the signal number lives.
+            if ($line -match 'subreason=\d+\s*\((.*?)\)(?=\s+status=|\s*$)') { $pending.SubreasonName = $Matches[1].Trim() }
+            if ($line -match 'status=(-?\d+)') { $pending.Status = $Matches[1] }
+            continue
+        }
+
+        if ($line -match 'description=(.*?)\s+state=') {
+            $pending.Description = $Matches[1].Trim()
+            if ($pending.ReasonCode -ge 0) {
+                if (-not $PackageName -or $pending.Package -eq $PackageName -or $pending.Process -eq $PackageName) {
+                    $records.Add($pending)
+                }
+            }
+            $pending = $null
+        }
+    }
+
+    return @($records.ToArray())
+}
+
+function Get-ForgeExitVerdict {
+    <#
+        Turns one exit record into a verdict the report can act on. An unknown reason code is
+        Inconclusive rather than a pass, because a code this harness has never seen is exactly
+        the situation in which guessing is worst.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Record)
+
+    $known = $script:ForgeExitReasonVerdicts[[int]$Record.ReasonCode]
+    $verdict = if ($null -ne $known) { $known.Verdict } else { 'Inconclusive' }
+    $name = if ($Record.ReasonName) { $Record.ReasonName } elseif ($null -ne $known) { $known.Name } else { "reason $($Record.ReasonCode)" }
+
+    $detail = "Android recorded this process exit as reason=$($Record.ReasonCode) ($name)"
+    if ($Record.SubreasonName -and $Record.SubreasonName -ne 'UNKNOWN') { $detail += " subreason=$($Record.SubreasonName)" }
+    if ($Record.Description -and $Record.Description -ne 'null') { $detail += ", '$($Record.Description)'" }
+    $detail += " at $($Record.Timestamp) (pid $($Record.ProcessId))."
+
+    return [pscustomobject]@{
+        Verdict    = $verdict
+        ReasonName = $name
+        Detail     = $detail
+        Record     = $Record
+    }
+}
+
+function Get-ForgeExitInfo {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$PackageName
+    )
+
+    $result = Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('shell', 'dumpsys', 'activity', 'exit-info', $PackageName) -TimeoutSeconds 60
+    $lines = @($result.StdOut -split "`r?`n")
+    return @(ConvertFrom-ForgeExitInfo -Lines $lines -PackageName $PackageName)
+}
+
 function Get-ForgeProcessDeathCause {
     <#
-        Distinguishes the three ways the app process can disappear.
+        Distinguishes the ways the app process can disappear, best evidence first.
 
+        ExitInfo  - Android's own ApplicationExitInfo record. This is the authority: the system
+                    writes down why it killed each process, so "another stream force-stopped us"
+                    and "we crashed natively" stop being inferences over log prose and become a
+                    field. Passed in by the caller because it costs a dumpsys call.
+        Native    - a tombstone in the crash buffer. A native fault leaves no managed exception
+                    and often nothing in the main buffer at all, so without this a SQLCipher
+                    segfault reads as "the process is gone and nothing explains it".
         Crash     - the runtime killed it and logcat carries a fatal record.
         External  - ActivityManager force-stopped it on behalf of another process. On a shared
                     emulator that is another work stream installing or resetting, not a defect.
@@ -282,15 +555,73 @@ function Get-ForgeProcessDeathCause {
     [CmdletBinding()]
     param(
         [AllowEmptyCollection()][string[]]$LogLines = @(),
-        [Parameter(Mandatory)][string]$PackageName
+        [Parameter(Mandatory)][string]$PackageName,
+        [AllowEmptyCollection()][string[]]$CrashLines = @(),
+        [AllowEmptyCollection()][AllowNull()]$ExitInfo = @()
     )
+
+    # 1. A tombstone naming this app. Checked before Android's exit record, deliberately.
+    #
+    # The harness itself issues `am force-stop` when it recovers and at the start of every pass,
+    # and each of those writes a USER REQUESTED record on top of whatever preceded it. Trusting
+    # the newest exit record first therefore turns a native crash into "somebody else stopped us"
+    # - a warning rather than a failure - which is precisely the defect class this exists to
+    # catch. A tombstone is unambiguous evidence that the app faulted, and the crash buffer is
+    # cleared at the start of each pass, so a stale one cannot leak in from an earlier pass.
+    $native = @(Find-ForgeNativeCrash -LogLines $CrashLines -PackageName $PackageName)
+    if ($native.Count -gt 0) {
+        $block = $native[0].Block
+        $detail = "The process died on a native fault: $($native[0].Signature). There is no managed exception for this and nothing in the main log buffer."
+
+        $records = @($ExitInfo)
+        if ($records.Count -gt 0) {
+            $verdict = Get-ForgeExitVerdict -Record $records[0]
+            $block = @($verdict.Detail) + @('') + $native[0].Block
+            if ($verdict.Verdict -eq 'Defect') {
+                $detail = "$($verdict.Detail) The tombstone says $($native[0].Signature)."
+            }
+            else {
+                $detail = "$detail Android's newest exit record for this package says '$($verdict.ReasonName)', which is later than the fault - the harness force-stops the app when it recovers - so the tombstone is the authority here."
+            }
+        }
+
+        return [pscustomobject]@{
+            Cause     = 'NativeCrash'
+            Detail    = $detail
+            Block     = $block
+            StopperId = $null
+        }
+    }
+
+    # 2. Android's own record.
+    $records = @($ExitInfo)
+    if ($records.Count -gt 0) {
+        $verdict = Get-ForgeExitVerdict -Record $records[0]
+        if ($verdict.Verdict -ne 'Inconclusive') {
+            $cause = switch ($verdict.Verdict) {
+                'Defect' { 'Crash' }
+                default { 'External' }
+            }
+
+            $stopperId = $null
+            if ($records[0].Description -match 'from pid (\d+)') { $stopperId = $Matches[1] }
+
+            return [pscustomobject]@{
+                Cause     = $cause
+                Detail    = $verdict.Detail
+                Block     = @($verdict.Detail)
+                StopperId = $stopperId
+            }
+        }
+    }
 
     $fatals = @(Find-ForgeFatalExceptions -LogLines $LogLines -PackageName $PackageName)
     if ($fatals.Count -gt 0) {
         return [pscustomobject]@{
-            Cause   = 'Crash'
-            Detail  = $fatals[0].Line
-            Block   = $fatals[0].Block
+            Cause     = 'Crash'
+            Detail    = $fatals[0].Line
+            Block     = $fatals[0].Block
+            StopperId = $null
         }
     }
 
@@ -312,6 +643,9 @@ function Get-ForgeProcessDeathCause {
                 # about this is a Forge defect, and reading it as one has cost real time here.
                 $detail = "$detail  [another process is reinstalling the package]"
             }
+            elseif ($why -match 'deletePackageX') {
+                $detail = "$detail  [another process is uninstalling the package]"
+            }
             return [pscustomobject]@{
                 Cause     = 'External'
                 Detail    = $detail
@@ -321,9 +655,20 @@ function Get-ForgeProcessDeathCause {
         }
     }
 
+    # An inconclusive exit record still beats nothing: it at least names what Android thought.
+    if ($records.Count -gt 0) {
+        $verdict = Get-ForgeExitVerdict -Record $records[0]
+        return [pscustomobject]@{
+            Cause     = 'Unknown'
+            Detail    = "The process is gone and nothing identifies a crash or a force-stop. $($verdict.Detail)"
+            Block     = @($verdict.Detail)
+            StopperId = $null
+        }
+    }
+
     return [pscustomobject]@{
         Cause     = 'Unknown'
-        Detail    = 'The process is gone and logcat carries no fatal record and no force-stop.'
+        Detail    = 'The process is gone and logcat carries no fatal record, no tombstone and no force-stop.'
         Block     = @()
         StopperId = $null
     }
@@ -647,6 +992,84 @@ function Invoke-ForgeBack {
     Start-Sleep -Seconds $SettleSeconds
 }
 
+function Test-ForgeAppInstalled {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$PackageName
+    )
+
+    $result = Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('shell', 'pm', 'path', $PackageName) -TimeoutSeconds 30
+    return (([string]$result.StdOut).Trim() -match '^package:')
+}
+
+function Test-ForgeFreshInstall {
+    <#
+        Whether the installed package carries no data from an earlier build.
+
+        This is the load-bearing check for first-run coverage, and it needs no root. Android
+        records firstInstallTime and lastUpdateTime per package; an update leaves the first one
+        alone and moves the second. When they are equal the package was installed onto a device
+        that did not have it, which is the only state in which the app's data directory is empty
+        and its database does not exist.
+
+        Why this exists: a SQLCipher segfault that only fires when the database has to be created
+        survived four waves of this project. Both `-t:Install` and `adb install -r` preserve app
+        data, so every device run anyone had ever done exercised the upgrade path exclusively and
+        the code that creates a database was never entered.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$PackageName
+    )
+
+    $result = Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('shell', 'dumpsys', 'package', $PackageName) -TimeoutSeconds 60
+    $first = ''
+    $last = ''
+    foreach ($line in ($result.StdOut -split "`r?`n")) {
+        if (-not $first -and $line -match 'firstInstallTime=(.+)$') { $first = $Matches[1].Trim() }
+        if (-not $last -and $line -match 'lastUpdateTime=(.+)$') { $last = $Matches[1].Trim() }
+    }
+
+    return [pscustomobject]@{
+        IsFresh          = ($first -ne '' -and $first -eq $last)
+        FirstInstallTime = $first
+        LastUpdateTime   = $last
+    }
+}
+
+function Uninstall-ForgeApp {
+    <#
+        Removes the package and, with it, the whole data directory.
+
+        Uninstall is used rather than `pm clear` deliberately and the distinction is not academic.
+        `pm clear` wipes the data directory while leaving the package installed, and on a Debug
+        build that directory contains the FastDev `.__override__` folder the APK loads its
+        assemblies from. Every launch afterwards fails with XA0127 in a way that looks like an app
+        defect. Uninstalling removes both cleanly, and the next install rebuilds both.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$PackageName
+    )
+
+    if (-not (Test-ForgeAppInstalled -AdbPath $AdbPath -Serial $Serial -PackageName $PackageName)) {
+        return [pscustomobject]@{ Removed = $false; Detail = 'the package was not installed' }
+    }
+
+    [void](Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('uninstall', $PackageName) -TimeoutSeconds 180)
+
+    if (Test-ForgeAppInstalled -AdbPath $AdbPath -Serial $Serial -PackageName $PackageName) {
+        return [pscustomobject]@{ Removed = $false; Detail = 'the package is still installed after uninstall' }
+    }
+    return [pscustomobject]@{ Removed = $true; Detail = 'uninstalled, so the data directory and the database are gone' }
+}
+
 function Reset-ForgeAppState {
     <#
         Uninstall and reinstall, never 'pm clear'.
@@ -667,7 +1090,7 @@ function Reset-ForgeAppState {
     )
 
     Write-Host "  Uninstalling $PackageName from $Serial (pm clear would break FastDev)" -ForegroundColor DarkGray
-    [void](Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('uninstall', $PackageName) -TimeoutSeconds 180)
+    [void](Uninstall-ForgeApp -AdbPath $AdbPath -Serial $Serial -PackageName $PackageName)
     return Install-ForgeApp -AdbPath $AdbPath -Serial $Serial -ProjectPath $ProjectPath -Framework $Framework -Configuration $Configuration
 }
 

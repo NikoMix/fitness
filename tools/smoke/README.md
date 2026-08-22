@@ -41,8 +41,11 @@ finish, so zero findings does not mean zero defects.
 
 | Check | Catches |
 | --- | --- |
+| first-run premise | a "clean device" pass that quietly ran against carried-over data |
 | process alive | the app dying, separated from another stream force-stopping it |
-| fatal in logcat | crashes, with the stack |
+| native crash | a tombstone in `logcat -b crash` — no managed exception exists for these |
+| exit reason | Android's own `dumpsys activity exit-info` verdict: crash vs force-stop vs update |
+| fatal in logcat | managed crashes, with the stack |
 | runtime exception in logcat | exceptions the app *survived*, attributed to the open route |
 | visible error text | an exception message rendered to the user, e.g. the SQLite `ORDER BY` P0 |
 | blank screen | a content region with no text and no descriptions |
@@ -51,6 +54,25 @@ finish, so zero findings does not mean zero defects.
 | text overflow | labels at zero size, off screen, or overhanging their parent, at 1.0x and at 1.3x |
 | unlabelled interactive | a control a screen reader announces anonymously |
 | actionable not exposed | a control that demonstrably works under a finger and reports `clickable=false` |
+
+## First run is a different app
+
+Every device run this project had ever done tested the **upgrade path only**. `-t:Install` and
+`adb install -r` both preserve app data, and every emulator here has carried a database for waves,
+so the code that *creates* one had never run on a device. A SQLCipher segfault lived in that gap
+for four waves: a native fault, so no managed exception, and only reachable when the database does
+not already exist.
+
+```powershell
+# wipe, walk the first run, then walk again against the state it left behind
+pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -DeviceState CleanThenExisting
+```
+
+The premise is checked rather than assumed: the package's `firstInstallTime` must equal its
+`lastUpdateTime`, **and** the app must actually show its welcome screen. Either failing is a
+`FirstRunNotAchieved` failure, because a first-run pass that silently ran on old data is worse than
+none — it reports green for a path it never entered. When a run did not test a first run, the
+report says so in its limits section.
 
 ## Reaching more than the tab bar
 
@@ -102,6 +124,7 @@ tools/smoke/
     ForgeSmokeReport.ps1       console, Markdown and JSON output
   fixtures/                    real captures plus mechanically seeded defects
     logcat/                      hand-written logcat samples for the crash and exception rules
+  exitinfo/                    real dumpsys exit records, captured from an emulator
 ```
 
 ## Two things that will bite you

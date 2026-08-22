@@ -71,6 +71,40 @@ middle of a walk. That is recorded per finding below and is why some results are
 inconclusive rather than passed. It is also why F1 and F2 are stated with the number of independent
 reproductions rather than as single observations.
 
+## The gap that made all of this possible to miss
+
+Until this wave, **every device run this project had ever done tested the upgrade path and nothing
+else.** `dotnet build -t:Install` and `adb install -r` both preserve the app's data directory, and
+every emulator here has carried a database since Forge started storing one. The code that
+*creates* a database had never been entered on a device, and no first-run or empty-state screen was
+reachable.
+
+A SQLCipher segfault lived in that gap for four waves — a native fault inside
+`sqlcipher_codec_key_derive`, so no managed exception, no recovery screen, nothing in the main log
+buffer, and only reachable when the database does not already exist. Fixed in `1619798` with
+`Cache=Private`.
+
+The harness now wipes the device before installing when asked to, and **verifies the premise
+instead of assuming it**: the package's `firstInstallTime` must equal its `lastUpdateTime`, and the
+app must actually show its welcome screen. Either failing is a `FirstRunNotAchieved` failure,
+because a first-run pass that quietly ran on carried-over data is worse than none — it reports
+green for a path it never entered.
+
+```
+data state : FRESH - no data from an earlier build, so this is a real first run
+Pass: first-run
+  first run confirmed: fresh data directory, and the app is showing its welcome screen
+```
+
+That is the first genuine first run this project has walked. It found F10 and F11 immediately, and
+neither was reachable on any device the harness had ever been pointed at before.
+
+**Coverage moves too, in a way that is worth knowing.** On a fresh device the Today screen offers
+different quick actions, so `hydration` and `insights` became reachable directly from `today` —
+both were listed as unreachable in the earlier report with the reason *"every control on the screen
+was tried and the screen does not scroll"*. Route coverage is a function of app state, not just of
+crawl budget.
+
 ## Real defects
 
 ### F1 — `workout-summary` renders an EF translation failure to the user
@@ -341,6 +375,43 @@ guide states CI runs this gate, which means **every pull request from every stre
 failing on whitespace in files nobody in this wave edited**. One `dotnet format` run on those four
 files clears it.
 
+### F10 — labels on `active-workout` render at zero height
+
+**Owner: Workout** · **Severity: P2** · Finding ids `4534e6510b`, `64dd45cbee`, `86779b98e2`
+(phone) plus `3e71983313`, `3f2623e03c`, `f2fed0270b` (tablet) · first-run pass, both devices.
+
+| Label | Bounds on the phone |
+|---|---|
+| `−15` | 21x0 |
+| `Skip` | 20x0 |
+| `Full screen` | 20x0 |
+
+Each has text and lays out at zero height, so not one pixel of it is drawn. The accessibility tree
+still reports the string, which is why this is invisible to a screen-reader audit *and* to a
+screenshot diff — the control is announced but cannot be seen. The tablet shows six such labels
+rather than three, so it is worse at that size, not better.
+
+This is on the active workout screen, which is the app's core interaction surface, and `Skip` and
+`−15` are rest-timer controls a user reaches for mid-set.
+
+Found only now because `active-workout` had never been reached before: the walk to it goes through
+*Start a workout* on `train`, and on a device carrying an old database that path ended in F2's
+crash before the screen rendered.
+
+### F11 — the food log's empty state renders nothing at all
+
+**Owner: Nutrition** · **Severity: P2** · Finding id `fa53fed749` · Phone, first-run pass.
+
+A 975x420 container at `[53,988][1028,1408]` on `food-log` renders two descendants and not one of
+them has text, a `content-desc` or an image.
+
+This is a **first-run-only** finding. On any device carrying data the food log has entries and the
+container fills; on a genuinely empty database it draws a large empty box. Forge's other empty
+states carry explanatory copy on purpose — that is the documented convention and it is why the
+blank-content check can be trusted — so a wordless one here is a gap, not a false positive.
+
+Every device run before this wave would have missed it, because no device was ever empty.
+
 ## Not defects — harness limitations and false positives
 
 ### N1 — `RouteTimeCapped` warnings are the harness protecting the run
@@ -369,53 +440,61 @@ the reason F1 and F2 were re-run on a freshly installed build before being repor
 The harness now retries a failed relaunch three times before giving up, specifically because
 aborting during somebody else's deploy blames Forge for it.
 
-### N4 — no clipped or collapsed text was found, at either scale
+### N4 — no *clipped* text at a large font scale, but plenty of *collapsed* text at the default
 
-Zero `TextOverflow` findings on the phone at 1.0x and on the tablet at 1.0x and 1.30x, across
-every route reached. That is a genuine pass for the routes covered, not an absence of checking —
-the detector is proved to fire by `seeded-text-overflow.xml` and proved not to fire on both
-healthy captures.
+The large-font pass at 1.30x produced zero `Overflow` and zero `OffScreen` findings across every
+route reached, on both devices. That is a genuine pass for those routes.
 
-The honest caveat is in what it cannot see: `uiautomator` reports a label's full string rather than
+The `Collapsed` shape is a different story: six labels on `active-workout` render at zero height at
+the **default** scale, which is F10. The detector was proved correct in both directions before any
+of this ran — `seeded-text-overflow.xml` makes it fire, both healthy captures keep it quiet — so
+that is a real result rather than a threshold artefact.
+
+The honest caveat is what it cannot see: `uiautomator` reports a label's full string rather than
 the drawn one, so a label ellipsised *inside its own bounds* looks identical to one that fits. Only
 clipping visible in geometry — zero size, off screen, outside the parent — is detectable.
 
-### N5 — the harness's own report writer was broken, and this is how it was found
+### N5 — five harness bugs found by doing this, all fixed and all now asserted
 
-Not an app finding, recorded because it changes how much of this report to trust.
+Not app findings, recorded because they change how much of this report to trust.
 
-Two complete forty-minute runs printed every finding to the console and then threw on the very last
-line without writing `smoke-report.md` or `smoke-report.json`. A local named `$path` inside
-`Write-ForgeSmokeMarkdownReport` overwrote the function's own `$Path` parameter — PowerShell
-variable names are case-insensitive — and the branch that did it only executes when a
-route-directed walk fails, which nothing before this wave could produce.
+1. **The report writer threw on its last line.** A local `$path` inside
+   `Write-ForgeSmokeMarkdownReport` overwrote the function's own `$Path` parameter — PowerShell
+   names are case-insensitive — so two complete forty-minute runs printed every finding to the
+   console and wrote no files. The branch only executes when a route-directed walk fails.
 
-Fixed in `tools/smoke/lib/ForgeSmokeReport.ps1`, and `Test-ForgeSmokeChecks.ps1` now builds a
-synthetic result containing failed walks and asserts that both files are written and that a reader
-can find the route, its path, the accepted findings and the finding ids in the output.
+2. **The per-route logcat window was always null.** `adb shell` joins its remaining argv with
+   spaces and lets the device shell re-tokenise, so `date +'%m-%d %H:%M:%S.000'` arrived as two
+   arguments and toybox rejected it. The `RuntimeException` detector never executed on a device.
+
+3. **A force-stop could hide a native crash.** The harness force-stops the app when it recovers
+   and at the start of every pass, so a `USER REQUESTED` exit record routinely sits on top of a
+   genuine crash. Trusting the newest record first turned a native fault into a non-failing
+   "somebody else stopped us" warning — the exact defect class the feature was added to catch.
+   The tombstone is now consulted first and outranks a later external record.
+
+Two more from the same review, both about not lying in the report:
+
+4. **Adjacent tombstones bled into each other.** `logcat -b crash` holds nothing but tombstones,
+   packed back to back, so a fixed-size window spanned two of them: a neighbouring app's frames
+   were reported under Forge's name and Forge's own crash was skipped. Blocks now stop at the next
+   tombstone and attribution reads only the tombstone's own identity lines.
+
+5. **The second pass skipped everything the first had reached, and the report called it checked.**
+   Both the tab sweep and the route-directed pass were gated on the union of visited routes, so
+   the upgrade pass degenerated to a bare crawl while the route table still said "reached and
+   checked". Coverage is now tracked per pass, and each route records which pass first reached it.
+
+All five have assertions. The self-test went from 15 assertions before this wave to 99.
 
 The consequence for this report: the findings below were transcribed from console output for the
 first two runs and from the written reports for the last three. They agree.
 
-### N6 — the per-route logcat window was broken until the last run
+### N6 — the per-route logcat window was broken until late in the wave
 
-Also a harness finding, also recorded because it bounds what this report proves.
+See N5 item 2. Given F8 — the app logs no exceptions at all — that bug cost nothing in practice
+on these runs. That is luck, not design.
 
-`Get-ForgeDeviceLogTime` asked the device for `date +'%m-%d %H:%M:%S.000'`. `adb shell` does not
-escape its remaining argv — it joins the arguments with spaces and lets the device shell
-re-tokenise — so the format arrived as two arguments and toybox rejected it with `date: Max 1
-argument`. The function returned `$null` on every call on every device, and because the caller
-returned early on a null window, the `RuntimeException` detector never executed against a device at
-all. Nothing in the console output said so.
-
-Fixed by asking for a space-free `%m-%dT%H:%M:%S.000` and putting the separator back host-side, and
-by making a missing window fall back to the whole buffer rather than skipping the check.
-`Test-ForgeSmokeChecks.ps1` now asserts the conversion, the one-second rollback, the minute
-boundary, and that the space-separated form adb cannot deliver is rejected rather than silently
-accepted.
-
-Given F8 — the app logs no exceptions at all — this bug cost nothing in practice on these runs.
-That is luck, not design.
 
 ## What the harness still cannot see
 
@@ -443,6 +522,10 @@ Stated plainly, because a coverage number without this list is not usable.
 8. **A second occurrence of a fault it already reported.** Findings are deduplicated by identity,
    so "this happens on twelve screens" reads as twelve findings only if the harness reached all
    twelve.
-9. **State it did not put the app into.** Every run here used `-OnboardingMode Skip`. The five
-   routes in group D that hang off the Today screen's quick actions are almost certainly reachable
-   with `-OnboardingMode Complete`, and nobody has run that.
+9. **State it did not put the app into.** Route coverage is a function of app state. The five
+   routes that hang off the Today screen's quick actions were unreachable on a device carrying old
+   data and reachable on a fresh one, without a line of harness code changing. `-OnboardingMode
+   Complete` is a third state nobody has run yet.
+10. **Anything that needs a *specific* first run.** `-DeviceState Clean` gives an empty database.
+    It does not give a database written by an older schema version, which is the shape a real
+    migration defect needs, and nothing here creates one.
