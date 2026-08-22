@@ -68,29 +68,45 @@ public static class LocalDatabaseEncryption
             return UpgradeOutcome.Encrypted;
         }
 
-        // Already encrypted, but possibly with the wrong form of the same key. Forge originally
-        // passed the key as a passphrase, which made SQLCipher derive a key from it with 256,000
-        // rounds of PBKDF2 on every single connection - 469 ms per open, measured. It now passes
-        // the 32 random bytes directly, which is both faster and no weaker, because stretching an
-        // already-random 256-bit key buys nothing.
+        // Already encrypted, but possibly under a different form of the same key. Forge briefly
+        // used SQLCipher's raw-key form to skip PBKDF2, and it crashed on Android with a SIGSEGV
+        // inside the native library, so the passphrase form was restored. Any database written
+        // during that window is encrypted with the raw key and cannot be opened with the
+        // passphrase.
         //
-        // A database written the old way cannot be opened the new way, so it is re-keyed rather
-        // than left to fail startup into recovery mode over a database that is perfectly intact.
-        if (await CanOpenAsync(databasePath, SqlitePragmaConnectionInterceptor.CreateKeyPragma(encryptionKey), cancellationToken))
+        // Both directions are handled rather than just the one that shipped, because a device that
+        // ran an intermediate build is exactly the case that would otherwise fail startup into
+        // recovery mode over a database that is completely intact.
+        var current = SqlitePragmaConnectionInterceptor.CreateKeyPragma(encryptionKey);
+        if (await CanOpenAsync(databasePath, current, cancellationToken))
         {
             return UpgradeOutcome.NotNeeded;
         }
 
-        var derived = $"PRAGMA key = '{encryptionKey.Replace("'", "''", StringComparison.Ordinal)}'";
-        if (!await CanOpenAsync(databasePath, derived, cancellationToken))
+        var alternate = AlternateKeyPragma(encryptionKey);
+        if (alternate is null || !await CanOpenAsync(databasePath, alternate, cancellationToken))
         {
             // Neither form opens it. That is not something this method can repair, and guessing
             // further risks destroying a file that some other key would open.
             return UpgradeOutcome.NotNeeded;
         }
 
-        await ConvertAsync(databasePath, derived, encryptionKey, cancellationToken);
+        await ConvertAsync(databasePath, alternate, encryptionKey, cancellationToken);
         return UpgradeOutcome.Rekeyed;
+    }
+
+    /// <summary>
+    /// The other way the same key can be presented to SQLCipher, or null when there isn't one.
+    /// </summary>
+    private static string? AlternateKeyPragma(string encryptionKey)
+    {
+        Span<byte> buffer = stackalloc byte[32];
+        if (!Convert.TryFromBase64String(encryptionKey, buffer, out var written) || written != 32)
+        {
+            return null;
+        }
+
+        return $"PRAGMA key = \"x'{Convert.ToHexStringLower(buffer)}'\"";
     }
 
     /// <summary>Whether the database can be read using the supplied key pragma.</summary>

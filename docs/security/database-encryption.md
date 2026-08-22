@@ -1,14 +1,38 @@
 # Database encryption
 
-## The key is passed raw, not as a passphrase
+## The page cache is never shared
 
-Given a passphrase, SQLCipher derives a key with **256,000 rounds of PBKDF2-HMAC-SHA512**. That is
-the right thing to do to a human-chosen password. Forge's key is not one: it is 32 bytes straight
-from a CSPRNG, held in the platform keystore. Stretching an already-random 256-bit key adds no
-entropy and no security.
+`ForgeDbContextFactory` sets `Cache=Private`. That is not a default worth ignoring: with
+`Cache=Shared`, several connections to the same file share one page cache while each keeps its own
+SQLCipher context over those pages, and Forge opens a context per operation, so concurrent
+connections are routine rather than exceptional.
 
-It does add time, and not once - on every connection, because Forge opens a context per operation
-and the interceptor applies `PRAGMA key` each time a connection opens. Measured on a desktop:
+On Android that combination **segfaulted inside `sqlcipher_codec_key_derive`**, on a plain launch,
+fresh install included:
+
+```
+Fatal signal 11 (SIGSEGV), code 128 (SI_KERNEL), fault addr 0x0 in tid ... (.NET TP Worker)
+  #00  libe_sqlcipher.so
+  #02  libe_sqlcipher.so (sqlcipher_codec_key_derive+26)
+  #09  libe_sqlcipher.so (sqlite3_step+750)
+```
+
+Nothing in the managed layer can see it. It is a native crash, so there is no exception to catch,
+no stack trace in the log, and no failing test on Windows - where the identical code runs cleanly,
+which is what made it invisible until the app was launched on a device.
+
+SQLite's own documentation calls shared cache a legacy feature and recommends WAL for concurrency
+instead, which the interceptor already enables, so nothing is given up by dropping it.
+
+`ConnectionConfigurationTests` pins the setting and exercises eight concurrent contexts against one
+encrypted database.
+
+## The key is passed as a passphrase, and that costs something
+
+Given a passphrase, SQLCipher derives a key with **256,000 rounds of PBKDF2-HMAC-SHA512**. For
+Forge's key - 32 bytes straight from a CSPRNG in the platform keystore - that adds no entropy,
+because stretching an already-random 256-bit key buys nothing. It costs time, on every connection
+rather than once:
 
 | | Per connection open |
 |---|---|
@@ -16,25 +40,16 @@ and the interceptor applies `PRAGMA key` each time a connection opens. Measured 
 | Key passed raw | **24 ms** |
 | No encryption at all | 5 ms |
 
-On an emulator this was enough for Android to kill the app during startup with
-`ANR ... failed to complete startup`. A phone would have been slower still.
+SQLCipher's raw-key form skips the derivation, and it was tried. It is **not** used, because it
+could not be shown to be safe here: the crash above was initially attributed to it, and reverting
+the raw key did not fix it. The raw-key form may well be fine - the actual culprit was shared cache -
+but it was reverted before that was known, and re-introducing an unverified change to a
+security-critical native path to win back latency is the wrong trade while the real fix is
+available elsewhere.
 
-`SqlitePragmaConnectionInterceptor.CreateKeyPragma` therefore emits SQLCipher's raw-key form,
-`PRAGMA key = "x'<64 hex>'"`, whenever the key really is 32 bytes. Anything else - a test
-passphrase, a hand-set value - keeps the derived form, because there the derivation is doing real
-work.
-
-Databases written before this cannot be opened with the raw key, so
-`LocalDatabaseEncryption.EnsureEncryptedAsync` re-keys them: it tries the raw form, falls back to
-the derived form, and re-encrypts through `sqlcipher_export` if the old one is what opens it. If
-neither opens the file it changes nothing, because guessing further risks destroying a database
-some other key would open.
-
-Verifying which key opens a file needs care. SQLCipher defers the check, so applying `PRAGMA key`
-always succeeds and proves nothing - a page has to be read. And the read has to be a **separate
-command**: `Microsoft.Data.Sqlite` executes only the first statement of a batch for
-`ExecuteScalar`, so `PRAGMA key; SELECT ...` returns the pragma's own `"ok"` and never touches the
-database. The first version of both the check and its test had exactly that bug.
+**The real fix for the cost is to stop opening a connection per operation.** That is a change to how
+the data-session seam is scoped, it is measurable, and it helps every query rather than only the
+encrypted ones. Tracked separately.
 
 ## What was wrong
 

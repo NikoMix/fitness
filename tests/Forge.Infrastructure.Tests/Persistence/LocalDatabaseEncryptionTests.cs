@@ -157,14 +157,15 @@ public sealed class LocalDatabaseEncryptionTests : IDisposable
     }
 
     [Fact]
-    public async Task A_database_written_with_the_derived_key_is_rekeyed_and_keeps_its_rows()
+    public async Task A_database_written_with_the_raw_key_is_rekeyed_and_keeps_its_rows()
     {
-        var path = Path.Combine(directory, "derived.db");
+        var path = Path.Combine(directory, "rawkey.db");
 
-        // Exactly what Forge wrote before the raw-key change: the key handed to SQLCipher as a
-        // passphrase, so it ran 256,000 rounds of PBKDF2 over it. Such a file cannot be opened
-        // with the raw key, and without this path startup would fail into recovery mode over a
-        // database that is perfectly intact.
+        // What an intermediate build wrote: the key handed to SQLCipher in its raw-key form, which
+        // skips PBKDF2. That form crashed on Android, so the passphrase form was restored - and a
+        // device that ran the intermediate build now holds a database the shipped app cannot open.
+        // Without this recovery it would fail startup into recovery mode over a database that is
+        // completely intact.
         await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
             DataSource = path,
@@ -174,7 +175,7 @@ public sealed class LocalDatabaseEncryptionTests : IDisposable
 
         await using (var command = connection.CreateCommand())
         {
-            command.CommandText = $"PRAGMA key = '{Key}'; CREATE TABLE Kept (Value TEXT); INSERT INTO Kept VALUES ('survivor');";
+            command.CommandText = $"{RawKeyPragma}; CREATE TABLE Kept (Value TEXT); INSERT INTO Kept VALUES ('survivor');";
             await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
@@ -186,7 +187,7 @@ public sealed class LocalDatabaseEncryptionTests : IDisposable
 
         outcome.ShouldBe(LocalDatabaseEncryption.UpgradeOutcome.Rekeyed);
 
-        // Readable with the raw key the app now uses, and the row is still there.
+        // Readable with the passphrase form the app uses, and the row is still there.
         await using var reopened = new SqliteConnection(new SqliteConnectionStringBuilder
         {
             DataSource = path,
@@ -199,7 +200,7 @@ public sealed class LocalDatabaseEncryptionTests : IDisposable
         // and never read the table.
         await using (var unlock = reopened.CreateCommand())
         {
-            unlock.CommandText = RawKeyPragma;
+            unlock.CommandText = $"PRAGMA key = '{Key}'";
             await unlock.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
@@ -211,7 +212,7 @@ public sealed class LocalDatabaseEncryptionTests : IDisposable
     }
 
     [Fact]
-    public async Task A_database_already_using_the_raw_key_is_left_alone()
+    public async Task A_database_already_using_the_current_key_is_left_alone()
     {
         var path = Path.Combine(directory, "raw.db");
 
