@@ -2,6 +2,8 @@ using Forge.Domain.Profile;
 using Forge.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Shouldly;
 
 namespace Forge.Infrastructure.Tests.Persistence;
@@ -131,22 +133,42 @@ public sealed class DatabaseUpgradeTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Reproduces exactly what shipped: the schema created by <c>EnsureCreatedAsync</c>, holding
-    /// real rows, with no migrations-history table.
+    /// Reproduces exactly what shipped: the schema as it stood when migrations were introduced,
+    /// holding real rows, with no migrations-history table.
     /// </summary>
+    /// <remarks>
+    /// The baseline is applied and its history row then removed, rather than calling
+    /// <c>EnsureCreatedAsync</c>. That used to be equivalent and stopped being so the moment a
+    /// second migration existed: <c>EnsureCreatedAsync</c> builds <b>today's</b> model, which no
+    /// device in this situation has. Building today's schema and then asking the initializer to
+    /// migrate it from the baseline tests a database that cannot exist, and it fails for a reason
+    /// no user would ever hit.
+    /// </remarks>
     private async Task<Guid> CreateLegacyDatabaseAsync()
     {
         await using var context = CreateContext();
-        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
+
+        var baseline = context.Database.GetMigrations().First();
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync(baseline, TestContext.Current.CancellationToken);
 
         var profile = new UserProfile { DisplayName = "Existing user" };
         context.Add(profile);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        await ExecuteAsync("DROP TABLE IF EXISTS \"__EFMigrationsHistory\"", TestContext.Current.CancellationToken);
+
         var history = await HistoryTableExistsAsync(TestContext.Current.CancellationToken);
-        history.ShouldBeFalse("EnsureCreated must not have written a migrations history, or this test is not reproducing the situation it claims to.");
+        history.ShouldBeFalse("A pre-migration database has no history table, or this test is not reproducing the situation it claims to.");
 
         return profile.Id;
+    }
+
+    private async Task ExecuteAsync(string sql, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private async Task<bool> HistoryTableExistsAsync(CancellationToken cancellationToken)

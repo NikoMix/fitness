@@ -101,11 +101,20 @@ public sealed class ScopedExportTests : IAsyncLifetime
             null,
             TestContext.Current.CancellationToken);
 
-        // Shared training rows carry no owner today, so they must not travel in a personal export.
-        result.RecordCounts.ShouldNotContainKey(nameof(WorkoutSession));
-        result.RecordCounts.ShouldNotContainKey(nameof(SetEntry));
-        result.RecordCounts.ShouldNotContainKey(nameof(FoodLogEntry));
+        // The shared catalogues carry no owner and never will - they are shipped content shown to
+        // everybody - so they have no place in one person's portability export.
+        result.RecordCounts.ShouldNotContainKey(nameof(Exercise));
+        result.RecordCounts.ShouldNotContainKey(nameof(FoodItem));
+
         result.RecordCounts[nameof(BodyMetric)].ShouldBe(1);
+
+        // Training history is attributable now, so it travels with the person it belongs to. The
+        // only workout in the fixture is Sam's, so Alex's export must contain none of it: the table
+        // is included, and it is empty. That distinction is the whole point - "included and empty"
+        // is a truthful answer, "excluded" would have hidden the fact that Forge holds training
+        // data at all.
+        result.RecordCounts[nameof(WorkoutSession)].ShouldBe(0);
+        result.RecordCounts[nameof(SetEntry)].ShouldBe(0);
     }
 
     [Fact]
@@ -121,11 +130,16 @@ public sealed class ScopedExportTests : IAsyncLifetime
 
         result.IsComplete.ShouldBeFalse();
         result.Unattributable.ShouldNotBeEmpty();
-        result.Unattributable.Select(item => item.Name).ShouldContain("Workout history");
+
+        // The exercise catalogue is shared on purpose and will never become attributable, so it is
+        // a stable example of something the export must admit it left out. Training history used to
+        // be on this list and no longer is, which is the export widening by itself as entities
+        // adopted the ownership seam - exactly what it was designed to do.
+        result.Unattributable.Select(item => item.Name).ShouldContain("Exercise library");
 
         var described = result.Describe();
         described.ShouldContain("Left out");
-        described.ShouldContain("Workout history");
+        described.ShouldContain("Exercise library");
         described.ShouldNotContain("every record on this device");
     }
 
@@ -195,7 +209,6 @@ public sealed class ScopedExportTests : IAsyncLifetime
         }
 
         result.RecordCounts.ShouldContainKey(nameof(UserProfile), "A subject access request covers the requester's own profile row.");
-        result.RecordCounts.ShouldNotContainKey(nameof(WorkoutSession), "Workout sessions carry no owner yet, so they must be reported rather than exported.");
     }
 
     [Fact]
@@ -274,7 +287,7 @@ public sealed class ScopedExportTests : IAsyncLifetime
 
         text.ShouldContain("Covers: one profile");
         text.ShouldContain("Left out");
-        text.ShouldContain("Workout history");
+        text.ShouldContain("Exercise library");
     }
 
     [Fact]
@@ -323,6 +336,10 @@ public sealed class ScopedExportTests : IAsyncLifetime
         var exercise = new Exercise { Name = "Bench Press", Pattern = MovementPattern.Push, IsUserCreated = true };
         var workout = new WorkoutSession
         {
+            // Owned by Sam, which is the whole point of the fixture: an export scoped to Alex must
+            // leave it behind. Before training history carried an owner this was true only because
+            // nothing said otherwise.
+            UserProfileId = SamId,
             Title = "Sam's push day",
             StartedUtc = DateTimeOffset.Parse("2026-01-03T10:00:00Z", CultureInfo.InvariantCulture),
             CompletedUtc = DateTimeOffset.Parse("2026-01-03T11:00:00Z", CultureInfo.InvariantCulture),
@@ -332,6 +349,7 @@ public sealed class ScopedExportTests : IAsyncLifetime
         await context.Set<SetEntry>().AddAsync(
             new SetEntry
             {
+                UserProfileId = SamId,
                 WorkoutSessionId = workout.Id,
                 ExerciseId = exercise.Id,
                 Ordinal = 1,
