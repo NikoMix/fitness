@@ -63,6 +63,64 @@ public sealed class ActiveWorkoutState : Entity, IProfileOwned
         };
     }
 
+    /// <summary>
+    /// Starts a new active workout from a queue that was prescribed in advance.
+    /// </summary>
+    /// <remarks>
+    /// The whole day's queue is materialised at the start rather than fetched exercise by
+    /// exercise. The plan can be edited or deleted while the session is running, and a workout
+    /// that changed shape underneath the person performing it would be worse than one that is
+    /// slightly stale.
+    /// </remarks>
+    /// <param name="userProfileId">The profile that owns the session.</param>
+    /// <param name="workoutSessionId">The owning session identifier.</param>
+    /// <param name="startedUtc">When the session started.</param>
+    /// <param name="queue">The exercises to perform, in order. Must not be empty.</param>
+    /// <returns>The new state, opened on the first queued exercise.</returns>
+    /// <exception cref="ArgumentException"><paramref name="queue"/> is empty.</exception>
+    public static ActiveWorkoutState StartWithQueue(
+        Guid userProfileId,
+        Guid workoutSessionId,
+        DateTimeOffset startedUtc,
+        IReadOnlyList<ActiveWorkoutExercise> queue)
+    {
+        ArgumentNullException.ThrowIfNull(queue);
+        if (queue.Count == 0)
+        {
+            throw new ArgumentException("A workout needs at least one exercise to open on.", nameof(queue));
+        }
+
+        return new ActiveWorkoutState
+        {
+            UserProfileId = userProfileId,
+            WorkoutSessionId = workoutSessionId,
+            StartedUtc = startedUtc,
+            CurrentExerciseId = queue[0].ExerciseId,
+            CurrentExerciseName = queue[0].Name,
+            ExerciseQueue = [.. queue]
+        };
+    }
+
+    /// <summary>Counts the sets already logged for an exercise in this session.</summary>
+    /// <param name="exerciseId">The exercise to count.</param>
+    /// <returns>How many sets have been logged.</returns>
+    public int SetsLoggedFor(Guid exerciseId) => CompletedSets.Count(set => set.ExerciseId == exerciseId);
+
+    /// <summary>
+    /// Resolves the target for the set the user is about to perform.
+    /// </summary>
+    /// <param name="lastPerformance">The user's own last working set of the current exercise, when known.</param>
+    /// <returns>The target and its provenance.</returns>
+    public WorkoutTarget ResolveCurrentTarget(WorkoutTarget? lastPerformance = null)
+    {
+        if (CurrentExercise() is not { } current)
+        {
+            return WorkoutTarget.None;
+        }
+
+        return current.ResolveTarget(SetsLoggedFor(current.ExerciseId) + 1, lastPerformance);
+    }
+
     /// <summary>Logs a completed set against the current exercise.</summary>
     /// <param name="load">Load lifted.</param>
     /// <param name="repetitions">Repetitions completed.</param>
@@ -390,21 +448,31 @@ public sealed class ActiveWorkoutState : Entity, IProfileOwned
     /// <returns>The rest to start, or <see langword="null"/> when the user should move straight on.</returns>
     public NextRest? ResolveNextRest(bool isWarmUp, RestPrescription? fallback = null)
     {
-        var prescription = CurrentExercise()?.Rest ?? fallback ?? RestPrescription.Default;
+        var current = CurrentExercise();
+
+        // A plan prescribes rest set by set, so when this session is executing one, the rest that
+        // follows the set just logged is the plan's own number rather than a per-exercise default
+        // derived from it. Warm-up ramps in a plan already carry their own shorter rest, which is
+        // why the plan's value is used as-is instead of being halved by RestReason.
+        var plannedRest = current is null
+            ? null
+            : current.PlannedSetFor(Math.Max(1, SetsLoggedFor(current.ExerciseId)))?.Rest;
+
+        var prescription = current?.Rest ?? fallback ?? RestPrescription.Default;
 
         if (isWarmUp)
         {
-            return new NextRest(RestReason.WarmUpSet, prescription.Resolve(RestReason.WarmUpSet));
+            return new NextRest(RestReason.WarmUpSet, plannedRest ?? prescription.Resolve(RestReason.WarmUpSet));
         }
 
         var members = CurrentSupersetMembers();
         if (members.Count < 2)
         {
-            return new NextRest(RestReason.WorkingSet, prescription.Resolve(RestReason.WorkingSet));
+            return new NextRest(RestReason.WorkingSet, plannedRest ?? prescription.Resolve(RestReason.WorkingSet));
         }
 
         return SupersetCycle.IsRoundComplete(members, CompletedSets)
-            ? new NextRest(RestReason.SupersetRound, prescription.Resolve(RestReason.WorkingSet))
+            ? new NextRest(RestReason.SupersetRound, plannedRest ?? prescription.Resolve(RestReason.WorkingSet))
             : null;
     }
 
@@ -485,22 +553,132 @@ public sealed class ActiveWorkoutState : Entity, IProfileOwned
 /// <param name="Duration">How long it should run.</param>
 public sealed record NextRest(RestReason Reason, TimeSpan Duration);
 
-/// <summary>One exercise queued in an active workout.</summary>
+/// <summary>
+/// One exercise queued in an active workout.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The two target properties are nullable, and that is the point. They used to be
+/// <c>decimal</c> and <c>int</c>, which meant every queue entry had to carry a number whether one
+/// existed or not - so the queue builder supplied 60 kg for 8 reps to the entire exercise
+/// catalogue and the logging screen rendered it under the caption "Target". Making absence
+/// representable is what allows an ad hoc workout to say it has no target instead of inventing
+/// one.
+/// </para>
+/// <para>
+/// <see cref="PlannedSets"/> carries the plan's own prescription set by set, because a plan day
+/// is not one number: a ramp of two warm-ups into three working sets at different loads is
+/// ordinary, and flattening it to a single figure would misreport four of those five sets.
+/// </para>
+/// </remarks>
 /// <param name="ExerciseId">The catalogue exercise identifier.</param>
 /// <param name="Name">Display name.</param>
 /// <param name="PrimaryMuscle">Primary muscle worked.</param>
-/// <param name="TargetLoadKilograms">Prescribed load in kilograms.</param>
-/// <param name="TargetRepetitions">Prescribed repetitions.</param>
+/// <param name="TargetLoadKilograms">Prescribed load in kilograms, or <see langword="null"/> when nothing prescribes one.</param>
+/// <param name="TargetRepetitions">Prescribed repetitions, or <see langword="null"/> when nothing prescribes any.</param>
 /// <param name="SupersetGroupId">The superset or circuit this exercise belongs to, if any.</param>
 /// <param name="Rest">Per-exercise rest prescription, or <see langword="null"/> to use the app default.</param>
+/// <param name="PlannedSets">The plan's set-by-set prescription, or <see langword="null"/> when this exercise came from no plan.</param>
 public sealed record ActiveWorkoutExercise(
     Guid ExerciseId,
     string Name,
     string? PrimaryMuscle,
-    decimal TargetLoadKilograms,
-    int TargetRepetitions,
+    decimal? TargetLoadKilograms,
+    int? TargetRepetitions,
     Guid? SupersetGroupId = null,
-    RestPrescription? Rest = null);
+    RestPrescription? Rest = null,
+    IReadOnlyList<PlannedSetTarget>? PlannedSets = null)
+{
+    /// <summary>Whether a plan prescribed this exercise.</summary>
+    public bool IsFromPlan => PlannedSets is { Count: > 0 };
+
+    /// <summary>
+    /// Finds the plan's prescription for a given set of this exercise.
+    /// </summary>
+    /// <remarks>
+    /// A user who performs more sets than the plan asked for is still following the plan, so the
+    /// last prescribed set is repeated rather than the target falling away mid-exercise. That is
+    /// the plan's own final number, not an invented one.
+    /// </remarks>
+    /// <param name="ordinal">One-based position of the set about to be performed.</param>
+    /// <returns>The prescribed set, or <see langword="null"/> when no plan applies.</returns>
+    public PlannedSetTarget? PlannedSetFor(int ordinal)
+    {
+        if (PlannedSets is not { Count: > 0 } sets)
+        {
+            return null;
+        }
+
+        var ordered = sets.OrderBy(set => set.Ordinal).ToList();
+        return ordered.Find(set => set.Ordinal == ordinal) ?? ordered[^1];
+    }
+
+    /// <summary>
+    /// Resolves what to show as the target for the set about to be performed.
+    /// </summary>
+    /// <param name="ordinal">One-based position of the set about to be performed.</param>
+    /// <param name="lastPerformance">The user's own last working set of this exercise, when known.</param>
+    /// <returns>The target and its provenance, which is <see cref="WorkoutTargetSource.None"/> when nothing prescribes one.</returns>
+    public WorkoutTarget ResolveTarget(int ordinal, WorkoutTarget? lastPerformance = null)
+    {
+        if (PlannedSetFor(ordinal) is { } planned)
+        {
+            return WorkoutTarget.FromPlan(planned);
+        }
+
+        if (lastPerformance is { Source: WorkoutTargetSource.LastPerformance } previous)
+        {
+            return previous;
+        }
+
+        // Deliberately not a fallback constant. An entry with no plan and no history has no
+        // target, and saying so is the honest outcome.
+        return TargetLoadKilograms is null && TargetRepetitions is null
+            ? WorkoutTarget.None
+            : new WorkoutTarget(WorkoutTargetSource.Plan, TargetLoadKilograms, TargetRepetitions, TargetRepetitions);
+    }
+
+    /// <summary>
+    /// Compares two queue entries by value, including their planned sets.
+    /// </summary>
+    /// <remarks>
+    /// Written out because the compiler-generated comparison would use reference equality for
+    /// <see cref="PlannedSets"/>. The queue is round-tripped through JSON into the recoverable
+    /// snapshot, and a deserialised entry is never the same list instance, so the synthesised
+    /// version would report every recovered workout as different from the one that was saved.
+    /// </remarks>
+    /// <param name="other">The entry to compare with.</param>
+    /// <returns><see langword="true"/> when both entries carry the same values.</returns>
+    public bool Equals(ActiveWorkoutExercise? other)
+        => other is not null
+           && ExerciseId == other.ExerciseId
+           && Name == other.Name
+           && PrimaryMuscle == other.PrimaryMuscle
+           && TargetLoadKilograms == other.TargetLoadKilograms
+           && TargetRepetitions == other.TargetRepetitions
+           && SupersetGroupId == other.SupersetGroupId
+           && Rest == other.Rest
+           && (PlannedSets ?? []).SequenceEqual(other.PlannedSets ?? []);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(ExerciseId);
+        hash.Add(Name);
+        hash.Add(PrimaryMuscle);
+        hash.Add(TargetLoadKilograms);
+        hash.Add(TargetRepetitions);
+        hash.Add(SupersetGroupId);
+        hash.Add(Rest);
+        foreach (var set in PlannedSets ?? [])
+        {
+            hash.Add(set);
+        }
+
+        return hash.ToHashCode();
+    }
+}
 
 /// <summary>One set already logged in the active session.</summary>
 /// <param name="SetEntryId">Stable identity shared with the persisted set entry.</param>

@@ -8,6 +8,7 @@ using Forge.Domain.Training;
 using Forge.Domain.Workout;
 using Forge.Infrastructure.Content;
 using Forge.Core.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Forge.App.Features.Workout;
 
@@ -26,10 +27,25 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
     private readonly IExerciseRestPreferences restPreferences;
     private readonly IPlateInventoryStore plateInventory;
     private readonly IRepCountingService repCounting;
+    private readonly ILogger<ActiveWorkoutPageViewModel>? logger;
     private readonly IReadOnlyList<Exercise> catalogue = SeedCatalogue.Exercises;
     private readonly HashSet<Guid> supersetSelection = [];
     private Task? initializationTask;
     private RestTimer? completedRestAnnouncement;
+
+    private static readonly Action<ILogger, Exception?> LastPerformanceFailed =
+        LoggerMessage.Define(
+            LogLevel.Warning,
+            new EventId(1, nameof(LastPerformanceFailed)),
+            "Could not read the last performance for this exercise. The target falls back to reporting that it has nothing behind it.");
+
+    private static void LogLastPerformanceFailed(ILogger? logger, Exception exception)
+    {
+        if (logger is not null)
+        {
+            LastPerformanceFailed(logger, exception);
+        }
+    }
 
     /// <summary>Creates the active workout view model.</summary>
     /// <param name="clock">Workout clock.</param>
@@ -37,12 +53,14 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
     /// <param name="restPreferences">Per-exercise rest settings.</param>
     /// <param name="plateInventory">The user's bar and plates.</param>
     /// <param name="repCounting">Optional accelerometer rep counting.</param>
+    /// <param name="logger">Optional logger.</param>
     public ActiveWorkoutPageViewModel(
         IWorkoutClock clock,
         IActiveWorkoutSession session,
         IExerciseRestPreferences restPreferences,
         IPlateInventoryStore plateInventory,
-        IRepCountingService repCounting)
+        IRepCountingService repCounting,
+        ILogger<ActiveWorkoutPageViewModel>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(repCounting);
@@ -52,6 +70,7 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
         this.restPreferences = restPreferences;
         this.plateInventory = plateInventory;
         this.repCounting = repCounting;
+        this.logger = logger;
 
         CurrentExerciseName = "Preparing workout";
     }
@@ -91,6 +110,34 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 
     [ObservableProperty]
     private string currentExerciseName = string.Empty;
+
+    /// <summary>The number shown in the target tile, or a dash when nothing prescribes one.</summary>
+    [ObservableProperty]
+    private string targetValueText = "—";
+
+    /// <summary>The unit beside the target, empty when there is no load to qualify.</summary>
+    [ObservableProperty]
+    private string targetUnitText = string.Empty;
+
+    /// <summary>
+    /// The caption under the target tile, which names where the target came from.
+    /// </summary>
+    /// <remarks>
+    /// This is the whole reason the tile is not just a number. The screen previously captioned a
+    /// hard-coded 60 kg as "Target" beside "Actual", which read as the user's own prescription.
+    /// </remarks>
+    [ObservableProperty]
+    private string targetCaption = "No target · ad hoc";
+
+    /// <summary>The prescribed repetitions, or a line saying nothing prescribes this set.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTargetDetail))]
+    private string targetDetailText = string.Empty;
+
+    /// <summary>Which plan day this session is executing, or an empty string when it is ad hoc.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsPlanDriven))]
+    private string planContextText = string.Empty;
 
     [ObservableProperty]
     private decimal targetWeightKilograms;
@@ -203,6 +250,22 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 
     /// <summary>Whether at least one set exists to correct or undo.</summary>
     public bool HasEditableSets => SetRows.Count > 0;
+
+    /// <summary>Whether there is anything to say about the prescribed repetitions.</summary>
+    public bool HasTargetDetail => !string.IsNullOrEmpty(TargetDetailText);
+
+    /// <summary>Whether this session is executing a plan day rather than being ad hoc.</summary>
+    public bool IsPlanDriven => !string.IsNullOrEmpty(PlanContextText);
+
+    /// <summary>
+    /// The plan day to execute, set from the navigation parameter before the screen loads.
+    /// </summary>
+    /// <remarks>
+    /// Ignored when an unfinished session is resumed. That session is already executing whatever
+    /// it was started for, and silently re-pointing it at a different day mid-workout would
+    /// rewrite what the user is doing underneath them.
+    /// </remarks>
+    public Guid? PlanDayId { get; set; }
 
     /// <summary>Loads or resumes the workout. Safe to call more than once.</summary>
     /// <param name="cancellationToken">Cancels the load.</param>
@@ -334,7 +397,7 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
         {
             state.AdvanceSuperset();
             await session.SaveStateAsync(cancellationToken);
-            ApplyCurrentExerciseDefaults();
+            await ApplyCurrentExerciseDefaultsAsync(cancellationToken);
         }
 
         repCounting.ResetForNextSet();
@@ -461,7 +524,7 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 
         state.SetCurrentExercise(BuildQueueEntry(exercise));
         await session.SaveStateAsync(CancellationToken.None);
-        ApplyCurrentExerciseDefaults();
+        await ApplyCurrentExerciseDefaultsAsync();
         RefreshExerciseQueue();
     }
 
@@ -471,7 +534,7 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
         await InitializeAsync(CancellationToken.None);
         session.State?.SkipCurrentExercise();
         await session.SaveStateAsync(CancellationToken.None);
-        ApplyCurrentExerciseDefaults();
+        await ApplyCurrentExerciseDefaultsAsync();
         RefreshExerciseQueue();
     }
 
@@ -492,7 +555,7 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 
         state.SetCurrentExercise(BuildQueueEntry(next));
         await session.SaveStateAsync(CancellationToken.None);
-        ApplyCurrentExerciseDefaults();
+        await ApplyCurrentExerciseDefaultsAsync();
         RefreshExerciseQueue();
     }
 
@@ -565,7 +628,7 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
         SupersetSelectionCount = 0;
 
         await session.SaveStateAsync(CancellationToken.None);
-        ApplyCurrentExerciseDefaults();
+        await ApplyCurrentExerciseDefaultsAsync();
         RefreshExerciseQueue();
         Announce($"Superset created with {members.Count} exercises.");
     }
@@ -581,7 +644,7 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 
         state.UngroupFromSuperset(exerciseId);
         await session.SaveStateAsync(CancellationToken.None);
-        ApplyCurrentExerciseDefaults();
+        await ApplyCurrentExerciseDefaultsAsync();
         RefreshExerciseQueue();
         Announce("Superset broken. Exercises run one at a time again.");
     }
@@ -596,7 +659,7 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
         }
 
         await session.SaveStateAsync(CancellationToken.None);
-        ApplyCurrentExerciseDefaults();
+        await ApplyCurrentExerciseDefaultsAsync();
         RefreshExerciseQueue();
         Announce($"Next station: {CurrentExerciseName}.");
     }
@@ -786,8 +849,15 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var result = await session.LoadAsync(BuildExerciseCatalogue(), cancellationToken);
+            var result = await session.LoadAsync(BuildExerciseCatalogue(), PlanDayId, cancellationToken);
             var state = result.State;
+
+            // Read back from the queue rather than from the navigation parameter. When an
+            // unfinished session is resumed the parameter is ignored, and the header has to
+            // describe the workout that is actually running.
+            PlanContextText = state.ExerciseQueue.Exists(entry => entry.IsFromPlan)
+                ? $"Following your plan · {state.ExerciseQueue.Count(entry => entry.IsFromPlan)} exercises"
+                : string.Empty;
 
             HasRecoverableSession = result.RecoveryKind != WorkoutRecoveryKind.None;
             IsStaleRecovery = result.RecoveryKind == WorkoutRecoveryKind.Stale;
@@ -802,7 +872,7 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
             IsRepCountingAvailable = repCounting.IsAvailable;
             ApplyRepSuggestion(repCounting.Current);
 
-            ApplyCurrentExerciseDefaults();
+            await ApplyCurrentExerciseDefaultsAsync(cancellationToken);
             RefreshSets();
             RefreshExerciseQueue();
             ReconcileRest();
@@ -827,13 +897,32 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 
     private ActiveWorkoutExercise[] BuildExerciseCatalogue()
         => catalogue.Count == 0
-            ? [new ActiveWorkoutExercise(Guid.CreateVersion7(), "Back squat", "Quads", 60m, 8, Rest: restPreferences.AppDefault)]
+            ? [new ActiveWorkoutExercise(Guid.CreateVersion7(), "Back squat", "Quads", null, null, Rest: restPreferences.AppDefault)]
             : [.. catalogue.Select(BuildQueueEntry)];
 
+    /// <summary>
+    /// Builds a queue entry for a catalogue exercise.
+    /// </summary>
+    /// <remarks>
+    /// The targets are null on purpose. This used to hand every exercise in the catalogue 60 kg
+    /// for 8 reps, and the logging screen rendered that constant under the caption "Target" beside
+    /// "Actual" - so a user following a plan trained against a number Forge had invented and
+    /// presented as their own. A catalogue row prescribes nothing; only a plan or the user's own
+    /// history can.
+    /// </remarks>
     private ActiveWorkoutExercise BuildQueueEntry(Exercise exercise)
-        => new(exercise.Id, exercise.Name, exercise.PrimaryMuscle, 60m, 8, Rest: restPreferences.Resolve(exercise.Id));
+        => new(exercise.Id, exercise.Name, exercise.PrimaryMuscle, null, null, Rest: restPreferences.Resolve(exercise.Id));
 
-    private void ApplyCurrentExerciseDefaults()
+    /// <summary>
+    /// Applies the current exercise to the screen, resolving its target from the plan or from the
+    /// user's own last set.
+    /// </summary>
+    /// <remarks>
+    /// Asynchronous because an ad hoc workout has to read the user's history for the exercise
+    /// before it can say anything about a target. A plan-driven session answers from the queue and
+    /// never touches the database.
+    /// </remarks>
+    private async Task ApplyCurrentExerciseDefaultsAsync(CancellationToken cancellationToken = default)
     {
         if (session.State is not { } state)
         {
@@ -842,9 +931,25 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 
         CurrentExerciseName = state.CurrentExerciseName;
         var current = state.CurrentExercise();
-        TargetWeightKilograms = current?.TargetLoadKilograms ?? 20m;
-        ActualWeightKilograms = TargetWeightKilograms;
-        Repetitions = current?.TargetRepetitions ?? 8;
+
+        WorkoutTarget? lastPerformance = null;
+        if (current is { IsFromPlan: false, ExerciseId: var exerciseId } && exerciseId != Guid.Empty)
+        {
+            try
+            {
+                lastPerformance = await session.LoadLastPerformanceAsync(exerciseId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Deliberately broad and deliberately silent on screen. Failing to find what the
+                // user lifted last time is not worth interrupting a set for; the target simply
+                // reports that it has nothing behind it, which is true.
+                LogLastPerformanceFailed(logger, ex);
+                lastPerformance = null;
+            }
+        }
+
+        ApplyTarget(state.ResolveCurrentTarget(lastPerformance));
 
         var members = state.CurrentSupersetMembers();
         IsInSuperset = members.Count >= 2;
@@ -854,6 +959,23 @@ public sealed partial class ActiveWorkoutPageViewModel : ObservableObject
 
         RefreshRestSetting();
         CalculatePlates();
+    }
+
+    /// <summary>Puts a resolved target on screen, saying where it came from.</summary>
+    private void ApplyTarget(WorkoutTarget target)
+    {
+        TargetValueText = WorkoutTargetNarrator.LoadText(target);
+        TargetUnitText = WorkoutTargetNarrator.UnitText(target);
+        TargetCaption = WorkoutTargetNarrator.Caption(target);
+        TargetDetailText = WorkoutTargetNarrator.RepetitionsText(target);
+
+        // The editable fields are seeded from the target only when one genuinely exists. With no
+        // target they are left at zero and the user types what they are about to do, which is the
+        // honest state for an ad hoc set.
+        TargetWeightKilograms = target.LoadKilograms ?? 0m;
+        ActualWeightKilograms = target.LoadKilograms ?? 0m;
+        Repetitions = target.PrefillRepetitions ?? 0;
+        IsWarmUp = target.IsWarmUp;
     }
 
     private void RefreshRestSetting()

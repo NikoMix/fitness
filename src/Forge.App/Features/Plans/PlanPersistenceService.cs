@@ -12,6 +12,24 @@ public interface IPlanPersistenceService
 
     Task<TrainingPlan?> GetPlanAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>Returns the profile's active programme, or <see langword="null"/> when it has none.</summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The active plan, or <see langword="null"/>.</returns>
+    Task<TrainingPlan?> GetActivePlanAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Finds one plan day, confined to the profile that owns it.
+    /// </summary>
+    /// <remarks>
+    /// Looked up through the owning plan rather than by day identifier alone. A day identifier
+    /// travels in a navigation parameter and can outlive a profile switch, and starting a workout
+    /// from another profile's plan day would attribute their programme to somebody else.
+    /// </remarks>
+    /// <param name="planDayId">The day to find.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The day and its plan, or <see langword="null"/> when the profile does not own it.</returns>
+    Task<PlanDayLookup?> GetPlanDayAsync(Guid planDayId, CancellationToken cancellationToken);
+
     /// <summary>Creates an empty plan owned by the active profile, without saving it.</summary>
     /// <param name="cancellationToken">Cancels the read that resolves the owner.</param>
     /// <returns>An unsaved plan the editor can populate.</returns>
@@ -28,6 +46,11 @@ public interface IPlanPersistenceService
 
     Task DeletePlanAsync(Guid id, CancellationToken cancellationToken);
 }
+
+/// <summary>One plan day together with the plan it belongs to.</summary>
+/// <param name="Plan">The owning plan.</param>
+/// <param name="Day">The day to execute.</param>
+public sealed record PlanDayLookup(TrainingPlan Plan, PlanDay Day);
 
 internal sealed class PlanPersistenceService(ForgeStartupService startup, IDataSessionFactory sessions, ProfileStore profiles) : IPlanPersistenceService
 {
@@ -56,6 +79,38 @@ internal sealed class PlanPersistenceService(ForgeStartupService startup, IDataS
         // parameter, and opening it afterwards would otherwise show another profile's programme.
         var plan = await plans.GetAsync(id, cancellationToken).ConfigureAwait(false);
         return plan is not null && scope.Owns(plan) ? plan : null;
+    }
+
+    public async Task<TrainingPlan?> GetActivePlanAsync(CancellationToken cancellationToken)
+    {
+        var plans = await ListUserPlansAsync(cancellationToken).ConfigureAwait(false);
+
+        // The list is already ordered active-first, so the second lookup is only reached when the
+        // profile has plans but has activated none of them. Offering one is better than offering
+        // nothing: a user with a single unactivated plan still wants to train from it.
+        return plans.FirstOrDefault(plan => plan.IsActive) ?? (plans.Count > 0 ? plans[0] : null);
+    }
+
+    public async Task<PlanDayLookup?> GetPlanDayAsync(Guid planDayId, CancellationToken cancellationToken)
+    {
+        var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
+        await using var session = sessions.Create();
+        var plans = session.Repository<TrainingPlan>();
+
+        var owned = (await plans.ListAsync(cancellationToken).ConfigureAwait(false)).OwnedBy(scope).ToList();
+        foreach (var plan in owned)
+        {
+            // The day is matched against days reached through an owned plan, and its own owner is
+            // checked as well. Either check alone would be enough today; together they survive a
+            // plan whose days were stamped before the profile boundary existed.
+            var day = plan.Days.FirstOrDefault(candidate => candidate.Id == planDayId && scope.Owns(candidate));
+            if (day is not null)
+            {
+                return new PlanDayLookup(plan, day);
+            }
+        }
+
+        return null;
     }
 
     public async Task<TrainingPlan> CreateDraftPlanAsync(CancellationToken cancellationToken)

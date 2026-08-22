@@ -6,11 +6,23 @@ namespace Forge.Domain.Workout;
 /// <summary>Calculates post-workout summary statistics.</summary>
 public sealed class WorkoutSummaryCalculator
 {
+    /// <summary>Builds the post-workout summary.</summary>
+    /// <param name="session">The session that just finished.</param>
+    /// <param name="exercises">Catalogue rows used to resolve names and muscles.</param>
+    /// <param name="asOfUtc">The moment to measure an unfinished session to.</param>
+    /// <param name="previousSets">The owner's earlier sets, used for personal-record detection.</param>
+    /// <param name="previousSessions">
+    /// The owner's earlier completed sessions, used to compare this one against the last
+    /// comparable effort. Omitting them yields <see cref="WorkoutComparison.None"/>, which the
+    /// screen reports as "nothing to compare yet" rather than as a promise of a future comparison.
+    /// </param>
+    /// <returns>The summary.</returns>
     public static WorkoutSummary Calculate(
         WorkoutSession session,
         IReadOnlyDictionary<Guid, Exercise> exercises,
         DateTimeOffset asOfUtc,
-        IEnumerable<SetEntry>? previousSets = null)
+        IEnumerable<SetEntry>? previousSets = null,
+        IEnumerable<WorkoutSession>? previousSessions = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(exercises);
@@ -23,13 +35,15 @@ public sealed class WorkoutSummaryCalculator
             .ToDictionary(group => group.Key, group => group.Aggregate(Mass.Zero, (sum, set) => sum + set.Volume), StringComparer.OrdinalIgnoreCase);
 
         var records = FindPersonalRecords(workingSets, exercises, previousSets ?? []).ToArray();
+        var comparison = WorkoutComparisonCalculator.Compare(session, previousSessions ?? []);
 
         return new WorkoutSummary(
             totalVolume,
             workingSets.Length,
             session.Duration(asOfUtc),
             perMuscle,
-            records);
+            records,
+            comparison);
     }
 
     private static IEnumerable<PersonalRecordHit> FindPersonalRecords(
@@ -74,12 +88,20 @@ public sealed class WorkoutSummaryCalculator
     }
 }
 
+/// <summary>The post-workout summary shown once a session ends.</summary>
+/// <param name="TotalVolume">Working volume, load multiplied by repetitions.</param>
+/// <param name="WorkingSetCount">Number of non-warm-up sets.</param>
+/// <param name="Duration">How long the session ran.</param>
+/// <param name="PerMuscleVolume">Working volume broken down by primary muscle.</param>
+/// <param name="PersonalRecords">Records set during the session.</param>
+/// <param name="Comparison">How the session compares with the last comparable one.</param>
 public sealed record WorkoutSummary(
     Mass TotalVolume,
     int WorkingSetCount,
     TimeSpan Duration,
     IReadOnlyDictionary<string, Mass> PerMuscleVolume,
-    IReadOnlyList<PersonalRecordHit> PersonalRecords);
+    IReadOnlyList<PersonalRecordHit> PersonalRecords,
+    WorkoutComparison? Comparison = null);
 
 public sealed record PersonalRecordHit(Guid ExerciseId, string ExerciseName, PersonalRecordKind Kind, decimal CurrentValue, decimal PreviousValue);
 

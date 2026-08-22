@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Forge.App.Features.Workout;
 using Forge.App.Navigation;
 using Forge.Domain.Planning;
 using Forge.Domain.Training;
@@ -313,7 +314,9 @@ public sealed partial class PlanEditorViewModel(IPlanPersistenceService planStor
     private static string Format(TimeSpan time) => time.TotalMinutes < 1 ? "0 min" : $"{Math.Round(time.TotalMinutes)} min";
 }
 
-public sealed partial class PlanScheduleViewModel(IPlanPersistenceService planStore) : ObservableObject
+public sealed partial class PlanScheduleViewModel(
+    IPlanPersistenceService planStore,
+    IWorkoutPersistenceService workouts) : ObservableObject
 {
     public ObservableCollection<ScheduleCellViewModel> Days { get; } = [];
 
@@ -335,10 +338,10 @@ public sealed partial class PlanScheduleViewModel(IPlanPersistenceService planSt
     {
         IsLoading = true;
 
-        var userPlans = await planStore.ListUserPlansAsync(cancellationToken).ConfigureAwait(false);
-        var plan = userPlans.Count > 0 ? userPlans[0] : null;
+        var plan = await planStore.GetActivePlanAsync(cancellationToken).ConfigureAwait(false);
+        var completions = await workouts.LoadPlanDayCompletionsAsync(cancellationToken).ConfigureAwait(false);
 
-        var cells = plan is null ? [] : BuildCells(plan);
+        var cells = plan is null ? [] : BuildCells(plan, completions, DateOnly.FromDateTime(DateTime.Today));
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
             Days.Clear();
@@ -346,6 +349,10 @@ public sealed partial class PlanScheduleViewModel(IPlanPersistenceService planSt
             {
                 Days.Add(cell);
             }
+
+            Reassurance = cells.Exists(cell => cell.WasShifted)
+                ? "You missed a session, so Forge moved it and everything after it forward. Nothing is lost and no streak is broken."
+                : "Missed a day? Forge shifts the plan forward so you keep momentum instead of losing a streak.";
 
             IsEmpty = plan is null;
             IsLoading = false;
@@ -355,18 +362,54 @@ public sealed partial class PlanScheduleViewModel(IPlanPersistenceService planSt
     [RelayCommand]
     private static Task OpenTemplatesAsync() => Shell.Current.GoToAsync(ForgeRoutes.PlanTemplates);
 
-    private static List<ScheduleCellViewModel> BuildCells(TrainingPlan plan)
+    /// <summary>
+    /// Builds the calendar, shifting the plan forward past the first session that was missed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="PlanScheduler.ShiftForMissedSession"/> was implemented and tested and called
+    /// from nowhere, and the "Shifted" label in the item template could therefore never become
+    /// visible. The reassurance line above it promised behaviour that did not exist.
+    /// </para>
+    /// <para>
+    /// A session counts as missed when it was scheduled before today and no completed workout for
+    /// that plan day was recorded on that date. Only the earliest such session shifts, because
+    /// shifting once moves everything after it too; re-running the shift for each later gap would
+    /// push the plan further into the future on every miss.
+    /// </para>
+    /// </remarks>
+    private static List<ScheduleCellViewModel> BuildCells(
+        TrainingPlan plan,
+        IReadOnlyList<PlanDayCompletion> completions,
+        DateOnly today)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
         var weekStart = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
         var schedule = PlanScheduler.Schedule(plan, weekStart, 4);
+
+        var completed = completions
+            .Select(completion => (completion.PlanDayId, completion.CompletedOn))
+            .ToHashSet();
+
+        var missed = schedule.FirstOrDefault(session =>
+            session.Date < today && !completed.Contains((session.Day.Id, session.Date)));
+
+        if (missed is not null)
+        {
+            schedule = PlanScheduler.ShiftForMissedSession(schedule, missed.Sequence, today);
+        }
+
         var lookup = schedule.ToLookup(session => session.Date);
         var cells = new List<ScheduleCellViewModel>();
         for (var i = 0; i < 28; i++)
         {
             var date = weekStart.AddDays(i);
             var session = lookup[date].FirstOrDefault();
-            cells.Add(new ScheduleCellViewModel(date.Day.ToString(CultureInfo.CurrentCulture), date.DayOfWeek.ToString()[..3], session?.Day.Name ?? string.Empty, session is not null, session?.WasShifted ?? false));
+            cells.Add(new ScheduleCellViewModel(
+                date.Day.ToString(CultureInfo.CurrentCulture),
+                date.DayOfWeek.ToString()[..3],
+                session?.Day.Name ?? string.Empty,
+                session is not null,
+                session?.WasShifted ?? false));
         }
 
         return cells;

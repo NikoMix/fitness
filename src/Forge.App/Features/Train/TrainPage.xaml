@@ -4,6 +4,7 @@
              xmlns:dx="http://schemas.devexpress.com/maui"
              xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              x:Class="Forge.App.Features.Train.TrainPage"
+             x:Name="Page"
              Title="Train"
              BackgroundColor="{dx:ThemeColor Surface}">
     <adaptive:AdaptiveHost x:Name="Adaptive">
@@ -13,6 +14,61 @@
                              WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" Spacing="{StaticResource SpaceL}">
             <Label Text="Train" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <Label Text="Plan sessions, review movement options, and start from the exercise library when equipment changes." Style="{StaticResource SecondaryText}" />
+
+            <!--
+                The seam between planning and training. Before this card existed, "Start workout"
+                passed no plan at all: the session queued the whole exercise catalogue and showed
+                a hard-coded 60 kg as the "Target", so a user who had written a programme trained
+                against a number Forge invented.
+            -->
+            <dx:DXBorder Style="{StaticResource ElevatedCard}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Train from your plan" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding PlanName}" Style="{StaticResource SecondaryText}" IsVisible="{Binding HasPlan}" />
+                    <Label Text="{Binding PlanMessage}" Style="{StaticResource BodyText}" />
+
+                    <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasSuggestedDay}">
+                        <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                            <Label Text="Up next" Style="{StaticResource CaptionText}" />
+                            <Label Text="{Binding SuggestedDayName}" Style="{StaticResource TitleText}" />
+                            <Label Text="{Binding SuggestedDayDetail}" Style="{StaticResource SecondaryText}" />
+                            <dx:DXButton Content="Start this session"
+                                         Style="{StaticResource WorkoutActionButton}"
+                                         SemanticProperties.Description="Start the session your plan places today"
+                                         SemanticProperties.Hint="Queues this day's exercises with the sets, reps, load and rest you wrote"
+                                         Command="{Binding StartSuggestedDayCommand}" />
+                        </VerticalStackLayout>
+                    </dx:DXBorder>
+
+                    <dx:DXCollectionView ItemsSource="{Binding PlanDays}"
+                                         IsVisible="{Binding HasPlan}"
+                                         ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
+                        <dx:DXCollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <dx:DXBorder Style="{StaticResource Card}" Margin="2">
+                                    <VerticalStackLayout Spacing="{StaticResource SpaceXxs}">
+                                        <Label Text="{Binding Name}" Style="{StaticResource TitleText}" />
+                                        <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" LineBreakMode="TailTruncation" />
+                                        <Label Text="{Binding StatusText}" Style="{StaticResource CaptionText}" IsVisible="{Binding IsDoneThisWeek}" />
+                                        <dx:DXButton Content="Start"
+                                                     Style="{StaticResource SecondaryButton}"
+                                                     SemanticProperties.Description="{Binding AccessibilityDescription}"
+                                                     Command="{Binding Source={x:Reference Page}, Path=BindingContext.StartPlanDayCommand}"
+                                                     CommandParameter="{Binding .}" />
+                                    </VerticalStackLayout>
+                                </dx:DXBorder>
+                            </DataTemplate>
+                        </dx:DXCollectionView.ItemTemplate>
+                    </dx:DXCollectionView>
+
+                    <dx:DXButton Content="Manage plans"
+                                 Style="{StaticResource SecondaryButton}"
+                                 SemanticProperties.Description="Manage training plans"
+                                 SemanticProperties.Hint="Create, edit or adopt a training plan"
+                                 Command="{Binding OpenPlansCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
             <dx:DXBorder Style="{StaticResource ElevatedCard}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="Exercise library" Style="{StaticResource TitleText}" />
@@ -36,11 +92,11 @@
             <dx:DXBorder Style="{StaticResource ElevatedCard}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="Train now" Style="{StaticResource TitleText}" />
-                    <Label Text="Start logging straight away. Forge keeps the session recoverable, so an interrupted workout is never lost." Style="{StaticResource BodyText}" />
-                    <dx:DXButton Content="Start workout"
+                    <Label Text="Start logging straight away, without a plan. Forge keeps the session recoverable and shows no target it has not earned." Style="{StaticResource BodyText}" />
+                    <dx:DXButton Content="Start empty workout"
                                  Style="{StaticResource WorkoutActionButton}"
-                                 SemanticProperties.Description="Start a workout"
-                                 SemanticProperties.Hint="Opens the active workout screen"
+                                 SemanticProperties.Description="Start a workout without a plan"
+                                 SemanticProperties.Hint="Opens the active workout screen with no prescribed target"
                                  Command="{Binding StartWorkoutCommand}" />
                 </VerticalStackLayout>
             </dx:DXBorder>

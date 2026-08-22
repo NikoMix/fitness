@@ -76,6 +76,10 @@ public sealed class WorkoutSessionConfiguration : IEntityTypeConfiguration<Worko
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Title).HasMaxLength(200);
 
+        // Snapshotted from the plan day at start, so a finished session keeps describing what it
+        // was even after the plan is renamed or deleted.
+        builder.Property(e => e.PlanDayName).HasMaxLength(160);
+
         builder.HasMany(e => e.Sets)
                .WithOne()
                .HasForeignKey(s => s.WorkoutSessionId)
@@ -92,6 +96,12 @@ public sealed class WorkoutSessionConfiguration : IEntityTypeConfiguration<Worko
         // process death, so it must not require scanning the table.
         builder.HasIndex(e => e.CompletedUtc);
         builder.HasIndex(e => new { e.UserProfileId, e.CompletedUtc });
+
+        // "What did I do last time I trained this plan day" drives both the post-workout
+        // comparison and the completion marks on the schedule. No foreign key to PlanDays is
+        // declared: plans are soft-deleted, and a constraint would either block that or cascade a
+        // soft delete into a hard one, taking the user's training log with the plan they abandoned.
+        builder.HasIndex(e => new { e.UserProfileId, e.PlanDayId, e.CompletedUtc });
     }
 }
 

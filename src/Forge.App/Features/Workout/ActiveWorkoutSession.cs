@@ -35,9 +35,16 @@ public interface IActiveWorkoutSession
 
     /// <summary>Loads the in-progress workout, resuming an unfinished one when present.</summary>
     /// <param name="exerciseCatalogue">Exercises available to queue.</param>
+    /// <param name="planDayId">The plan day to execute, or <see langword="null"/> for an ad hoc workout.</param>
     /// <param name="cancellationToken">Cancels the load.</param>
     /// <returns>The loaded state and how it was recovered.</returns>
-    Task<WorkoutLoadResult> LoadAsync(IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue, CancellationToken cancellationToken);
+    Task<WorkoutLoadResult> LoadAsync(IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue, Guid? planDayId, CancellationToken cancellationToken);
+
+    /// <summary>Looks up the user's own last working set of an exercise.</summary>
+    /// <param name="exerciseId">The exercise to look up.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>A target attributed to the user's history, or <see langword="null"/> when they have none.</returns>
+    Task<WorkoutTarget?> LoadLastPerformanceAsync(Guid exerciseId, CancellationToken cancellationToken);
 
     /// <summary>Forgets the loaded workout so the next load starts fresh.</summary>
     void Reset();
@@ -131,13 +138,17 @@ internal sealed class ActiveWorkoutSession(
     public RestReason RestReason { get; private set; } = RestReason.WorkingSet;
 
     /// <inheritdoc />
-    public async Task<WorkoutLoadResult> LoadAsync(IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue, CancellationToken cancellationToken)
+    public async Task<WorkoutLoadResult> LoadAsync(IReadOnlyList<ActiveWorkoutExercise> exerciseCatalogue, Guid? planDayId, CancellationToken cancellationToken)
     {
-        var result = await persistence.LoadOrStartAsync(exerciseCatalogue, clock.UtcNow, cancellationToken);
+        var result = await persistence.LoadOrStartAsync(exerciseCatalogue, clock.UtcNow, planDayId, cancellationToken);
         State = result.State;
         activityScope ??= appLockActivity.BeginActivity();
         return result;
     }
+
+    /// <inheritdoc />
+    public Task<WorkoutTarget?> LoadLastPerformanceAsync(Guid exerciseId, CancellationToken cancellationToken)
+        => persistence.LoadLastPerformanceAsync(exerciseId, cancellationToken);
 
     /// <inheritdoc />
     public void Reset()
