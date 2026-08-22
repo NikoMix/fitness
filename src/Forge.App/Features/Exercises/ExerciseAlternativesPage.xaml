@@ -58,8 +58,8 @@
                                  Headline="No suitable alternative"
                                  Message="{Binding Explanation}" />
 
-            <dx:DXCollectionView ItemsSource="{Binding Alternatives}" IsVisible="{Binding HasAlternatives}">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <dx:DXCollectionView ItemsSource="{Binding Alternatives}" IsVisible="{Binding HasAlternatives}"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ListRow}">

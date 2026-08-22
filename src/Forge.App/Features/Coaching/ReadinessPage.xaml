@@ -31,8 +31,8 @@
                 </VerticalStackLayout>
             </controls:ForgeCard>
 
-            <dx:DXCollectionView ItemsSource="{Binding Components}" HeightRequest="340">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <dx:DXCollectionView ItemsSource="{Binding Components}" HeightRequest="340"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ListRow}">

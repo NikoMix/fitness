@@ -135,6 +135,14 @@ jobs:
         shell: pwsh
         run: ./tools/ci/Test-RouteReachability.ps1
 
+      # A start tag closed on one line with an attribute on the next is still well-formed XML - the
+      # attribute becomes element text and is silently never applied. Eleven shipped that way, and
+      # they were every ItemSpanCount binding in the app, so adaptive multi-column layout on
+      # tablets was entirely inert while the build, the tests and CI all stayed green.
+      - name: Verify no XAML attribute sits outside its tag
+        shell: pwsh
+        run: ./tools/ci/Test-XamlAttributes.ps1
+
       # The smoke harness's own self-test: it runs its detection logic against a real captured
       # screen and three mechanically seeded defects, and asserts it fires on the defects and stays
       # quiet on the healthy screen. Device-free and seconds, so it belongs with the other guards -

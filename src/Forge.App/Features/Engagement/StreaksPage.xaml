@@ -42,8 +42,8 @@
             </controls:ForgeCard>
 
             <Label Text="History" Style="{StaticResource SectionHeaderText}" />
-            <dx:DXCollectionView ItemsSource="{Binding History}" HeightRequest="300">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <dx:DXCollectionView ItemsSource="{Binding History}" HeightRequest="300"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ListRow}">

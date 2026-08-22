@@ -32,8 +32,8 @@
                                  Message="Start from a template, then edit the copy so it matches your week."
                                  ActionText="Browse templates"
                                  ActionCommand="{Binding OpenTemplatesCommand}" />
-            <dx:DXCollectionView ItemsSource="{Binding Plans}" IsVisible="{Binding HasPlans}">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <dx:DXCollectionView ItemsSource="{Binding Plans}" IsVisible="{Binding HasPlans}"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
             <dx:DXCollectionView.ItemTemplate>
                 <DataTemplate>
                     <controls:ForgeCard Title="{Binding Name}" Subtitle="{Binding Summary}">

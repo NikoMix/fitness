@@ -36,8 +36,8 @@
             </dx:DXBorder>
 
             <Label Text="One-tap presets" Style="{StaticResource SectionHeaderText}" />
-            <dx:DXCollectionView ItemsSource="{Binding Presets}" HeightRequest="240">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <dx:DXCollectionView ItemsSource="{Binding Presets}" HeightRequest="240"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ListRow}">
@@ -64,8 +64,8 @@
                                  Glyph="＋"
                                  Headline="No drinks logged today"
                                  Message="Tap a preset to start the hydration ring from your saved local history." />
-            <dx:DXCollectionView ItemsSource="{Binding History}" HeightRequest="260" IsVisible="{Binding HasHydrationHistory}">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <dx:DXCollectionView ItemsSource="{Binding History}" HeightRequest="260" IsVisible="{Binding HasHydrationHistory}"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ListRow}">

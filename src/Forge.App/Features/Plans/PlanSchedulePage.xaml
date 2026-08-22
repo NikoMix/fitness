@@ -30,8 +30,8 @@
                                  Message="Adopt a template or create a plan so Forge can build your calendar."
                                  ActionText="Browse plans"
                                  ActionCommand="{Binding Source={x:Reference Page}, Path=BindingContext.OpenTemplatesCommand}" />
-            <dx:DXCollectionView ItemsSource="{Binding Days}" IsVisible="{Binding HasSchedule}">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <dx:DXCollectionView ItemsSource="{Binding Days}" IsVisible="{Binding HasSchedule}"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource Card}" Margin="2">

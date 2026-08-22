@@ -21,8 +21,8 @@
             </dx:DXBorder>
 
             <controls:SectionHeader Title="Totals" />
-            <dx:DXCollectionView ItemsSource="{Binding Metrics}" HeightRequest="190">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <dx:DXCollectionView ItemsSource="{Binding Metrics}" HeightRequest="190"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <controls:StatRow Label="{Binding Label}" Value="{Binding Value}" />
@@ -31,8 +31,8 @@
             </dx:DXCollectionView>
 
             <controls:SectionHeader Title="Volume by muscle" />
-            <dx:DXCollectionView ItemsSource="{Binding MuscleVolume}" HeightRequest="220">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <dx:DXCollectionView ItemsSource="{Binding MuscleVolume}" HeightRequest="220"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <controls:StatRow Label="{Binding Label}" Value="{Binding Value}" />

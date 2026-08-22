@@ -22,8 +22,8 @@
                                      Headline="Your cabinet is ready"
                                      Message="Log a workout, try a new movement, or set your first personal record. Forge celebrates real progress without pressure or fake scarcity." />
 
-                <dx:DXCollectionView ItemsSource="{Binding Achievements}" HeightRequest="560">
-                                     ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+                <dx:DXCollectionView ItemsSource="{Binding Achievements}" HeightRequest="560"
+                                     ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                     <dx:DXCollectionView.ItemTemplate>
                         <DataTemplate>
                             <dx:DXBorder Style="{StaticResource Card}" Margin="0,0,0,12">
