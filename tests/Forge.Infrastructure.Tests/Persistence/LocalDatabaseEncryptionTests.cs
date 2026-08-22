@@ -19,7 +19,15 @@ namespace Forge.Infrastructure.Tests.Persistence;
 /// </remarks>
 public sealed class LocalDatabaseEncryptionTests : IDisposable
 {
-    private const string Key = "an-encryption-key";
+    // A real key in the shape the app uses: 32 random bytes, base64. That shape is what makes the
+    // interceptor choose SQLCipher's raw-key form, so a short passphrase here would silently test
+    // the slow derived path instead.
+    private static readonly string Key = Convert.ToBase64String(
+        System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+
+    /// <summary>The raw-key pragma the app uses, rebuilt independently of the production code.</summary>
+    private static string RawKeyPragma =>
+        $"PRAGMA key = \"x'{Convert.ToHexStringLower(Convert.FromBase64String(Key))}'\"";
 
     private readonly string directory = Path.Combine(
         Path.GetTempPath(),
@@ -145,6 +153,80 @@ public sealed class LocalDatabaseEncryptionTests : IDisposable
         File.Exists(path + ".encrypting").ShouldBeFalse();
         File.Exists(path + "-wal").ShouldBeFalse("A write-ahead log from the plaintext database would be replayed over the encrypted one.");
         File.Exists(path + "-shm").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_database_written_with_the_derived_key_is_rekeyed_and_keeps_its_rows()
+    {
+        var path = Path.Combine(directory, "derived.db");
+
+        // Exactly what Forge wrote before the raw-key change: the key handed to SQLCipher as a
+        // passphrase, so it ran 256,000 rounds of PBKDF2 over it. Such a file cannot be opened
+        // with the raw key, and without this path startup would fail into recovery mode over a
+        // database that is perfectly intact.
+        await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadWriteCreate
+        }.ToString());
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = $"PRAGMA key = '{Key}'; CREATE TABLE Kept (Value TEXT); INSERT INTO Kept VALUES ('survivor');";
+            await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        await connection.CloseAsync();
+        SqliteConnection.ClearAllPools();
+
+        var outcome = await LocalDatabaseEncryption.EnsureEncryptedAsync(
+            path, Key, TestContext.Current.CancellationToken);
+
+        outcome.ShouldBe(LocalDatabaseEncryption.UpgradeOutcome.Rekeyed);
+
+        // Readable with the raw key the app now uses, and the row is still there.
+        await using var reopened = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadWrite
+        }.ToString());
+        await reopened.OpenAsync(TestContext.Current.CancellationToken);
+
+        // Two commands for the same reason the production check uses two: ExecuteScalar runs only
+        // the first statement of a batch, so a combined string would return the pragma's own "ok"
+        // and never read the table.
+        await using (var unlock = reopened.CreateCommand())
+        {
+            unlock.CommandText = RawKeyPragma;
+            await unlock.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using var read = reopened.CreateCommand();
+        read.CommandText = "SELECT Value FROM Kept";
+        var value = await read.ExecuteScalarAsync(TestContext.Current.CancellationToken);
+
+        value.ShouldBe("survivor");
+    }
+
+    [Fact]
+    public async Task A_database_already_using_the_raw_key_is_left_alone()
+    {
+        var path = Path.Combine(directory, "raw.db");
+
+        await using (var context = new ForgeDbContext(ForgeDbContextFactory.CreateOptions(path, Key)))
+        {
+            await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
+        }
+
+        SqliteConnection.ClearAllPools();
+        var before = await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken);
+
+        var outcome = await LocalDatabaseEncryption.EnsureEncryptedAsync(
+            path, Key, TestContext.Current.CancellationToken);
+
+        outcome.ShouldBe(LocalDatabaseEncryption.UpgradeOutcome.NotNeeded);
+        (await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken)).ShouldBe(before);
     }
 
     /// <summary>

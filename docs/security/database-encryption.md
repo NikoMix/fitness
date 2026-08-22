@@ -1,5 +1,41 @@
 # Database encryption
 
+## The key is passed raw, not as a passphrase
+
+Given a passphrase, SQLCipher derives a key with **256,000 rounds of PBKDF2-HMAC-SHA512**. That is
+the right thing to do to a human-chosen password. Forge's key is not one: it is 32 bytes straight
+from a CSPRNG, held in the platform keystore. Stretching an already-random 256-bit key adds no
+entropy and no security.
+
+It does add time, and not once - on every connection, because Forge opens a context per operation
+and the interceptor applies `PRAGMA key` each time a connection opens. Measured on a desktop:
+
+| | Per connection open |
+|---|---|
+| Key passed as a passphrase | **469 ms** |
+| Key passed raw | **24 ms** |
+| No encryption at all | 5 ms |
+
+On an emulator this was enough for Android to kill the app during startup with
+`ANR ... failed to complete startup`. A phone would have been slower still.
+
+`SqlitePragmaConnectionInterceptor.CreateKeyPragma` therefore emits SQLCipher's raw-key form,
+`PRAGMA key = "x'<64 hex>'"`, whenever the key really is 32 bytes. Anything else - a test
+passphrase, a hand-set value - keeps the derived form, because there the derivation is doing real
+work.
+
+Databases written before this cannot be opened with the raw key, so
+`LocalDatabaseEncryption.EnsureEncryptedAsync` re-keys them: it tries the raw form, falls back to
+the derived form, and re-encrypts through `sqlcipher_export` if the old one is what opens it. If
+neither opens the file it changes nothing, because guessing further risks destroying a database
+some other key would open.
+
+Verifying which key opens a file needs care. SQLCipher defers the check, so applying `PRAGMA key`
+always succeeds and proves nothing - a page has to be read. And the read has to be a **separate
+command**: `Microsoft.Data.Sqlite` executes only the first statement of a batch for
+`ExecuteScalar`, so `PRAGMA key; SELECT ...` returns the pragma's own `"ok"` and never touches the
+database. The first version of both the check and its test had exactly that bug.
+
 ## What was wrong
 
 Forge's privacy policy, its Play Data Safety declaration, its Play Health Apps declaration and its

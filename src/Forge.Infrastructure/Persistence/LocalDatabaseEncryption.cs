@@ -37,11 +37,15 @@ public static class LocalDatabaseEncryption
         NotNeeded,
 
         /// <summary>A plaintext database was converted to an encrypted one.</summary>
-        Encrypted
+        Encrypted,
+
+        /// <summary>An encrypted database was re-keyed from a derived key to the raw key.</summary>
+        Rekeyed
     }
 
     /// <summary>
-    /// Encrypts <paramref name="databasePath"/> in place if it exists and is still plaintext.
+    /// Encrypts <paramref name="databasePath"/> in place if it exists and is still plaintext, and
+    /// re-keys it if it was encrypted with a derived key rather than the raw one.
     /// </summary>
     /// <param name="databasePath">Path to the local database file.</param>
     /// <param name="encryptionKey">The key to encrypt with. No key means nothing to do.</param>
@@ -58,28 +62,99 @@ public static class LocalDatabaseEncryption
             return UpgradeOutcome.NotNeeded;
         }
 
-        if (!await IsPlaintextAsync(databasePath, cancellationToken))
+        if (await IsPlaintextAsync(databasePath, cancellationToken))
+        {
+            await ConvertAsync(databasePath, null, encryptionKey, cancellationToken);
+            return UpgradeOutcome.Encrypted;
+        }
+
+        // Already encrypted, but possibly with the wrong form of the same key. Forge originally
+        // passed the key as a passphrase, which made SQLCipher derive a key from it with 256,000
+        // rounds of PBKDF2 on every single connection - 469 ms per open, measured. It now passes
+        // the 32 random bytes directly, which is both faster and no weaker, because stretching an
+        // already-random 256-bit key buys nothing.
+        //
+        // A database written the old way cannot be opened the new way, so it is re-keyed rather
+        // than left to fail startup into recovery mode over a database that is perfectly intact.
+        if (await CanOpenAsync(databasePath, SqlitePragmaConnectionInterceptor.CreateKeyPragma(encryptionKey), cancellationToken))
         {
             return UpgradeOutcome.NotNeeded;
         }
 
+        var derived = $"PRAGMA key = '{encryptionKey.Replace("'", "''", StringComparison.Ordinal)}'";
+        if (!await CanOpenAsync(databasePath, derived, cancellationToken))
+        {
+            // Neither form opens it. That is not something this method can repair, and guessing
+            // further risks destroying a file that some other key would open.
+            return UpgradeOutcome.NotNeeded;
+        }
+
+        await ConvertAsync(databasePath, derived, encryptionKey, cancellationToken);
+        return UpgradeOutcome.Rekeyed;
+    }
+
+    /// <summary>Whether the database can be read using the supplied key pragma.</summary>
+    private static async Task<bool> CanOpenAsync(string databasePath, string keyPragma, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            {
+                DataSource = databasePath,
+                Mode = SqliteOpenMode.ReadWrite
+            }.ToString());
+
+            await connection.OpenAsync(cancellationToken);
+
+            // Two commands, deliberately. Microsoft.Data.Sqlite executes only the first statement
+            // of a batch for ExecuteScalar, so combining these would apply the key - which always
+            // succeeds, since SQLCipher defers verification - and never read a page. The check
+            // would then report every key as correct, which is how the first version of this
+            // failed.
+            await using (var unlock = connection.CreateCommand())
+            {
+                unlock.CommandText = keyPragma;
+                await unlock.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using var command = connection.CreateCommand();
+            // Reading sqlite_master is the cheapest operation that actually decrypts a page.
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_master";
+            await command.ExecuteScalarAsync(cancellationToken);
+            return true;
+        }
+        catch (SqliteException)
+        {
+            return false;
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+        }
+    }
+
+    /// <summary>Copies the database into a new file under <paramref name="encryptionKey"/>.</summary>
+    private static async Task ConvertAsync(
+        string databasePath,
+        string? sourceKeyPragma,
+        string encryptionKey,
+        CancellationToken cancellationToken)
+    {
         var encryptedPath = databasePath + ".encrypting";
         DeleteDatabaseFiles(encryptedPath);
 
         try
         {
-            await ExportToEncryptedAsync(databasePath, encryptedPath, encryptionKey, cancellationToken);
+            await ExportToEncryptedAsync(databasePath, sourceKeyPragma, encryptedPath, encryptionKey, cancellationToken);
 
             // Pooled handles keep the old file open, and on Windows that makes the replace fail.
             SqliteConnection.ClearAllPools();
 
-            // The write-ahead log and shared-memory files belong to the plaintext database. Left
-            // behind, SQLite would try to replay them over the encrypted one.
+            // The write-ahead log and shared-memory files belong to the old database. Left behind,
+            // SQLite would try to replay them over the new one.
             DeleteSidecarFiles(databasePath);
             File.Move(encryptedPath, databasePath, overwrite: true);
             DeleteSidecarFiles(encryptedPath);
-
-            return UpgradeOutcome.Encrypted;
         }
         catch
         {
@@ -114,6 +189,7 @@ public static class LocalDatabaseEncryption
 
     private static async Task ExportToEncryptedAsync(
         string sourcePath,
+        string? sourceKeyPragma,
         string destinationPath,
         string encryptionKey,
         CancellationToken cancellationToken)
@@ -131,13 +207,21 @@ public static class LocalDatabaseEncryption
         await using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
 
+        // Only set when the source is itself encrypted. A plaintext source must not be given a key.
+        if (sourceKeyPragma is not null)
+        {
+            await using var unlock = connection.CreateCommand();
+            unlock.CommandText = sourceKeyPragma;
+            await unlock.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         await using (var attach = connection.CreateCommand())
         {
             // The alias cannot be parameterised, but it is a fixed identifier rather than input.
-            // The path and key are parameters so a key containing a quote cannot break the SQL.
-            attach.CommandText = "ATTACH DATABASE $path AS encrypted KEY $key";
+            // The path is a parameter; the key is not, because SQLCipher's raw-key form is a
+            // literal the parser has to see rather than a bound value.
+            attach.CommandText = $"ATTACH DATABASE $path AS encrypted KEY {KeyLiteral(encryptionKey)}";
             attach.Parameters.AddWithValue("$path", destinationPath);
-            attach.Parameters.AddWithValue("$key", encryptionKey);
             await attach.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -154,6 +238,16 @@ public static class LocalDatabaseEncryption
         }
 
         await connection.CloseAsync();
+    }
+
+    /// <summary>
+    /// The key as SQL text, matching whichever form the connection interceptor uses so an ATTACH
+    /// produces a file the app can subsequently open.
+    /// </summary>
+    private static string KeyLiteral(string encryptionKey)
+    {
+        var pragma = SqlitePragmaConnectionInterceptor.CreateKeyPragma(encryptionKey);
+        return pragma["PRAGMA key = ".Length..];
     }
 
     private static void DeleteDatabaseFiles(string path)
