@@ -101,3 +101,9 @@ node_modules/
 ## backlog sync local state
 tools/backlog-sync/.state/
 
+## JVM crash dumps. The Android toolchain runs javac, d8 and aapt2 on a JVM, and this build host
+## is contended enough that one occasionally dies and drops an hs_err_pid*.log wherever it was
+## working. One got swept into a commit by git add -A.
+hs_err_pid*.log
+replay_pid*.log
+

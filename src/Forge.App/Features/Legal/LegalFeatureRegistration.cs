@@ -1,4 +1,6 @@
+using Forge.App.Features.Legal.Services;
 using Forge.App.Navigation;
+using Forge.Core.Abstractions.Preferences;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Forge.App.Features.Legal;
@@ -22,6 +24,15 @@ public static class LegalFeatureRegistration
     public static IServiceCollection AddLegalFeature(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // Erasure is registered here, beside its implementation, and nowhere else. It was
+        // previously registered twice - a working service in Shop and a throwing placeholder in
+        // Settings - which left "delete my account" depending on AddShopFeature() being called
+        // after AddSettingsFeature() in an alphabetically ordered list. Reordering that list, or
+        // renaming either feature, would have silently turned a mandatory store-compliance flow
+        // into an error dialog. tools/ci/Test-ServiceRegistrations.ps1 now fails the build if any
+        // interface is bound to two different implementations across features.
+        services.AddSingleton<IDataErasureService, LocalDataErasureService>();
 
         services.AddTransient<PrivacyPolicyPage>();
         services.AddTransient<TermsOfServicePage>();

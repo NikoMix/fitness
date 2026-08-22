@@ -143,6 +143,17 @@ jobs:
         shell: pwsh
         run: ./tools/ci/Test-XamlAttributes.ps1
 
+      # DI resolves the LAST registration of a service type, so two features binding the same
+      # interface means the winner is chosen by the alphabetical order of the Add<Name>Feature()
+      # list and nothing else. IDataErasureService shipped bound to a working implementation in
+      # Shop and a throwing placeholder in Settings: "delete my account and data" - required by
+      # both stores and by GDPR - worked only because "Shop" sorts after "Settings". Renaming
+      # either feature would have swapped permanent deletion for an error dialog, with every test
+      # still green because both types satisfy the interface.
+      - name: Verify no interface is bound twice across features
+        shell: pwsh
+        run: ./tools/ci/Test-ServiceRegistrations.ps1
+
       # The smoke harness's own self-test: it runs its detection logic against a real captured
       # screen and three mechanically seeded defects, and asserts it fires on the defects and stays
       # quiet on the healthy screen. Device-free and seconds, so it belongs with the other guards -

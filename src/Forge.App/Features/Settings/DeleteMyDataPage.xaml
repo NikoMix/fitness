@@ -26,7 +26,6 @@
                     <Label Text="• The encrypted local SQLite database&#10;• The encryption key held in secure storage&#10;• Cached exercise or food media&#10;• App preferences, including unit and notification choices&#10;• Any temporary files created for exports"
                            Style="{StaticResource BodyText}" />
                     <Label Text="{Binding StorageSummary}" Style="{StaticResource SecondaryText}" />
-                    <Label Text="{Binding WiringStatus}" Style="{StaticResource CaptionText}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
 

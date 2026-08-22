@@ -121,7 +121,13 @@ public static class MauiProgram
     {
         services.AddSingleton<INavigationService, ShellNavigationService>();
         services.AddSingleton<AppShellViewModel>();
-        services.AddSingleton<AppShell>();
+
+        // AppShell itself is registered by AddOnboardingFeature, which builds it through a factory
+        // so it can attach the first-run routing gate to Loaded. Registering it here as well did
+        // nothing except shadow: features register after the shell, so the factory always won.
+        // Two registrations of one type is how a working implementation gets silently replaced -
+        // see the IDataErasureService note in LegalFeatureRegistration - so the dead one is gone
+        // rather than left to look authoritative.
 
         return services;
     }
