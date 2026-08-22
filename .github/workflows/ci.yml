@@ -154,6 +154,18 @@ jobs:
         shell: pwsh
         run: ./tools/ci/Test-ServiceRegistrations.ps1
 
+      # Reports, deliberately, rather than failing. This project's most expensive recurring defect
+      # is correct, well-tested code that nothing calls: EnergyExpenditureCalculator (correct
+      # Mifflin-St Jeor, zero callers), ExerciseFilter.FromDeclaredInjuries (only its own tests),
+      # PlanScheduler.ShiftForMissedSession (called from nowhere, with a UI label that can never
+      # appear). A unit test cannot fail for want of a caller, which is why a green suite reported
+      # a feature-complete app that was missing most of its wiring. Not gated yet because the
+      # existing findings need triaging first, and a check that fails on day one teaches people to
+      # add an allowlist entry instead of reading it.
+      - name: Report code that only its tests call
+        shell: pwsh
+        run: ./tools/ci/Test-CodeReachability.ps1
+
       # The smoke harness's own self-test: it runs its detection logic against a real captured
       # screen and three mechanically seeded defects, and asserts it fires on the defects and stays
       # quiet on the healthy screen. Device-free and seconds, so it belongs with the other guards -

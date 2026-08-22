@@ -1,0 +1,15 @@
+# Types that are deliberately unreferenced by name.
+#
+# Format: TypeName = why it has no caller
+#
+# Everything in here is a claim that a human checked. Add an entry only when a type genuinely
+# cannot be referenced from code - a framework entry point, or something a tool discovers by
+# reflection. Do NOT add a type here because it is "not wired up yet": that is precisely the
+# finding this check exists to surface, and silencing it converts an unfinished feature into a
+# permanent one.
+
+MainActivity = Android application entry point. Instantiated by the OS from the manifest, via [Activity], never by name.
+Program = iOS application entry point. Called by the runtime, never by name.
+NotificationRescheduleReceiver = Android BroadcastReceiver. Registered by [BroadcastReceiver] and invoked by the OS when the device reboots, so no managed caller exists.
+ForgeDesignTimeDbContextFactory = Found by reflection by the dotnet-ef tooling when scaffolding a migration. Referencing it from the app would be wrong: it builds a context against a throwaway key.
+RecipeConfigurations = EF IEntityTypeConfiguration set, discovered by ApplyConfigurationsFromAssembly. The automatic exemption matches the singular *Configuration; this one is plural.
