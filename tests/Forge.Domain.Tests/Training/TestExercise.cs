@@ -5,6 +5,8 @@ namespace Forge.Domain.Tests.Training;
 /// <summary>Builds exercises for tests without repeating the required-property boilerplate.</summary>
 internal static class TestExercise
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
+
     public static Exercise Create(
         string name,
         MovementPattern pattern = MovementPattern.Push,
@@ -32,15 +34,23 @@ internal static class TestExercise
         return exercise;
     }
 
+    /// <summary>Attaches favourite state as the data store would for the reading profile.</summary>
     public static Exercise Favourite(this Exercise exercise)
     {
-        exercise.SetFavourite(true);
+        ArgumentNullException.ThrowIfNull(exercise);
+        var state = ExerciseProfileState.Empty(Owner, exercise.Id);
+        state.IsFavourite = true;
+        exercise.ApplyProfileState(state);
         return exercise;
     }
 
+    /// <summary>Attaches recency state as the data store would for the reading profile.</summary>
     public static Exercise UsedAt(this Exercise exercise, DateTimeOffset usedUtc)
     {
-        exercise.MarkUsed(usedUtc);
+        ArgumentNullException.ThrowIfNull(exercise);
+        var state = ExerciseProfileState.Empty(Owner, exercise.Id);
+        state.LastUsedUtc = usedUtc;
+        exercise.ApplyProfileState(state);
         return exercise;
     }
 }

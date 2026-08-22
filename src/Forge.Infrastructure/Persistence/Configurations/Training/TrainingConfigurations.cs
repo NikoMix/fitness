@@ -47,8 +47,13 @@ public sealed class ExerciseConfiguration : IEntityTypeConfiguration<Exercise>
         builder.HasIndex(e => e.Name);
         builder.HasIndex(e => e.Equipment);
         builder.HasIndex(e => e.Pattern);
-        builder.HasIndex(e => e.IsFavourite);
-        builder.HasIndex(e => e.LastUsedUtc);
+
+        // Favourites and recency are per profile and live on ExerciseProfileState. They are read
+        // off an attached state object rather than a column, so they are ignored explicitly:
+        // EF maps get-only properties by convention, and a mapped column here would be a second,
+        // shared copy that silently disagrees with the per-profile one.
+        builder.Ignore(e => e.IsFavourite);
+        builder.Ignore(e => e.LastUsedUtc);
     }
 
     private static string SerializeList(List<string> values)
@@ -117,5 +122,26 @@ public sealed class SetEntryConfiguration : IEntityTypeConfiguration<SetEntry>
         builder.HasIndex(e => new { e.UserProfileId, e.ExerciseId, e.CompletedUtc });
         builder.HasIndex(e => e.WorkoutSessionId);
         builder.HasIndex(e => e.UserProfileId);
+    }
+}
+
+/// <summary>Maps <see cref="ExerciseProfileState"/>.</summary>
+public sealed class ExerciseProfileStateConfiguration : IEntityTypeConfiguration<ExerciseProfileState>
+{
+    /// <inheritdoc />
+    public void Configure(EntityTypeBuilder<ExerciseProfileState> builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.HasKey(e => e.Id);
+
+        // One opinion per person per exercise. Without the uniqueness a failed upsert would add a
+        // second row rather than replace the first, and the library would then show whichever of
+        // the two the query happened to return - a favourite that unstars itself on refresh.
+        builder.HasIndex(e => new { e.UserProfileId, e.ExerciseId }).IsUnique();
+
+        // Deleting a custom exercise has to find the states pointing at it, and that lookup is not
+        // scoped by profile because it spans everyone who had an opinion about the row.
+        builder.HasIndex(e => e.ExerciseId);
     }
 }

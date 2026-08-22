@@ -297,6 +297,66 @@ public sealed class MultiProfilePersistenceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task One_profiles_favourite_is_not_another_profiles_favourite()
+    {
+        // The catalogue row is deliberately shared. Only the opinion of it is scoped, so this is
+        // the test that the split actually holds: one Exercise row, two different answers.
+        var seeded = await SeedAsync("Avery", "Blake");
+        var exerciseId = await SeedExerciseAsync();
+
+        await using (var session = CreateSession())
+        {
+            var states = session.Repository<ExerciseProfileState>();
+            var averys = ExerciseProfileState.Empty(seeded["Avery"], exerciseId);
+            averys.IsFavourite = true;
+            await states.AddAsync(averys, TestContext.Current.CancellationToken);
+            await session.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using var context = CreateContext();
+
+        var averysStates = await context.Set<ExerciseProfileState>()
+            .OwnedBy(new ProfileScope(seeded["Avery"]))
+            .ToListAsync(TestContext.Current.CancellationToken);
+        var blakesStates = await context.Set<ExerciseProfileState>()
+            .OwnedBy(new ProfileScope(seeded["Blake"]))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        averysStates.ShouldHaveSingleItem().IsFavourite.ShouldBeTrue();
+        blakesStates.ShouldBeEmpty("a shared catalogue row must not carry somebody else's pin");
+
+        // The exercise itself is still one shared row, not a copy per profile.
+        (await context.Set<Exercise>().ToListAsync(TestContext.Current.CancellationToken)).Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Deleting_a_profile_takes_its_favourites_and_leaves_the_catalogue()
+    {
+        var seeded = await SeedAsync("Avery", "Blake");
+        var exerciseId = await SeedExerciseAsync();
+
+        await using (var session = CreateSession())
+        {
+            var states = session.Repository<ExerciseProfileState>();
+            foreach (var owner in new[] { seeded["Avery"], seeded["Blake"] })
+            {
+                var state = ExerciseProfileState.Empty(owner, exerciseId);
+                state.IsFavourite = true;
+                await states.AddAsync(state, TestContext.Current.CancellationToken);
+            }
+
+            await session.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await DeleteProfileAsync(seeded["Blake"]);
+
+        var surviving = await ReadLiveAsync<ExerciseProfileState>();
+
+        surviving.ShouldHaveSingleItem().UserProfileId.ShouldBe(seeded["Avery"]);
+        (await ReadLiveAsync<Exercise>()).ShouldNotBeEmpty("the shared catalogue is not one profile's to delete");
+    }
+
+    [Fact]
     public async Task An_unresolved_scope_reads_nothing_from_the_database()
     {
         var seeded = await SeedAsync("Avery");
@@ -455,6 +515,7 @@ public sealed class MultiProfilePersistenceTests : IAsyncLifetime
         typeof(MorningCheckIn),
         typeof(SorenessEntry),
         typeof(Recipe),
+        typeof(ExerciseProfileState),
     ];
 
     /// <summary>
@@ -486,6 +547,7 @@ public sealed class MultiProfilePersistenceTests : IAsyncLifetime
         await SoftDeleteOwnedAsync<MorningCheckIn>(session, scope);
         await SoftDeleteOwnedAsync<SorenessEntry>(session, scope);
         await SoftDeleteOwnedAsync<Recipe>(session, scope);
+        await SoftDeleteOwnedAsync<ExerciseProfileState>(session, scope);
 
         await profiles.SoftDeleteAsync(profileId, TestContext.Current.CancellationToken);
 
@@ -661,6 +723,16 @@ public sealed class MultiProfilePersistenceTests : IAsyncLifetime
         var plan = PlanTemplateCatalogue.Templates[0].CreateEditableCopy(profileId);
         await session.Repository<TrainingPlan>().AddAsync(plan, TestContext.Current.CancellationToken);
         await session.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Adds one shared catalogue exercise, owned by nobody.</summary>
+    private async Task<Guid> SeedExerciseAsync()
+    {
+        await using var session = CreateSession();
+        var exercise = new Exercise { Name = $"Shared movement {Guid.CreateVersion7()}" };
+        await session.Repository<Exercise>().AddAsync(exercise, TestContext.Current.CancellationToken);
+        await session.SaveChangesAsync(TestContext.Current.CancellationToken);
+        return exercise.Id;
     }
 
     // Typed as the concrete session rather than IDataSession purely to satisfy CA1859. Production

@@ -60,6 +60,7 @@ public sealed class ProfileStore(IServiceProvider services, IDataSessionFactory 
         typeof(MorningCheckIn),
         typeof(SorenessEntry),
         typeof(Recipe),
+        typeof(ExerciseProfileState),
     ];
 
     /// <summary>Raised after the active profile changes, so open screens can reload.</summary>
@@ -268,6 +269,7 @@ public sealed class ProfileStore(IServiceProvider services, IDataSessionFactory 
             [typeof(MorningCheckIn)] = await CountOwnedAsync<MorningCheckIn>(session, scope, cancellationToken).ConfigureAwait(false),
             [typeof(SorenessEntry)] = await CountOwnedAsync<SorenessEntry>(session, scope, cancellationToken).ConfigureAwait(false),
             [typeof(Recipe)] = await CountOwnedAsync<Recipe>(session, scope, cancellationToken).ConfigureAwait(false),
+            [typeof(ExerciseProfileState)] = await CountOwnedAsync<ExerciseProfileState>(session, scope, cancellationToken).ConfigureAwait(false),
         };
 
         var refusal = ActiveProfileSelector.CanDelete(stored, profileId)
@@ -327,6 +329,7 @@ public sealed class ProfileStore(IServiceProvider services, IDataSessionFactory 
         await SoftDeleteOwnedAsync<MorningCheckIn>(session, scope, cancellationToken).ConfigureAwait(false);
         await SoftDeleteOwnedAsync<SorenessEntry>(session, scope, cancellationToken).ConfigureAwait(false);
         await SoftDeleteOwnedAsync<Recipe>(session, scope, cancellationToken).ConfigureAwait(false);
+        await SoftDeleteOwnedAsync<ExerciseProfileState>(session, scope, cancellationToken).ConfigureAwait(false);
 
         // Extend here, and in DeletableEntityTypes, when another entity adopts IProfileOwned.
 

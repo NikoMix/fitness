@@ -117,7 +117,11 @@ public static class ProfileDataAreas
         new(
             "Exercise library",
             [typeof(Exercise)],
-            "The shipped catalogue is shared on purpose. Custom exercises, favourites and recently used are not separated, so those choices are visible to every profile."),
+            "The catalogue is shared on purpose: it is published content, identical for everyone. Exercises somebody adds themselves are shared too, which is not on purpose."),
+        new(
+            "Favourites and recently used",
+            [typeof(ExerciseProfileState)],
+            "Pinned exercises and what you have opened recently belong to you alone, so the library opens on your own shortlist rather than somebody else's."),
         new(
             "Food catalogue",
             [typeof(FoodItem), typeof(FoodBarcode)],
