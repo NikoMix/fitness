@@ -64,17 +64,34 @@ function ConvertTo-UiBounds {
 
     $m = [regex]::Match([string]$Bounds, '^\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]$')
     if (-not $m.Success) {
-        return [pscustomobject]@{ X1 = 0; Y1 = 0; X2 = 0; Y2 = 0; Width = 0; Height = 0; Area = 0; Valid = $false }
+        return [pscustomobject]@{
+            X1 = 0; Y1 = 0; X2 = 0; Y2 = 0; Width = 0; Height = 0; Area = 0
+            RawWidth = 0; RawHeight = 0; Inverted = $false; Valid = $false
+        }
     }
     $x1 = [int]$m.Groups[1].Value
     $y1 = [int]$m.Groups[2].Value
     $x2 = [int]$m.Groups[3].Value
     $y2 = [int]$m.Groups[4].Value
-    $w = [Math]::Max(0, $x2 - $x1)
-    $h = [Math]::Max(0, $y2 - $y1)
+
+    # The signed values are kept alongside the clamped ones, and that distinction is load-bearing.
+    # A node whose bottom edge sits above its top edge has been laid out past the end of its
+    # parent. That is a layout error and nothing else.
+    #
+    # Clamping at zero threw the stronger signal away. The six broken rest controls on the
+    # active-workout screen really measured 71x-67 and 83x-24; this harness reported them as 21x0
+    # and 20x0. Both were detected, but zero has an innocent explanation - a deliberately empty
+    # label - and a negative height has none.
+    $rawWidth = $x2 - $x1
+    $rawHeight = $y2 - $y1
+    $w = [Math]::Max(0, $rawWidth)
+    $h = [Math]::Max(0, $rawHeight)
     return [pscustomobject]@{
         X1 = $x1; Y1 = $y1; X2 = $x2; Y2 = $y2
-        Width = $w; Height = $h; Area = ($w * $h); Valid = $true
+        Width = $w; Height = $h; Area = ($w * $h)
+        RawWidth = $rawWidth; RawHeight = $rawHeight
+        Inverted = (($rawWidth -lt 0) -or ($rawHeight -lt 0))
+        Valid = $true
     }
 }
 
@@ -174,6 +191,8 @@ function ConvertFrom-UiDump {
             Password       = (Get-UiAttr -Node $Element -Name 'password') -eq 'true'
             X1             = $bounds.X1; Y1 = $bounds.Y1; X2 = $bounds.X2; Y2 = $bounds.Y2
             Width          = $bounds.Width; Height = $bounds.Height; Area = $bounds.Area
+            RawWidth       = $bounds.RawWidth; RawHeight = $bounds.RawHeight
+            Inverted       = $bounds.Inverted
             Depth          = $Depth
             ParentIndex    = $(if ($null -eq $Parent) { -1 } else { $Parent.Index })
             ChildIndexes   = [System.Collections.Generic.List[int]]::new()
@@ -656,8 +675,15 @@ function Find-ForgeTextOverflow {
         is geometry, and geometry is where the real failures live - especially at a large system
         font scale, which is when a row designed against a 14sp measurement stops fitting.
 
-        Three shapes, each independently reportable:
+        Four shapes, each independently reportable:
 
+          Inverted   the node's bottom edge is above its top, or its right edge left of its left.
+                     Nothing legitimate produces this: the element was laid out past the end of
+                     its parent. Reported first and separately from Collapsed because a zero
+                     dimension has an innocent explanation - a deliberately empty label - and a
+                     negative one has none. The six broken rest controls on the active-workout
+                     screen measured 71x-67 and 83x-24, and the cause was a second grid row
+                     starting at y=1907 inside a parent that ended at y=1904.
           Collapsed  the node has text and zero width or zero height. The string exists and no
                      pixel of it is on screen. This is what a fixed-height row does to a
                      two-line label.
@@ -682,6 +708,18 @@ function Find-ForgeTextOverflow {
         if ([string]::IsNullOrWhiteSpace($n.Text)) { continue }
 
         $text = $n.Text.Trim()
+
+        if ($n.Inverted) {
+            $findings.Add([pscustomobject]@{
+                    Shape  = 'Inverted'
+                    Text   = $text
+                    Class  = $n.Class
+                    Bounds = "[$($n.X1),$($n.Y1)][$($n.X2),$($n.Y2)]"
+                    Detail = "measures $($n.RawWidth)x$($n.RawHeight). A negative dimension is not a hidden label, it is a layout error: the element was placed past the end of its parent"
+                    Path   = Get-UiNodePath -Tree $Tree -Index $n.Index
+                })
+            continue
+        }
 
         if ($n.Width -le 0 -or $n.Height -le 0) {
             $findings.Add([pscustomobject]@{
@@ -729,6 +767,66 @@ function Find-ForgeTextOverflow {
     }
 
     return @($findings.ToArray())
+}
+
+function Test-ForgeSameScreen {
+    <#
+        Whether two hierarchies are the same screen, one scrolled relative to the other.
+
+        Deliberately not implemented with the screen resolver. Scrolling pushes the toolbar title
+        off the top, and the resolver then falls through to matching a text literal - so a scrolled
+        Progress hub, whose cards describe their destinations, identifies as 'personal-records'.
+        The harness saw that on a real device and reported a perfectly good scroll as a stray tap.
+
+        Content overlap answers the question directly instead: a scroll keeps most of what was on
+        screen and moves it, while a navigation replaces essentially all of it. The bottom tab bar
+        is excluded because it survives both and would put a floor under every comparison.
+
+        Measured on real captures from emulator-5554, Progress hub at 1080x2400:
+          scrolled by six DPAD presses  -> 0.86 overlap
+          navigated to a detail page    -> 0.00 overlap
+        The threshold sits far from both.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Before,
+        [Parameter(Mandatory)]$After,
+        [string]$PackageName,
+        [double]$MinimumOverlap = 0.25
+    )
+
+    function Get-ContentTexts {
+        param($Tree)
+        $region = Get-ForgeContentRegion -Tree $Tree
+        $set = [System.Collections.Generic.HashSet[string]]::new()
+        foreach ($n in $Tree.Nodes) {
+            if ($PackageName -and $n.Package -and $n.Package -ne $PackageName) { continue }
+            if (-not (Test-UiNodeInRegion -Node $n -Region $region)) { continue }
+            if (-not [string]::IsNullOrWhiteSpace($n.Text)) { [void]$set.Add($n.Text.Trim()) }
+            if (-not [string]::IsNullOrWhiteSpace($n.ContentDesc)) { [void]$set.Add($n.ContentDesc.Trim()) }
+        }
+        return $set
+    }
+
+    $a = Get-ContentTexts -Tree $Before
+    $b = Get-ContentTexts -Tree $After
+
+    if ($a.Count -eq 0 -and $b.Count -eq 0) {
+        return [pscustomobject]@{ SameScreen = $true; Overlap = 1.0; Detail = 'neither screen has any content to compare' }
+    }
+    if ($a.Count -eq 0 -or $b.Count -eq 0) {
+        return [pscustomobject]@{ SameScreen = $false; Overlap = 0.0; Detail = 'one of the two screens has no content at all' }
+    }
+
+    $shared = 0
+    foreach ($t in $a) { if ($b.Contains($t)) { $shared++ } }
+    $overlap = $shared / [Math]::Min($a.Count, $b.Count)
+
+    return [pscustomobject]@{
+        SameScreen = ($overlap -ge $MinimumOverlap)
+        Overlap    = [Math]::Round($overlap, 3)
+        Detail     = "$shared of $([Math]::Min($a.Count, $b.Count)) content strings survived, overlap $([Math]::Round($overlap, 3))"
+    }
 }
 
 function Get-ForgeScreenTitleCandidates {
