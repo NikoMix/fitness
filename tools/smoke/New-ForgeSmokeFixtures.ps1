@@ -174,10 +174,9 @@ $doc.LoadXml($raw)
 $textNodes = @($doc.SelectNodes('//node') | Where-Object {
         $_.GetAttribute('package') -eq $PackageName -and $_.GetAttribute('text')
     })
-if ($textNodes.Count -lt 2) {
-    throw 'At least two text nodes are needed to seed both overflow shapes.'
+if ($textNodes.Count -lt 3) {
+    throw 'At least three text nodes are needed to seed all three overflow shapes.'
 }
-
 # Collapsed: a label with text laid out at zero height, which is what a fixed-height row does to
 # a string that needs two lines.
 $collapse = $textNodes[0]
@@ -193,8 +192,18 @@ if ($pm.Success) {
     $newRight = [int]$pm.Groups[3].Value + 60
     $overflow.SetAttribute('bounds', "[$($om.Groups[1].Value),$($om.Groups[2].Value)][$newRight,$($om.Groups[4].Value)]")
 }
+# Inverted: bottom edge above top edge. This is what the six broken rest controls on the
+# active-workout screen actually looked like - the second grid row was laid out past the end of
+# its parent - and the harness's own bounds parser used to clamp it to zero, throwing away the
+# only geometry result that has no innocent explanation.
+$inverted = $textNodes[2]
+$im = [regex]::Match($inverted.GetAttribute('bounds'), '\[(\d+),(\d+)\]\[(\d+),(\d+)\]')
+if ($im.Success) {
+    $top = [int]$im.Groups[2].Value
+    $inverted.SetAttribute('bounds', "[$($im.Groups[1].Value),$top][$($im.Groups[3].Value),$($top - 67)]")
+}
 Save-Mutation -Name 'seeded-text-overflow.xml' -Document $doc `
-    -Description 'collapsed one label to zero height and pushed another past its parent'
+    -Description 'collapsed one label to zero height, pushed another past its parent, and inverted a third'
 
 Write-Host ''
 Write-Host 'Fixtures regenerated. Run tools/smoke/Test-ForgeSmokeChecks.ps1 to confirm they still' -ForegroundColor Cyan

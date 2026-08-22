@@ -112,7 +112,23 @@ param(
 
     [int]$MaxCandidatesPerHop = 10,
     [int]$MaxSecondsPerRoute = 150,
-    [int]$MaxScrollsPerScreen = 3,
+    [int]$MaxScrollsPerScreen = 4,
+
+    # How many focus moves make up one scroll, for the fallback that uses them. Focus moves by one
+    # row per press, so a screenful is several presses.
+    [int]$ScrollKeyPresses = 8,
+
+    # How long a scroll drag takes. This is the single number that separates a scroll from a tap:
+    # at 350ms a DevExpress list reads the gesture as a fling and opens the card under the finger,
+    # and at 900ms it reads it as a drag and moves the content. Measured, not guessed.
+    [int]$ScrollDragMilliseconds = 900,
+
+    # Fall back to a whole-screen swipe when neither a contained drag nor focus movement scrolls
+    # anything. Off by default: an unconstrained swipe is the gesture most likely to activate
+    # something, and the harness would rather miss content below the fold than report a screen it
+    # opened by accident.
+    [switch]$UseSwipeFallback,
+
     [int]$MaxRunMinutes = 75,
     [double]$SettleSeconds = 2.0,
     [int]$LaunchSettleSeconds = 14,
@@ -616,7 +632,32 @@ function Invoke-ScreenChecks {
         Order runs from the most severe to the most specific, and the blank checks are mutually
         exclusive on purpose: a wholly blank page would otherwise be reported three times.
     #>
-    param($Tree, [string]$RouteLabel, [switch]$OverflowOnly)
+    param($Tree, [string]$RouteLabel, [switch]$OverflowOnly, [switch]$AlreadyVerified)
+
+    # Nothing gets checked under a name that is not its own.
+    #
+    # Every finding this harness produces is attributed to a route, and a reader acts on that
+    # attribution. So before running a single check, confirm the hierarchy really is the screen it
+    # was announced as. A swipe that was delivered as a tap used to hand this function the screen
+    # it had accidentally opened while the caller still believed it was on the old route, and
+    # every finding from it was filed under the wrong name - which is worse than missing them,
+    # because it sends somebody to fix a screen that was fine.
+    #
+    # -AlreadyVerified is for the scroll path, which has established identity by content overlap.
+    # The resolver cannot be used there: scrolling pushes the toolbar title off the top and the
+    # resolver falls through to a text literal, so a scrolled hub identifies as its own
+    # destination and this guard would suppress every check below the fold.
+    #
+    # Unidentified screens are exempt: they are labelled by fingerprint and there is nothing to
+    # contradict.
+    if (-not $AlreadyVerified -and $RouteLabel -notlike 'unidentified:*' -and $RouteLabel -notlike 'launch:*' -and $routeByName.ContainsKey($RouteLabel)) {
+        $actual = Resolve-Screen -Tree $Tree
+        if ($null -ne $actual -and $actual.Route -ne $RouteLabel) {
+            Add-Warning -Kind 'CheckedWrongScreen' -Route $RouteLabel -Discriminator $actual.Route `
+                -Detail "The harness was about to check '$RouteLabel' against a hierarchy that is actually '$($actual.Route)'. No checks were run, because a finding filed under the wrong route is worse than a missing one."
+            return
+        }
+    }
 
     if ($OverflowOnly) {
         Invoke-OverflowCheck -Tree $Tree -RouteLabel $RouteLabel
@@ -748,29 +789,115 @@ function Get-Actionables {
 
 function Invoke-ScrollDown {
     <#
-        Scrolls the content region and returns the new hierarchy, or $null if nothing moved.
+        Scrolls the content region. Returns an outcome and, when it scrolled, the new hierarchy.
 
-        This is not a nicety. The settings list, the exercise library and the profile screen all
-        put most of their rows below the fold, and a crawler that never scrolls simply cannot see
-        them. Before this existed the harness had no way to reach "Licences" at all, because it is
-        the last row of a seven-row list on a screen that shows four.
+        Scrolling without activating anything, which turned out to be the hard part.
 
-        The swipe deliberately stays inside the middle band of the screen: starting near the
-        bottom edge triggers the Android gesture-navigation bar, and starting near the top pulls
-        the notification shade down over the app.
+        `adb input swipe` at the harness's original 350ms is delivered to a DevExpress list as a
+        TAP: the gesture opens whichever card is under the finger. Verified on the Progress hub -
+        a 350ms swipe from (540,1728) to (540,768) navigated to a detail page.
+
+        That made it actively harmful rather than merely useless. The old code compared
+        fingerprints, saw the screen had changed, and concluded it had scrolled - so every check
+        that ran afterwards was attributed to the route the harness thought it was still on. One
+        engagement-stream run produced 808 dumps without ever displaying the two screens it was
+        trying to reach.
+
+        Three strategies are tried in order, and every one of them is verified afterwards:
+
+          1. A slow drag confined to the scrollable node's own bounds. 900ms rather than 350ms is
+             the difference between a fling that reads as a tap and a drag that reads as a scroll;
+             measured on the same list, this moved the content and stayed on the screen.
+          2. Focus movement with KEYCODE_DPAD_DOWN, which generates no touch at all and therefore
+             cannot activate anything. It does scroll a DevExpress list - twelve presses revealed
+             the Achievements row - but focus traversal can also walk out of the content area and
+             into the bottom tab bar, which switches tabs. That is why it is second, and why the
+             verification below is not optional.
+          3. A whole-screen swipe, only with -UseSwipeFallback, for a plain scroll view with
+             nothing focusable and no scrollable node reported.
+
+        Whatever moved the screen, the outcome is confirmed by content overlap before it is called
+        a scroll. Anything else is reported as a stray navigation and recovered from.
     #>
-    param($Tree, [string]$Label)
+    param($Tree, [string]$Label, [string]$ExpectedRoute)
 
+    $before = Get-ForgeScreenFingerprint -Tree $Tree
+
+    function Test-Outcome {
+        param($After, [string]$Method)
+
+        if ($null -eq $After) { return [pscustomobject]@{ Outcome = 'NoHierarchy'; Tree = $null; Method = $Method } }
+
+        if (-not (Test-ForgeAppInForeground -Tree $After -PackageName $PackageName)) {
+            return [pscustomobject]@{ Outcome = 'Navigated'; Tree = $After; Method = $Method; LandedOn = 'something outside the app' }
+        }
+
+        # Content overlap, not the screen resolver. Scrolling pushes the toolbar title off the top
+        # and the resolver then matches a text literal instead, so a scrolled Progress hub - whose
+        # cards describe their destinations - identifies as 'personal-records'. That happened on a
+        # real device and made this function report a perfectly good scroll as a stray tap.
+        $same = Test-ForgeSameScreen -Before $Tree -After $After -PackageName $PackageName
+        if (-not $same.SameScreen) {
+            $landed = 'a screen it could not name'
+            $now = Resolve-Screen -Tree $After
+            if ($null -ne $now) { $landed = "'$($now.Route)'" }
+            return [pscustomobject]@{ Outcome = 'Navigated'; Tree = $After; Method = $Method; LandedOn = $landed; Overlap = $same.Overlap }
+        }
+
+        if ((Get-ForgeScreenFingerprint -Tree $After) -eq $before) {
+            return [pscustomobject]@{ Outcome = 'NoMovement'; Tree = $After; Method = $Method }
+        }
+
+        return [pscustomobject]@{ Outcome = 'Scrolled'; Tree = $After; Method = $Method; Overlap = $same.Overlap }
+    }
+
+    # 1. A slow drag inside the list's own bounds. Duration is what separates a scroll from a tap:
+    #    350ms reads as a fling and opens a card, 900ms reads as a drag and moves the content.
+    $region = Get-ForgeContentRegion -Tree $Tree -BottomChromeFraction 0.90
+    $scrollable = @($Tree.Nodes |
+            Where-Object { $_.Scrollable -and $_.Height -gt ($Tree.ScreenHeight * 0.25) -and (Test-UiNodeInRegion -Node $_ -Region $region) } |
+            Sort-Object -Property Area -Descending)
+
+    if ($scrollable.Count -gt 0) {
+        $n = $scrollable[0]
+        $x = [int](($n.X1 + $n.X2) / 2)
+        $y1 = [int]($n.Y2 - $n.Height * 0.15)
+        $y2 = [int]($n.Y1 + $n.Height * 0.15)
+        Invoke-ForgeSwipe -AdbPath $adb -Serial $Serial -X1 $x -Y1 $y1 -X2 $x -Y2 $y2 `
+            -DurationMilliseconds $ScrollDragMilliseconds -SettleSeconds ($SettleSeconds * 0.6)
+        $result = Test-Outcome -After (Get-Tree -Label "scroll-$Label") -Method 'drag'
+        if ($result.Outcome -in @('Scrolled', 'Navigated', 'NoHierarchy')) { return $result }
+    }
+
+    # 2. Focus movement. No touch is generated, so nothing can be activated - but focus can walk
+    #    out of the content area into the tab bar, which switches tabs. Test-Outcome catches that.
+    Invoke-ForgeKeyEvent -AdbPath $adb -Serial $Serial -KeyCode 'KEYCODE_DPAD_DOWN' -Repeat $ScrollKeyPresses
+    $result = Test-Outcome -After (Get-Tree -Label "scroll-key-$Label") -Method 'dpad'
+    if ($result.Outcome -in @('Scrolled', 'Navigated', 'NoHierarchy')) { return $result }
+
+    if (-not $UseSwipeFallback) { return $result }
+
+    # 3. A plain scroll view with nothing focusable and no scrollable node still needs a gesture.
     $startY = [int]($Tree.ScreenHeight * 0.72)
     $endY = [int]($Tree.ScreenHeight * 0.32)
     $x = [int]($Tree.ScreenWidth / 2)
+    Invoke-ForgeSwipe -AdbPath $adb -Serial $Serial -X1 $x -Y1 $startY -X2 $x -Y2 $endY `
+        -DurationMilliseconds $ScrollDragMilliseconds -SettleSeconds ($SettleSeconds * 0.6)
+    return (Test-Outcome -After (Get-Tree -Label "swipe-$Label") -Method 'swipe')
+}
 
-    Invoke-ForgeSwipe -AdbPath $adb -Serial $Serial -X1 $x -Y1 $startY -X2 $x -Y2 $endY -SettleSeconds ($SettleSeconds * 0.6)
+function Resolve-ScrollOutcome {
+    <#
+        Common handling for a scroll that turned out to be a navigation: report it, and get back
+        to where the caller thought it was. Returns the tree to carry on with, or $null.
+    #>
+    param($Result, [string]$RouteLabel, [string]$ExpectedFingerprint, $ExpectedRoute)
 
-    $after = Get-Tree -Label "scroll-$Label"
-    if ($null -eq $after) { return $null }
-    if ((Get-ForgeScreenFingerprint -Tree $after) -eq (Get-ForgeScreenFingerprint -Tree $Tree)) { return $null }
-    return $after
+    $landed = if ($Result.PSObject.Properties.Name -contains 'LandedOn' -and $Result.LandedOn) { $Result.LandedOn } else { 'a screen it could not name' }
+    Add-Warning -Kind 'ScrollNavigated' -Route $RouteLabel -Discriminator "$($Result.Method)|$landed" `
+        -Detail "A $($Result.Method) intended to scroll '$RouteLabel' was delivered as a tap and opened $landed instead. Nothing below the fold on '$RouteLabel' was examined, and no check was run against the screen it landed on."
+
+    return (Restore-ToScreen -ExpectedFingerprint $ExpectedFingerprint -ExpectedRoute $ExpectedRoute -Label $RouteLabel)
 }
 
 function Get-RouteKeywordsFor {
@@ -991,13 +1118,25 @@ function Invoke-ScreenVisit {
         $candidates = @(Get-Actionables -Tree $current | Where-Object { -not $tried.Contains($_.Label) })
         if ($candidates.Count -eq 0) {
             # Most of Forge's lists continue below the fold. Scrolling is what reaches the last
-            # row of the settings list, which is where the legal documents live.
+            # row of the settings list, where the legal documents live, and the Achievements row
+            # at the bottom of the progress hub.
             if ($scrolls -ge $MaxScrollsPerScreen) { break }
             $scrolls++
-            $scrolled = Invoke-ScrollDown -Tree $current -Label $routeLabel
-            if ($null -eq $scrolled) { break }
-            $current = $scrolled
-            Invoke-ScreenChecks -Tree $current -RouteLabel $routeLabel
+            $scrolled = Invoke-ScrollDown -Tree $current -Label $routeLabel -ExpectedRoute $(if ($null -ne $screen) { $screen.Route } else { '' })
+
+            if ($scrolled.Outcome -eq 'Navigated') {
+                $recovered = Resolve-ScrollOutcome -Result $scrolled -RouteLabel $routeLabel -ExpectedFingerprint $fingerprint -ExpectedRoute $screen
+                if ($null -eq $recovered) { break }
+                $current = $recovered
+                continue
+            }
+            if ($scrolled.Outcome -eq 'NoHierarchy') { break }
+            # NoMovement earns another attempt: focus moves one item per press, so the first round
+            # can be spent walking items that are already on screen.
+            if ($scrolled.Outcome -ne 'Scrolled') { continue }
+
+            $current = $scrolled.Tree
+            Invoke-ScreenChecks -Tree $current -RouteLabel $routeLabel -AlreadyVerified
             continue
         }
 
@@ -1182,7 +1321,22 @@ function Open-ShellTab {
 
     Add-ActionCount
     Invoke-ForgeTap -AdbPath $adb -Serial $Serial -X $target.X -Y $target.Y -SettleSeconds ($SettleSeconds + 1)
-    return (Get-Tree -Label "tab-$($Tab.Route)")
+    $opened = Get-Tree -Label "tab-$($Tab.Route)"
+
+    # The app restores its last pushed page on relaunch, so immediately after a restart the tab
+    # bar is showing over a pushed screen and the first tab tap POPS that stack rather than
+    # switching tabs. The tap is correct and the destination is not, which makes the next few
+    # steps of a walk land somewhere nobody expects. One more tap gets there.
+    if ($null -ne $opened) {
+        $landed = Resolve-Screen -Tree $opened
+        if ($null -eq $landed -or $landed.Route -ne $Tab.Route) {
+            Add-ActionCount
+            Invoke-ForgeTap -AdbPath $adb -Serial $Serial -X $target.X -Y $target.Y -SettleSeconds ($SettleSeconds + 1)
+            $opened = Get-Tree -Label "tab-$($Tab.Route)-retry"
+        }
+    }
+
+    return $opened
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -1318,9 +1472,15 @@ function Invoke-Hop {
                 return [pscustomobject]@{ Reached = $false; Reason = 'every control on the screen was tried, including after scrolling' }
             }
             $scrolls++
-            if ($null -eq (Invoke-ScrollDown -Tree $tree -Label "hop-$To")) {
-                return [pscustomobject]@{ Reached = $false; Reason = 'every control on the screen was tried and the screen does not scroll' }
+            $scrolled = Invoke-ScrollDown -Tree $tree -Label "hop-$To" -ExpectedRoute $From
+            if ($scrolled.Outcome -eq 'Navigated') {
+                [void](Resolve-ScrollOutcome -Result $scrolled -RouteLabel $From -ExpectedFingerprint $fingerprint -ExpectedRoute ([pscustomobject]@{ Route = $From }))
+                continue
             }
+            # NoMovement is not the end of the road. Focus moves one item per press, so the first
+            # round can be spent walking down items that are already visible before the container
+            # has any reason to scroll. Reaching the Achievements row at the bottom of the progress
+            # hub took twelve presses on a phone, which is two rounds.
             continue
         }
 

@@ -1,0 +1,554 @@
+[
+  {
+    "story": "S21.01.01",
+    "verdict": "PARTIAL",
+    "evidence": "src/Forge.Domain/Commerce/ProductCatalogue.cs:13-18 defines the non-consumable forge.pro.lifetime; docs/monetisation.md:15 states the weak recurring-value case for a local-only app; ProductKind (ProductCatalogue.cs:44-48) admits no consumable or loot-box type; src/Forge.App/Services/Billing/PluginInAppBillingService.cs:9-13 sells only the lifetime unlock",
+    "gaps": "AC1: ProductCatalogue.cs:19-24 ships a second product forge.content.monthly with ProductKind.Subscription and there is no enabled/disabled flag - exclusion depends on two hand-maintained allow-lists (PluginInAppBillingService.cs:9-13, ShopPageViewModel.cs:15). No unit test asserts the v1 catalogue exposes only the non-consumable, which the story's testing section requires. No docs/adr/ADR-0021-forge-pro-monetisation.md"
+  },
+  {
+    "story": "S21.01.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC4: src/Forge.App/Features/Shop/ViewModels/ShopPageViewModel.cs:119-120 uses only store LocalizedPrice and falls back to a disabled 'Store price unavailable' button (ShopProductViewModel.cs:42, ShopPage.xaml:61-66); honest one-off copy with no scarcity language at ShopPage.xaml:21-26",
+    "gaps": "No PaywallBottomSheet exists - ShopPage is the paywall. No Terms of use or Privacy policy link anywhere in ShopPage.xaml (required). AC2: Restore purchases sits at ShopPage.xaml:79 below a full-page scroll, not in the first viewport. AC4 of the requirement set: no 5-second metadata timeout - buttons disable only on a missing price, never on slowness. AC3: no CommerceCopyTests, so the scarcity-copy scan cannot fire"
+  },
+  {
+    "story": "S21.01.03",
+    "verdict": "NOT-DONE",
+    "evidence": "src/Forge.Domain/Commerce/FeatureGate.cs:6 and ForgeFeature exist and are correct, and tests/Forge.Domain.Tests/Commerce/FeatureGateTests.cs:11-54 exercise them",
+    "gaps": "FeatureGate and ForgeFeature have no production callers anywhere in src/ - a repository-wide search finds only the domain declaration and the test. No EntitlementGateService, no EntitlementGatePopup, no paid gate is ever rendered. AC2 (gate explains the free alternative, offers Not now) and AC4 (gate offers Dismiss and Restore) cannot be met. AC1 and AC3 pass only because nothing in the app is gated at all"
+  },
+  {
+    "story": "S21.02.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: src/Forge.App/Services/Billing/PluginInAppBillingService.cs:35 queries Plugin.InAppBilling GetProductInfoAsync and line 228 surfaces product.LocalizedPrice verbatim; AC4: ShopPageViewModel.cs:119-120 disables purchase while metadata is absent",
+    "gaps": "AC2: no 10-second timeout and no retry action - there is no timer anywhere in the product query path. AC3: no tests/Forge.Core.Tests/Commerce/PriceDisplayTests.cs and no CI scan for hard-coded currency patterns"
+  },
+  {
+    "story": "S21.02.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: PluginInAppBillingService.cs:90 purchases through the plugin and :171,190 persists the entitlement; AC4: :191 acknowledges via FinalizePurchaseAsync only after local persistence succeeds (:190); AC3: :173 maps PurchaseState.Canceled to UserCancelled and ShopPageViewModel.cs:66 shows 'Purchase cancelled.' rather than an error",
+    "gaps": "Requirement 3: src/Forge.Domain/Commerce/Entitlement.cs:6-10 stores only kind, product id and grant time - no transaction id and no platform, both named explicitly. AC2: the acknowledgement result is not logged locally; PluginInAppBillingService.cs:211-215 swallows the failure silently"
+  },
+  {
+    "story": "S21.02.03",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC3: PluginInAppBillingService.cs:125-131 queries owned purchases directly so restore works with no successful product load, reached from ShopPage.xaml:79 and RestorePurchasesPage.xaml:33; AC2: LocalEntitlementResolver.cs:91-94 returns a neutral 'No previous purchases were found for this store account.' and grants nothing; distinct states at RestorePurchasesPageViewModel.cs:37-43",
+    "gaps": "Requirement 5: no 10-second timeout with a retryable result. No 'user authentication required' state. AC4: Restore purchases is not visible in the first viewport - ShopPage.xaml:79 is below the product list and two cards"
+  },
+  {
+    "story": "S21.02.04",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC4: PluginInAppBillingService.cs:172 maps Deferred/PaymentPending/Purchasing to Pending and grants nothing, ShopPageViewModel.cs:64 shows 'Purchase pending...'; AC3: :174 maps Failed to PaymentDeclined and ShopPageViewModel.cs:67 uses neutral copy",
+    "gaps": "AC2 is entirely unimplemented: there is no EntitlementRefreshService and nothing removes access when the store stops reporting ownership - LocalEntitlementResolver.cs:75-95 only merges grants in and never revokes, so a refunded user keeps Forge Pro indefinitely. Purchase state refreshes only on shop load (ShopPageViewModel.cs:35-44), never on app start. No PurchaseAttempt record of local attempts"
+  },
+  {
+    "story": "S21.03.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC2: src/Forge.App/Services/Billing/SecureStorageEntitlementStore.cs:93-118 signs the entitlement set with HMAC-SHA256 under a random 32-byte secure-storage key and :83-91 compares in fixed time, so a modified envelope yields no entitlements and paid capabilities are off; requirement 5 met by the honest class doc at :10-15",
+    "gaps": "Requirement 1: entitlements are stored only in SecureStorage, not in SQLCipher-backed SQLite mirrored with a secure-storage marker - there is no EntitlementEntity. Requirement 2: Entitlement.cs:6-10 has no platform, source or last-verified-time field. AC3/AC4: tamper detection is silent - GetEntitlementsAsync returns an empty list (:36-38) rather than marking the entitlement Unverified and prompting Restore"
+  },
+  {
+    "story": "S21.03.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: docs/adr/0001-local-first-no-backend.md:32 and :53 state 'No server-side receipt validation' explicitly; docs/monetisation.md:23-27 frames it as weaker tamper resistance rather than a privacy risk; AC4: RestorePurchasesPage.xaml:20 states restore never creates a Forge account or contacts a Forge backend, and :52 carries the local-only limit card",
+    "gaps": "docs/commerce/entitlements.md does not exist. AC2: no CommerceCopyTests scanning for 'Forge account sync' or 'server verified'. AC3: no roadmap entry assigns server-side receipt validation to wave 6 - a search of docs/ for 'wave 6' returns nothing"
+  },
+  {
+    "story": "S21.03.03",
+    "verdict": "PARTIAL",
+    "evidence": "AC2: PluginInAppBillingService.cs:125-131 recreates entitlements only from platform-owned purchases and LocalEntitlementResolver.cs:91-94 returns a neutral empty result for a different store account; no account, email or support step exists anywhere in the restore path; AC3: restored records are the same Entitlement type used by every access check",
+    "gaps": "Requirement 4 and AC1: Entitlement has no Source field and no EntitlementSource type exists, so 'a local entitlement with source Restore is created' cannot be verified - restored and purchased records are identical by accident rather than by design. No 10-second bound for AC4"
+  },
+  {
+    "story": "S21.04.01",
+    "verdict": "NOT-DONE",
+    "evidence": "src/Forge.Core/Abstractions/Billing/BillingModels.cs:5-11 carries only an optional SubscriptionPeriod; PluginInAppBillingService.cs:232-245 reads Apple and Android period metadata but never offer, phase price or post-offer price",
+    "gaps": "No OfferDisplayInfo type and no offer surface anywhere. AC1 unmet: an eligible introductory offer would not be displayed at all. AC2 and AC4 pass only because no offer UI exists to misbehave. AC3 unmet: no commerce copy validation exists"
+  },
+  {
+    "story": "S21.04.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC4: LocalEntitlementResolver.cs:81-95 grants only what the store reports, so unreported family ownership grants nothing; the app collects no family-member or family-account data - no such field exists in the domain",
+    "gaps": "AC1: there is no EntitlementSource.StoreOwnership, so the required source label does not exist. AC2: LocalEntitlementResolver.cs:94 does not direct the user to platform account settings. AC3: no copy anywhere mentions family sharing or states that availability is controlled by the store - the closest is 'the same Apple ID or Google account' at RestorePurchasesPage.xaml:20"
+  },
+  {
+    "story": "S21.04.03",
+    "verdict": "NOT-DONE",
+    "evidence": "AC2 only: PluginInAppBillingService.cs:9-13 restricts ActiveProducts to the lifetime unlock so no subscription is sold; ShopPage.xaml:85 declares a manage/cancel link and ShopPageViewModel.cs:91-95 opens the correct per-platform subscription URL",
+    "gaps": "The story's core is an automated gate and it does not exist: no SubscriptionComplianceValidator and no SubscriptionComplianceTests, and no build or preflight step inspects the catalogue for an enabled subscription lacking disclosure metadata - AC1 and AC4 unmet. AC3 unmet: no renewal, trial or cancellation disclosure is rendered before purchase, only a bare period string at ShopPage.xaml:58. The manage link is dead UI: CanManageSubscription is set from Products.Any(IsSubscription) (ShopPageViewModel.cs:133) but Products is filtered to ActiveProductIds (:15,:111), so the flag can never be true"
+  },
+  {
+    "story": "S21.05.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC4: ShopPageViewModel.cs:147-160 keeps a catalogue visible with purchase disabled when the store is unavailable and free features are untouched; status shown at ShopPage.xaml:28-32 bound to HasActivePro (ShopPageViewModel.cs:144); Profile to Settings to Shop is two taps (ProfileViewModel.cs:181, SettingsPageViewModel.cs:22)",
+    "gaps": "AC1 unmet: no entitlement source and no last store refresh time are shown. No purchase history at all. No Terms, Privacy or support-export actions on the screen. AC2 unmet: there is no explicit 'Refresh store status' action to retry with. AC3 borderline: Restore purchases is three taps from Profile, not two"
+  },
+  {
+    "story": "S21.05.02",
+    "verdict": "NOT-DONE",
+    "evidence": "No supporting implementation found",
+    "gaps": "No CommerceDiagnosticsBuilder, no CommerceDiagnosticsPopup and no export-diagnostics action anywhere in the commerce surface - a repository-wide search finds nothing. All four acceptance criteria unmet"
+  },
+  {
+    "story": "S21.05.03",
+    "verdict": "NOT-DONE",
+    "evidence": "src/Forge.App/Resources/Strings/ForgeStrings.resx exists but holds 24 keys, all app.name, common.* or settings.language.*",
+    "gaps": "There is no Commerce.resx and no commerce key in any resource file. Every shop, restore, error and status string is hard-coded in XAML and C# (ShopPage.xaml:18-89, ShopPageViewModel.cs:32,61-71, RestorePurchasesPageViewModel.cs:20,39-43). AC1 unmet: no Terms or Privacy links on the paywall. AC2 unmet: docs/release/store-commerce-review.md does not exist and no store review notes describe test products, the restore path or the local-only entitlement model. AC3 unmet: no resource scan. AC4 unmet: a French device would see English throughout"
+  },
+  {
+    "story": "S22.01.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC2/AC3: src/Forge.Core/Abstractions/Preferences/UnitPreferences.cs:246-264 derives mass, length and volume from one UnitSystem switch and only at display time, so stored canonical values are never rewritten; UnitFormatter.cs converts on read; previews refresh synchronously at UnitsSettingsPageViewModel.cs:114-130; tests at tests/Forge.Core.Tests/Preferences/ForgePreferencesTests.cs",
+    "gaps": "Requirement 4 names kcal/kJ and kilojoules are actively rejected: UnitPreferences.cs:267-277 throws NotSupportedException for anything but Kilocalories, so the global unit model does not cover the fourth pair"
+  },
+  {
+    "story": "S22.01.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC3: src/Forge.App/Features/Settings/SettingsFeatureRegistration.cs:32-33 constructs and applies the stored theme during feature registration, before the shell renders, and MauiThemePreferenceApplier switches DevExpress and MAUI resources without restart; System/Light/Dark persisted at UnitPreferences.cs:202-207",
+    "gaps": "There is no high-contrast theme: ThemeModePreference has three values (UnitPreferences.cs:16-26) and the picker offers three options (UnitsSettingsPageViewModel.cs:11). AC2's WCAG AA contrast audit has nothing to audit, and the requirement that high contrast not rely on colour alone is moot"
+  },
+  {
+    "story": "S22.01.03",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: UnitsSettingsPageViewModel.cs:17-18 offers all seven days, :89-97 persists the choice and PreviewWeek (:107) renders it through UnitFormatter.FormatFirstDayOfWeek; changing it touches no unit or language preference (UnitPreferences.cs:280-284)",
+    "gaps": "AC2 unmet: there is no 'System default' option - the stored default is a hard DayOfWeek.Monday (UnitPreferences.cs:282), so returning to system behaviour and matching CultureInfo.CurrentCulture is impossible. Requirement 4 unmet: the Units page labels are hard-coded strings, not resource lookups (UnitsSettingsPage.xaml:18,33,46,61,76)"
+  },
+  {
+    "story": "S22.01.04",
+    "verdict": "PARTIAL",
+    "evidence": "AC2/AC3: UnitsSettingsPage.xaml:66-69 is a dx:CheckEdit with SemanticProperties.Description and Hint; SettingsMotionPreferences.cs:13 combines it with platform accessibility state; ForgeAnimations.TryHapticClick (src/Forge.App/Motion/ForgeAnimations.cs:205-217) returns before calling HapticFeedback when it is off",
+    "gaps": "There is no sound preference at all - a repository-wide search finds no sound setting, key or gate. Requirement 1 and AC1 ('no app sound plays and one haptic event is requested') have no switch to exercise"
+  },
+  {
+    "story": "S22.02.01",
+    "verdict": "PARTIAL",
+    "evidence": "Requirement 2 and AC2: UnitPreferences.cs:224-236 clamps the default to 15-600 seconds and resolution happens when a timer starts, so a running timer is unaffected; per-exercise overrides at src/Forge.App/Features/Workout/WorkoutPreferenceStores.cs:43-71",
+    "gaps": "Requirement 1 and AC1 unmet: there are no warm-up, hypertrophy, strength or custom contexts - only one global default plus per-exercise overrides. AC3 unmet: keys are device-global (WorkoutPreferenceStores.cs:45 'forge.workout.rest-seconds.', UnitPreferences.cs:112) with no profile scoping, so two local profiles share one default"
+  },
+  {
+    "story": "S22.02.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC3: src/Forge.Domain/Workout/PlateInventory.cs:21 stores the bar as a canonical Mass and WorkoutPreferenceStores.cs:92-124 persists it in grams, so metric-imperial-metric round trips cannot drift; defaults 20 kg and 45 lb at PlateInventory.cs:24,37; editor reachable at PlateCalculatorPage.xaml:67",
+    "gaps": "AC1 unmet: collars do not exist anywhere in the domain or the UI - PlateInventory has only BarbellWeight and Plates. AC2 unmet: there is no 1-50 kg custom-bar validation naming a 1 kg minimum"
+  },
+  {
+    "story": "S22.02.03",
+    "verdict": "PARTIAL",
+    "evidence": "AC3: PlateInventory.cs:21-34 holds canonical denominations and pair counts for both systems; the calculator derives results only from owned plates (:8-17, :73-74) and PlateCalculatorPage.xaml:55 renders the achievable accuracy; inventory editable and resettable at PlateCalculatorPage.xaml:81-126",
+    "gaps": "AC2 unmet: there is no 0-20 quantity cap - PlateInventory.cs:59 rejects only negative counts, so nothing names a maximum of 20. AC1 half met: the preview reports a nearest achievable load rather than an explicit 'Unavailable' flag for the missing denomination"
+  },
+  {
+    "story": "S22.02.04",
+    "verdict": "NOT-DONE",
+    "evidence": "The only reset in the app is the plate calculator's 'Reset to a standard gym' at src/Forge.App/Features/Workout/PlateCalculatorPage.xaml:126",
+    "gaps": "No combined reset of rest timers, barbell, collars and plate inventory exists. AC1 and AC2 unmet: no confirmation listing the affected categories and no cancel path. AC3 unmet: no accessible announcement ordering"
+  },
+  {
+    "story": "S22.03.01",
+    "verdict": "PARTIAL",
+    "evidence": "The engine is real and wired: src/Forge.App/Services/Notifications/ReminderRefreshService.cs:114-126 reads the same forge.notifications.* keys the settings page writes, ReminderSchedulingPolicy.cs:214,242 suppresses per category, and LocalNotificationScheduler cancels by stable id (ReminderRefreshService.cs:107); categories toggled at NotificationSettingsPage.xaml:23-34",
+    "gaps": "The page and the engine disagree about which categories exist. MealRemindersEnabled is written at NotificationSettingsPageViewModel.cs:39 and read by nothing - a dead toggle. DailyCheckInEnabled and StreakProtectionEnabled are read at ReminderRefreshService.cs:118-119 but have no UI, so two live categories are unreachable. No progress check-in or streak-risk entry in Settings. No per-category time window or maximum daily count editor. No cancel-on-disable path from Settings. AC3 unmet: the page never reads ForgeNotificationPermissionState, so there is no denied-state explanation and no E05 link"
+  },
+  {
+    "story": "S22.03.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: quiet hours are enforced in two places - src/Forge.App/Services/Notifications/LocalNotificationScheduler.cs:87,208-224 and ReminderSchedulingPolicy.cs:135-137; requirement 5 and the storage half of AC3 hold because preferences live independently in Preferences.Default (NotificationSettingsPageViewModel.cs:11-16)",
+    "gaps": "Requirements 1 and 4 unmet: quiet hours are free-text dx:TextEdit fields, not dx:TimeEdit, and accept any string with no 15-minute increment constraint (NotificationSettingsPage.xaml:47,53). AC2 and the UI half of AC3 unmet: the page shows no disabled controls and no 'Open settings' action when notification permission is denied"
+  },
+  {
+    "story": "S22.03.03",
+    "verdict": "NOT-DONE",
+    "evidence": "src/Forge.App/Services/Notifications/ReminderRefreshService.cs:99-111 produces a list of PlannedReminder decisions with suppression reasons",
+    "gaps": "Nothing renders them. There is no preview surface in Settings or anywhere else - a repository-wide search finds no scheduled-notification list UI. All three acceptance criteria unmet"
+  },
+  {
+    "story": "S22.04.01",
+    "verdict": "PARTIAL",
+    "evidence": "src/Forge.App/Features/Settings/Services/StorageUsageService.cs:32-39 measures the database file and downloaded media off the UI thread and honours a token internally; displayed at DataManagementPageViewModel.cs:17-21 and DataManagementPage.xaml:18-23",
+    "gaps": "Requirement 1: the categories required are database, progress photos, cached catalogue assets and logs - three of four are absent. AC1: sizes use the largest fitting unit rather than a 0.1 MB rounding rule (DataManagementPageViewModel.cs:50-62). AC2 and AC3 unmet: the page passes CancellationToken.None (:19,:26) with no progress state, so the scan is neither cancellable nor visibly in progress"
+  },
+  {
+    "story": "S22.04.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC1 user-data half: StorageUsageService.cs:42-73 evicts only media cache entries and ready asset packs and returns the freed byte count; the database, secure storage and app-private photos are never touched",
+    "gaps": "Requirement 1: the target should be logs and regenerated catalogue cache; the implementation instead removes downloaded video packs, which is content the user chose to download. AC3 unmet: failed evictions are silently skipped (StorageUsageService.cs:50) with no partial-failure report. No 1.0 s refresh guarantee and no freed-bytes-from-disk re-read"
+  },
+  {
+    "story": "S22.04.03",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC3: src/Forge.App/Features/Settings/ViewModels/SettingsPageViewModel.cs:23-26 routes Privacy policy, Terms of service, Medical disclaimer and Licences to the E25-owned pages in two taps, and Settings owns no duplicate legal text",
+    "gaps": "Requirement 1 unmet: Delete my data is not a Settings entry - it is Settings to Data management to 'Open delete-my-data' (SettingsPageViewModel.cs:21, DataManagementPage.xaml:55), three taps. AC2 unmet: no disabled-placeholder behaviour naming a missing route. Requirement 5 unmet: the legal section does not state that health data is special-category data - that sentence lives on HealthConnectionsPage.xaml:100"
+  },
+  {
+    "story": "S22.04.04",
+    "verdict": "NOT-DONE",
+    "evidence": "No supporting implementation found",
+    "gaps": "There is no account section in Settings (SettingsPageViewModel.cs:14-27 lists no account entry) and no 'Local profile only' copy anywhere in the app. AC1 unmet: no account status surface. AC2 unmet: no backup link with a disabled state. AC3 unmet: searching Settings for 'password' or 'cloud sync' returns nothing rather than a local-only status entry. The absence of credential controls is correct; the absence of the honest statement is not"
+  },
+  {
+    "story": "S22.05.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC3: SettingsPageViewModel.cs:49-65 filters on title, description, group and a synonym keyword string and :39-47 navigates in one tap via a route-bearing AsyncRelayCommand; descriptors are static literals so no profile value can appear in results",
+    "gaps": "There are 11 descriptors, not 100, and no src/Forge.Core/Settings descriptor model, so AC2's seeded-scale and frame-budget criteria have nothing to run against; the 'category path' rendered is the one-word group label (SettingsPage.xaml:33)"
+  },
+  {
+    "story": "S22.05.02",
+    "verdict": "NOT-DONE",
+    "evidence": "Read-time tolerance exists: UnitPreferences.cs:294-299 falls back to the typed default on a parse failure and :229 clamps the rest timer into range",
+    "gaps": "Nothing runs at startup, nothing is written back, nothing is logged and there is no migration version or validator registry - src/Forge.Core/Settings does not exist and App.xaml.cs runs no validation pass. AC1 unmet: no redacted repair log entry. AC2 has no startup validation to time. AC3 unmet: because nothing is written back, the bad value stays on disk and is re-masked on every read rather than repaired once"
+  },
+  {
+    "story": "S22.05.03",
+    "verdict": "NOT-DONE",
+    "evidence": "No supporting implementation found",
+    "gaps": "No category in Settings exposes a 'Restore defaults' action - UnitsSettingsPage.xaml, NotificationSettingsPage.xaml and DataManagementPage.xaml contain none. All three acceptance criteria unmet"
+  },
+  {
+    "story": "S25.01.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: src/Forge.App/Features/Settings/DeleteMyDataPage.xaml:26 lists the SQLite database, the encryption key, cached media, preferences and export temp files; AC2: DeleteMyDataPageViewModel.cs:9,22,38 gates the destructive command on typing DELETE exactly; AC3: LocalDataErasureService.cs:38-57 is pure local file and secure-storage work with no network step; AC4: tools/release/Invoke-ReleasePreflight.ps1:293-305 fails on unresolved owner placeholders and :226-240 on unapproved launch gates",
+    "gaps": "The requirement asks for reachability from Profile and Legal settings; there is no deletion entry in the Legal group of Settings (SettingsPageViewModel.cs:23-26), only under Data management. The screen's copy is hard-coded XAML rather than generated from the versioned docs/legal documents, against the requirement that all user-facing legal copy be versioned"
+  },
+  {
+    "story": "S25.01.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: src/Forge.App/Features/Legal/Services/LocalDataErasureService.cs:38-57 clears Preferences, calls SecureStorage.Default.RemoveAll() (removing the SQLCipher key and the entitlement envelope), deletes cache and app-data contents recursively and recreates the directories, then throws an aggregated IOException naming failures rather than reporting success",
+    "gaps": "AC2 not demonstrably met: ReleaseDataSessionAsync (:111-123) only creates and disposes a session; it does not clear SQLite connection pools, which is what prevents a sharing violation against an open handle. AC3 unmet end to end: the service throws IOException but DeleteMyDataPageViewModel.cs:57 catches only NotSupportedException, so a failed deletion surfaces as an unhandled exception rather than a safe retry screen. There is no LocalDataErasureServiceTests - the store-blocking erasure path has no test. IDataErasureService is also registered twice - PendingDataErasureService at SettingsFeatureRegistration.cs:40 and the real service at ShopFeatureRegistration.cs:35 - and last-wins DI picks the correct one only because FeatureRegistration.cs:69-70 happens to be alphabetical"
+  },
+  {
+    "story": "S25.01.03",
+    "verdict": "NOT-DONE",
+    "evidence": "DeleteMyDataPageViewModel.cs:54-55 erases and then shows a completion alert",
+    "gaps": "AC1 unmet: no navigation stack clear - the user stays on the deletion page and the back button still reaches every previous route. AC2 unmet: onboarding is not relaunched and there is no post-delete verification screen. AC3 unmet: there is no health-consent state to re-arm because Forge holds none. No DataDeletedEvent exists"
+  },
+  {
+    "story": "S25.02.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC3: docs/legal/privacy-policy.md:15-19,37-48 states there is no backend and enumerates every locally stored category; the policy is versioned (effective: 2026-08-21) and single-sourced into the app - LegalContent.PrivacyPolicy renders on PrivacyPolicyPage, registered at LegalFeatureRegistration.cs:31 and linked from SettingsPageViewModel.cs:23; tools/legal/Test-LegalContentSync.ps1 runs in CI (.github/workflows/ci.yml:119-121) and reports in-app copy matching docs/legal across 4 documents; the publishing route exists at .github/workflows/pages.yml:61-72 and refuses placeholders",
+    "gaps": "AC1 fails today: gh api repos/NikoMix/fitness/pages returns HTTP 404, so no public HTTPS URL resolves; tracked as github-pages-enabled status not-started at docs/release/launch-gates.yml:59-73. Six unfilled TODO(owner) markers remain in the policy including the data controller and the supervisory authority (privacy-policy.md:14,134,137,149,156,158) and they render in-app via LegalContent.cs. AC2 unmet: HealthConnectionsPage.xaml contains no Privacy Policy link at all"
+  },
+  {
+    "story": "S25.02.02",
+    "verdict": "PARTIAL",
+    "evidence": "Requirement 2: a standing disclaimer renders on every guidance surface before the guidance - CoachingPage.xaml:25, ReadinessPage.xaml:30 and ExerciseGuidanceView.xaml:186 with a link to the full document at :190; the document covers professional consultation, pain, pregnancy and cardiac risk (docs/legal/medical-disclaimer.md); Terms and disclaimer reachable from Settings (SettingsPageViewModel.cs:24-25)",
+    "gaps": "There is no acceptance mechanism at all: no ILegalConsentService, no LegalAcceptanceEntity, no TermsAndDisclaimerPage and nothing in onboarding - a repository-wide search for LegalConsent, LegalAcceptance or AcceptedVersion returns nothing. AC1 (declining disables personalised guidance), AC2 (accepted version and date visible in Settings) and AC3 (re-acceptance on version change) are all unmet"
+  },
+  {
+    "story": "S25.02.03",
+    "verdict": "PARTIAL",
+    "evidence": "AC2: LicencesPage.cs renders LegalContent.Licences from bundled generated content with no network access, registered at LegalFeatureRegistration.cs:34 and reachable from SettingsPageViewModel.cs:26",
+    "gaps": "AC1 unmet: docs/legal/licences.md:18-41 is hand-written prose with no package versions, not generated from a checked-in manifest; tools/LegalNotices does not exist and no CI step fails when a new PackageReference appears. AC3 unmet: food and exercise seed-data attribution is absent from the page entirely. One unresolved TODO(owner) at licences.md:45 covers exactly the notices that must be reproduced verbatim for DevExpress and the SQLCipher bundle"
+  },
+  {
+    "story": "S25.03.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: docs/legal/store/apple-app-privacy.md records per-category answers with an evidence column (e.g. :49); the iOS privacy manifest is complete and consistent - src/Forge.App/Platforms/iOS/Resources/PrivacyInfo.xcprivacy:25-98 sets NSPrivacyTracking false, empty NSPrivacyTrackingDomains and NSPrivacyCollectedDataTypes and four accessed-API reasons including CA92.1 for user defaults - and tools/release/Test-IosPrivacyManifest.ps1 enforces it from Invoke-ReleasePreflight.ps1:319-322",
+    "gaps": "AC2 unmet: docs/legal/data-inventory.yml does not exist, so the answers are not derived from a machine-readable inventory and no CI check can fail when a feature adds a data category. Four unfilled TODO(owner) markers remain in the Apple document. Note docs/legal/store-compliance-checklist.md:50-56 still lists every privacy-manifest item as outstanding - the checklist is stale relative to the code and would mislead a reviewer"
+  },
+  {
+    "story": "S25.03.02",
+    "verdict": "PARTIAL",
+    "evidence": "docs/legal/store/play-data-safety.md and docs/legal/store/play-health-apps-declaration.md exist, the latter a full submission pack with a per-permission justification table from :84; the Option B decision to ship Health Connect in v1 and its schedule consequence are recorded at docs/release/launch-gates.yml:41-52 and gated at :136",
+    "gaps": "20 unfilled TODO(owner) markers in the Health Apps pack and 4 in the Data Safety draft. Requirement 1 unmet: there is no shared data inventory, so the two forms are written independently and AC2's contradiction check is a manual read. The declaration cannot be submitted at all until the public privacy-policy URL resolves, and it does not (gh api .../pages returns 404)"
+  },
+  {
+    "story": "S25.03.03",
+    "verdict": "NOT-DONE",
+    "evidence": "The outcome is true in fact - no advertising SDK is present in any project - and it is asserted in docs/legal/privacy-policy.md:97 and four store documents",
+    "gaps": "Every enforcement mechanism is missing and one criterion fails on inspection. AC1 unmet: tools/legal/DependencyPolicyCheck.cs does not exist and no CI step inspects dependencies for ad SDKs, so the claim can regress silently. AC2 unmet: no NSURLIsExcludedFromBackupKey anywhere under src/Forge.App/Platforms/iOS. AC3 fails outright: src/Forge.App/Platforms/Android/AndroidManifest.xml:11 declares android:allowBackup=\"true\" with no dataExtractionRules and no fullBackupContent, so Android Auto Backup copies Context.FilesDir to Google Drive - and that directory holds forge.db (ForgeStartup.cs:25) and the unencrypted .forgebackup archives written to AppDataDirectory/Backups (BackupRestoreViewModel.cs:115)"
+  },
+  {
+    "story": "S25.04.01",
+    "verdict": "PARTIAL",
+    "evidence": "src/Forge.App/Features/Health/HealthConnectionsPage.xaml:60-77 lists each data category with its purpose and explanation from HealthDataTypeCatalog before connection, and :100 states the Article 9 position; Forge reads only what the platform has granted",
+    "gaps": "AC3 unmet: there is no Forge-owned consent record - no HealthConsent domain type, no IHealthConsentService and nothing persisted with data type, purpose, policy version, timestamp and platform (a repository-wide search returns nothing). Requirement 1 unmet: consent granularity is delegated wholly to the OS sheet behind a single 'Connect health data' button (HealthConnectionsPage.xaml:29), so no per-type in-app consent precedes the platform request and AC1 describes the platform's behaviour rather than Forge's. AC2 unmet: there is no ConsentRequired result to return"
+  },
+  {
+    "story": "S25.04.02",
+    "verdict": "NOT-DONE",
+    "evidence": "HealthConnectionsPage.xaml:100 tells users consent is 'revocable at any time in your device's health settings'; :39 offers 'Forget sync history', which clears sync bookkeeping",
+    "gaps": "There is no in-app revocation: no PrivacySettingsPage, no per-type revoke control, no revoke-and-delete-imported-data choice and no import-queue cancellation. AC1, AC2 and AC3 all unmet"
+  },
+  {
+    "story": "S25.04.03",
+    "verdict": "NOT-DONE",
+    "evidence": "Article 9 marking exists only as prose at docs/legal/privacy-policy.md:24 and HealthConnectionsPage.xaml:100",
+    "gaps": "No docs/legal/data-inventory.yml, no privacy-summary.json and no PrivacySummaryPage - repository-wide searches return nothing. AC1 unmet: there is nothing to parse, so nothing can fail validation. AC2 unmet: there is no in-app Privacy Summary. AC3 unmet: no inventory versions, so no per-version legal-review status"
+  },
+  {
+    "story": "S25.05.01",
+    "verdict": "NOT-DONE",
+    "evidence": "No supporting implementation found",
+    "gaps": "A repository-wide search for an age gate, a minimum age or a 16-year threshold returns nothing; onboarding collects profile and health data with no eligibility question. AC1 unmet: nothing blocks account setup. AC2 unmet: docs/legal/privacy-policy.md:139-144 says Forge 'is not directed at children' but states no minimum age, so the policy, onboarding and store listing have no shared answer to compare. AC3 unmet: there is no eligibility state to erase"
+  },
+  {
+    "story": "S25.05.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC2: docs/legal/privacy-policy.md:123-131 ties access and portability to the in-app export, correction to editing an entry and erasure to the Delete my data flow, and all three routes exist (ExportDataPage, DeleteMyDataPage); the UK/EU GDPR special-category position is stated at :23-25",
+    "gaps": "AC1 unmet: there is no California or CPRA section at all, and no explicit statement of whether Forge sells or shares personal information. Requirement 4 unmet: there is no in-app Privacy Summary to carry regional-rights links. Counsel review remains outstanding (docs/legal/store-compliance-checklist.md:18)"
+  },
+  {
+    "story": "S25.05.03",
+    "verdict": "PARTIAL",
+    "evidence": "AC2: wellness language is applied centrally - ReadinessScoreResult.DefaultMedicalDisclaimer (src/Forge.Domain/Recovery/ReadinessScore.cs:29) is threaded through NextSessionRecommender.cs:32,47,63,110, DeloadRecommender.cs:48, OvertrainingDetector.cs:59 and ExerciseGuidance.cs:55 and asserted by NextSessionRecommenderTests.cs:31, PlateauAndDeloadTests.cs:45 and ExerciseGuidanceTests.cs:111; NutritionSafetyEvaluator and GoalSafetyEvaluator guard unsafe recommendations",
+    "gaps": "AC1 unmet: docs/legal/product-claims-checklist.md and tools/legal/ClaimsCopyCheck.cs do not exist, so a string containing a treatment claim would be flagged by nothing. AC3 unmet: docs/release/launch-gates.yml carries no openQuestions mechanism for unresolved regulatory questions. Store listing copy is not checked against any claims list"
+  },
+  {
+    "story": "S25.06.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: src/Forge.App/Features/Settings/DeleteMyDataPage.xaml:33-43 places an 'Export backup before deleting' card above the destructive confirmation, wired through DeleteMyDataPageViewModel.cs:25 to LocalDataErasureService.ExportBackupBeforeErasureAsync (:31-35); AC2: skipping it does not block deletion - EraseAllDataCommand depends only on the typed confirmation; docs/legal/privacy-policy.md:128-131 describes portability as the local export rather than a server request",
+    "gaps": "The link routes to Backup and restore, which produces the whole-device unencrypted archive, rather than to the Article 20 scoped export at ExportData or DataPortability. There is no IDataExportAvailabilityService, so export availability is assumed rather than checked. If the duplicate IDataErasureService registration ever resolves to PendingDataErasureService the button shows 'Backup export not wired' instead (PendingDataErasureService.cs:22-25)"
+  },
+  {
+    "story": "S25.06.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC2: docs/release/launch-gates.yml records per-gate id, name, status, blocks, owner, notes, evidence, depends-on and lead-time (:59-113), and tools/release/Invoke-ReleasePreflight.ps1 reads it (:78) and fails a scope on an unapproved gate or an unapproved dependency (:226-240), additionally running the owner-placeholder gate (:293-305), store metadata limits (:278) and the iOS privacy manifest (:319) - all offline",
+    "gaps": "Requirement 1: the required coverage includes in-app deletion, terms, medical disclaimer and licences, and none of those four is a gate - they live only in docs/legal/store-compliance-checklist.md, a hand-ticked markdown file with no owner, evidence or status fields, enforced by nothing, and already stale about the iOS privacy manifest (:50-56). Requirement 2: gate entries carry no last-reviewed date"
+  },
+  {
+    "story": "S25.06.03",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: docs/release/launch-gates.yml:41-52 records decisions with a decided date, an explicit consequence and what they supersede, every gate names an owner (e.g. :64,:80) and Invoke-ReleasePreflight.ps1:226-240 blocks a scope on gate status, naming the gate",
+    "gaps": "Legal openQuestions from the epic are not copied into the checklist and there are no due dates. AC2 has no representation: there is no accepted-risk field carrying a named approver and a date, and status not-applicable requires only a prose justification in notes, which the preflight does not check for an approver"
+  },
+  {
+    "story": "S26.01.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: src/Forge.Infrastructure/Backup/ForgeBackupService.cs:454-465 snapshots every model table with a manifest carrying schema version, app version, creation time, per-table record counts and a SHA-256 content hash, round-tripped by tests/Forge.Infrastructure.Tests/Backup/BackupServiceTests.cs:47; AC3: :519-555 returns stable errors for missing, malformed, corrupt and future-schema files without touching the database (BackupServiceTests.cs:86,110); AC4: creation and sharing require an explicit tap (BackupRestorePage.xaml:22, BackupRestoreViewModel.cs:53 uses FileSaver for the OS document flow); requirement 5 met at BackupRestorePage.xaml:16",
+    "gaps": "Requirement 2 is entirely unimplemented: the archive is not encrypted - ForgeBackupService.cs:462-463 writes plaintext JSON with JsonSerializer.SerializeAsync and there is no backup key, passphrase or cipher anywhere. Worse, src/Forge.App/Features/Settings/ViewModels/DataManagementPageViewModel.cs:14 tells the user 'Encrypted local backup can be exported and restored', which is false. No 50,000-set performance evidence for AC2"
+  },
+  {
+    "story": "S26.01.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC2: ForgeBackupService.cs:543-547 recomputes the content hash and compares it in fixed time, rejecting a single modified byte with an integrity message (BackupServiceTests.cs:86), and RestoreBackupAsync (:479-483) aborts before any write when verification fails",
+    "gaps": "Requirement 1 unmet: creation does not reopen and verify before reporting success - CreateBackupAsync writes and returns (:462-465), while BackupRestoreViewModel.cs:55 sets 'Backup verified and saved.' before LoadBackupsAsync runs, and a file failing verification is merely omitted from the list (ForgeBackupService.cs:510) with no error. BackupRestorePage.xaml:18 ('A backup is verified before Forge reports success') overstates the behaviour. No stable error codes and no >1 s verification progress rule"
+  },
+  {
+    "story": "S26.01.03",
+    "verdict": "NOT-DONE",
+    "evidence": "No supporting implementation found",
+    "gaps": "No BackupReminderScheduler, no reminder page, no weekly/monthly/disabled choice and no 7-day suppression after a successful backup; ReminderKind (src/Forge.Core/Abstractions/Notifications/ReminderSchedulingPolicy.cs:56-60) has no backup category. AC1 and AC2 unmet"
+  },
+  {
+    "story": "S26.02.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC3: ForgeBackupService.cs:519-555 validates manifest presence, rejects a newer schema version and checks the content hash without opening the database, and BackupRestoreViewModel.cs:86 calls it before any restore; an export picked by mistake is rejected with an explanation of why an export is not a backup (:530-536); proven by BackupServiceTests.cs:110",
+    "gaps": "No signature, so authenticity is unverified - only integrity; no app-version range check. AC2 unmet: the manifest carries creation date, app version and per-table counts but BackupRestoreViewModel.cs:89 shows only verification.Message, so the user confirms an overwrite without seeing the required preview"
+  },
+  {
+    "story": "S26.02.02",
+    "verdict": "NOT-DONE",
+    "evidence": "Requirement 1 only: BackupRestoreViewModel.cs:94-98 states that restoring replaces all current Forge data on the device before proceeding",
+    "gaps": "AC1 unmet: confirmation is a two-button DisplayAlert - there is no typed RESTORE gate and no RestoreConfirmationPopup anywhere. AC2 unmet: no pre-restore safety backup of the current database is created before replacement. Given the archive is also unencrypted and unverified at creation, this is the least protected destructive action in the app"
+  },
+  {
+    "story": "S26.02.03",
+    "verdict": "PARTIAL",
+    "evidence": "ForgeBackupService.cs:302-347 performs the restore inside a single SQL transaction over the live database and BackupServiceTests.cs:154 proves a mid-flight failure leaves the database untouched, delivering the safety outcome the feature exists for",
+    "gaps": "The story specifies a design the app deliberately does not implement: no staging extraction, no db/WAL/SHM swap group, no RestoreJournal and no startup reconciliation. AC1 ('resume restore is offered') and AC2 ('startup reconciliation removes staging files') cannot be satisfied as written. This is a backlog/implementation disagreement by design rather than by omission - the story should be rewritten around the transactional restore or closed as done-differently"
+  },
+  {
+    "story": "S26.03.01",
+    "verdict": "PARTIAL",
+    "evidence": "AC1/AC2: ForgeBackupService.cs:619-646 writes a ZIP with one CSV entry per table plus a plain-English readme, with RFC 4180 quoting at :653, verified end to end by BackupServiceTests.cs:189; tests/Forge.Infrastructure.Tests/Backup/ScopedExportTests.cs:184 asserts generically that every profile-owned entity type is exportable so a new entity cannot be silently dropped",
+    "gaps": "Requirement 2 unmet: headers are read from live SQLite columns at export time (ForgeBackupService.cs:172) and there are no snapshot tests, so a schema change silently changes the exported contract. No unit column and no explicit soft-delete marker guarantee. No 45-second fixture timing"
+  },
+  {
+    "story": "S26.03.02",
+    "verdict": "PARTIAL",
+    "evidence": "AC1: ForgeBackupService.cs:585-594 writes a JSON document carrying a self-describing summary, audience, creation timestamp, per-table counts, the omission list and the full payload, and relationship identifiers survive because rows are exported verbatim per table",
+    "gaps": "AC2 cannot pass: docs/portability/forge-export.schema.json does not exist and neither does the docs/portability directory, so there is no committed schema to validate against. Requirement 1 unmet: PortableExportFile carries no schemaVersion field - only the backup manifest does (ForgeBackupService.cs:457). Determinism is asserted nowhere"
+  },
+  {
+    "story": "S26.03.03",
+    "verdict": "PARTIAL",
+    "evidence": "Requirement 1: src/Forge.App/Features/Backup/ExportDataPage.xaml:35-72 offers data-type and date-range filters and ExportDataViewModel.cs:70-75 applies them, with date filtering proven against real SQLite rather than the in-memory provider (ScopedExportTests.cs:216)",
+    "gaps": "There is no nutrition preset and no NutritionReportPage, so AC1's 14-day nutrition report is a manual combination of filters. AC2 is inverted: IncludeTraining and IncludeProfile both default to true (ExportDataViewModel.cs:25-31) where the story requires workouts, achievements and body metrics to be excluded by default and reviewed before sharing"
+  },
+  {
+    "story": "S26.04.01",
+    "verdict": "PARTIAL",
+    "evidence": "Requirements 1-3: src/Forge.Core/Abstractions/Backup/IDataImporter.cs:12-15 models Strong and Hevy; preview writes nothing and commit is atomic, proven by tests/Forge.Infrastructure.Tests/Backup/ImportSafetyTests.cs:226 (malformed file refused before any write), :100 (a failed import writes nothing), :62 and :86 (duplicate detection), :128 (deleted workouts not resurrected), :154 (catalogue exercise reused unmodified) and :204 (every row carries the importing profile); UI previews and confirms with counts at ImportDataViewModel.cs:40-88",
+    "gaps": "AC1 unmet: the 95 percent mapping threshold is measured nowhere - there is no representative Strong fixture with a mapping-rate assertion. AC2 unmet: ImportPreview (IDataImporter.cs:29-37) has an Errors list but no unmapped-exercise list, so unknown exercise names are not surfaced for review before the write"
+  },
+  {
+    "story": "S26.04.02",
+    "verdict": "NOT-DONE",
+    "evidence": "No supporting implementation found",
+    "gaps": "ImportSourceApp (src/Forge.Core/Abstractions/Backup/IDataImporter.cs:6-16) has no MyFitnessPal value, there is no nutrition import path, and the picker copy offers only Strong and Hevy (ImportDataViewModel.cs:16,33). AC1 and AC2 unmet"
+  },
+  {
+    "story": "S26.04.03",
+    "verdict": "NOT-DONE",
+    "evidence": "No supporting implementation found",
+    "gaps": "No Apple Health XML or zipped-XML importer exists, no data-type selection step before commit and no unsupported-type listing. AC1 and AC2 unmet"
+  },
+  {
+    "story": "S26.05.01",
+    "verdict": "NOT-DONE",
+    "evidence": "BackupRestorePage.xaml:44-59 lists backup files found on disk with creation date, size and record counts",
+    "gaps": "That is a file listing, not an operation history: there is no PortabilityOperation type and no record of exports, imports or verifications, so AC1 (a backup and an import both appearing with status and counts) and AC2 (filtering by operation type) are unmet"
+  },
+  {
+    "story": "S26.05.02",
+    "verdict": "PARTIAL",
+    "evidence": "The behaviour is fully implemented on DataPortabilityPage: src/Forge.App/Features/Backup/ViewModels/DataPortabilityViewModel.cs:55-70 computes an included/excluded preview from the same ProfileDataAreas derivation the profile switcher and deletion dialog use, :87-91 requires a labelled confirmation before a whole-device export, :104-113 opens the share sheet only on the explicit command and re-reports what the finished file left out; ExportOmission is modelled at src/Forge.Core/Abstractions/Backup/IDataExporter.cs:89-99 and covered by ScopedExportTests.cs:122,148,165",
+    "gaps": "That page is unreachable: route \"data-portability\" is declared at src/Forge.App/Features/Backup/BackupFeatureRegistration.cs:35 and registered at :61, and nothing anywhere navigates to it. Because the constant is not in ForgeRoutes.cs, tools/ci/Test-RouteReachability.ps1 (which regexes public const string out of ForgeRoutes.cs at :31,:52) cannot see it and reports 53 declared / 53 reachable. The reachable alternative, ExportDataPage, has no included/excluded review and opens the share sheet automatically once generation completes (ExportDataViewModel.cs:92), so AC1 is unmet on the path a user can actually take"
+  },
+  {
+    "story": "S26.05.03",
+    "verdict": "NOT-DONE",
+    "evidence": "src/Forge.Core/Abstractions/Backup/IBackupService.cs:45 declares VerifyBackupAsync and ForgeBackupService.cs:469-473 implements it correctly",
+    "gaps": "No UI exposes it independently: picking a file always leads into the restore confirmation (BackupRestoreViewModel.cs:70-107) and there is no VerifyBackupPage. AC1 unmet: no pass result showing date, version and counts. AC2 unmet: an unsupported future backup is reported only inside the restore flow. No error codes, no 15-second fixture timing"
+  },
+  {
+    "story": "F21.01",
+    "verdict": "PARTIAL",
+    "evidence": "ProductCatalogue.cs:13-18 and docs/monetisation.md:3-27 establish the one-off model; ShopPage.xaml:21-26 presents it honestly with store-supplied pricing",
+    "gaps": "No story in this feature is DONE. The catalogue still ships a subscription SKU (ProductCatalogue.cs:19-24), the paywall carries no Terms or Privacy link, and S21.01.03 is NOT-DONE because FeatureGate has no production caller"
+  },
+  {
+    "story": "F21.02",
+    "verdict": "PARTIAL",
+    "evidence": "PluginInAppBillingService.cs implements real product query (:35), purchase with acknowledgement (:90,:209), owned-purchase restore (:125) and full state mapping (:270-288)",
+    "gaps": "All four stories are PARTIAL. The largest gap is refund and revocation: no EntitlementRefreshService exists and LocalEntitlementResolver.cs:75-95 never removes an entitlement. No timeouts, no transaction id or platform on the record, no price-scan tests"
+  },
+  {
+    "story": "F21.03",
+    "verdict": "PARTIAL",
+    "evidence": "SecureStorageEntitlementStore.cs:93-118 signs entitlements with HMAC-SHA256 and ADR-0001:32 documents the no-server-validation position",
+    "gaps": "All three stories are PARTIAL. Entitlements live only in secure storage rather than SQLCipher-backed SQLite, the record has no source, platform or last-verified time, and tamper detection is silent instead of prompting Restore"
+  },
+  {
+    "story": "F21.04",
+    "verdict": "PARTIAL",
+    "evidence": "PluginInAppBillingService.cs:9-13 keeps the subscription out of what is sold; LocalEntitlementResolver.cs:81-95 grants only store-reported ownership",
+    "gaps": "S21.04.01 and S21.04.03 are NOT-DONE: no offer surface at all, and no SubscriptionComplianceValidator to fail a build when a subscription SKU is enabled without disclosure. The manage-subscription button at ShopPage.xaml:85 is dead UI because CanManageSubscription can never be true"
+  },
+  {
+    "story": "F21.05",
+    "verdict": "PARTIAL",
+    "evidence": "ShopPage and RestorePurchasesPage are registered, reachable from Settings (SettingsPageViewModel.cs:22) and show entitlement state",
+    "gaps": "S21.05.02 and S21.05.03 are NOT-DONE: no purchase diagnostics of any kind, and no commerce resource strings, Terms/Privacy links or store review notes. S21.05.01 lacks entitlement source, last refresh time and purchase history"
+  },
+  {
+    "story": "F22.01",
+    "verdict": "PARTIAL",
+    "evidence": "ForgePreferences (UnitPreferences.cs:175-346) is a clean, tested preference layer applying units and theme without restart",
+    "gaps": "All four stories are PARTIAL: kilojoules are rejected outright (:267-277), there is no high-contrast theme, there is no System-default first day of week, and there is no sound preference at all"
+  },
+  {
+    "story": "F22.02",
+    "verdict": "PARTIAL",
+    "evidence": "Rest-timer defaults with per-exercise overrides (WorkoutPreferenceStores.cs:43-71) and a canonical, editable plate inventory (PlateInventory.cs, PlateCalculatorPage.xaml:67-126)",
+    "gaps": "S22.02.04 is NOT-DONE - there is no safe combined reset. The other three are PARTIAL: no rest-timer contexts, no profile scoping, no collars, and no 0-20 or 1-50 kg validation bounds"
+  },
+  {
+    "story": "F22.03",
+    "verdict": "PARTIAL",
+    "evidence": "The reminder engine is real and reads the settings keys (ReminderRefreshService.cs:114-126, ReminderSchedulingPolicy.cs:135-137,214,242)",
+    "gaps": "S22.03.03 is NOT-DONE - no scheduled-notification preview exists. The settings UI and the engine disagree: MealRemindersEnabled is read by nothing, DailyCheckIn and StreakProtection have no UI, quiet hours are free text, and no permission-denied state is shown"
+  },
+  {
+    "story": "F22.04",
+    "verdict": "PARTIAL",
+    "evidence": "Storage usage, cache reclaim, legal links and a deletion route are all present and reachable (DataManagementPage.xaml, SettingsPageViewModel.cs:21-26)",
+    "gaps": "S22.04.04 is NOT-DONE - no local-only account status anywhere. The rest are PARTIAL: three of four storage categories missing, no cancellation or partial-failure reporting, and Delete my data is three taps rather than a Settings entry"
+  },
+  {
+    "story": "F22.05",
+    "verdict": "PARTIAL",
+    "evidence": "Settings search filters on label, description, group and synonyms and deep-links in one tap (SettingsPageViewModel.cs:39-65)",
+    "gaps": "S22.05.02 and S22.05.03 are NOT-DONE: no startup preference repair with logging and idempotent write-back, and no per-category Restore defaults. Search has 11 descriptors and no Core descriptor model"
+  },
+  {
+    "story": "F25.01",
+    "verdict": "PARTIAL",
+    "evidence": "A real, deliberate deletion flow: typed DELETE gate (DeleteMyDataPageViewModel.cs:22,38), an artefact list (DeleteMyDataPage.xaml:26) and a working erasure service (LocalDataErasureService.cs:38-57)",
+    "gaps": "S25.01.03 is NOT-DONE - no navigation reset to onboarding and no post-delete verification screen. S25.01.02 has no test, does not clear connection pools, surfaces IOException unhandled, and depends on an alphabetical accident in duplicate DI registration"
+  },
+  {
+    "story": "F25.02",
+    "verdict": "PARTIAL",
+    "evidence": "docs/legal is a genuine single source of truth generated into the app, with a CI drift check that passes (ci.yml:119-121) and a publish workflow that refuses placeholders (pages.yml:61-72)",
+    "gaps": "All three stories are PARTIAL. GitHub Pages is not enabled (gh api .../pages returns 404) so no public URL resolves; 8 TODO(owner) markers render in-app; there is no terms/disclaimer acceptance record; and licences are hand-written prose with no manifest-driven CI check"
+  },
+  {
+    "story": "F25.03",
+    "verdict": "PARTIAL",
+    "evidence": "Complete iOS privacy manifest enforced by preflight (PrivacyInfo.xcprivacy:25-98, Test-IosPrivacyManifest.ps1) and substantial Apple and Play declaration drafts under docs/legal/store/",
+    "gaps": "S25.03.03 is NOT-DONE and is the most serious finding in the range: AndroidManifest.xml:11 sets allowBackup=true with no backup rules, so the plaintext .forgebackup archives in AppDataDirectory/Backups go to Google Drive. There is also no data inventory and no ad-SDK dependency guard"
+  },
+  {
+    "story": "F25.04",
+    "verdict": "PARTIAL",
+    "evidence": "HealthConnectionsPage.xaml:60-100 shows per-category purpose and the Article 9 position, and Forge reads only what the platform grants",
+    "gaps": "S25.04.02 and S25.04.03 are NOT-DONE: no in-app revocation and no data inventory or Privacy Summary. S25.04.01 has no Forge-owned consent record with type, purpose, policy version, timestamp and platform"
+  },
+  {
+    "story": "F25.05",
+    "verdict": "PARTIAL",
+    "evidence": "Wellness language is applied centrally through ReadinessScoreResult.DefaultMedicalDisclaimer and asserted by tests (NextSessionRecommenderTests.cs:31, ExerciseGuidanceTests.cs:111)",
+    "gaps": "S25.05.01 is NOT-DONE - there is no age gate at all, and the privacy policy states no minimum age. No California/CPRA section, no in-app Privacy Summary, no claims checklist and no claims linter"
+  },
+  {
+    "story": "F25.06",
+    "verdict": "PARTIAL",
+    "evidence": "Structured launch gates with owner, status, evidence and dependencies (launch-gates.yml:59-113) enforced offline by Invoke-ReleasePreflight.ps1:78,226-240,293-305",
+    "gaps": "All three stories are PARTIAL. Four required checklist items (in-app deletion, terms, disclaimer, licences) are not gates, gates carry no last-reviewed date, there is no accepted-risk approver field, and the export-before-delete link routes to the whole-device backup rather than the scoped Article 20 export"
+  },
+  {
+    "story": "F26.01",
+    "verdict": "PARTIAL",
+    "evidence": "A complete, manifested, hash-verified table snapshot with an OS-document-flow destination and stable error handling (ForgeBackupService.cs:454-465,519-555; BackupServiceTests.cs:47,86,110)",
+    "gaps": "S26.01.03 is NOT-DONE - no backup reminders. S26.01.01 fails the encryption requirement outright (ForgeBackupService.cs:462 writes plaintext JSON) while DataManagementPageViewModel.cs:14 tells the user backups are encrypted. Creation does not verify before reporting success"
+  },
+  {
+    "story": "F26.02",
+    "verdict": "PARTIAL",
+    "evidence": "Restore is preflighted, refuses a newer schema and runs in one transaction so a failure leaves data untouched (ForgeBackupService.cs:538-547,302-347; BackupServiceTests.cs:110,154)",
+    "gaps": "S26.02.02 is NOT-DONE: no typed RESTORE confirmation and no pre-restore safety backup. The preflight preview is computed but never shown (BackupRestoreViewModel.cs:89), and the journal/staging design in S26.02.03 does not exist"
+  },
+  {
+    "story": "F26.03",
+    "verdict": "PARTIAL",
+    "evidence": "Exports are profile-scoped and fail closed, honest about omissions, and verified against real SQLite (IDataExporter.cs:57-99, ScopedExportTests.cs:70-243)",
+    "gaps": "All three stories are PARTIAL: no header snapshot tests, no committed JSON schema and no schemaVersion on the export document, no nutrition preset, and training and profile default to included where the story requires them excluded"
+  },
+  {
+    "story": "F26.04",
+    "verdict": "PARTIAL",
+    "evidence": "Strong and Hevy import with preview-before-write, duplicate detection, atomic commit and profile attribution, each pinned by a test (ImportSafetyTests.cs:62-226)",
+    "gaps": "S26.04.02 and S26.04.03 are NOT-DONE: no MyFitnessPal nutrition import and no Apple Health XML import. S26.04.01 has no unmapped-exercise list and no mapping-rate measurement"
+  },
+  {
+    "story": "F26.05",
+    "verdict": "PARTIAL",
+    "evidence": "DataPortabilityViewModel.cs:55-113 implements export review, whole-device opt-in and omission reporting exactly as specified, covered by ScopedExportTests.cs:122,148,165",
+    "gaps": "S26.05.01 and S26.05.03 are NOT-DONE: no portability operation history and no verify-without-restoring surface. S26.05.02's implementation is unreachable - route data-portability (BackupFeatureRegistration.cs:35,61) has no inbound navigation and is invisible to Test-RouteReachability.ps1"
+  },
+  {
+    "story": "E21",
+    "verdict": "PARTIAL",
+    "evidence": "Purchases are real rather than stubbed: PluginInAppBillingService.cs makes genuine Plugin.InAppBilling calls for product query (:35), purchase (:90), Play acknowledgement (:209) and owned-purchase restore (:125), with entitlements signed into secure storage (SecureStorageEntitlementStore.cs:93-118) and both screens reachable from Settings (SettingsPageViewModel.cs:22)",
+    "gaps": "0 of 16 stories DONE (11 PARTIAL, 5 NOT-DONE). Nothing in the app is gated - FeatureGate has no production caller - so a purchase currently unlocks nothing visible. No refund or revocation handling, no offers, no subscription compliance validator, no purchase diagnostics, no commerce resource strings and no Terms or Privacy links on the paywall"
+  },
+  {
+    "story": "E22",
+    "verdict": "PARTIAL",
+    "evidence": "ForgePreferences is a clean, tested preference layer (UnitPreferences.cs:175-346, ForgePreferencesTests.cs) applied without restart, with a working reminder engine behind the notification settings (ReminderRefreshService.cs:114-126) and searchable, route-linked settings entries (SettingsPageViewModel.cs:39-65)",
+    "gaps": "0 of 18 stories DONE (13 PARTIAL, 5 NOT-DONE). Kilojoules are rejected, high contrast does not exist, there is no sound preference, one notification toggle is read by nothing while two live categories have no UI, there is no local-only account status, no startup preference repair and no per-category Restore defaults"
+  },
+  {
+    "story": "E25",
+    "verdict": "PARTIAL",
+    "evidence": "The compliance machinery is genuinely built: docs/legal is a single source of truth generated into the app with a CI drift check that passes (ci.yml:119-121), a publish workflow that refuses placeholders (pages.yml:61-72), a complete iOS privacy manifest enforced by preflight (PrivacyInfo.xcprivacy, Test-IosPrivacyManifest.ps1), structured launch gates (launch-gates.yml) and a working typed-confirmation deletion flow",
+    "gaps": "0 of 18 stories DONE (13 PARTIAL, 5 NOT-DONE). The content half is missing: 8 TODO(owner) markers render in-app (Test-NoOwnerPlaceholders.ps1 reports them in LegalContent.cs), GitHub Pages is not enabled so the public policy URL 404s, and there is no age gate, no terms acceptance record, no health consent record, no data inventory and no Privacy Summary. Most seriously, AndroidManifest.xml:11 leaves Auto Backup enabled with no rules, so unencrypted backup archives are eligible for Google Drive"
+  },
+  {
+    "story": "E26",
+    "verdict": "PARTIAL",
+    "evidence": "The export half is careful and well tested - profile-scoped by default, fail-closed on an unresolved scope, explicit about what it cannot attribute, and verified against real SQLite rather than the in-memory provider (IDataExporter.cs:42-125, ScopedExportTests.cs:70-243) - and Strong/Hevy import is safe by test (ImportSafetyTests.cs:62-226)",
+    "gaps": "0 of 15 stories DONE (9 PARTIAL, 6 NOT-DONE). Backups are plaintext JSON while the app claims they are encrypted (ForgeBackupService.cs:462 vs DataManagementPageViewModel.cs:14); restore has no typed confirmation and no safety backup; there are no backup reminders, no MyFitnessPal or Apple Health import, no operation history and no verify-without-restore; and the export review screen is registered but unreachable"
+  }
+]

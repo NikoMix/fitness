@@ -949,6 +949,22 @@ function Set-ForgeFontScale {
     Start-Sleep -Seconds $SettleSeconds
 }
 
+function Invoke-ForgeKeyEvent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$AdbPath,
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$KeyCode,
+        [int]$Repeat = 1,
+        [double]$SettleSeconds = 0.35
+    )
+
+    for ($i = 0; $i -lt $Repeat; $i++) {
+        [void](Invoke-ForgeAdb -AdbPath $AdbPath -Serial $Serial -Arguments @('shell', 'input', 'keyevent', $KeyCode) -TimeoutSeconds 30)
+        if ($SettleSeconds -gt 0) { Start-Sleep -Milliseconds ([int]($SettleSeconds * 1000)) }
+    }
+}
+
 function Invoke-ForgeSwipe {
     [CmdletBinding()]
     param(

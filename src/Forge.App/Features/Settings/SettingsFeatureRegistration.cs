@@ -37,7 +37,6 @@ public static class SettingsFeatureRegistration
         services.AddSingleton<IForgePreferences>(forgePreferences);
         services.AddSingleton<IUnitPreferences>(forgePreferences);
         services.AddSingleton<IUnitFormatter, UnitFormatter>();
-        services.AddSingleton<IDataErasureService, PendingDataErasureService>();
         services.AddSingleton(themeApplier);
         services.AddSingleton<IStorageUsageService, StorageUsageService>();
 
