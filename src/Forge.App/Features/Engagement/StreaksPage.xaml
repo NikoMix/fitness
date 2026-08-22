@@ -1,64 +1,178 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Rhythm - consistency measured in weeks, never in days.
+
+    Nothing on this page counts down, and nothing is taken away by a rest day. The ring shows
+    progress through the user's own weekly target and is drawn only when an active plan supplies
+    one, because a ring against an invented denominator is a shape Forge could not describe in
+    words. Where there is no target, the same fact is stated in a sentence instead.
+
+    Every interactive control carries SemanticProperties.Description. DevExpress buttons are
+    otherwise exposed to Android's accessibility tree as non-focusable text with no description,
+    so a screen reader cannot reach them.
+
+    Visibility uses inverse properties on the view model rather than a converter, because the only
+    converter registered in App.xaml is CollectionHasItemsConverter.
+-->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:sys="clr-namespace:System;assembly=netstandard"
              xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Engagement.StreaksPage"
-             Title="Streaks"
+             x:Name="Page"
+             Title="Rhythm"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <ContentPage.Resources>
+        <!-- List height is a layout constant for this section; ForgeTokens carries no list scale. -->
+        <sys:Double x:Key="HistoryHeight">320</sys:Double>
+    </ContentPage.Resources>
+
     <adaptive:AdaptiveHost x:Name="Adaptive">
-    <ScrollView>
-        <VerticalStackLayout Padding="{StaticResource PagePadding}"
-                             HorizontalOptions="Center"
-                             WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" Spacing="{StaticResource SpaceL}">
-            <Label Text="Streaks" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
-            <Label Text="Rest days and recovery are treated as part of training, not as mistakes." Style="{StaticResource SecondaryText}" />
+        <ScrollView>
+            <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                                 HorizontalOptions="Center"
+                                 WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}"
+                                 Spacing="{StaticResource SpaceL}">
+                <Label Text="Your rhythm"
+                       Style="{StaticResource HeadlineText}"
+                       SemanticProperties.HeadingLevel="Level1" />
+                <Label Text="Forge counts weeks that contained training, not days in a row. Rest, recovery and deloads are part of training."
+                       Style="{StaticResource SecondaryText}" />
 
-            <controls:ForgeCard Title="Current rhythm" Subtitle="Forgiving by design">
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
-                    <controls:MetricTile Value="{Binding CurrentStreakDays}" Unit="days" Caption="Current" />
-                    <controls:MetricTile Grid.Column="1" Value="{Binding BestStreakDays}" Unit="days" Caption="Best" />
-                </Grid>
-            </controls:ForgeCard>
+                <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource HistoryHeight}" />
 
-            <controls:ForgeCard Title="Streak freezes" Subtitle="Protection for real life">
-                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <dx:RadialProgressBar Value="{Binding FreezesRemainingProgress}" HeightRequest="112" WidthRequest="112" HorizontalOptions="Center" />
-                    <Label Text="{Binding FreezesRemaining, StringFormat='{0} freezes remaining'}" Style="{StaticResource TitleText}" HorizontalTextAlignment="Center" />
-                    <Label Text="{Binding EncouragingMessage}" Style="{StaticResource SecondaryText}" HorizontalTextAlignment="Center" />
-                </VerticalStackLayout>
-            </controls:ForgeCard>
+                <controls:EmptyState IsVisible="{Binding HasNoHistory}"
+                                     Glyph="🌱"
+                                     Headline="Your first session starts the picture"
+                                     Message="Forge has nothing to show yet and will not invent a starting point. Complete one session and this becomes a real record of your weeks." />
 
-            <controls:ForgeCard Title="Respectful reminders" Subtitle="Local, capped, and quiet-hours aware">
-                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="{Binding ReminderPermissionMessage}" Style="{StaticResource SecondaryText}" />
-                    <Label Text="{Binding ReminderRefreshStatus}" Style="{StaticResource CaptionText}" />
-                    <dx:DXButton Content="Enable respectful reminders"
-                                 SemanticProperties.Description="Enable respectful reminders"
-                                 Style="{StaticResource PrimaryButton}"
-                                 Command="{Binding EnableRespectfulRemindersCommand}" />
-                </VerticalStackLayout>
-            </controls:ForgeCard>
+                <controls:ForgeCard IsVisible="{Binding HasHistory}"
+                                    Title="Where you are"
+                                    Subtitle="Read from your own logged sessions">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <Label Text="{Binding Headline}" Style="{StaticResource TitleText}" />
+                        <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
 
-            <Label Text="History" Style="{StaticResource SectionHeaderText}" />
-            <dx:DXCollectionView ItemsSource="{Binding History}" HeightRequest="300"
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
-                <dx:DXCollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <dx:DXBorder Style="{StaticResource ListRow}">
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource SpaceM}">
-                                <Label Text="{Binding Date}" Style="{StaticResource CaptionText}" VerticalTextAlignment="Center" />
-                                <VerticalStackLayout Grid.Column="1" Spacing="{StaticResource SpaceXs}">
-                                    <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
+                        <controls:ActivityRing IsVisible="{Binding HasWeeklyTarget}"
+                                               Progress="{Binding WeekProgress}"
+                                               ValueText="{Binding WeekProgressText}"
+                                               Label="This week"
+                                               Detail="{Binding WeekProgressDetail}" />
+
+                        <Label IsVisible="{Binding HasNoWeeklyTarget}"
+                               Text="{Binding WeekProgressDetail}"
+                               Style="{StaticResource SecondaryText}" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="{StaticResource SpaceM}">
+                            <controls:MetricTile Value="{Binding ActiveWeeksText}"
+                                                 Unit="weeks"
+                                                 Caption="In a row with training" />
+                            <controls:MetricTile Grid.Column="1"
+                                                 Value="{Binding BestActiveWeeksText}"
+                                                 Unit="weeks"
+                                                 Caption="Longest run so far" />
+                        </Grid>
+
+                        <Label Text="{Binding ActiveWeeksCaption}" Style="{StaticResource CaptionText}" />
+                    </VerticalStackLayout>
+                </controls:ForgeCard>
+
+                <controls:ForgeCard Title="Rest and recovery" Subtitle="Nothing here counts down">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <Label Text="{Binding RestAssurance}" Style="{StaticResource SecondaryText}" />
+
+                        <Label IsVisible="{Binding IsProtected}"
+                               Text="{Binding ProtectionSummary}"
+                               Style="{StaticResource TitleText}" />
+
+                        <Label IsVisible="{Binding IsNotProtected}"
+                               Text="If you are unwell, injured or deloading, tell Forge and it will stop measuring those weeks. You can undo it whenever you like."
+                               Style="{StaticResource CaptionText}" />
+
+                        <Grid IsVisible="{Binding IsNotProtected}"
+                              ColumnDefinitions="*,*,*"
+                              ColumnSpacing="{StaticResource SpaceS}">
+                            <dx:DXButton Content="Unwell"
+                                         SemanticProperties.Description="Mark that you are unwell, so these days are not measured"
+                                         Style="{StaticResource SecondaryButton}"
+                                         Command="{Binding MarkProtectedCommand}"
+                                         CommandParameter="Illness" />
+                            <dx:DXButton Grid.Column="1"
+                                         Content="Injured"
+                                         SemanticProperties.Description="Mark that you are injured, so these days are not measured"
+                                         Style="{StaticResource SecondaryButton}"
+                                         Command="{Binding MarkProtectedCommand}"
+                                         CommandParameter="Injury" />
+                            <dx:DXButton Grid.Column="2"
+                                         Content="Deload"
+                                         SemanticProperties.Description="Mark a planned deload, so these days are not measured"
+                                         Style="{StaticResource SecondaryButton}"
+                                         Command="{Binding MarkProtectedCommand}"
+                                         CommandParameter="Deload" />
+                        </Grid>
+
+                        <dx:DXButton IsVisible="{Binding IsProtected}"
+                                     Content="I am training again"
+                                     SemanticProperties.Description="End the protected period and resume measuring your weeks"
+                                     Style="{StaticResource PrimaryButton}"
+                                     Command="{Binding EndProtectionCommand}" />
+                    </VerticalStackLayout>
+                </controls:ForgeCard>
+
+                <controls:ForgeCard Title="Badges and rhythm" Subtitle="Entirely optional">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <Label Text="{Binding GamificationNote}" Style="{StaticResource SecondaryText}" />
+                        <dx:DXButton IsVisible="{Binding GamificationEnabled}"
+                                     Content="Turn badges and rhythm off"
+                                     SemanticProperties.Description="Turn badges and rhythm framing off. Logging, plans, nutrition and progress are unchanged."
+                                     Style="{StaticResource SecondaryButton}"
+                                     Command="{Binding ToggleGamificationCommand}" />
+                        <dx:DXButton IsVisible="{Binding GamificationDisabled}"
+                                     Content="Turn badges and rhythm on"
+                                     SemanticProperties.Description="Turn badges and rhythm framing back on"
+                                     Style="{StaticResource SecondaryButton}"
+                                     Command="{Binding ToggleGamificationCommand}" />
+                    </VerticalStackLayout>
+                </controls:ForgeCard>
+
+                <controls:ForgeCard Title="Reminders" Subtitle="Local, capped, and quiet-hours aware">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <Label Text="{Binding ReminderPermissionMessage}" Style="{StaticResource SecondaryText}" />
+                        <Label Text="{Binding ReminderRefreshStatus}" Style="{StaticResource CaptionText}" />
+                        <dx:DXButton Content="Enable reminders"
+                                     SemanticProperties.Description="Enable local reminders built from your own logs"
+                                     Style="{StaticResource PrimaryButton}"
+                                     Command="{Binding EnableRespectfulRemindersCommand}" />
+                    </VerticalStackLayout>
+                </controls:ForgeCard>
+
+                <Label IsVisible="{Binding HasHistory}"
+                       Text="Recent weeks"
+                       Style="{StaticResource SectionHeaderText}"
+                       SemanticProperties.HeadingLevel="Level2" />
+
+                <dx:DXCollectionView IsVisible="{Binding HasHistory}"
+                                     ItemsSource="{Binding History}"
+                                     HeightRequest="{StaticResource HistoryHeight}"
+                                     ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
+                    <dx:DXCollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <dx:DXBorder Style="{StaticResource ListRow}"
+                                         SemanticProperties.Description="{Binding Description}">
+                                <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                    <Label Text="{Binding Label}" Style="{StaticResource TitleText}" />
                                     <Label Text="{Binding Detail}" Style="{StaticResource SecondaryText}" />
+                                    <Label IsVisible="{Binding IsProtected}"
+                                           Text="{Binding Status}"
+                                           Style="{StaticResource CaptionText}" />
                                 </VerticalStackLayout>
-                            </Grid>
-                        </dx:DXBorder>
-                    </DataTemplate>
-                </dx:DXCollectionView.ItemTemplate>
-            </dx:DXCollectionView>
-        </VerticalStackLayout>
-    </ScrollView>
+                            </dx:DXBorder>
+                        </DataTemplate>
+                    </dx:DXCollectionView.ItemTemplate>
+                </dx:DXCollectionView>
+            </VerticalStackLayout>
+        </ScrollView>
     </adaptive:AdaptiveHost>
 </ContentPage>

@@ -109,11 +109,11 @@ public static class ProfileDataAreas
         new(
             "Streaks",
             [typeof(Streak)],
-            "Streaks already record an owner but are not read with a profile filter yet, so one streak is shown to everyone."),
+            "Your training rhythm and any period you marked as illness, injury or a deload belong to you alone, and no other profile sees them."),
         new(
             "Achievements",
             [typeof(Achievement)],
-            "Badges are shared, so one profile can unlock an achievement that appears earned on another."),
+            "Badges are earned per profile from that profile's own training, so one person unlocking something does not make it appear for anybody else."),
         new(
             "Exercise library",
             [typeof(Exercise)],

@@ -1,3 +1,4 @@
+using Forge.App.Features.Engagement.Services;
 using Forge.App.Features.Engagement.ViewModels;
 using Forge.App.Navigation;
 using Forge.App.Services.Notifications;
@@ -32,6 +33,7 @@ public static class EngagementFeatureRegistration
         services.AddSingleton<INotificationScheduler, LocalNotificationScheduler>();
         services.AddTransient<IReminderRefreshService, ReminderRefreshService>();
 
+        services.AddTransient<IEngagementDataService, EngagementDataService>();
         services.AddTransient<AchievementsPageViewModel>();
         services.AddTransient<StreaksPageViewModel>();
         services.AddTransient<AchievementsPage>();

@@ -62,11 +62,10 @@ public sealed class ReminderRefreshService(
         var hydration = (await session.Repository<HydrationEntry>().ListAsync(cancellationToken)).OwnedBy(scope).ToList();
         var checkIns = (await session.Repository<MorningCheckIn>().ListAsync(cancellationToken)).OwnedBy(scope).ToList();
 
-        // Streaks are still read unscoped. Streak already carries a UserProfileId but does not
-        // implement IProfileOwned yet, so there is nothing to filter on; one profile's streak
-        // therefore still drives everybody's streak-protection reminder. See phase 1 of
-        // docs/design/multi-profile.md.
-        var streaks = await session.Repository<Streak>().ListAsync(cancellationToken);
+        // Streaks are now profile-owned, so this reads only the active profile's record. Before
+        // Engagement adopted the seam, one profile's streak drove everybody's reminder. This is
+        // item 15 of docs/design/multi-profile.md, which was blocked on item 1.
+        var streaks = (await session.Repository<Streak>().ListAsync(cancellationToken)).OwnedBy(scope).ToList();
         var streak = streaks.Count > 0 ? streaks[0] : null;
 
         var completedWorkoutToday = workouts.Any(workout =>
@@ -94,7 +93,7 @@ public sealed class ReminderRefreshService(
                 completedWorkoutToday,
                 hydrationToday,
                 checkInToday,
-                streak?.GamificationEnabled == true && streak.FreezesRemaining > 0),
+                streak?.AllowsSupportiveReminders(localDate) == true),
             alreadyScheduled));
 
         foreach (var decision in decisions)

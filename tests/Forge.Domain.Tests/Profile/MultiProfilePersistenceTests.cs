@@ -1,4 +1,5 @@
 using Forge.Domain.Common;
+using Forge.Domain.Engagement;
 using Forge.Domain.Measurement;
 using Forge.Domain.Nutrition;
 using Forge.Domain.Nutrition.Recipes;
@@ -455,6 +456,8 @@ public sealed class MultiProfilePersistenceTests : IAsyncLifetime
         typeof(MorningCheckIn),
         typeof(SorenessEntry),
         typeof(Recipe),
+        typeof(Streak),
+        typeof(Achievement),
     ];
 
     /// <summary>
@@ -486,6 +489,8 @@ public sealed class MultiProfilePersistenceTests : IAsyncLifetime
         await SoftDeleteOwnedAsync<MorningCheckIn>(session, scope);
         await SoftDeleteOwnedAsync<SorenessEntry>(session, scope);
         await SoftDeleteOwnedAsync<Recipe>(session, scope);
+        await SoftDeleteOwnedAsync<Streak>(session, scope);
+        await SoftDeleteOwnedAsync<Achievement>(session, scope);
 
         await profiles.SoftDeleteAsync(profileId, TestContext.Current.CancellationToken);
 

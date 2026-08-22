@@ -1,71 +1,124 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Achievements - a local trophy cabinet, built from logged training.
+
+    Progress on a locked badge is measured, not estimated: the ring and the "3 of 4" beside it come
+    from the same count, so the shape can always be described in words. Each card states why the
+    badge is good for the person, which is a constraint on the scheme as much as a courtesy.
+
+    The share card lives outside the AdaptiveHost content in the same Grid so it can be captured at
+    a fixed width. It is a plain DXBorder rather than a ContentPresenter: a ContentPresenter outside
+    a ControlTemplate opts out of binding-context inheritance and every child binding silently
+    resolves against null.
+-->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:sys="clr-namespace:System;assembly=netstandard"
              xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
              xmlns:controls="clr-namespace:Forge.App.Controls"
              x:Class="Forge.App.Features.Engagement.AchievementsPage"
              x:Name="Page"
              Title="Achievements"
              BackgroundColor="{dx:ThemeColor Surface}">
-    <adaptive:AdaptiveHost x:Name="Adaptive">
+    <ContentPage.Resources>
+        <!-- List height is a layout constant for this section; ForgeTokens carries no list scale. -->
+        <sys:Double x:Key="CabinetHeight">560</sys:Double>
+        <sys:Double x:Key="ShareCardWidth">360</sys:Double>
+        <Thickness x:Key="CardGap">0,0,0,12</Thickness>
+    </ContentPage.Resources>
+
     <Grid>
-        <ScrollView>
-            <VerticalStackLayout Padding="{StaticResource PagePadding}"
-                                 HorizontalOptions="Center"
-                                 WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" Spacing="{StaticResource SpaceL}">
-                <Label Text="Achievements" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
-                <Label Text="A local trophy cabinet for meaningful training moments. Nothing is uploaded." Style="{StaticResource SecondaryText}" />
+        <adaptive:AdaptiveHost x:Name="Adaptive">
+            <ScrollView>
+                <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                                     HorizontalOptions="Center"
+                                     WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}"
+                                     Spacing="{StaticResource SpaceL}">
+                    <Label Text="Achievements"
+                           Style="{StaticResource HeadlineText}"
+                           SemanticProperties.HeadingLevel="Level1" />
+                    <Label Text="Earned from training you logged on this device. Nothing is uploaded, and nothing here rewards training through pain."
+                           Style="{StaticResource SecondaryText}" />
 
-                <controls:EmptyState IsVisible="{Binding HasNoAchievements}"
-                                     Glyph="🏆"
-                                     Headline="Your cabinet is ready"
-                                     Message="Log a workout, try a new movement, or set your first personal record. Forge celebrates real progress without pressure or fake scarcity." />
+                    <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="{StaticResource CabinetHeight}" />
 
-                <dx:DXCollectionView ItemsSource="{Binding Achievements}" HeightRequest="560"
-                                     ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
-                    <dx:DXCollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <dx:DXBorder Style="{StaticResource Card}" Margin="0,0,0,12">
-                                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}" RowSpacing="{StaticResource SpaceS}">
-                                    <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
-                                        <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
-                                        <Label Text="{Binding Category}" Style="{StaticResource CaptionText}" />
-                                    </VerticalStackLayout>
-                                    <dx:RadialProgressBar Grid.Column="1"
-                                                          Value="{Binding Progress}"
-                                                          HeightRequest="72"
-                                                          WidthRequest="72"
-                                                          StartAngle="-90"
-                                                          SweepAngle="360" />
-                                    <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Description}" Style="{StaticResource SecondaryText}" />
-                                    <dx:DXButton Grid.Row="2"
-                                                 Grid.ColumnSpan="2"
-                                                 Content="Share card"
-                                                 SemanticProperties.Description="Share card"
-                                                 Style="{StaticResource SecondaryButton}"
-                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.ShareCommand}"
-                                                 CommandParameter="{Binding .}" />
-                                </Grid>
-                            </dx:DXBorder>
-                        </DataTemplate>
-                    </dx:DXCollectionView.ItemTemplate>
-                </dx:DXCollectionView>
-            </VerticalStackLayout>
-        </ScrollView>
+                    <Label Text="{Binding Summary}" Style="{StaticResource CaptionText}" />
+
+                    <dx:DXBorder IsVisible="{Binding HasCelebration}" Style="{StaticResource Card}">
+                        <Label Text="{Binding Celebration}"
+                               Style="{StaticResource TitleText}"
+                               SemanticProperties.Description="{Binding Celebration}" />
+                    </dx:DXBorder>
+
+                    <controls:EmptyState IsVisible="{Binding HasNoAchievements}"
+                                         Glyph="🏆"
+                                         Headline="Your cabinet is ready"
+                                         Message="Log a session, record how a set felt, or check in on your recovery. Every badge below shows exactly how far along you are, and none of them appears before you have earned it." />
+
+                    <dx:DXCollectionView ItemsSource="{Binding Achievements}"
+                                         HeightRequest="{StaticResource CabinetHeight}"
+                                         ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
+                        <dx:DXCollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <dx:DXBorder Style="{StaticResource Card}"
+                                             Margin="{StaticResource CardGap}"
+                                             SemanticProperties.Description="{Binding AccessibleDescription}">
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                                          ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="{StaticResource SpaceM}"
+                                          RowSpacing="{StaticResource SpaceS}">
+                                        <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
+                                            <Label Text="{Binding Title}" Style="{StaticResource TitleText}" />
+                                            <Label Text="{Binding Category}" Style="{StaticResource CaptionText}" />
+                                        </VerticalStackLayout>
+
+                                        <dx:RadialProgressBar Grid.Column="1"
+                                                              Value="{Binding Progress}"
+                                                              StartAngle="-90"
+                                                              SweepAngle="360"
+                                                              HeightRequest="{StaticResource TouchTargetPrimary}"
+                                                              WidthRequest="{StaticResource TouchTargetPrimary}"
+                                                              AutomationProperties.IsInAccessibleTree="False" />
+
+                                        <Label Grid.Row="1"
+                                               Grid.ColumnSpan="2"
+                                               Text="{Binding Description}"
+                                               Style="{StaticResource SecondaryText}" />
+
+                                        <VerticalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="{StaticResource SpaceXs}">
+                                            <Label Text="{Binding EarnedOn}" Style="{StaticResource CaptionText}" />
+                                            <Label Text="{Binding WhyItMatters}" Style="{StaticResource CaptionText}" />
+                                        </VerticalStackLayout>
+
+                                        <dx:DXButton Grid.Row="3"
+                                                     Grid.ColumnSpan="2"
+                                                     IsVisible="{Binding IsUnlocked}"
+                                                     Content="Share card"
+                                                     SemanticProperties.Description="Share a picture of this badge"
+                                                     Style="{StaticResource SecondaryButton}"
+                                                     Command="{Binding Source={x:Reference Page}, Path=BindingContext.ShareCommand}"
+                                                     CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </dx:DXBorder>
+                            </DataTemplate>
+                        </dx:DXCollectionView.ItemTemplate>
+                    </dx:DXCollectionView>
+                </VerticalStackLayout>
+            </ScrollView>
+        </adaptive:AdaptiveHost>
 
         <dx:DXBorder x:Name="ShareCard"
                      IsVisible="False"
                      Style="{StaticResource ElevatedCard}"
-                     WidthRequest="360"
+                     WidthRequest="{StaticResource ShareCardWidth}"
                      Padding="{StaticResource SpaceXl}">
             <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                 <Label Text="{Binding Title}" Style="{StaticResource HeadlineText}" HorizontalTextAlignment="Center" />
                 <Label Text="{Binding Category}" Style="{StaticResource CaptionText}" HorizontalTextAlignment="Center" />
                 <Label Text="{Binding Description}" Style="{StaticResource BodyText}" HorizontalTextAlignment="Center" />
-                <Label Text="Forge · local achievement" Style="{StaticResource CaptionText}" HorizontalTextAlignment="Center" />
+                <Label Text="Forge · earned locally" Style="{StaticResource CaptionText}" HorizontalTextAlignment="Center" />
             </VerticalStackLayout>
         </dx:DXBorder>
     </Grid>
-    </adaptive:AdaptiveHost>
 </ContentPage>
