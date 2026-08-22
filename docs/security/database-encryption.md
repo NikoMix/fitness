@@ -40,6 +40,10 @@ rather than once:
 | Key passed raw | **24 ms** |
 | No encryption at all | 5 ms |
 
+Read that table carefully: it is per *physical* connection, not per open. `Microsoft.Data.Sqlite`
+pools the handle, and re-issuing `PRAGMA key` on an already-keyed handle is free — a session in
+steady state opens in about 0.9 ms.
+
 SQLCipher's raw-key form skips the derivation, and it was tried. It is **not** used, because it
 could not be shown to be safe here: the crash above was initially attributed to it, and reverting
 the raw key did not fix it. The raw-key form may well be fine - the actual culprit was shared cache -
@@ -47,9 +51,15 @@ but it was reverted before that was known, and re-introducing an unverified chan
 security-critical native path to win back latency is the wrong trade while the real fix is
 available elsewhere.
 
-**The real fix for the cost is to stop opening a connection per operation.** That is a change to how
-the data-session seam is scoped, it is measurable, and it helps every query rather than only the
-encrypted ones. Tracked separately.
+This document previously said the real fix was to stop opening a connection per operation, and
+that was wrong. Rescoping the data-session seam was measured and buys approximately nothing,
+because the connection underneath is already pooled. The actual cost was `PRAGMA journal_mode`
+running in the per-connection batch: `PRAGMA key` derives lazily on first page read, but
+`journal_mode` reads the database header, so it forced a full key derivation on every physical
+connection — including the four that `RelationalDatabaseCreator.Exists` opens purely to ask
+whether the file can be opened, and which never run a query. WAL is persistent state in the
+header, so setting it per connection only re-stated something already true. It now runs once, at
+initialisation. See `docs/performance/data-access.md` for the measurements.
 
 ## What was wrong
 

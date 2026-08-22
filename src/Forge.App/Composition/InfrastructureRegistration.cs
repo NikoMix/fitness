@@ -36,6 +36,10 @@ internal static class InfrastructureRegistration
         services.AddSingleton<ForgeSecureStorage, MauiSecureStorage>();
         services.AddSingleton<IDatabaseKeyProvider, SecureStorageDatabaseKeyProvider>();
 
+        // Erasure and restore need the pooled handles closed before they touch the files. The
+        // seam keeps Forge.App free of a direct SQLite dependency.
+        services.AddSingleton<IDatabaseFileRelease, SqliteDatabaseFileRelease>();
+
         // DbContext is transient, not singleton.
         //
         // MAUI has no per-request scope, so the tempting choice is a singleton. That is wrong

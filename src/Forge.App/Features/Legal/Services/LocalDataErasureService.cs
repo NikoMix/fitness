@@ -8,7 +8,7 @@ namespace Forge.App.Features.Legal.Services;
 /// <summary>
 /// Irreversibly erases Forge's local-only device data.
 /// </summary>
-public sealed class LocalDataErasureService(IDataSessionFactory sessions) : IDataErasureService
+public sealed class LocalDataErasureService(IDatabaseFileRelease databaseFiles) : IDataErasureService
 {
     private const string DatabaseFileName = "forge.db";
 
@@ -39,7 +39,12 @@ public sealed class LocalDataErasureService(IDataSessionFactory sessions) : IDat
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        await ReleaseDataSessionAsync().ConfigureAwait(false);
+        // Close the pooled connections before deleting anything. Disposing a data session returns
+        // its handle to the pool rather than closing it, so without this the database file is
+        // still open while it is unlinked. Android does not report that as an error: the delete
+        // "succeeds", the erasure looks complete, and a pooled handle to the unlinked inode can
+        // still be handed out afterwards.
+        databaseFiles.ReleasePooledHandles();
 
         var failures = new List<Exception>();
         Try(() => Preferences.Default.Clear(), failures);
@@ -106,20 +111,6 @@ public sealed class LocalDataErasureService(IDataSessionFactory sessions) : IDat
         }
 
         return total;
-    }
-
-    private async Task ReleaseDataSessionAsync()
-    {
-        try
-        {
-            await using var session = sessions.Create();
-        }
-        catch (InvalidOperationException)
-        {
-        }
-        catch (IOException)
-        {
-        }
     }
 
     private static void DeleteDirectoryContents(string path, List<Exception> failures, CancellationToken cancellationToken)
