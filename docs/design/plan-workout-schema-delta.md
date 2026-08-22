@@ -147,6 +147,36 @@ It now finds `EngagementProfileOwnership` by name and steps back one. This is th
 outside the plan/workout area on this branch, and without it generating `PlanWorkoutLink` would
 turn four passing tests red.
 
+## Verified on a device
+
+Walked on `emulator-5554`, deployed with
+`dotnet build -f net10.0-android -t:Install -p:EmbedAssembliesIntoApk=true`.
+
+**Without the migration, the app cannot open a workout at all.** The active-workout screen throws
+`Microsoft.Data.Sqlite.SqliteException: SQLite Error 1: 'no such column: w.PlanDayId'`, because
+`DatabaseInitializer` builds the schema from the migration chain and the chain does not yet know
+about these columns. It degrades as designed rather than crashing — the screen renders, the fixed
+sentence "Forge could not open your workout. Your logged sets are safe in the database" appears
+with no exception text, and the target tile still reads "No target · ad hoc" rather than a
+fabricated number — but the session does not start. This is the same shape the engagement stream
+recorded, and it is the strongest argument for generating the migration promptly at integration.
+
+With the migration scaffolded locally the whole walk works, captured from the live UI hierarchy:
+
+| Screen | What the device showed |
+| --- | --- |
+| Train, no plan | `Train from your plan` · `Start empty workout` |
+| Train, plan adopted | `Full-body beginner` · `Up next` · `Full body A` · `4 exercises · 12 sets · about 23 min` |
+| Ad hoc workout | target `—`, caption `No target · ad hoc`, spoken as `No target · ad hoc, —` |
+| Workout from `Full body A` | `Following your plan · 4 exercises` · `Goblet squat` · caption `Target · from your plan` · `8-10 reps` · reps pre-filled `8` |
+
+No `60` appears anywhere on either screen. The load reads `—` for this plan because the shipped
+templates prescribe a rep range and leave the load to the lifter; showing `0 kg` there would be a
+number the user never wrote.
+
+The scaffold was then removed with `dotnet ef migrations remove` and the snapshot restored with
+`git checkout`, so nothing under `Persistence/Migrations/` is modified by this branch.
+
 ## Verification
 
 - `PlanWorkoutSchemaTests` (Forge.Infrastructure.Tests) writes and reads a session carrying all

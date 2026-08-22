@@ -126,12 +126,22 @@ public static class PlanWorkoutProjection
         return days.Find(day => !completed.Contains(day.Id)) ?? days[0];
     }
 
+    /// <summary>
+    /// Copies one prescribed set.
+    /// </summary>
+    /// <remarks>
+    /// A target load of zero is treated as no prescription rather than as "lift nothing". The
+    /// shipped templates in <see cref="PlanTemplateCatalogue"/> all set <c>Mass.Zero</c>, because
+    /// they prescribe a rep range and leave the load to the lifter, and carrying that through
+    /// literally would put "0 kg" on screen under the caption "Target" - a number the user never
+    /// wrote, in the position where their own prescription belongs.
+    /// </remarks>
     private static PlannedSetTarget ToTarget(PlannedSet set)
         => new(
             set.Ordinal,
             set.TargetRepsMin,
             set.TargetRepsMax,
-            set.TargetLoad?.Kilograms,
+            set.TargetLoad?.Kilograms > 0m ? set.TargetLoad.Value.Kilograms : null,
             set.TargetRpe,
             set.Rest,
             set.IsWarmUp);
