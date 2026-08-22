@@ -31,7 +31,7 @@
                             <toolkit:MediaElement x:Name="DemoPlayer"
                                                   Grid.Row="0"
                                                   Aspect="AspectFit"
-                                                  Source="{Binding MediaSource}"
+                                                  Source="{Binding PlaybackSource}"
                                                   ShouldAutoPlay="{Binding ShouldAutoPlay}"
                                                   ShouldLoopPlayback="True"
                                                   ShouldMute="True"
@@ -90,6 +90,11 @@
                     <VerticalStackLayout Spacing="{StaticResource SpaceS}">
                         <Label Text="Media availability" Style="{StaticResource TitleText}" />
                         <Label Text="{Binding AvailabilityMessage}" Style="{StaticResource BodyText}" />
+                        <dx:DXButton Content="Optional video packs"
+                                     SemanticProperties.Description="Open the optional exercise video packs"
+                                     Style="{StaticResource SecondaryButton}"
+                                     IsVisible="{Binding IsVideoLibrarySuggested}"
+                                     Command="{Binding OpenVideoLibraryCommand}" />
                     </VerticalStackLayout>
                 </dx:DXBorder>
 

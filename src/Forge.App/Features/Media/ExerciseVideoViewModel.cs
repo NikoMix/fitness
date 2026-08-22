@@ -1,11 +1,23 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Maui.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Forge.App.Navigation;
 using Forge.Core.Abstractions.Media;
 using Forge.Infrastructure.Content;
 
 namespace Forge.App.Features.Media;
 
+/// <summary>
+/// Backs the exercise demonstration page.
+/// </summary>
+/// <remarks>
+/// The source handed to the player is a <see cref="MediaSource"/> rather than a string on purpose.
+/// The string form goes through a converter that reads anything parsing as an absolute URI as a
+/// network address, so the <c>embed://</c> and <c>filesystem://</c> prefixes this used to build
+/// were treated as remote URLs with invented schemes and never played, even when a file was sitting
+/// on the device. Naming the file source outright removes the guess.
+/// </remarks>
 public sealed partial class ExerciseVideoViewModel(IMediaCatalogue mediaCatalogue, IMediaPlaybackPolicy playbackPolicy) : ObservableObject
 {
     [ObservableProperty]
@@ -15,9 +27,10 @@ public sealed partial class ExerciseVideoViewModel(IMediaCatalogue mediaCatalogu
     private string summary = string.Empty;
 
     [ObservableProperty]
-    private string mediaSource = string.Empty;
+    private MediaSource? playbackSource;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsVideoLibrarySuggested))]
     private bool hasMedia;
 
     [ObservableProperty]
@@ -52,6 +65,16 @@ public sealed partial class ExerciseVideoViewModel(IMediaCatalogue mediaCatalogu
 
     public ObservableCollection<string> SynchronizedDescriptions { get; } = [];
 
+    /// <summary>
+    /// Whether to offer the optional video packs, because nothing is playable here.
+    /// </summary>
+    /// <remarks>
+    /// Only offered when there is no demonstration to watch. Video is an extra in Forge, and a
+    /// standing invitation to download hundreds of megabytes on a page that is already complete
+    /// would turn the extra into a nag.
+    /// </remarks>
+    public bool IsVideoLibrarySuggested => !HasMedia;
+
     public async Task LoadAsync(string exerciseName, CancellationToken cancellationToken = default)
     {
         var exercise = SeedCatalogue.FindByName(exerciseName) ?? SeedCatalogue.Exercises[0];
@@ -65,15 +88,19 @@ public sealed partial class ExerciseVideoViewModel(IMediaCatalogue mediaCatalogu
 
         var media = await mediaCatalogue.ResolveExerciseMediaAsync(exercise.Name, cancellationToken);
         HasMedia = media.HasPlayableSource;
-        MediaSource = ToMauiSource(media);
-        AvailabilityMessage = media.Availability switch
+        PlaybackSource = ToPlayerSource(media);
+
+        // The resolver knows which of several very different situations produced "no video" -
+        // nothing downloaded, a pack that omits this movement, or a store lookup that failed - so
+        // its sentence is shown rather than one guessed from the availability enum.
+        AvailabilityMessage = media.TextDescription ?? media.Availability switch
         {
             ExerciseMediaAvailability.Bundled => "Bundled silent demonstration. Playback loops so you can compare each repetition.",
-            ExerciseMediaAvailability.Downloaded => "Downloaded silent demonstration stored in the device cache. It never leaves this device.",
-            _ => "No motion asset is installed for this exercise in v1. The text-only form guide below is the intended fallback."
+            ExerciseMediaAvailability.Downloaded => "Downloaded silent demonstration, played from this device. It never leaves it.",
+            _ => "No demonstration video is available for this exercise. The text-only form guide below is the intended fallback."
         };
 
-        CurrentDescription = media.TextDescription ?? SynchronizedDescriptions.FirstOrDefault() ?? "Use the written steps below to check your form.";
+        CurrentDescription = SynchronizedDescriptions.FirstOrDefault() ?? "Use the written steps below to check your form.";
         ShouldAutoPlay = HasMedia && !playbackPolicy.ShouldSuppressAutoplay();
     }
 
@@ -108,11 +135,21 @@ public sealed partial class ExerciseVideoViewModel(IMediaCatalogue mediaCatalogu
         FullScreenButtonText = IsFullScreen ? "Exit full screen" : "Full screen";
     }
 
-    private static string ToMauiSource(ExerciseMediaDescriptor media) => media.Availability switch
+    [RelayCommand]
+    private static Task OpenVideoLibraryAsync() => Shell.Current.GoToAsync(ForgeRoutes.VideoLibrary);
+
+    /// <summary>
+    /// Names the source for the player without letting a converter guess at it.
+    /// </summary>
+    /// <remarks>
+    /// A downloaded asset pack hands back an absolute path on the device, and a bundled asset is a
+    /// resource inside the app package. Both are local; neither is a URL.
+    /// </remarks>
+    private static MediaSource? ToPlayerSource(ExerciseMediaDescriptor media) => media.Availability switch
     {
-        ExerciseMediaAvailability.Bundled when !string.IsNullOrWhiteSpace(media.Source) => $"embed://{media.Source}",
-        ExerciseMediaAvailability.Downloaded when !string.IsNullOrWhiteSpace(media.Source) => $"filesystem://{media.Source}",
-        _ => string.Empty
+        ExerciseMediaAvailability.Bundled when !string.IsNullOrWhiteSpace(media.Source) => MediaSource.FromResource(media.Source),
+        ExerciseMediaAvailability.Downloaded when !string.IsNullOrWhiteSpace(media.Source) => MediaSource.FromFile(media.Source),
+        _ => null
     };
 
     private static string Format(TimeSpan value) => $"{(int)value.TotalMinutes}:{value.Seconds:00}";

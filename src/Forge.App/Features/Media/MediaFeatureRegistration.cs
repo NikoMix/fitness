@@ -31,10 +31,14 @@ public static partial class MediaFeatureRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<HttpClient>();
+
+        // Kept for storage accounting only. Settings measures and reclaims locally stored media
+        // through it, and it is deliberately no longer part of resolving exercise video: its
+        // download half takes an arbitrary source URI, which would mean Forge hosting and paying
+        // for video bandwidth. See docs/media/exercise-video-resolution.md.
         services.AddSingleton<IMediaCache>(provider => new FileSystemMediaCache(
             Path.Combine(Microsoft.Maui.Storage.FileSystem.Current.CacheDirectory, "forge-media"),
             provider.GetRequiredService<HttpClient>()));
-        services.AddSingleton<IMediaCatalogue, ExerciseMediaCatalogue>();
         services.AddSingleton<IMediaPlaybackPolicy, MauiMediaPlaybackPolicy>();
 
         // Optional exercise video arrives through the store's own asset delivery, so the install
@@ -46,6 +50,10 @@ public static partial class MediaFeatureRegistration
 #else
         services.AddSingleton<IMediaPackService, UnavailableMediaPackService>();
 #endif
+
+        // Resolves demonstrations from the packs the line above downloads. Registered after it so
+        // the ordering states the dependency: one store, written and read in the same place.
+        services.AddSingleton<IMediaCatalogue, ExerciseMediaCatalogue>();
 
         services.AddTransient<ExerciseVideoViewModel>();
         services.AddTransient<ExerciseVideoPage>();

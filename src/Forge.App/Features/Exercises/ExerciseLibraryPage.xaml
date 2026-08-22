@@ -79,6 +79,23 @@
                        VerticalTextAlignment="Center" />
             </Grid>
 
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding HasDeclaredLimitations}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceS}">
+                    <Label Text="Your movement limitations"
+                           Style="{StaticResource TitleText}"
+                           SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="{Binding LimitationSummary}" Style="{StaticResource BodyText}" />
+                    <Label Text="{Binding LimitationUnreadNotice}"
+                           Style="{StaticResource BodyText}"
+                           IsVisible="{Binding HasUnreadLimitations}" />
+                    <dx:DXButton Content="{Binding LimitationFilterButtonText}"
+                                 SemanticProperties.Description="Turn filtering by your declared movement limitations on or off"
+                                 Style="{StaticResource SecondaryButton}"
+                                 IsVisible="{Binding CanToggleLimitationFilter}"
+                                 Command="{Binding ToggleLimitationFilterCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
             <dx:DXBorder Style="{StaticResource AdvisoryCard}" IsVisible="{Binding HasActionMessage}">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource SpaceM}">
                     <Label Text="{Binding ActionMessage}"

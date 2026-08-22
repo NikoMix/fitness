@@ -1,5 +1,5 @@
 using CommunityToolkit.Maui.Core;
-using Forge.Infrastructure.Media;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Forge.App.Features.Media;
 
@@ -11,11 +11,7 @@ public partial class ExerciseVideoPage : ContentPage, IQueryAttributable
     private bool isScrubbing;
 
     public ExerciseVideoPage()
-        : this(new ExerciseVideoViewModel(
-            new ExerciseMediaCatalogue(new FileSystemMediaCache(
-                Path.Combine(Microsoft.Maui.Storage.FileSystem.Current.CacheDirectory, "forge-media"),
-                new HttpClient())),
-            new MauiMediaPlaybackPolicy()))
+        : this(ResolveViewModel())
     {
     }
 
@@ -143,4 +139,8 @@ public partial class ExerciseVideoPage : ContentPage, IQueryAttributable
 
         return 64;
     }
+
+    private static ExerciseVideoViewModel ResolveViewModel() =>
+        Microsoft.Maui.Controls.Application.Current?.Handler?.MauiContext?.Services.GetRequiredService<ExerciseVideoViewModel>()
+        ?? throw new InvalidOperationException("The exercise video view model could not be resolved.");
 }

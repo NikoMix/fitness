@@ -1,4 +1,5 @@
 using Forge.App.Composition;
+using Forge.Core.Abstractions;
 using Forge.Core.Abstractions.Data;
 using Forge.Domain.Profile;
 using Forge.Domain.Training;
@@ -7,6 +8,9 @@ namespace Forge.App.Features.Exercises;
 
 internal sealed class ExerciseDataStore(ForgeStartupService startup, IDataSessionFactory sessions) : IExerciseDataStore
 {
+    private const string DatabaseUnavailable =
+        "The local exercise database is unavailable. Restart Forge, or use data recovery from settings.";
+
     public async Task<ExerciseDataResult<ExerciseLibrarySnapshot>> LoadLibraryAsync(CancellationToken cancellationToken)
     {
         try
@@ -23,13 +27,18 @@ internal sealed class ExerciseDataStore(ForgeStartupService startup, IDataSessio
             var exercises = await session.Repository<Exercise>().ListAsync(cancellationToken).ConfigureAwait(false);
             var profiles = await session.Repository<UserProfile>().ListAsync(cancellationToken).ConfigureAwait(false);
 
-            var declaration = profiles
-                .OrderBy(profile => profile.CreatedUtc)
-                .FirstOrDefault()?
-                .AvailableEquipment;
+            // Both declarations are read from the same profile, and it is the active one rather
+            // than the oldest. On a shared device those differ, and filtering one person's library
+            // by another person's injuries would be worse than not filtering at all. Selection runs
+            // over the materialised list because it orders by DateTimeOffset, which SQLite cannot
+            // translate.
+            var profile = ActiveProfileSelector.SelectActive(profiles);
 
             return ExerciseDataResult.Success(
-                new ExerciseLibrarySnapshot(exercises, EquipmentAvailability.FromDeclaration(declaration)));
+                new ExerciseLibrarySnapshot(
+                    exercises,
+                    EquipmentAvailability.FromDeclaration(profile?.AvailableEquipment),
+                    MovementLimitationDeclaration.FromDeclaration(profile?.MovementLimitations)));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -158,11 +167,14 @@ internal sealed class ExerciseDataStore(ForgeStartupService startup, IDataSessio
             return null;
         }
 
-        return startup.Failure?.Message is { Length: > 0 } message
-            ? $"The local exercise database is unavailable: {message}"
-            : "The local exercise database is unavailable. Restart Forge or use data recovery from settings.";
+        // Startup failures carry an EF or SQLite message. Showing it puts a LINQ expression and a
+        // support URL in front of someone who wanted to look up a squat, so only a message Forge
+        // wrote for a person is ever shown.
+        return startup.Failure is { } failure
+            ? ForgeUserFacingException.DescribeFor(failure, DatabaseUnavailable)
+            : DatabaseUnavailable;
     }
 
     private static string CreateErrorMessage(Exception exception)
-        => $"The local exercise database is unavailable: {exception.Message}";
+        => ForgeUserFacingException.DescribeFor(exception, DatabaseUnavailable);
 }

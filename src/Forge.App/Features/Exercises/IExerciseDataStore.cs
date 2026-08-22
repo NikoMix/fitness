@@ -8,13 +8,18 @@ namespace Forge.App.Features.Exercises;
 /// <remarks>
 /// Substitution is only honest when it knows what the trainee owns, so the catalogue and the
 /// declared equipment are loaded together. Fetching them separately would mean two database
-/// sessions for one screen, and a window where the two disagree.
+/// sessions for one screen, and a window where the two disagree. Declared movement limitations
+/// travel with them for the same reason, and because they come off the same profile row.
 /// </remarks>
 /// <param name="Exercises">Every exercise stored on the device, catalogue and custom alike.</param>
 /// <param name="AvailableEquipment">Equipment declared on the local profile.</param>
+/// <param name="Limitations">
+/// What Forge could and could not read from the profile's free-text movement limitations.
+/// </param>
 public sealed record ExerciseLibrarySnapshot(
     IReadOnlyList<Exercise> Exercises,
-    EquipmentAvailability AvailableEquipment);
+    EquipmentAvailability AvailableEquipment,
+    MovementLimitationDeclaration Limitations);
 
 /// <summary>Reads and writes the locally stored exercise library.</summary>
 public interface IExerciseDataStore
