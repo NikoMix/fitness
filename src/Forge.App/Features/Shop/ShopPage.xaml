@@ -59,6 +59,8 @@
                                        Style="{StaticResource CaptionText}"
                                        IsVisible="{Binding IsSubscription}" />
                                 <dx:DXButton Content="{Binding PurchaseLabel}"
+                                             SemanticProperties.Description="{Binding PurchaseLabel}"
+                                             SemanticProperties.Hint="{Binding Title, StringFormat='Buys {0}. Payment is handled by the store.'}"
                                              Command="{Binding BindingContext.PurchaseCommand, Source={x:Reference ShopRoot}}"
                                              CommandParameter="{Binding .}"
                                              Style="{StaticResource PrimaryButton}" />

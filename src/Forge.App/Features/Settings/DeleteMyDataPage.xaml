@@ -48,6 +48,9 @@
                     <Label Text="Type DELETE to enable permanent erasure."
                            Style="{StaticResource SecondaryText}" />
                     <dx:TextEdit Text="{Binding ConfirmationText}"
+                                 PlaceholderText="DELETE"
+                                 SemanticProperties.Description="Deletion confirmation"
+                                 SemanticProperties.Hint="Type the word DELETE to enable permanent erasure"
                                  Style="{StaticResource ForgeTextEdit}" />
                     <dx:DXButton Content="Erase all local data permanently"
                                  SemanticProperties.Description="Erase all local data permanently"

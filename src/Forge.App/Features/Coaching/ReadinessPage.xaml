@@ -19,7 +19,12 @@
 
             <controls:ForgeCard Title="Today" Subtitle="Input breakdown below">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <dx:RadialProgressBar Value="{Binding ScoreProgress}" HeightRequest="140" WidthRequest="140" HorizontalOptions="Center" />
+                    <!--
+                        The ring draws the same number the label below it announces, so it is kept
+                        out of the accessibility tree rather than left as an unnamed stop.
+                    -->
+                    <dx:RadialProgressBar Value="{Binding ScoreProgress}" HeightRequest="140" WidthRequest="140" HorizontalOptions="Center"
+                                          AutomationProperties.IsInAccessibleTree="False" />
                     <Label Text="{Binding Score, StringFormat='{0}/100'}" Style="{StaticResource HeadlineText}" HorizontalOptions="Center" />
                     <Label Text="{Binding MissingInputs}" Style="{StaticResource SecondaryText}" />
                     <Label Text="{Binding MedicalDisclaimer}" Style="{StaticResource CaptionText}" />

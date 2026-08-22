@@ -14,7 +14,9 @@
                                        WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ContentWidth}" RowSpacing="{StaticResource SpaceL}">
         <VerticalStackLayout Spacing="{StaticResource SpaceM}">
             <Label Text="Build your plan" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
-            <dx:TextEdit Text="{Binding Name}" PlaceholderText="Plan name" Style="{StaticResource ForgeTextEdit}" />
+            <dx:TextEdit Text="{Binding Name}" PlaceholderText="Plan name"
+                         SemanticProperties.Description="Plan name"
+                         Style="{StaticResource ForgeTextEdit}" />
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource SpaceM}">
                 <dx:DXButton Content="Add day"
     SemanticProperties.Description="Add day" Style="{StaticResource SecondaryButton}" Command="{Binding AddDayCommand}" />

@@ -27,8 +27,17 @@
  
             <dx:DXBorder Style="{StaticResource Card}" IsVisible="{Binding HasNutritionData}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
-                    <Label Text="Today's macro split" Style="{StaticResource SectionHeaderText}" />
-                    <dx:PieChartView HeightRequest="220">
+                    <Label Text="Today's macro split" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
+                    <!--
+                        The chart is drawn, so it reaches the accessibility tree as an unnamed
+                        rectangle with nothing in it. It is kept out of the tree and the same
+                        figures are listed underneath instead - the pattern the progress screen
+                        already uses for its charts. The list is not a concession to screen
+                        readers either: a macro split with no numbers on it is weaker for
+                        everyone.
+                    -->
+                    <dx:PieChartView HeightRequest="220"
+                                     AutomationProperties.IsInAccessibleTree="False">
                         <dx:PieChartView.Series>
                             <dx:PieSeries>
                                 <dx:PieSeries.Data>
@@ -39,6 +48,14 @@
                             </dx:PieSeries>
                         </dx:PieChartView.Series>
                     </dx:PieChartView>
+                    <VerticalStackLayout Spacing="{StaticResource SpaceXs}"
+                                         BindableLayout.ItemsSource="{Binding MacroSlices}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <controls:StatRow Label="{Binding Label}" Value="{Binding Value}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
             </dx:DXBorder>
 
@@ -54,7 +71,8 @@
                                           HeightRequest="120"
                                           Value="{Binding CalorieProgress}"
                                           StartAngle="-90"
-                                          SweepAngle="360" />
+                                          SweepAngle="360"
+                                          AutomationProperties.IsInAccessibleTree="False" />
                 </Grid>
             </dx:DXBorder>
 
@@ -78,7 +96,7 @@
                              Command="{Binding GoToHydrationCommand}" />
             </Grid>
 
-            <Label Text="Meals" Style="{StaticResource SectionHeaderText}" IsVisible="{Binding HasNutritionData}" />
+            <Label Text="Meals" Style="{StaticResource SectionHeaderText}" IsVisible="{Binding HasNutritionData}" SemanticProperties.HeadingLevel="Level2" />
             <dx:DXCollectionView ItemsSource="{Binding MealSummaries}" HeightRequest="360" IsVisible="{Binding HasNutritionData}">
                                  ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
                 <dx:DXCollectionView.ItemTemplate>

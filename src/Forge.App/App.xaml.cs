@@ -1,3 +1,4 @@
+using Forge.App.Accessibility;
 using Forge.App.Composition;
 using Forge.App.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,11 @@ public partial class App : Microsoft.Maui.Controls.Application
     /// <param name="startup">Prepares the local database before any screen needs it.</param>
     internal App(IServiceProvider services, ForgeStartupService startup)
     {
+        // Before InitializeComponent, so the mapping is in place before any handler is created.
+        // It appends to the shared view mapper, which every control's handler chains from, and so
+        // reaches DevExpress controls that expose no accessibility hooks of their own.
+        ForgeAccessibility.Install();
+
         InitializeComponent();
         this.services = services;
         this.startup = startup;

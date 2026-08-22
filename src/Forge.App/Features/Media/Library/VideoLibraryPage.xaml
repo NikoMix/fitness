@@ -85,7 +85,7 @@
                                 </Grid>
 
                                 <VerticalStackLayout Spacing="{StaticResource SpaceXs}">
-                                    <Label Text="{Binding StateLabel}" Style="{StaticResource SectionHeaderText}" />
+                                    <Label Text="{Binding StateLabel}" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
                                     <Label Text="{Binding StateDetail}" Style="{StaticResource BodyText}" />
                                     <Label Text="{Binding OfflineAvailability}" Style="{StaticResource SecondaryText}" />
                                     <ProgressBar Progress="{Binding Progress}"

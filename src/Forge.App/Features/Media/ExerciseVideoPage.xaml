@@ -51,6 +51,8 @@
                             <VerticalStackLayout Grid.Row="2" Spacing="{StaticResource SpaceS}">
                                 <Slider x:Name="ScrubSlider"
                                         Minimum="0"
+                                        SemanticProperties.Description="Video position"
+                                        SemanticProperties.Hint="Swipe up or down to scrub through the demonstration"
                                         DragStarted="OnScrubDragStarted"
                                         DragCompleted="OnScrubDragCompleted" />
                                 <Grid ColumnDefinitions="Auto,*,Auto">
@@ -64,7 +66,9 @@
     SemanticProperties.Description="- frame" Style="{StaticResource SecondaryButton}" Clicked="OnFrameBackClicked" />
                                     <dx:DXButton Grid.Column="2" Content="+ frame"
     SemanticProperties.Description="+ frame" Style="{StaticResource SecondaryButton}" Clicked="OnFrameForwardClicked" />
-                                    <dx:DXButton Grid.Column="3" Content="{Binding FullScreenButtonText}" Style="{StaticResource SecondaryButton}" Command="{Binding ToggleFullScreenCommand}" />
+                                    <dx:DXButton Grid.Column="3" Content="{Binding FullScreenButtonText}"
+                                                 SemanticProperties.Description="Toggle full screen"
+                                                 Style="{StaticResource SecondaryButton}" Command="{Binding ToggleFullScreenCommand}" />
                                 </Grid>
                                 <HorizontalStackLayout Spacing="{StaticResource SpaceS}">
                                     <Label Text="Speed" Style="{StaticResource SecondaryText}" VerticalTextAlignment="Center" />
@@ -105,7 +109,7 @@
                                 <DataTemplate><Label Text="{Binding .}" Style="{StaticResource BodyText}" /></DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
-                        <Label Text="Common mistakes" Style="{StaticResource SectionHeaderText}" />
+                        <Label Text="Common mistakes" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding CommonMistakes}" Spacing="{StaticResource SpaceS}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate><Label Text="{Binding .}" Style="{StaticResource BodyText}" /></DataTemplate>

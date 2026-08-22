@@ -18,12 +18,18 @@
 
             <dx:DXBorder Style="{StaticResource ElevatedCard}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}" HorizontalOptions="Fill">
+                    <!--
+                        The ring is decorative to a screen reader: the two labels below it say the
+                        same thing in words, so leaving it in the tree would only add an unnamed
+                        stop between them.
+                    -->
                     <dx:RadialProgressBar Value="{Binding Progress}"
                                           StartAngle="-90"
                                           SweepAngle="360"
                                           HeightRequest="180"
                                           WidthRequest="180"
-                                          HorizontalOptions="Center" />
+                                          HorizontalOptions="Center"
+                                          AutomationProperties.IsInAccessibleTree="False" />
                     <Label Text="{Binding ProgressText}" Style="{StaticResource MetricText}" />
                     <Label Text="{Binding RemainingText}" Style="{StaticResource SecondaryText}" HorizontalTextAlignment="Center" />
                 </VerticalStackLayout>
@@ -53,7 +59,7 @@
                 </dx:DXCollectionView.ItemTemplate>
             </dx:DXCollectionView>
  
-            <Label Text="Today" Style="{StaticResource SectionHeaderText}" />
+            <Label Text="Today" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
             <controls:EmptyState IsVisible="{Binding HasNoHydrationHistory}"
                                  Glyph="＋"
                                  Headline="No drinks logged today"

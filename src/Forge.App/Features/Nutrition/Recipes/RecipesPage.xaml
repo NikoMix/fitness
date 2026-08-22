@@ -16,6 +16,8 @@
                    SemanticProperties.HeadingLevel="Level1" />
             <dx:TextEdit Text="{Binding SearchText}"
                          PlaceholderText="Search recipes or ingredients"
+                         SemanticProperties.Description="Search recipes or ingredients"
+                         SemanticProperties.Hint="Filters the recipe list as you type"
                          Style="{StaticResource ForgeTextEdit}" />
             <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
                 <HorizontalStackLayout Spacing="{StaticResource SpaceS}"
@@ -24,6 +26,8 @@
                         <DataTemplate>
                             <dx:DXButton Content="{Binding Label}"
                                          ButtonType="Outlined"
+                                         MinimumHeightRequest="{StaticResource TouchTargetMin}"
+                                         SemanticProperties.Description="{Binding Label, StringFormat='Filter by {0}'}"
                                          Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectTagCommand}"
                                          CommandParameter="{Binding .}" />
                         </DataTemplate>
@@ -103,6 +107,7 @@
                                 <Label Text="{Binding SelectedTime}" Style="{StaticResource CaptionText}" />
                                 <dx:ComboBoxEdit ItemsSource="{Binding ServingOptions}"
                                                  SelectedItem="{Binding SelectedServings}"
+                                                 SemanticProperties.Description="Servings"
                                                  Style="{StaticResource ForgeTextEdit}" />
                                 <Label Text="{Binding SelectedMacros}" Style="{StaticResource SectionHeaderText}" />
                                 <dx:DXButton Content="Log this meal"
@@ -130,7 +135,7 @@
                             </dx:DXCollectionView.ItemTemplate>
                         </dx:DXCollectionView>
 
-                        <Label Text="Steps" Style="{StaticResource SectionHeaderText}" />
+                        <Label Text="Steps" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
                         <dx:DXCollectionView ItemsSource="{Binding Steps}">
                             <dx:DXCollectionView.ItemTemplate>
                                 <DataTemplate>

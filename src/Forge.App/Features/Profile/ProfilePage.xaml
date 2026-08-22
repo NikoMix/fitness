@@ -45,6 +45,7 @@
                     <Label Text="{Binding CompletionDescription}" Style="{StaticResource SecondaryText}" />
                     <dx:DXButton Content="{Binding EditActionText}"
                                  SemanticProperties.Description="{Binding EditActionText}"
+                                 SemanticProperties.Hint="Reopens goal setup so you can change your answers"
                                  Command="{Binding EditProfileCommand}"
                                  Style="{StaticResource PrimaryButton}" />
                 </VerticalStackLayout>
@@ -76,6 +77,7 @@
                     <Label Text="{Binding ProfileSwitcherSummary}" Style="{StaticResource BodyText}" />
                     <dx:DXButton Content="{Binding ProfileSwitcherActionText}"
                                  SemanticProperties.Description="{Binding ProfileSwitcherActionText}"
+                                 SemanticProperties.Hint="Switches between the profiles stored on this device"
                                  Command="{Binding SwitchProfileCommand}"
                                  Style="{StaticResource TextButton}"
                                  HorizontalOptions="Start" />

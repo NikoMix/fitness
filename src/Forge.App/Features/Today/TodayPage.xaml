@@ -41,6 +41,7 @@
                     <Label Text="{Binding FocusMessage}" Style="{StaticResource BodyText}" />
                     <dx:DXButton Content="{Binding FocusActionText}"
                                  SemanticProperties.Description="{Binding FocusActionText}"
+                                 SemanticProperties.Hint="Starts the session Forge has planned for today"
                                  Command="{Binding PrimaryActionCommand}"
                                  IsVisible="{Binding HasFocusAction}"
                                  Style="{StaticResource WorkoutActionButton}" />

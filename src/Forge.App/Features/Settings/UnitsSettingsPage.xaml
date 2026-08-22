@@ -17,7 +17,10 @@
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                    <Label Text="Units" Style="{StaticResource TitleText}" />
                    <dx:ComboBoxEdit ItemsSource="{Binding UnitSystemOptions}"
-                                    SelectedItem="{Binding SelectedUnitSystem, Mode=TwoWay}" />
+                                    SelectedItem="{Binding SelectedUnitSystem, Mode=TwoWay}"
+                                    SemanticProperties.Description="Unit system"
+                                    SemanticProperties.Hint="Chooses between metric and imperial display units"
+                                    Style="{StaticResource ForgeTextEdit}" />
                     <Label Text="{Binding PreviewMass}" Style="{StaticResource SecondaryText}" />
                    <Label Text="{Binding PreviewLength}" Style="{StaticResource SecondaryText}" />
                    <Label Text="{Binding PreviewVolume}" Style="{StaticResource SecondaryText}" />
@@ -29,7 +32,10 @@
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                    <Label Text="Theme" Style="{StaticResource TitleText}" />
                    <dx:ComboBoxEdit ItemsSource="{Binding ThemeOptions}"
-                                    SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" />
+                                    SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
+                                    SemanticProperties.Description="Theme"
+                                    SemanticProperties.Hint="System follows the device setting"
+                                    Style="{StaticResource ForgeTextEdit}" />
                    <Label Text="System follows the device setting; light and dark override it locally."
                           Style="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
@@ -39,9 +45,13 @@
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                    <Label Text="Video downloads" Style="{StaticResource TitleText}" />
                    <dx:ComboBoxEdit ItemsSource="{Binding VideoQualityOptions}"
-                                    SelectedItem="{Binding SelectedVideoQuality, Mode=TwoWay}" />
+                                    SelectedItem="{Binding SelectedVideoQuality, Mode=TwoWay}"
+                                    SemanticProperties.Description="Video download quality"
+                                    Style="{StaticResource ForgeTextEdit}" />
                    <dx:CheckEdit Label="Download over unmetered networks only"
-                                 IsChecked="{Binding DownloadOverUnmeteredOnly, Mode=TwoWay}" />
+                                 IsChecked="{Binding DownloadOverUnmeteredOnly, Mode=TwoWay}"
+                                 SemanticProperties.Description="Download over unmetered networks only"
+                                 SemanticProperties.Hint="Avoids spending mobile data on video" />
                    <Label Text="{Binding VideoPreferenceSummary}" Style="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
@@ -50,9 +60,13 @@
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                    <Label Text="Workout feedback" Style="{StaticResource TitleText}" />
                    <dx:ComboBoxEdit ItemsSource="{Binding RestTimerOptions}"
-                                    SelectedItem="{Binding SelectedRestTimer, Mode=TwoWay}" />
+                                    SelectedItem="{Binding SelectedRestTimer, Mode=TwoWay}"
+                                    SemanticProperties.Description="Default rest timer length"
+                                    Style="{StaticResource ForgeTextEdit}" />
                    <dx:CheckEdit Label="Haptic feedback"
-                                 IsChecked="{Binding HapticFeedbackEnabled, Mode=TwoWay}" />
+                                 IsChecked="{Binding HapticFeedbackEnabled, Mode=TwoWay}"
+                                 SemanticProperties.Description="Haptic feedback"
+                                 SemanticProperties.Hint="Vibrates when a set or a rest period ends" />
                    <Label Text="{Binding RestTimerSummary}" Style="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
             </dx:DXBorder>
@@ -61,7 +75,9 @@
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                    <Label Text="First day of week" Style="{StaticResource TitleText}" />
                     <dx:ComboBoxEdit ItemsSource="{Binding FirstDayOptions}"
-                                     SelectedItem="{Binding SelectedFirstDay, Mode=TwoWay}" />
+                                     SelectedItem="{Binding SelectedFirstDay, Mode=TwoWay}"
+                                     SemanticProperties.Description="First day of week"
+                                     Style="{StaticResource ForgeTextEdit}" />
                     <Label Text="{Binding PreviewWeek}" Style="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
             </dx:DXBorder>

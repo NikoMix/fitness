@@ -191,7 +191,7 @@
                 </VerticalStackLayout>
             </controls:ForgeCard>
 
-            <Label Text="Go deeper" Style="{StaticResource SectionHeaderText}" />
+            <Label Text="Go deeper" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
             <VerticalStackLayout Spacing="{StaticResource SpaceS}">
                 <dx:DXButton Content="Exercise progress"
                              SemanticProperties.Description="Open exercise progress"

@@ -8,6 +8,18 @@
              x:Name="Page"
              Title="Food log"
              BackgroundColor="{dx:ThemeColor Surface}">
+    <!--
+        Every list here is bounded and given a height so it takes a predictable part of the page.
+        That is right while a list has rows and wrong the moment it does not: the height is still
+        reserved, and what renders is a container holding nothing, with no text and no description
+        for a screen reader to announce. The smoke harness found one - a 975x420 box under
+        "Recent" containing two views and no content at all.
+
+        So each section binds its visibility to its own collection, and an empty list now takes its
+        heading with it rather than leaving a title over a void. The page-level empty state is what
+        explains the situation, and it carries copy precisely so that it is never itself a wordless
+        box.
+    -->
     <adaptive:AdaptiveHost x:Name="Adaptive">
     <ScrollView>
         <VerticalStackLayout Padding="{StaticResource PagePadding}"
@@ -16,6 +28,8 @@
             <Label Text="Search and log food" Style="{StaticResource HeadlineText}" SemanticProperties.HeadingLevel="Level1" />
             <dx:TextEdit Text="{Binding SearchQuery}"
                          PlaceholderText="Search foods"
+                         SemanticProperties.Description="Search foods"
+                         SemanticProperties.Hint="Results appear below as you type"
                          Style="{StaticResource ForgeTextEdit}" />
 
             <controls:SkeletonPlaceholder IsBusy="{Binding IsLoading}" HeightRequest="96" />
@@ -25,9 +39,12 @@
                                  Headline="No food logged today"
                                  Message="Search the local catalogue or use repeat shortcuts once you have history. Everything stays on this device." />
  
-            <Label Text="Recent" Style="{StaticResource SectionHeaderText}" />
-            <dx:DXCollectionView ItemsSource="{Binding RecentFoods}" HeightRequest="160">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                 IsVisible="{Binding RecentFoods, Converter={StaticResource HasItems}}">
+            <Label Text="Recent" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
+            <dx:DXCollectionView ItemsSource="{Binding RecentFoods}"
+                                 HeightRequest="160"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                          <dx:DXBorder Style="{StaticResource ListRow}">
@@ -38,7 +55,8 @@
                                  </VerticalStackLayout>
                                  <dx:DXButton Grid.Column="1"
                                               Content="Log"
-                                              SemanticProperties.Description="Log"
+                                              SemanticProperties.Description="{Binding Name, StringFormat='Log {0}'}"
+                                              SemanticProperties.Hint="Adds this food to today's log"
                                               Style="{StaticResource TextButton}"
                                               Command="{Binding Source={x:Reference Page}, Path=BindingContext.LogFoodCommand}"
                                               CommandParameter="{Binding .}" />
@@ -47,8 +65,11 @@
                     </DataTemplate>
                 </dx:DXCollectionView.ItemTemplate>
             </dx:DXCollectionView>
+            </VerticalStackLayout>
 
-            <Label Text="Search results" Style="{StaticResource SectionHeaderText}" />
+            <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                 IsVisible="{Binding SearchResults, Converter={StaticResource HasItems}}">
+            <Label Text="Search results" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
             <dx:DXCollectionView ItemsSource="{Binding SearchResults}" HeightRequest="360">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
@@ -61,7 +82,8 @@
                                  </VerticalStackLayout>
                                  <dx:DXButton Grid.Column="1"
                                               Content="Log"
-                                              SemanticProperties.Description="Log"
+                                              SemanticProperties.Description="{Binding Name, StringFormat='Log {0}'}"
+                                              SemanticProperties.Hint="Adds this food to today's log"
                                               Style="{StaticResource TextButton}"
                                               Command="{Binding Source={x:Reference Page}, Path=BindingContext.LogFoodCommand}"
                                               CommandParameter="{Binding .}" />
@@ -70,10 +92,14 @@
                     </DataTemplate>
                 </dx:DXCollectionView.ItemTemplate>
             </dx:DXCollectionView>
+            </VerticalStackLayout>
 
-            <Label Text="Frequent shortcuts" Style="{StaticResource SectionHeaderText}" />
-            <dx:DXCollectionView ItemsSource="{Binding FrequentFoods}" HeightRequest="160">
-                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}"
+            <VerticalStackLayout Spacing="{StaticResource SpaceS}"
+                                 IsVisible="{Binding FrequentFoods, Converter={StaticResource HasItems}}">
+            <Label Text="Frequent shortcuts" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
+            <dx:DXCollectionView ItemsSource="{Binding FrequentFoods}"
+                                 HeightRequest="160"
+                                 ItemSpanCount="{Binding Source={x:Reference Adaptive}, Path=CardColumns}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                          <dx:DXBorder Style="{StaticResource ListRow}">
@@ -81,7 +107,8 @@
                                  <Label Text="{Binding Name}" Style="{StaticResource BodyText}" VerticalTextAlignment="Center" />
                                  <dx:DXButton Grid.Column="1"
                                               Content="Log"
-                                              SemanticProperties.Description="Log"
+                                              SemanticProperties.Description="{Binding Name, StringFormat='Log {0}'}"
+                                              SemanticProperties.Hint="Adds this food to today's log"
                                               Style="{StaticResource TextButton}"
                                               Command="{Binding Source={x:Reference Page}, Path=BindingContext.LogFoodCommand}"
                                               CommandParameter="{Binding .}" />
@@ -90,13 +117,17 @@
                     </DataTemplate>
                 </dx:DXCollectionView.ItemTemplate>
             </dx:DXCollectionView>
+            </VerticalStackLayout>
 
-            <Label Text="Logged today" Style="{StaticResource SectionHeaderText}" />
+            <Label Text="Logged today" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
             <dx:DXButton Content="Copy yesterday"
                          SemanticProperties.Description="Copy yesterday"
+                         SemanticProperties.Hint="Logs everything recorded yesterday against today"
                          Style="{StaticResource SecondaryButton}"
                          Command="{Binding CopyPreviousDayCommand}" />
-            <dx:DXCollectionView ItemsSource="{Binding LoggedFoods}" HeightRequest="160">
+            <dx:DXCollectionView ItemsSource="{Binding LoggedFoods}"
+                                 HeightRequest="160"
+                                 IsVisible="{Binding LoggedFoods, Converter={StaticResource HasItems}}">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
                         <dx:DXBorder Style="{StaticResource ListRow}">

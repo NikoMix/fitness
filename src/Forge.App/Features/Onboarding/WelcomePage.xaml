@@ -52,6 +52,7 @@
 
             <dx:DXButton Content="{Binding StartActionText}"
                          SemanticProperties.Description="{Binding StartActionText}"
+                         SemanticProperties.Hint="Opens goal setup"
                          Command="{Binding StartCommand}"
                          Style="{StaticResource PrimaryButton}" />
 

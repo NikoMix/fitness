@@ -57,7 +57,7 @@
                 </VerticalStackLayout>
             </dx:DXBorder>
 
-            <Label Text="What Forge reads" Style="{StaticResource SectionHeaderText}" />
+            <Label Text="What Forge reads" Style="{StaticResource SectionHeaderText}" SemanticProperties.HeadingLevel="Level2" />
             <dx:DXCollectionView ItemsSource="{Binding Rows}" HeightRequest="520">
                 <dx:DXCollectionView.ItemTemplate>
                     <DataTemplate>
