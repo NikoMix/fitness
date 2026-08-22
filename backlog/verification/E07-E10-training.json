@@ -566,8 +566,8 @@
   {
     "story": "S10.05.02",
     "verdict": "NOT-DONE",
-    "evidence": "src/Forge.Domain/Workout/ActiveWorkoutState.cs:41-44 (Elapsed = CompletedUtc-or-now minus StartedUtc, no pause term); src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs has no pause command among its 25 commands",
-    "gaps": "AC1 and AC2 both fail - paused time cannot be excluded because pause does not exist, and finishing early records nothing about the exercises not performed."
+    "evidence": "src/Forge.Domain/Workout/ActiveWorkoutState.cs:41-44 (Elapsed = CompletedUtc-or-now minus StartedUtc, no pause term); src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs has no pause command among its 32 [RelayCommand] members, and its only Resume members are ResumeSensorsAsync and the recovery kind",
+    "gaps": "AC1 and AC2 both fail - paused time cannot be excluded because pause does not exist, and finishing early records nothing about the exercises not performed. S10.02.03 and S10.06.01 both lean on this gap; see the note against this story in the .md companion."
   },
   {
     "story": "S10.05.03",

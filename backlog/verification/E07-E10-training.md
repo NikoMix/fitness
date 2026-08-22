@@ -81,6 +81,8 @@ sets, reps, load, RPE and rest are all display-only, and *Add exercise* inserts 
   one device run: download a pack, open an exercise detail, tap Watch, and see whether the player renders.
 - **S10.02.03** (keep-awake) — I marked it DONE because both acceptance criteria pass, even though its
   "pausing beyond 15 minutes" requirement is vacuous, pause having never been built (S10.05.02).
+  **Resolved:** hold DONE, and the vacuous-AC signal is now recorded as a note against S10.05.02, so the
+  pause gap carries the evidence that two other stories lean on it.
 - **S07.05.01** — substitution is the strongest code in E07, but scoring omits mechanic and contraindication
   tags because neither is modelled. PARTIAL may read harshly for what is otherwise a complete piece of work.
 
@@ -754,9 +756,11 @@ Skip, reorder and add-unplanned all exist, are session-scoped and persist the st
 
 There is no pause. No paused-at timestamp, no active-versus-total duration split, no resume-to-exact-state semantics beyond ordinary recovery, and no cut-short that records remaining exercises as not performed. Duration is measured from start to completion with no exclusions.
 
-*Evidence:* src/Forge.Domain/Workout/ActiveWorkoutState.cs:41-44 (Elapsed = CompletedUtc-or-now minus StartedUtc, no pause term); src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs has no pause command among its 25 commands
+*Evidence:* src/Forge.Domain/Workout/ActiveWorkoutState.cs:41-44 (Elapsed = CompletedUtc-or-now minus StartedUtc, no pause term); src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs has no pause command among its 32 [RelayCommand] members, and its only Resume members are ResumeSensorsAsync and the recovery kind
 
-*Gaps:* AC1 and AC2 both fail - paused time cannot be excluded because pause does not exist, and finishing early records nothing about the exercises not performed.
+*Gaps:* AC1 and AC2 both fail - paused time cannot be excluded because pause does not exist, and finishing early records nothing about the exercises not performed. S10.02.03 and S10.06.01 both lean on this gap; see the note against this story in the .md companion.
+
+> **Note.** S10.02.03 (keep-awake) is marked DONE because both of its acceptance criteria pass against what was built - the previous KeepScreenOn value is captured, forced on, and restored on the way out. But its requirement reads "starting a workout enables keep-awake and completing, cancelling or **pausing beyond 15 minutes** disables it", and the pause half of that has no precondition to fire on, because pause is this story and this story was never built. That AC is therefore vacuous rather than met. It is recorded here, against the gap it depends on, rather than held against S10.02.03, which did its own job: marking that story down would misattribute this gap to it. S10.06.01 leans on the same absence - the workout summary can show a single duration but no active-versus-total split, because there is no paused time to exclude. Whoever builds pause should re-check both.
 
 #### S10.05.03 — Recover active workouts after crash or process death — **DONE**
 
