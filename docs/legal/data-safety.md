@@ -56,8 +56,13 @@ carry no workout, nutrition or health information.
 
 ## Can I get my data out?
 
-Yes. Forge exports open formats you can read without Forge: a full JSON archive, or a ZIP of CSV
-files, one per table. You can limit an export by date range and by data group.
+Yes. Forge exports open formats you can read without Forge: a JSON archive, spreadsheet-friendly
+CSV files, or both in one zip alongside a plain-English summary. You can limit an export by date
+range and by data group.
+
+On a device with more than one profile, an export covers **your** profile by default and states
+plainly which records it had to leave out. Including everybody's data is a separate, deliberate
+choice. See [what an export contains](data-export.md).
 
 ## Can I delete my data?
 

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dx="http://schemas.devexpress.com/maui"
+             xmlns:adaptive="clr-namespace:Forge.App.Adaptive"
+             xmlns:controls="clr-namespace:Forge.App.Controls"
+             x:Class="Forge.App.Features.Backup.DataPortabilityPage"
+             Title="Get a copy of your data"
+             BackgroundColor="{dx:ThemeColor Surface}">
+    <adaptive:AdaptiveHost x:Name="Adaptive">
+        <ScrollView>
+            <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                                 HorizontalOptions="Center"
+                                 WidthRequest="{Binding Source={x:Reference Adaptive}, Path=ReadingWidth}"
+                                 Spacing="{StaticResource SpaceL}">
+                <Label Text="Get a copy of your data"
+                       Style="{StaticResource HeadlineText}"
+                       SemanticProperties.HeadingLevel="Level1" />
+                <Label Text="Forge holds no copy of your data, so this file is produced on your device and shared only where you send it."
+                       Style="{StaticResource SecondaryText}" />
+
+                <controls:ForgeCard Title="What is included">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <Label Text="{Binding IncludedSummary}" Style="{StaticResource BodyText}" />
+                        <Label Text="{Binding ExcludedSummary}" Style="{StaticResource SecondaryText}" />
+                    </VerticalStackLayout>
+                </controls:ForgeCard>
+
+                <controls:ForgeCard Title="Whose data">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <Label Text="By default this file contains only the records Forge can attribute to you."
+                               Style="{StaticResource BodyText}" />
+                        <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
+                            <CheckBox IsChecked="{Binding IncludeEveryProfile}"
+                                      SemanticProperties.Description="Include every profile on this device, including their health data" />
+                            <Label Text="Include every profile on this device"
+                                   Style="{StaticResource BodyText}"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <Label Text="Only for a copy of the whole device. The file will contain the weight, food and training of anybody else who uses Forge here."
+                               Style="{StaticResource SecondaryText}" />
+                    </VerticalStackLayout>
+                </controls:ForgeCard>
+
+                <controls:ForgeCard Title="Format">
+                    <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                        <HorizontalStackLayout Spacing="{StaticResource SpaceM}">
+                            <CheckBox IsChecked="{Binding IncludeSpreadsheets}"
+                                      SemanticProperties.Description="Include spreadsheet files you can open, as well as the data file" />
+                            <Label Text="Include spreadsheets I can open"
+                                   Style="{StaticResource BodyText}"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <Label Text="On, you get a zip holding one spreadsheet per kind of record, a plain-English summary, and the full data file. Off, you get the data file only."
+                               Style="{StaticResource SecondaryText}" />
+                    </VerticalStackLayout>
+                </controls:ForgeCard>
+
+                <ProgressBar Progress="{Binding Progress}" />
+                <Label Text="{Binding Status}" Style="{StaticResource BodyText}" />
+                <dx:DXButton Content="Create and share the file"
+                             SemanticProperties.Description="Create the export file and open the share sheet"
+                             Style="{StaticResource PrimaryButton}"
+                             Command="{Binding ExportCommand}" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </adaptive:AdaptiveHost>
+</ContentPage>
