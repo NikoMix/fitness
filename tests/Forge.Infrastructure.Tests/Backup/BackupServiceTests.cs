@@ -138,14 +138,50 @@ public sealed class BackupServiceTests : IAsyncLifetime
 
         await using var context = CreateContext();
         var importer = new ForgeDataImporter(context);
-        var preview = await importer.PreviewAsync(importPath, TestContext.Current.CancellationToken);
+        var subject = ProfileScope.None;
+        var preview = await importer.PreviewAsync(importPath, subject, TestContext.Current.CancellationToken);
         preview.CanImport.ShouldBeFalse();
         preview.Errors.ShouldNotBeEmpty();
 
-        var result = await importer.ImportAsync(importPath, null, TestContext.Current.CancellationToken);
+        var result = await importer.ImportAsync(importPath, subject, null, TestContext.Current.CancellationToken);
         result.Succeeded.ShouldBeFalse();
         (await context.Set<SetEntry>().CountAsync(TestContext.Current.CancellationToken)).ShouldBe(0);
         (await context.Set<WorkoutSession>().CountAsync(TestContext.Current.CancellationToken)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Restore_interrupted_part_way_leaves_the_database_untouched()
+    {
+        await SeedFullDatasetAsync();
+        string file;
+        await using (var context = CreateContext())
+        {
+            file = (await new ForgeBackupService(context).CreateBackupAsync(outputDirectory, null, TestContext.Current.CancellationToken)).FilePath;
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        var progress = new ImmediateProgress(update =>
+        {
+            // A restore clears every table before it writes any. Interrupting after the clear and
+            // before the commit is the moment that decides whether a failed restore costs the user
+            // their data or costs them nothing.
+            if (update.Message.StartsWith("Restoring", StringComparison.Ordinal))
+            {
+                cancellation.Cancel();
+            }
+        });
+
+        await using (var restore = CreateContext())
+        {
+            var result = await new ForgeBackupService(restore).RestoreBackupAsync(file, progress, cancellation.Token);
+            result.IsValid.ShouldBeFalse();
+            result.Message.ShouldContain("left unchanged");
+        }
+
+        await using var verify = CreateContext();
+        (await verify.Set<Exercise>().CountAsync(TestContext.Current.CancellationToken)).ShouldBe(1);
+        (await verify.Set<SetEntry>().CountAsync(TestContext.Current.CancellationToken)).ShouldBe(1);
+        (await verify.Set<UserProfile>().CountAsync(TestContext.Current.CancellationToken)).ShouldBe(1);
     }
 
     [Fact]
@@ -165,6 +201,7 @@ public sealed class BackupServiceTests : IAsyncLifetime
         using var archive = ZipFile.OpenRead(csv.FilePath);
         archive.GetEntry(nameof(SetEntry) + ".csv").ShouldNotBeNull();
         archive.GetEntry(nameof(Exercise) + ".csv").ShouldNotBeNull();
+        archive.GetEntry("README.md").ShouldNotBeNull();
     }
 
     private async Task SeedFullDatasetAsync()

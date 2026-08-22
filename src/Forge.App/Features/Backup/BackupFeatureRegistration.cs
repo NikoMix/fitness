@@ -23,6 +23,17 @@ namespace Forge.App.Features.Backup;
 /// </remarks>
 public static class BackupFeatureRegistration
 {
+    /// <summary>
+    /// The route for the data portability screen.
+    /// </summary>
+    /// <remarks>
+    /// Declared here rather than in <c>ForgeRoutes</c> only because that file is a shared merge
+    /// surface owned by the integrator. It belongs beside the other backup routes as
+    /// <c>ForgeRoutes.DataPortability</c>; moving it there is a one-line change and this constant
+    /// should be deleted at the same time.
+    /// </remarks>
+    public const string DataPortabilityRoute = "data-portability";
+
     /// <summary>Registers the Backup feature.</summary>
     /// <param name="services">The service collection.</param>
     /// <returns>The same collection, for chaining.</returns>
@@ -37,14 +48,17 @@ public static class BackupFeatureRegistration
         services.AddTransient<BackupRestoreViewModel>();
         services.AddTransient<ExportDataViewModel>();
         services.AddTransient<ImportDataViewModel>();
+        services.AddTransient<DataPortabilityViewModel>();
 
         services.AddTransient<BackupRestorePage>();
         services.AddTransient<ExportDataPage>();
         services.AddTransient<ImportDataPage>();
+        services.AddTransient<DataPortabilityPage>();
 
         Routing.RegisterRoute(ForgeRoutes.BackupRestore, typeof(BackupRestorePage));
         Routing.RegisterRoute(ForgeRoutes.ExportData, typeof(ExportDataPage));
         Routing.RegisterRoute(ForgeRoutes.ImportData, typeof(ImportDataPage));
+        Routing.RegisterRoute(DataPortabilityRoute, typeof(DataPortabilityPage));
 
         return services;
     }

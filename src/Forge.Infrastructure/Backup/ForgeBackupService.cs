@@ -1,15 +1,16 @@
-using System.Collections.Immutable;
-using System.Data.Common;
 using System.Globalization;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Forge.Core.Abstractions.Backup;
+using Forge.Domain.Profile;
 using Forge.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Data.Common;
 
 namespace Forge.Infrastructure.Backup;
 
@@ -22,6 +23,17 @@ internal sealed record PortableTable(string Name, IReadOnlyList<string> Columns,
 internal sealed record PortablePayload(IReadOnlyList<PortableTable> Tables);
 
 internal sealed record PortableBackupFile(BackupManifest Manifest, PortablePayload Payload);
+
+/// <summary>What a read produced, and what it deliberately left behind.</summary>
+/// <param name="Payload">The rows that were read.</param>
+/// <param name="Omitted">Tables skipped because a scoped read cannot attribute them.</param>
+/// <param name="Unassigned">
+/// Tables that do carry an owner but hold rows where nobody filled it in, with the row count.
+/// </param>
+internal sealed record TableSnapshot(
+    PortablePayload Payload,
+    IReadOnlyList<TableAttribution> Omitted,
+    IReadOnlyDictionary<TableAttribution, int> Unassigned);
 
 internal static class PortableBackupFormat
 {
@@ -79,13 +91,21 @@ internal static class PortableBackupFormat
 
 internal sealed class TableSnapshotReader(ForgeDbContext dbContext)
 {
-    internal async Task<PortablePayload> ReadPayloadAsync(ExportRequest request, IProgress<BackupProgress>? progress, CancellationToken cancellationToken)
+    internal async Task<TableSnapshot> ReadAsync(ExportRequest request, IProgress<BackupProgress>? progress, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         await dbContext.Database.EnsureCreatedAsync(cancellationToken);
         var connection = dbContext.Database.GetDbConnection();
         await EnsureOpenAsync(connection, cancellationToken);
 
+        var scoped = request.Audience == ExportAudience.RequestingProfile;
+        var attribution = ProfileAttributionMap.Build(dbContext);
+        var mappings = dbContext.GetService<IRelationalTypeMappingSource>();
+
         var tables = new List<PortableTable>();
+        var omitted = new List<TableAttribution>();
+        var unassigned = new Dictionary<TableAttribution, int>();
         var tableNames = PortableBackupFormat.GetModelTables(dbContext)
             .Where(table => PortableBackupFormat.ShouldIncludeTable(table, request))
             .ToList();
@@ -93,13 +113,52 @@ internal sealed class TableSnapshotReader(ForgeDbContext dbContext)
         for (var index = 0; index < tableNames.Count; index++)
         {
             var table = tableNames[index];
+            var entry = attribution.For(table);
+
+            // Fail closed. A table Forge cannot attribute is reported, never exported "just in
+            // case", because the person reading the file would have no way to tell that some of
+            // the rows in it belong to somebody else.
+            if (scoped && !entry.IsAttributable)
+            {
+                omitted.Add(entry);
+                continue;
+            }
+
             progress?.Report(new BackupProgress($"Reading {table}", tableNames.Count == 0 ? 100 : index * 60d / tableNames.Count));
             var columns = await ReadColumnsAsync(connection, table, cancellationToken);
-            var rows = await ReadRowsAsync(connection, table, columns, request, cancellationToken);
+            var rows = await ReadRowsAsync(connection, mappings, table, columns, request, scoped ? entry : null, cancellationToken);
             tables.Add(new PortableTable(table, columns, rows));
+
+            if (scoped && request.Subject.IsResolved && entry.UnassignedPredicate is not null)
+            {
+                var orphans = await CountUnassignedAsync(connection, mappings, table, entry, cancellationToken);
+                if (orphans > 0)
+                {
+                    unassigned[entry] = orphans;
+                }
+            }
         }
 
-        return new PortablePayload(tables.OrderBy(static table => table.Name, StringComparer.Ordinal).ToList());
+        return new TableSnapshot(
+            new PortablePayload(tables.OrderBy(static table => table.Name, StringComparer.Ordinal).ToList()),
+            omitted,
+            unassigned);
+    }
+
+    /// <summary>Counts rows whose owner column was never filled in.</summary>
+    private static async Task<int> CountUnassignedAsync(
+        DbConnection connection,
+        IRelationalTypeMappingSource mappings,
+        string table,
+        TableAttribution attribution,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM {PortableBackupFormat.QuoteIdentifier(table)} WHERE {attribution.UnassignedPredicate};";
+        AddParameter(command, mappings, new ExportParameter(ProfileAttributionMap.UnassignedParameterName, typeof(Guid), Guid.Empty));
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is null or DBNull ? 0 : Convert.ToInt32(result, CultureInfo.InvariantCulture);
     }
 
     private static async Task EnsureOpenAsync(DbConnection connection, CancellationToken cancellationToken)
@@ -124,23 +183,45 @@ internal sealed class TableSnapshotReader(ForgeDbContext dbContext)
         return columns;
     }
 
-    private static async Task<IReadOnlyList<PortableRow>> ReadRowsAsync(DbConnection connection, string table, IReadOnlyList<string> columns, ExportRequest request, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<PortableRow>> ReadRowsAsync(
+        DbConnection connection,
+        IRelationalTypeMappingSource mappings,
+        string table,
+        IReadOnlyList<string> columns,
+        ExportRequest request,
+        TableAttribution? scope,
+        CancellationToken cancellationToken)
     {
         if (columns.Count == 0)
         {
             return [];
         }
 
+        var clauses = new List<string>();
+        var parameters = new List<ExportParameter>();
+
+        if (scope is not null)
+        {
+            clauses.Add(request.Subject.IsResolved
+                ? scope.Predicate!
+                : "1 = 0"); // ProfileScope.None matches nothing, exactly as OwnedBy does.
+
+            if (request.Subject.IsResolved)
+            {
+                parameters.Add(new ExportParameter(ProfileAttributionMap.ProfileParameterName, typeof(Guid), request.Subject.ProfileId));
+            }
+        }
+
+        AddDateClauses(table, columns, request, clauses, parameters);
+
         var selectColumns = string.Join(", ", columns.Select(PortableBackupFormat.QuoteIdentifier));
-        var where = BuildDateWhere(table, columns, request, out var parameters);
+        var where = clauses.Count == 0 ? string.Empty : " WHERE " + string.Join(" AND ", clauses);
+
         await using var command = connection.CreateCommand();
         command.CommandText = $"SELECT {selectColumns} FROM {PortableBackupFormat.QuoteIdentifier(table)}{where};";
         foreach (var parameter in parameters)
         {
-            var dbParameter = command.CreateParameter();
-            dbParameter.ParameterName = parameter.Key;
-            dbParameter.Value = parameter.Value;
-            command.Parameters.Add(dbParameter);
+            AddParameter(command, mappings, parameter);
         }
 
         var rows = new List<PortableRow>();
@@ -159,32 +240,49 @@ internal sealed class TableSnapshotReader(ForgeDbContext dbContext)
         return rows;
     }
 
-    private static string BuildDateWhere(string table, IReadOnlyList<string> columns, ExportRequest request, out IReadOnlyDictionary<string, object> parameters)
+    /// <summary>
+    /// Adds a parameter using EF's own type mapping.
+    /// </summary>
+    /// <remarks>
+    /// SQLite has no Guid and no DateTimeOffset type, so both are stored as text in a format EF
+    /// chooses; a hand-written literal that differs by a single character - lower-case hex, or a
+    /// 'T' where EF writes a space - compares unequal and silently returns nothing. An empty
+    /// export is a quieter failure than a wrong one, but still a failure.
+    /// </remarks>
+    private static void AddParameter(DbCommand command, IRelationalTypeMappingSource mappings, ExportParameter parameter)
     {
-        parameters = ImmutableDictionary<string, object>.Empty;
+        var mapping = mappings.FindMapping(parameter.ClrType)
+            ?? throw new InvalidOperationException($"No relational type mapping for {parameter.ClrType}.");
+        command.Parameters.Add(mapping.CreateParameter(command, parameter.Name, parameter.Value));
+    }
+
+    private static void AddDateClauses(
+        string table,
+        IReadOnlyList<string> columns,
+        ExportRequest request,
+        List<string> clauses,
+        List<ExportParameter> parameters)
+    {
         var dateColumn = PortableBackupFormat.DateColumnFor(table);
-        if (dateColumn is null || !columns.Contains(dateColumn, StringComparer.Ordinal) || (request.FromUtc is null && request.ToUtc is null))
+        if (dateColumn is null || !columns.Contains(dateColumn, StringComparer.Ordinal))
         {
-            return string.Empty;
+            return;
         }
 
-        var clauses = new List<string>();
-        var values = new Dictionary<string, object>(StringComparer.Ordinal);
         if (request.FromUtc is { } from)
         {
             clauses.Add($"{PortableBackupFormat.QuoteIdentifier(dateColumn)} >= @fromUtc");
-            values["@fromUtc"] = from.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+            parameters.Add(new ExportParameter("@fromUtc", typeof(DateTimeOffset), from.ToUniversalTime()));
         }
 
         if (request.ToUtc is { } to)
         {
             clauses.Add($"{PortableBackupFormat.QuoteIdentifier(dateColumn)} <= @toUtc");
-            values["@toUtc"] = to.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+            parameters.Add(new ExportParameter("@toUtc", typeof(DateTimeOffset), to.ToUniversalTime()));
         }
-
-        parameters = values;
-        return " WHERE " + string.Join(" AND ", clauses);
     }
+
+    private sealed record ExportParameter(string Name, Type ClrType, object Value);
 
     private static PortableCell ToPortableCell(object? value) => value switch
     {
@@ -336,6 +434,12 @@ internal sealed class TableSnapshotWriter(ForgeDbContext dbContext)
 }
 
 /// <summary>SQLite-backed implementation of Forge full backup and restore.</summary>
+/// <remarks>
+/// A backup is deliberately device-wide. It exists so the owner of a device can put that device
+/// back the way it was, and a backup that quietly dropped the other profiles would restore a
+/// device with other people's history missing. That is the opposite trade-off from a portability
+/// export, which is why the two are separate operations rather than one with a flag.
+/// </remarks>
 public sealed class ForgeBackupService(ForgeDbContext dbContext) : IBackupService
 {
     private const string AppVersion = "0.1.0";
@@ -347,7 +451,8 @@ public sealed class ForgeBackupService(ForgeDbContext dbContext) : IBackupServic
         Directory.CreateDirectory(destinationDirectory);
 
         progress?.Report(new BackupProgress("Preparing backup", 0));
-        var payload = await new TableSnapshotReader(dbContext).ReadPayloadAsync(ExportRequest.All, progress, cancellationToken);
+        var snapshot = await new TableSnapshotReader(dbContext).ReadAsync(ExportRequest.All, progress, cancellationToken);
+        var payload = snapshot.Payload;
         var recordCounts = payload.Tables.ToDictionary(static table => table.Name, static table => table.Rows.Count, StringComparer.Ordinal);
         var manifest = new BackupManifest(PortableBackupFormat.CurrentSchemaVersion, AppVersion, DateTimeOffset.UtcNow, recordCounts, PortableBackupFormat.ComputeHash(payload));
         var backup = new PortableBackupFile(manifest, payload);
@@ -424,7 +529,10 @@ public sealed class ForgeBackupService(ForgeDbContext dbContext) : IBackupServic
             var backup = await JsonSerializer.DeserializeAsync<PortableBackupFile>(stream, PortableBackupFormat.JsonOptions, cancellationToken);
             if (backup?.Manifest is null || backup.Payload is null)
             {
-                return (new BackupVerificationResult(false, null, "Backup file is not a Forge backup."), null);
+                // An export is not a backup. It may hold one profile's subset of one device's
+                // tables, and restoring it would delete everything the file does not mention -
+                // including every other profile - while presenting itself as a recovery.
+                return (new BackupVerificationResult(false, null, "This is not a Forge backup file. Exports cannot be restored, because an export is a copy of some of your data, not a copy of this device."), null);
             }
 
             if (backup.Manifest.SchemaVersion > PortableBackupFormat.CurrentSchemaVersion)
@@ -448,6 +556,10 @@ public sealed class ForgeBackupService(ForgeDbContext dbContext) : IBackupServic
 }
 
 /// <summary>Exports Forge data as JSON or per-table CSV archives.</summary>
+/// <remarks>
+/// The default audience is one profile. Whole-table reads are still available for a device
+/// backup, which needs them, but they are never what a portability request gets by accident.
+/// </remarks>
 public sealed class ForgeDataExporter(ForgeDbContext dbContext) : IDataExporter
 {
     /// <inheritdoc />
@@ -457,31 +569,64 @@ public sealed class ForgeDataExporter(ForgeDbContext dbContext) : IDataExporter
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationDirectory);
         Directory.CreateDirectory(destinationDirectory);
 
-        var payload = await new TableSnapshotReader(dbContext).ReadPayloadAsync(request, progress, cancellationToken);
-        var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-        var counts = payload.Tables.ToDictionary(static table => table.Name, static table => table.Rows.Count, StringComparer.Ordinal);
+        var snapshot = await new TableSnapshotReader(dbContext).ReadAsync(request, progress, cancellationToken);
+        var createdUtc = DateTimeOffset.UtcNow;
+        var timestamp = createdUtc.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+        var counts = snapshot.Payload.Tables.ToDictionary(static table => table.Name, static table => table.Rows.Count, StringComparer.Ordinal);
+
+        var described = new DataExportResult(
+            string.Empty,
+            format,
+            counts,
+            request.Audience,
+            ExportNarrative.Describe(snapshot.Omitted, snapshot.Unassigned));
+
+        var readme = ExportNarrative.BuildReadme(described, createdUtc);
+        var document = new PortableExportFile(
+            described.Describe(),
+            ExportNarrative.DescribeAudience(request.Audience),
+            createdUtc,
+            counts,
+            described.Unattributable,
+            snapshot.Payload);
+
         var filePath = format == ExportFormat.Json
-            ? await WriteJsonAsync(payload, destinationDirectory, timestamp, cancellationToken)
-            : await WriteCsvZipAsync(payload, destinationDirectory, timestamp, cancellationToken);
+            ? await WriteJsonAsync(document, destinationDirectory, timestamp, cancellationToken)
+            : await WriteArchiveAsync(document, readme, destinationDirectory, timestamp, format == ExportFormat.Portable, cancellationToken);
 
         progress?.Report(new BackupProgress("Export complete", 100));
-        return new DataExportResult(filePath, format, counts);
+        return described with { FilePath = filePath };
     }
 
-    private static async Task<string> WriteJsonAsync(PortablePayload payload, string destinationDirectory, string timestamp, CancellationToken cancellationToken)
+    private static async Task<string> WriteJsonAsync(PortableExportFile document, string destinationDirectory, string timestamp, CancellationToken cancellationToken)
     {
         var path = Path.Combine(destinationDirectory, $"forge-export-{timestamp}.json");
         await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, payload, PortableBackupFormat.JsonOptions, cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, document, PortableBackupFormat.JsonOptions, cancellationToken);
         return path;
     }
 
-    private static async Task<string> WriteCsvZipAsync(PortablePayload payload, string destinationDirectory, string timestamp, CancellationToken cancellationToken)
+    private static async Task<string> WriteArchiveAsync(
+        PortableExportFile document,
+        string readme,
+        string destinationDirectory,
+        string timestamp,
+        bool includeJson,
+        CancellationToken cancellationToken)
     {
         var path = Path.Combine(destinationDirectory, $"forge-export-{timestamp}.zip");
         await using var stream = File.Create(path);
         using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
-        foreach (var table in payload.Tables)
+
+        await WriteEntryAsync(archive, ExportNarrative.ReadmeEntryName, readme, cancellationToken);
+
+        if (includeJson)
+        {
+            await using var jsonEntry = archive.CreateEntry(ExportNarrative.JsonEntryName).Open();
+            await JsonSerializer.SerializeAsync(jsonEntry, document, PortableBackupFormat.JsonOptions, cancellationToken);
+        }
+
+        foreach (var table in document.Data.Tables)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var entry = archive.CreateEntry(table.Name + ".csv");
@@ -496,6 +641,13 @@ public sealed class ForgeDataExporter(ForgeDbContext dbContext) : IDataExporter
         }
 
         return path;
+    }
+
+    private static async Task WriteEntryAsync(ZipArchive archive, string name, string content, CancellationToken cancellationToken)
+    {
+        await using var entryStream = archive.CreateEntry(name).Open();
+        await using var writer = new StreamWriter(entryStream, Encoding.UTF8);
+        await writer.WriteAsync(content).WaitAsync(cancellationToken);
     }
 
     private static string EscapeCsv(string value)

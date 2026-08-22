@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Globalization;
 using Forge.Core.Abstractions.Backup;
 using Forge.Domain.Measurement;
@@ -10,23 +11,65 @@ namespace Forge.Infrastructure.Backup;
 
 internal sealed record ImportedSet(string WorkoutName, DateTimeOffset StartedUtc, string ExerciseName, int Ordinal, decimal LoadKilograms, int Repetitions, TimeSpan? Duration, double? DistanceMetres);
 
-/// <summary>Imports defensive Strong and Hevy CSV exports into the local training log.</summary>
+/// <summary>
+/// Imports defensive Strong and Hevy CSV exports into the local training log.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Import is where data from outside Forge meets data inside it, so every ambiguity has to resolve
+/// the same way: never overwrite, never duplicate, never resurrect, and never write a row Forge
+/// cannot say the owner of.
+/// </para>
+/// <para>
+/// A file carries no trustworthy claim about whose training it holds. It may have come from
+/// another person's phone, or from this device before profiles existed. The importing profile is
+/// therefore passed in and every owned row is stamped with it; nothing is inferred from the file.
+/// </para>
+/// <para>
+/// Collisions are decided by the natural key a human would use - the workout's name and its start
+/// time - because the identifiers in the file belong to another app and mean nothing here.
+/// A workout the profile already has is skipped whole. It is not merged, because merging would
+/// silently rewrite a set the user logged themselves, and not appended, because appending turns a
+/// second import of the same file into a duplicated training history.
+/// </para>
+/// </remarks>
 public sealed class ForgeDataImporter(ForgeDbContext dbContext) : IDataImporter
 {
+    /// <summary>
+    /// The entity types this importer writes.
+    /// </summary>
+    /// <remarks>
+    /// Used to decide whether an unattributed import is safe. As soon as any of these adopts
+    /// <see cref="IProfileOwned"/> in another branch, an import with no resolved profile starts
+    /// being refused here rather than writing rows nobody can be shown to own.
+    /// </remarks>
+    private static readonly Type[] WrittenEntityTypes = [typeof(WorkoutSession), typeof(SetEntry), typeof(Exercise)];
+
     private static readonly string[] DateFormats =
     [
         "O", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd", "M/d/yyyy h:mm:ss tt", "M/d/yyyy h:mm tt", "M/d/yyyy", "dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm", "dd/MM/yyyy"
     ];
 
     /// <inheritdoc />
-    public async Task<ImportPreview> PreviewAsync(string filePath, CancellationToken cancellationToken)
+    public async Task<ImportPreview> PreviewAsync(string filePath, ProfileScope subject, CancellationToken cancellationToken)
     {
         var parsed = await ParseFileAsync(filePath, cancellationToken);
-        return parsed.Preview;
+        if (!parsed.Preview.CanImport)
+        {
+            return parsed.Preview;
+        }
+
+        if (DescribeOwnershipRefusal(subject) is { } refusal)
+        {
+            return parsed.Preview with { CanImport = false, Errors = [.. parsed.Preview.Errors, refusal] };
+        }
+
+        var known = await ReadKnownWorkoutsAsync(subject, cancellationToken);
+        return parsed.Preview with { AlreadyPresentWorkoutCount = CountAlreadyPresent(parsed.Sets, known) };
     }
 
     /// <inheritdoc />
-    public async Task<ImportResult> ImportAsync(string filePath, IProgress<BackupProgress>? progress, CancellationToken cancellationToken)
+    public async Task<ImportResult> ImportAsync(string filePath, ProfileScope subject, IProgress<BackupProgress>? progress, CancellationToken cancellationToken)
     {
         var parsed = await ParseFileAsync(filePath, cancellationToken);
         if (!parsed.Preview.CanImport)
@@ -34,13 +77,23 @@ public sealed class ForgeDataImporter(ForgeDbContext dbContext) : IDataImporter
             return new ImportResult(false, parsed.Preview, "Import was not started because the file has validation errors.");
         }
 
+        if (DescribeOwnershipRefusal(subject) is { } refusal)
+        {
+            var blocked = parsed.Preview with { CanImport = false, Errors = [.. parsed.Preview.Errors, refusal] };
+            return new ImportResult(false, blocked, refusal);
+        }
+
         await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+        var known = await ReadKnownWorkoutsAsync(subject, cancellationToken);
+        var preview = parsed.Preview with { AlreadyPresentWorkoutCount = CountAlreadyPresent(parsed.Sets, known) };
+
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            var exerciseRows = await dbContext.Set<Exercise>().ToListAsync(cancellationToken);
-            var exercises = exerciseRows.ToDictionary(static e => e.Name, StringComparer.OrdinalIgnoreCase);
+            var exercises = await ReadReusableExercisesAsync(subject, cancellationToken);
             var workoutGroups = parsed.Sets.GroupBy(static set => new { set.WorkoutName, set.StartedUtc }).ToList();
+            var imported = 0;
+            var skipped = 0;
 
             // An import is somebody bringing their own training history onto this device, so it is
             // attributed to whoever is using the app right now. Leaving the owner unset would write
@@ -51,8 +104,16 @@ public sealed class ForgeDataImporter(ForgeDbContext dbContext) : IDataImporter
 
             for (var index = 0; index < workoutGroups.Count; index++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var group = workoutGroups[index];
                 progress?.Report(new BackupProgress($"Importing {group.Key.WorkoutName}", index * 100d / Math.Max(1, workoutGroups.Count)));
+
+                if (!known.Add(WorkoutKey(group.Key.WorkoutName, group.Key.StartedUtc)))
+                {
+                    skipped++;
+                    continue;
+                }
+
                 var workout = new WorkoutSession
                 {
                     UserProfileId = owner,
@@ -61,6 +122,7 @@ public sealed class ForgeDataImporter(ForgeDbContext dbContext) : IDataImporter
                     CompletedUtc = group.Key.StartedUtc,
                 };
                 await dbContext.Set<WorkoutSession>().AddAsync(workout, cancellationToken);
+                Attribute(workout, subject);
 
                 foreach (var importedSet in group.OrderBy(static set => set.ExerciseName, StringComparer.OrdinalIgnoreCase).ThenBy(static set => set.Ordinal))
                 {
@@ -72,10 +134,11 @@ public sealed class ForgeDataImporter(ForgeDbContext dbContext) : IDataImporter
                             IsUserCreated = true,
                         };
                         await dbContext.Set<Exercise>().AddAsync(exercise, cancellationToken);
+                        Attribute(exercise, subject);
                         exercises[exercise.Name] = exercise;
                     }
 
-                    await dbContext.Set<SetEntry>().AddAsync(new SetEntry
+                    var entry = new SetEntry
                     {
                         UserProfileId = owner,
                         WorkoutSessionId = workout.Id,
@@ -86,21 +149,143 @@ public sealed class ForgeDataImporter(ForgeDbContext dbContext) : IDataImporter
                         CompletedUtc = importedSet.StartedUtc,
                         Duration = importedSet.Duration,
                         DistanceMetres = importedSet.DistanceMetres,
-                    }, cancellationToken);
+                    };
+                    await dbContext.Set<SetEntry>().AddAsync(entry, cancellationToken);
+                    Attribute(entry, subject);
                 }
+
+                // Saved per workout so the change tracker stays bounded on a large history, and
+                // still inside the one transaction: a failure or a cancellation half way through
+                // rolls every workout back, including the ones already written to the connection.
+                await dbContext.SaveChangesAsync(cancellationToken);
+                imported++;
             }
 
-            await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             progress?.Report(new BackupProgress("Import complete", 100));
-            return new ImportResult(true, parsed.Preview, "Import completed successfully.");
+            return new ImportResult(true, preview, DescribeOutcome(imported, skipped), imported, skipped);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or DbUpdateException or ArgumentException)
+        catch (Exception ex) when (ex is InvalidOperationException or DbUpdateException or DbException or ArgumentException or OperationCanceledException)
         {
-            await transaction.RollbackAsync(cancellationToken);
-            return new ImportResult(false, parsed.Preview, $"Import failed and no rows were written: {ex.Message}");
+            await transaction.RollbackAsync(CancellationToken.None);
+            dbContext.ChangeTracker.Clear();
+            return new ImportResult(false, preview, $"Import failed and no rows were written: {ex.Message}");
         }
     }
+
+    private static string DescribeOutcome(int imported, int skipped)
+    {
+        var written = imported == 1 ? "1 workout" : $"{imported} workouts";
+        if (skipped == 0)
+        {
+            return imported == 0 ? "The file contained no new workouts." : $"Imported {written}.";
+        }
+
+        var already = skipped == 1 ? "1 workout was" : $"{skipped} workouts were";
+        return imported == 0
+            ? $"Nothing was imported. {already} already in your log and left unchanged."
+            : $"Imported {written}. {already} already in your log and left unchanged.";
+    }
+
+    /// <summary>
+    /// Why this import must not run, or <see langword="null"/> when it may.
+    /// </summary>
+    /// <remarks>
+    /// Checked against the live type declarations rather than a remembered answer, so this starts
+    /// refusing the moment training data joins the profile boundary. Until it does, an import onto
+    /// a device with no profile behaves as it always has, because those rows are shared anyway and
+    /// refusing would break import during first-run setup.
+    /// </remarks>
+    private static string? DescribeOwnershipRefusal(ProfileScope subject)
+        => subject.IsResolved || !WrittenEntityTypes.Any(static type => typeof(IProfileOwned).IsAssignableFrom(type))
+            ? null
+            : "Import needs to know whose training this is, and no profile is active. Choose a profile first; Forge will not write records it cannot attribute to anybody.";
+
+    /// <summary>Stamps the owning profile onto a row, when the row carries an owner at all.</summary>
+    /// <remarks>
+    /// Written against EF's own metadata rather than reflection over the CLR property. The value is
+    /// set through the change tracker, which knows the mapping and does not need
+    /// <c>MakeGenericMethod</c> - that works on Android and throws on an ahead-of-time iOS build.
+    /// </remarks>
+    private void Attribute(object entity, ProfileScope subject)
+    {
+        if (!subject.IsResolved || entity is not IProfileOwned)
+        {
+            return;
+        }
+
+        var entry = dbContext.Entry(entity);
+        if (entry.Metadata.FindProperty(nameof(IProfileOwned.UserProfileId)) is not null)
+        {
+            entry.Property(nameof(IProfileOwned.UserProfileId)).CurrentValue = subject.ProfileId;
+        }
+    }
+
+    /// <summary>
+    /// The workouts this profile already has, including ones it deleted.
+    /// </summary>
+    /// <remarks>
+    /// Soft-deleted rows count as present. Re-importing a file must not quietly bring back a
+    /// session somebody chose to remove, and a delete is a stronger statement than a stale copy in
+    /// an old export file.
+    /// </remarks>
+    private async Task<HashSet<string>> ReadKnownWorkoutsAsync(ProfileScope subject, CancellationToken cancellationToken)
+    {
+        await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+
+        // Materialised before filtering. SQLite cannot compare or order a DateTimeOffset in the
+        // database, so the start time is only safe to touch once the rows are in memory.
+        //
+        // Query filters are ignored deliberately: Forge soft-deletes, and a session the user
+        // removed is still a session they already had. Letting a re-import miss it would restore
+        // a workout somebody chose to delete, which is the one outcome an import must never cause.
+        var sessions = await dbContext.Set<WorkoutSession>().IgnoreQueryFilters().ToListAsync(cancellationToken);
+        return sessions
+            .Where(session => BelongsTo(session, subject))
+            .Select(session => WorkoutKey(session.Title ?? string.Empty, session.StartedUtc))
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Exercises an import may point new sets at.
+    /// </summary>
+    /// <remarks>
+    /// Deleted exercises are excluded, so an import creates a fresh row rather than reviving one.
+    /// Matching rows are reused but never modified: the catalogue is shared between profiles, and
+    /// an import that edited it would change what everybody on the device sees.
+    /// </remarks>
+    private async Task<Dictionary<string, Exercise>> ReadReusableExercisesAsync(ProfileScope subject, CancellationToken cancellationToken)
+    {
+        var rows = await dbContext.Set<Exercise>().IgnoreQueryFilters().ToListAsync(cancellationToken);
+        var reusable = new Dictionary<string, Exercise>(StringComparer.OrdinalIgnoreCase);
+        foreach (var exercise in rows.Where(exercise => !exercise.IsDeleted && BelongsTo(exercise, subject)))
+        {
+            reusable.TryAdd(exercise.Name, exercise);
+        }
+
+        return reusable;
+    }
+
+    /// <summary>Whether a row is a candidate for this profile.</summary>
+    /// <remarks>
+    /// A row that carries no owner belongs to everybody on the device today, so it stays a
+    /// candidate. A row that does carry one is a candidate only for its owner, which is what makes
+    /// duplicate detection and catalogue reuse stop crossing profiles the moment a type adopts the
+    /// seam.
+    /// </remarks>
+    private static bool BelongsTo(object entity, ProfileScope subject)
+        => entity is not IProfileOwned owned || subject.Owns(owned);
+
+    private static int CountAlreadyPresent(IReadOnlyList<ImportedSet> sets, HashSet<string> known)
+        => sets
+            .Select(static set => new { set.WorkoutName, set.StartedUtc })
+            .Distinct()
+            .Count(workout => known.Contains(WorkoutKey(workout.WorkoutName, workout.StartedUtc)));
+
+    private static string WorkoutKey(string title, DateTimeOffset startedUtc)
+        => string.Create(
+            CultureInfo.InvariantCulture,
+            $"{title.Trim().ToUpperInvariant()}|{startedUtc.ToUniversalTime():O}");
 
     private static async Task<ParsedImport> ParseFileAsync(string filePath, CancellationToken cancellationToken)
     {
