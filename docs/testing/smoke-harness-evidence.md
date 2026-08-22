@@ -28,6 +28,17 @@ of them was empty.
 | `seeded-blank-card.xml` | `healthy-screen.xml` with one card's subtree emptied | **fail** |
 | `seeded-blank-page.xml` | `healthy-screen.xml` with every app-owned label stripped | **fail** |
 | `seeded-unlabelled-control.xml` | `healthy-screen.xml` with one control made actionable and nameless | **fail** |
+| `seeded-unbound-page.xml` | every bound text stripped, static `content-desc`s left alive | **fail** |
+| `seeded-visible-error.xml` | one label replaced with the SQLite message that shipped | **fail** |
+| `seeded-text-overflow.xml` | one label collapsed to zero height, one pushed past its parent | **fail** |
+| `logcat/logcat-clean.log` | ordinary startup, Mono chatter, a dropped-frames warning | **pass** |
+| `logcat/logcat-runtime-exception.log` | an EF translation failure the app survived | **fail** |
+| `logcat/logcat-crash.log` | `FATAL EXCEPTION` naming Forge | classified `Crash` |
+| `logcat/logcat-external-forcestop.log` | `Force stopping ... from pid 9471` | classified `External` |
+
+The logcat fixtures are hand-written rather than captured, and deliberately so: a device cannot be
+asked to throw a particular exception on demand, and a captured log would drift with every
+unrelated change on the emulator.
 
 Regenerating them:
 
@@ -85,6 +96,115 @@ mutation also sets `clickable="true"`, constructing precisely the shape the chec
 underlying finding — that nothing in the app is exposed as clickable — is reported separately by
 the device walk as `ActionableNotExposed`.
 
+## Seeded defect 4 — bindings dead, one static `content-desc` alive
+
+This is the fixture that justifies a second, weaker blank check existing at all.
+
+`Test-ForgeBlankPage` needs the content region to have **neither** text nor `content-desc`. A
+`content-desc` written as a XAML literal is not a binding, so it survives the `ContentPresenter`
+trap untouched — and one surviving literal is enough to make a page with 98 dead bindings look
+populated. `seeded-unbound-page.xml` strips every bound text and leaves the five static
+descriptions in place, which is what the real defect produced.
+
+```
+Seeded defect 4: bindings dead, one static content-desc alive
+  PASS  a page with controls and no text is detected
+        42 nodes, 3 interactive, 0 with text
+  PASS  the older blank-page check misses this, which is why the new one exists
+        blank-page sees 5 surviving content-desc(s) and calls the page populated
+```
+
+The second assertion is the whole argument, stated as a test rather than a comment.
+
+## Seeded defect 5 — an exception message rendered to the user
+
+```
+Seeded defect 5: an exception message rendered to the user
+  PASS  visible error text is detected
+        rule 'sqlite-translation': SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY clauses.
+  PASS  no other check would have caught the visible error
+        the page is populated and non-blank; only the error-text rule sees it
+  PASS  ordinary failure copy is not mistaken for an exception
+        4 realistic strings, none flagged
+```
+
+The middle assertion is the reason this check exists. A caught exception bound into a label leaves
+the process alive, logcat clean and the page full of text. Every other check in the harness passes
+it, and the user is reading a database error.
+
+The third assertion is the reason it is usable. The patterns match machinery — CLR type names,
+stack frames, EF translation failures, SQL constraint messages — never bare words, because
+*"Import failed, nothing was changed"* is legitimate product copy and a check that fires on it
+would be switched off within a week. The four strings tested are:
+
+- *Import failed, nothing was changed.*
+- *Something went wrong. Try again.*
+- *No errors in the last 30 days.*
+- *Your data never leaves this device.*
+
+## Seeded defect 6 — text that does not fit where it was put
+
+```
+Seeded defect 6: text that does not fit where it was put
+  PASS  collapsed text is detected
+        'Forge works without an account' renders at zero height
+  PASS  text overhanging its parent is detected
+        the label overhangs its ViewGroup parent at [53,170][1028,615] by 58px, so it is clipped
+  PASS  a one-pixel overhang is within tolerance and not reported
+        layout rounding does not produce findings
+```
+
+The tolerance assertion matters as much as the detections. Sub-pixel layout rounding routinely
+puts a label one pixel outside its parent; paging anyone about that is indistinguishable from
+noise.
+
+## Logcat: exceptions the app survived, and who stopped the app
+
+```
+Logcat: exceptions the app survived, and who stopped the app
+  PASS  an ordinary startup log produces no runtime-exception findings
+        9 lines, including Mono loader chatter and a dropped-frames warning
+  PASS  an exception the app survived is detected
+        E DOTNET  : System.InvalidOperationException: The LINQ expression 'DbSet<WorkoutSet>()...
+  PASS  the same fault is reported once, not once per printed line
+        1 finding(s) from a 9-line trace
+  PASS  a non-fatal exception is not misreported as a crash
+        the process stayed alive, so the fatal check stays quiet
+  PASS  a fatal is classified as a crash
+        classified 'Crash'
+  PASS  another process force-stopping the app is interference, not a crash
+        classified 'External'
+  PASS  the interfering pid is captured so it can be named in the report
+        stopper pid '9471'
+  PASS  an unexplained disappearance is reported as unknown, never as a pass
+        classified 'Unknown'
+```
+
+The last three are the shared-emulator assertions. Another work stream force-stopping or
+reinstalling Forge has been mistaken for a Forge crash twice on this project. The classifier now
+separates the two and names the stopping process, and the last assertion holds the line that "I do
+not know why the app vanished" is reported as a failure rather than quietly dropped.
+
+## The ignore list cannot be used to hide anything
+
+```
+Finding identity and the ignore list
+  PASS  the same finding gets the same id every time
+  PASS  the same defect shape on another route gets a different id
+  PASS  an ignore entry accepts exactly the finding it names
+  PASS  an accepted finding keeps its reason and owner in the report
+  PASS  a kind-plus-route entry does not leak onto another route
+  PASS  with no ignore entries every finding fails the run
+  PASS  an ignore entry with no reason is rejected
+  PASS  an entry that would suppress a whole kind everywhere is rejected
+  PASS  a well-formed entry beside malformed ones is still loaded
+  PASS  the ignore list committed to the repository is valid
+```
+
+Three of those are the guarantees that make an ignore list safe to have at all: an entry without a
+reason fails the run, an entry that would suppress a whole finding kind is rejected outright, and
+accepting a defect on one route leaves the identical defect on another route still failing.
+
 ## The quiet direction
 
 A check that flags everything catches every defect and is still worthless, because nobody keeps
@@ -128,11 +248,11 @@ Both were caught by pointing the checks at real captures, and both are now locke
 ```
 Route inventory is derived from source, not hand-maintained
   PASS  route inventory is non-empty
-        52 route constants parsed from ForgeRoutes.cs
+        53 route constants parsed from ForgeRoutes.cs
   PASS  shell tabs are identified
         5 tabs: today, train, nutrition, progress, profile
   PASS  every navigable route resolves an on-screen title
-        46 of 46 navigable routes have a title derived from source
+        53 of 53 navigable routes have a title derived from source
   PASS  no two navigable routes share a title
         all titles unique
 ```
@@ -143,6 +263,53 @@ credit a visit to the wrong route. This is not hypothetical: an early version of
 resolver matched a page title appearing *anywhere* on screen, and because the Today page has a
 hydration ring labelled "Hydration", every launch was recorded as a successful visit to the
 hydration screen the harness had never opened.
+
+## So is the navigation graph
+
+The graph is what turns "we tapped around" into "we set out to open the medical disclaimer". Its
+assertions name specific routes rather than a coverage percentage, because a percentage encodes
+nothing a reader can act on.
+
+```
+Navigation graph, also derived from source
+  PASS  navigation edges are found in page sources
+        69 edges (39 direct GoToAsync calls, 12 route references, 18 attributed to a shared view-model file)
+  PASS  the graph finds a path to 'medical-disclaimer'
+        profile -> settings -> medical-disclaimer
+  PASS  the graph finds a path to 'licences'
+        profile -> settings -> licences
+  PASS  the graph finds a path to 'personal-records'
+        progress -> personal-records
+  PASS  the graph finds a path to 'body-metrics'
+        progress -> body-metrics
+  PASS  the graph finds a path to 'plan-templates'
+        today -> plans -> plan-templates
+  PASS  the graph finds a path to 'export-data'
+        profile -> settings -> settings-data -> export-data
+  PASS  the graph reaches far more routes than a tab-bar crawl did
+        34 of 48 registered routes have a path from a shell tab; the crawl-only harness reached 12 routes in total
+  PASS  routes nothing links to are identifiable as such
+        14 registered route(s) with no path from any tab
+  PASS  a control naming its destination outranks one that does not
+        'Plate calculator' scores 100, 'Log hydration' scores 0
+  PASS  an unrelated control scores zero rather than being excluded
+        unmatched controls are still tried, which is how list rows reach detail pages
+```
+
+Each of the six named routes is there for a different structural reason, and each was among the 41
+the pre-Wave-8 crawl never opened:
+
+| Route | Why it needed the graph |
+|---|---|
+| `medical-disclaimer` | two hops down a settings list |
+| `licences` | the last row of that list, below the fold — needs scrolling too |
+| `personal-records` | a hub destination built from a list, never an inline `GoToAsync` |
+| `body-metrics` | reachable from two different hubs |
+| `plan-templates` | owned by `PlansFeatureViewModels.cs`, which is shared by four pages |
+| `export-data` | three hops deep |
+
+The last two assertions guard the ranking. If label matching stopped working the walk would
+degrade silently into a crawl, because it would still reach *some* screens.
 
 ## Watching the self-test itself fail
 
@@ -168,73 +335,64 @@ IsBlank on the real screen : False
 
 ## What the device walk found on the real app
 
-The checks are not theoretical. A run against `emulator-5554` — 58 actions, 26 observed
-navigations, 12 screen visits across 10 distinct routes, no crashes, no interference — reported
-the following with evidence:
+The checks are not theoretical. The findings from the Wave 8 runs across both emulators are
+triaged in [`smoke-findings.md`](smoke-findings.md), including the two the harness could not have
+found before this wave: a screen rendering an EF translation failure to the user, and a fatal
+crash on the button that leaves it.
 
-**Two failures, both on the goal wizard.** An `android.widget.EditText` at `[127,1078][849,1141]`
-and an `android.widget.ImageButton` at `[891,1078][954,1141]`, neither carrying any text or
-`content-desc` anywhere in its subtree. A screen reader announces an anonymous edit field and an
-anonymous button, so the wizard step cannot be completed without sight.
-
-**Seven controls that work under a finger but report `clickable="false"`.** Each was tapped by the
-harness, each demonstrably navigated, and none is exposed to assistive technology as actionable:
-
-| Screen | Control |
-|---|---|
-| `today` | `Finish setup` |
-| `train` | `Start a workout`, `Browse exercises`, `View workout history`, `Open the plate calculator` |
-| `active-workout` | `Increase weight by 2.5 kilograms`, `One rep fewer` |
-
-This is defect 5 from the list in [`smoke-harness.md`](smoke-harness.md), still present and now
-measurable. The two `active-workout` entries are the sharpest case: adjusting weight and reps
-during a set is the app's core interaction, and it is unreachable with a screen reader.
-
-Both findings live in `src/**`, which this work stream does not own, so they are reported and not
-fixed.
+Everything the walk finds lives in `src/**`, which this work stream does not own, so it is
+reported and not fixed.
 
 ### And what it honestly did not check
 
-The same run listed **42 of 52 routes as unvisited**, with a reason for each:
-
-- **6 are not implemented at all** — `app-lock`, `profile-switcher`, `language-settings`,
-  `barcode-scanner`, `recipes` and `settings-health` are declared in `ForgeRoutes.cs` and never
-  passed to `Routing.RegisterRoute`, so there is no page to visit. Worth knowing on its own.
-- **36 were not reached** within the crawl depth and action budget — including the whole settings
-  and legal subtree, the plan editor, and everything behind a completed workout.
-
-None of those is reported as passing. That distinction is the point of the tool.
-
+Every route the harness did not reach is listed with the reason it did not, and none of them is
+reported as passing. That distinction is the point of the tool. Fourteen registered routes are
+listed with the same reason — *no page in the app references this route* — which is not a harness
+limitation but a finding about the app.
 
 ## Screen identification, and why it is trustworthy
 
 The harness only credits a route as visited when it can name the screen it is standing on. Every
-visit records which of three source-derived signals named it, and the last full run used only
-strong ones:
+visit records which of three source-derived signals named it, and both Wave 8 runs used only
+strong ones — no visit fell back to guesswork and nothing was recorded as unidentified.
 
-| Route | Named by |
+| Signal | Used for |
 |---|---|
-| `today` | selected shell tab |
-| `train`, `progress`, `nutrition`, `profile` | top-of-screen title |
-| `workout-history`, `plate-calculator`, `exercises`, `active-workout` | top-of-screen title |
-| `goal-wizard` | text literal unique to one page (`"Primary goal"`) |
+| top-of-screen title | every pushed page: `settings`, `exercises`, `workout-summary`, `body-metrics`, … |
+| text literal unique to one page | `welcome` and `goal-wizard`, which draw no title |
+| selected shell tab | the five tab roots, which render no title anywhere |
 
-No visit fell back to guesswork, and nothing was recorded as unidentified. A screen that matches
-none of the three is reported as *unidentified* — checked, but never counted as coverage of a
-route.
+A screen matching none of the three is reported as *unidentified* — checked, but never counted as
+coverage of a route.
 
 ## Interference detection, observed live
 
-Several worktrees share the Forge emulators, and during one run another stream reinstalled the app
-underneath the harness. It said so rather than quietly reporting results from two different builds:
+Several worktrees share the Forge emulators, and it shows. Both Wave 8 runs were interfered with,
+and both said so rather than quietly reporting results from two different builds:
 
 ```
 External interference detected on this device:
-  - The package was reinstalled during the run
-    (lastUpdateTime '2026-08-21 22:44:07' -> '2026-08-21 23:13:03').
+  - pid changed during 'launch': ... Force stopping com.nikomix.forge appid=10235 user=0:
+    from pid 27313  [pid 27313 has already exited, which is what a one-shot adb command looks like]
+  - pid changed during 'en-route-to-profile-switcher': ... Killing 2805:com.nikomix.forge/u0a235
+    (adj 0): stop com.nikomix.forge due to installPackageLI  [another process is reinstalling the package]
+  - The package was reinstalled during the run.
   Results touched by interference are reported as inconclusive, not as passes.
 ```
 
-The same machinery separates an external `am force-stop` from a real crash, so a colleague
-resetting the emulator cannot be reported as a Forge defect — and, equally, a real crash cannot be
-waved away as interference.
+Three distinct shapes, all classified correctly and none of them reported as a Forge crash:
+
+| Log line | Classified | Reported as |
+|---|---|---|
+| `Force stopping ... from pid N` | `External` | interference, with the stopping process named |
+| `Killing N:... due to installPackageLI` | `External` | interference, "another process is reinstalling the package" |
+| `FATAL EXCEPTION: main` naming Forge | `Crash` | a failure, with the stack |
+
+The pid lookup is what makes the first line usable. `[pid 27313 has already exited, which is what
+a one-shot adb command looks like]` says immediately that somebody ran an `adb` command rather
+than that a long-lived process is fighting for the device.
+
+A relaunch that fails while a package install is in flight is now retried three times with a
+growing delay instead of aborting the run, because the earlier version aborted and blamed Forge
+for another stream's deploy.
+

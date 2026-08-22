@@ -1,0 +1,9 @@
+--------- beginning of main
+08-22 01:12:03.114  1611  1798 I ActivityManager: Start proc 9302:com.nikomix.forge/u0a173 for activity {com.nikomix.forge/crc64e1fb321c08285b90.MainActivity}
+08-22 01:12:04.882  9302  9302 D Mono    : Assembly Loader probing location: '/data/data/com.nikomix.forge/files/.__override__/x86_64/Forge.App.dll'.
+08-22 01:12:05.331  9302  9302 I Forge   : Seeding skipped: the exercise catalogue is already at revision 3.
+08-22 01:12:06.020  9302  9331 D Forge   : ForgeDbContext opened data source /data/user/0/com.nikomix.forge/files/forge.db
+08-22 01:12:06.774  9302  9302 I Choreographer: Skipped 41 frames!  The application may be doing too much work on its main thread.
+08-22 01:12:07.415  1611  1798 I ActivityManager: Displayed com.nikomix.forge/crc64e1fb321c08285b90.MainActivity: +4s112ms
+08-22 01:12:11.902  9302  9302 D Forge   : Navigated to route 'today'
+08-22 01:12:19.556  9302  9302 D Forge   : Navigated to route 'settings'

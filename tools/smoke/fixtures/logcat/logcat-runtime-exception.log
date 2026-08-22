@@ -1,0 +1,9 @@
+--------- beginning of main
+08-22 01:14:41.006  9302  9302 D Forge   : Navigated to route 'active-workout'
+08-22 01:14:41.552  9302  9358 W Forge   : ActiveWorkoutPageViewModel.LoadAsync failed and the page will render its error state.
+08-22 01:14:41.553  9302  9358 E DOTNET  : System.InvalidOperationException: The LINQ expression 'DbSet<WorkoutSet>().OrderBy(s => s.CompletedAt)' could not be translated. SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY clauses.
+08-22 01:14:41.553  9302  9358 E DOTNET  :    at Microsoft.EntityFrameworkCore.Query.QueryableMethodTranslatingExpressionVisitor.Translate(Expression expression)
+08-22 01:14:41.553  9302  9358 E DOTNET  :    at Forge.Infrastructure.Persistence.EfRepository`1.ListAsync(ISpecification`1 specification, CancellationToken cancellationToken)
+08-22 01:14:41.554  9302  9358 E DOTNET  :    at Forge.App.Features.Workout.ActiveWorkoutPageViewModel.LoadAsync(CancellationToken cancellationToken)
+08-22 01:14:41.612  9302  9302 D Forge   : Rendered the workout error banner.
+08-22 01:14:43.220  9302  9302 D Forge   : Navigated to route 'today'

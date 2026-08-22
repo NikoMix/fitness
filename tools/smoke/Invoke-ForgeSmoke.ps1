@@ -18,9 +18,10 @@
          inheritance, so 98 bindings across 16 pages resolved against null and drew nothing.
 
     Every one compiled with zero warnings and passed every test. This harness exists to catch
-    that class automatically: it launches the app, walks it, and after every step asks four
-    questions - is the process still alive, did anything fatal reach logcat, did this screen
-    render any content, and can a screen reader use what is on it.
+    that class automatically: it launches the app, walks it, and after every step asks whether
+    the process is still alive, whether anything fatal or merely unhandled reached logcat,
+    whether the screen rendered any content, whether it rendered an exception message to the
+    user, whether any of its text is clipped, and whether a screen reader could use it.
 
     Honesty rules the harness follows, because a smoke test that reports unverified success is
     worse than no smoke test:
@@ -29,8 +30,18 @@
         maintained here, so a new destination is covered the day it is added.
       * A screen the harness could not reach is reported as unvisited with the reason. It is
         never counted as passed.
-      * On a shared emulator another work stream can force-stop the app. That is detected and
-        reported as external interference rather than as a crash.
+      * On a shared emulator another work stream can force-stop the app. That is detected, the
+        stopping process is named, and it is reported as external interference rather than as a
+        crash.
+      * A known finding can be accepted only through an ignore entry that carries a reason and an
+        owner. There is no way to silence a whole category.
+
+    Coverage is the harness's binding constraint, so it navigates deliberately rather than only
+    crawling. Android offers no way to drive Shell.Current.GoToAsync from adb - there is no
+    intent filter and no exported per-route activity - so lib/ForgeNavigationGraph.ps1 reads the
+    ForgeRoutes references out of each page's own source, computes a shortest path from a tab
+    root to every route, and the harness walks that path by matching control labels against the
+    destination's title. Every hop is confirmed against the screen the app actually landed on.
 
 .PARAMETER Serial
     The adb serial to drive. Always explicit: a Forge development machine usually has two
@@ -43,11 +54,26 @@
 
     Screens behave differently with and without a profile, so both are worth running.
 
+.PARAMETER RouteMode
+    Directed  crawl the tabs, then deliberately walk to every route still unvisited, following a
+              path computed from the navigation graph in source. This is what takes coverage
+              past the tab bar's immediate neighbourhood.
+    Crawl     tab sweep and breadth-first crawl only, the pre-Wave-8 behaviour.
+
+.PARAMETER FontScalePass
+    After the main pass, set the system font scale to -LargeFontScale and re-open every route
+    that was reached, running only the text-overflow check. This is how a row that fits at 1.0x
+    and clips at 1.3x gets caught. The original scale is always restored, including on failure -
+    leaving a shared emulator at 1.3x would silently change what every other stream sees.
+
 .EXAMPLE
     pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -Install
 
 .EXAMPLE
     pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5554 -CleanState -OnboardingMode Skip
+
+.EXAMPLE
+    pwsh tools/smoke/Invoke-ForgeSmoke.ps1 -Serial emulator-5556 -FontScalePass -CaptureScreenshots
 #>
 [CmdletBinding()]
 param(
@@ -62,13 +88,31 @@ param(
     [ValidateSet('Skip', 'Complete', 'None')]
     [string]$OnboardingMode = 'Skip',
 
+    [ValidateSet('Directed', 'Crawl')]
+    [string]$RouteMode = 'Directed',
+
     [int]$MaxDepth = 3,
     [int]$MaxActionsPerScreen = 14,
-    [int]$MaxTotalActions = 220,
+    [int]$MaxTotalActions = 900,
+
+    # The crawl gets its own ceiling so it cannot spend the whole run before the route-directed
+    # pass starts. Without this the two phases compete for one budget and the crawl always wins,
+    # because it is first and its branching factor is enormous - which is precisely how the
+    # pre-Wave-8 harness reached 12 routes and then stopped.
+    [int]$MaxCrawlActions = 160,
+
+    [int]$MaxCandidatesPerHop = 10,
+    [int]$MaxSecondsPerRoute = 150,
+    [int]$MaxScrollsPerScreen = 3,
+    [int]$MaxRunMinutes = 75,
     [double]$SettleSeconds = 2.0,
     [int]$LaunchSettleSeconds = 14,
 
+    [switch]$FontScalePass,
+    [string]$LargeFontScale = '1.30',
+
     [string]$OutputDirectory,
+    [string]$IgnoreListPath,
     [switch]$CaptureScreenshots,
     [switch]$FailOnAccessibilityExposure,
 
@@ -83,13 +127,22 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib/ForgeAdb.ps1')
 . (Join-Path $PSScriptRoot 'lib/ForgeUiAnalysis.ps1')
 . (Join-Path $PSScriptRoot 'lib/ForgeRouteInventory.ps1')
+. (Join-Path $PSScriptRoot 'lib/ForgeNavigationGraph.ps1')
+. (Join-Path $PSScriptRoot 'lib/ForgeFindings.ps1')
 . (Join-Path $PSScriptRoot 'lib/ForgeSmokeReport.ps1')
 
 if (-not $RepoRoot) { $RepoRoot = Get-ForgeRepoRoot -StartPath $PSScriptRoot }
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $RepoRoot 'artifacts/smoke' }
+if (-not $IgnoreListPath) { $IgnoreListPath = Join-Path $PSScriptRoot 'smoke-ignore.json' }
 
 $dumpDirectory = Join-Path $OutputDirectory 'dumps'
 New-Item -ItemType Directory -Force -Path $OutputDirectory, $dumpDirectory | Out-Null
+
+# Resolved once, here, rather than at the end of the run. The report is the only durable output of
+# a walk that takes the better part of an hour, and computing its path next to the directory that
+# was just created means nothing that happens in between can lose it.
+$script:MarkdownReportPath = Join-Path $OutputDirectory 'smoke-report.md'
+$script:JsonReportPath = Join-Path $OutputDirectory 'smoke-report.json'
 
 $startedUtc = [DateTime]::UtcNow
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -105,14 +158,21 @@ $state = [pscustomobject]@{
     UnidentifiedScreens   = [System.Collections.Generic.List[psobject]]::new()
     ProcessDeaths         = [System.Collections.Generic.List[psobject]]::new()
     FatalExceptions       = [System.Collections.Generic.List[psobject]]::new()
+    RuntimeExceptions     = [System.Collections.Generic.List[psobject]]::new()
     BlankScreens          = [System.Collections.Generic.List[psobject]]::new()
     BlankContainers       = [System.Collections.Generic.List[psobject]]::new()
+    UnboundScreens        = [System.Collections.Generic.List[psobject]]::new()
+    VisibleErrors         = [System.Collections.Generic.List[psobject]]::new()
+    TextOverflow          = [System.Collections.Generic.List[psobject]]::new()
     UnlabelledInteractive = [System.Collections.Generic.List[psobject]]::new()
     ActionableNotExposed  = [System.Collections.Generic.List[psobject]]::new()
     DumpFailures          = [System.Collections.Generic.List[psobject]]::new()
     SkippedActions        = [System.Collections.Generic.List[psobject]]::new()
+    RouteAttempts         = [System.Collections.Generic.List[psobject]]::new()
+    LearnedEdges          = [System.Collections.Generic.List[psobject]]::new()
     VisitedRoutes         = [System.Collections.Generic.HashSet[string]]::new()
     VisitedFingerprints   = [System.Collections.Generic.HashSet[string]]::new()
+    CheckedRoutes         = [System.Collections.Generic.HashSet[string]]::new()
     ActionsAttempted      = 0
     NavigationsObserved   = 0
     Recoveries            = 0
@@ -120,18 +180,41 @@ $state = [pscustomobject]@{
     LaunchPid             = $null
     Aborted               = $false
     AbortReason           = $null
+    CurrentRoute          = 'launch'
+    FontScale             = '1.0'
+    Phase                 = 'crawl'
+    CrawlActions          = 0
 }
 
 function Add-Failure {
-    param([string]$Kind, [string]$Route, [string]$Detail, [string[]]$Evidence = @())
-    $state.Failures.Add([pscustomobject]@{ Kind = $Kind; Route = $Route; Detail = $Detail; Evidence = @($Evidence) })
+    param([string]$Kind, [string]$Route, [string]$Detail, [string[]]$Evidence = @(), [string]$Discriminator = '')
+    $id = Get-ForgeFindingId -Kind $Kind -Route $Route -Discriminator $Discriminator
+    $state.Failures.Add([pscustomobject]@{ Id = $id; Kind = $Kind; Route = $Route; Detail = $Detail; Evidence = @($Evidence); FontScale = $state.FontScale })
     Write-Host "    FAIL [$Kind] $Detail" -ForegroundColor Red
 }
 
 function Add-Warning {
-    param([string]$Kind, [string]$Route, [string]$Detail)
-    $state.Warnings.Add([pscustomobject]@{ Kind = $Kind; Route = $Route; Detail = $Detail })
+    param([string]$Kind, [string]$Route, [string]$Detail, [string]$Discriminator = '')
+    $id = Get-ForgeFindingId -Kind $Kind -Route $Route -Discriminator $Discriminator
+    $state.Warnings.Add([pscustomobject]@{ Id = $id; Kind = $Kind; Route = $Route; Detail = $Detail })
     Write-Host "    WARN [$Kind] $Detail" -ForegroundColor Yellow
+}
+
+function Test-GlobalBudgetExhausted {
+    if ($stopwatch.Elapsed.TotalMinutes -ge $MaxRunMinutes) { return $true }
+    if ($state.ActionsAttempted -ge $MaxTotalActions) { return $true }
+    return $false
+}
+
+function Test-BudgetExhausted {
+    if (Test-GlobalBudgetExhausted) { return $true }
+    if ($state.Phase -eq 'crawl' -and $state.CrawlActions -ge $MaxCrawlActions) { return $true }
+    return $false
+}
+
+function Add-ActionCount {
+    $state.ActionsAttempted++
+    if ($state.Phase -eq 'crawl') { $state.CrawlActions++ }
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -174,12 +257,14 @@ if (-not $installed.Installed) {
 Write-Host "installed  : versionName=$($installed.VersionName) versionCode=$($installed.VersionCode) lastUpdate=$($installed.LastUpdateTime)"
 
 # ---------------------------------------------------------------------------------------------
-# Route inventory, derived from source
+# Route inventory and navigation graph, both derived from source
 # ---------------------------------------------------------------------------------------------
 $inventory = @(Get-ForgeRouteInventory -RepoRoot $RepoRoot)
 $titleToRoute = @{}
 $literalToRoute = @{}
+$routeByName = @{}
 foreach ($r in $inventory) {
+    $routeByName[$r.Route] = $r
     if ($r.Title) {
         $key = $r.Title.Trim().ToLowerInvariant()
         if (-not $titleToRoute.ContainsKey($key)) { $titleToRoute[$key] = $r.Route }
@@ -190,6 +275,15 @@ foreach ($r in $inventory) {
     }
 }
 Write-Host "routes     : $($inventory.Count) declared, $(@($inventory | Where-Object { $_.Kind -ne 'Declared' }).Count) navigable, $($titleToRoute.Count) identifiable by title, $($literalToRoute.Count) discriminating text literals"
+
+$navigationEdges = @(Get-ForgeNavigationGraph -Inventory $inventory -RepoRoot $RepoRoot)
+$tabRouteNames = @($inventory | Where-Object { $_.Kind -eq 'Tab' } | Sort-Object TabIndex | ForEach-Object { $_.Route })
+Write-Host "graph      : $($navigationEdges.Count) navigation edges read from page sources ($(@($navigationEdges | Where-Object { $_.Kind -eq 'Navigation' }).Count) direct GoToAsync, $(@($navigationEdges | Where-Object { $_.Kind -eq 'Reference' }).Count) route references)"
+
+$ignoreList = Import-ForgeSmokeIgnoreList -Path $IgnoreListPath
+if ($ignoreList.Entries.Count -gt 0 -or $ignoreList.Problems.Count -gt 0) {
+    Write-Host "ignores    : $($ignoreList.Entries.Count) accepted finding(s), $($ignoreList.Problems.Count) malformed entr(ies) from $IgnoreListPath"
+}
 
 # ---------------------------------------------------------------------------------------------
 # Helpers that talk to the device
@@ -232,6 +326,10 @@ function Test-ProcessAlive {
         Returns $true when the app is still running. When it is not, works out why and records it.
         A force-stop by another process on a shared emulator is interference, not a Forge defect,
         and saying otherwise would make every report untrustworthy.
+
+        This has already mattered twice: an external uninstall was read as a crash on both
+        occasions and cost real debugging time. The stopping process is now named, so
+        "from pid 9471 (com.android.shell)" says immediately that somebody ran an adb command.
     #>
     param([string]$Context)
 
@@ -245,11 +343,12 @@ function Test-ProcessAlive {
             if ($cause.Cause -eq 'Crash') {
                 Add-Failure -Kind 'ProcessRestartedAfterCrash' -Route $Context `
                     -Detail "The process restarted (pid $($state.LaunchPid) -> $currentPid) after a fatal error." `
-                    -Evidence $cause.Block
+                    -Evidence $cause.Block -Discriminator $cause.Detail
             }
             elseif ($cause.Cause -eq 'External') {
-                $state.Interference.Add("pid changed during '$Context': $($cause.Detail)")
-                Add-Warning -Kind 'ExternalRestart' -Route $Context -Detail "Another process stopped the app; the run continued against a fresh process. $($cause.Detail)"
+                $who = Resolve-Stopper -Cause $cause
+                $state.Interference.Add("pid changed during '$Context': $who")
+                Add-Warning -Kind 'ExternalRestart' -Route $Context -Detail "Another process stopped the app; the run continued against a fresh process. $who"
             }
             else {
                 Add-Warning -Kind 'UnexplainedRestart' -Route $Context -Detail "The process restarted (pid $($state.LaunchPid) -> $currentPid) and nothing in logcat explains it."
@@ -265,17 +364,39 @@ function Test-ProcessAlive {
 
     switch ($cause.Cause) {
         'Crash' {
-            Add-Failure -Kind 'ProcessDied' -Route $Context -Detail "The app process is gone: $($cause.Detail)" -Evidence $cause.Block
+            Add-Failure -Kind 'ProcessDied' -Route $Context -Detail "The app process is gone: $($cause.Detail)" -Evidence $cause.Block -Discriminator $cause.Detail
         }
         'External' {
-            $state.Interference.Add("process stopped during '$Context': $($cause.Detail)")
-            Add-Warning -Kind 'ExternalStop' -Route $Context -Detail "Another process force-stopped the app. Not counted as a Forge defect. $($cause.Detail)"
+            $who = Resolve-Stopper -Cause $cause
+            $state.Interference.Add("process stopped during '$Context': $who")
+            Add-Warning -Kind 'ExternalStop' -Route $Context -Detail "Another process force-stopped the app. Not counted as a Forge defect. $who"
         }
         default {
-            Add-Failure -Kind 'ProcessDiedUnexplained' -Route $Context -Detail $cause.Detail
+            Add-Failure -Kind 'ProcessDiedUnexplained' -Route $Context -Detail $cause.Detail -Discriminator $Context
         }
     }
     return $false
+}
+
+function Resolve-Stopper {
+    <#
+        Turns "from pid 9471" into "from pid 9471 (com.android.shell)". On a machine where several
+        worktrees drive the same emulator this is the difference between a two-minute diagnosis
+        and an hour spent looking for a crash that never happened.
+    #>
+    param($Cause)
+
+    $detail = [string]$Cause.Detail
+    $stopperId = $null
+    if ($Cause.PSObject.Properties.Name -contains 'StopperId') { $stopperId = $Cause.StopperId }
+    if (-not $stopperId) { return $detail }
+
+    $name = $null
+    try { $name = Get-ForgeProcessName -AdbPath $adb -Serial $Serial -ProcessId $stopperId }
+    catch { Write-Verbose "Could not resolve pid ${stopperId}: $_" }
+
+    if ($name) { return "$detail  [pid $stopperId is '$name']" }
+    return "$detail  [pid $stopperId has already exited, which is what a one-shot adb command looks like]"
 }
 
 function Test-NoFatalSinceStart {
@@ -290,7 +411,42 @@ function Test-NoFatalSinceStart {
         $seen = @($state.FatalExceptions | Where-Object { $_.Line -eq $signature })
         if ($seen.Count -gt 0) { continue }
         $state.FatalExceptions.Add([pscustomobject]@{ Context = $Context; Line = $signature })
-        Add-Failure -Kind 'FatalException' -Route $Context -Detail $signature -Evidence $f.Block
+        Add-Failure -Kind 'FatalException' -Route $Context -Detail $signature -Evidence $f.Block -Discriminator $signature
+    }
+}
+
+function Test-NoRuntimeException {
+    <#
+        Exceptions the app survived, attributed to the screen that was open when they were thrown.
+
+        The window is opened by stamping the device clock on arrival at a screen and read when the
+        checks run, so the finding names a route. Attribution is the whole point: "an
+        InvalidOperationException happened somewhere during a 40-minute run" is not actionable and
+        "the readiness screen threw InvalidOperationException" is.
+    #>
+    param([string]$RouteLabel, [string]$Since)
+
+    # A missing timestamp must degrade this check, not disable it. When the device clock could not
+    # be read the window is unknown, so the whole buffer is scanned instead and attribution to
+    # this route becomes a best guess rather than a fact - which is still far better than the
+    # check silently never running. An earlier version returned here on a null $Since, and because
+    # the timestamp was always null the runtime-exception detector never executed on a device at
+    # all.
+    $log = @(Get-ForgeLogcatSince -AdbPath $adb -Serial $Serial -Since $Since -MaxLines 1500)
+    $attribution = if ($Since) { "while '$RouteLabel' was open" } else { "at some point before '$RouteLabel' was checked (the device clock could not be read, so the window is the whole buffer)" }
+
+    foreach ($f in @(Find-ForgeRuntimeExceptions -LogLines $log -PackageName $PackageName)) {
+        $known = @($state.RuntimeExceptions | Where-Object { $_.Signature -eq $f.Signature })
+        if ($known.Count -gt 0) { continue }
+
+        # A fatal is already reported by Test-NoFatalSinceStart; do not report it twice.
+        $alreadyFatal = @($state.FatalExceptions | Where-Object { $_.Line -like "*$($f.Signature)*" })
+        if ($alreadyFatal.Count -gt 0) { continue }
+
+        $state.RuntimeExceptions.Add([pscustomobject]@{ Route = $RouteLabel; Signature = $f.Signature; Line = $f.Line })
+        Add-Failure -Kind 'RuntimeException' -Route $RouteLabel `
+            -Detail "An exception was thrown $attribution and the app carried on: $($f.Signature)" `
+            -Evidence $f.Block -Discriminator $f.Signature
     }
 }
 
@@ -363,28 +519,83 @@ function Resolve-Screen {
 function Invoke-ScreenChecks {
     <#
         Everything the harness can assert about a rendered screen.
+
+        Order runs from the most severe to the most specific, and the blank checks are mutually
+        exclusive on purpose: a wholly blank page would otherwise be reported three times.
     #>
-    param($Tree, [string]$RouteLabel)
+    param($Tree, [string]$RouteLabel, [switch]$OverflowOnly)
+
+    if ($OverflowOnly) {
+        Invoke-OverflowCheck -Tree $Tree -RouteLabel $RouteLabel
+        return
+    }
+
+    [void]$state.CheckedRoutes.Add($RouteLabel)
+
+    $errors = @(Find-ForgeVisibleErrorText -Tree $Tree -PackageName $PackageName)
+    foreach ($e in $errors) {
+        $state.VisibleErrors.Add([pscustomobject]@{ Route = $RouteLabel; Rule = $e.Rule; Text = $e.Text; Bounds = $e.Bounds })
+        Add-Failure -Kind 'VisibleErrorText' -Route $RouteLabel -Discriminator $e.Text `
+            -Detail "This screen is showing the user an exception message in its $($e.Where) at $($e.Bounds): `"$($e.Text)`"" `
+            -Evidence @("matched rule: $($e.Rule)", "element path: $($e.Path)")
+    }
 
     $blankPage = Test-ForgeBlankPage -Tree $Tree -PackageName $PackageName
     if ($blankPage.IsBlank) {
         $state.BlankScreens.Add([pscustomobject]@{ Route = $RouteLabel })
-        Add-Failure -Kind 'BlankScreen' -Route $RouteLabel `
+        Add-Failure -Kind 'BlankScreen' -Route $RouteLabel -Discriminator 'content-region-empty' `
             -Detail 'The content region of this screen contains no text and no content-desc at all. This is the ForgeCard failure shape: the page is up, and empty.'
+    }
+    else {
+        $unbound = Test-ForgeUnboundContent -Tree $Tree -PackageName $PackageName
+        if ($unbound.IsUnbound) {
+            $state.UnboundScreens.Add([pscustomobject]@{ Route = $RouteLabel; NodeCount = $unbound.NodeCount; InteractiveCount = $unbound.InteractiveCount })
+            Add-Failure -Kind 'UnboundContent' -Route $RouteLabel -Discriminator 'no-text-anywhere' `
+                -Detail "This screen laid out $($unbound.NodeCount) nodes, $($unbound.InteractiveCount) of them interactive, and rendered no text at all. Every Forge page draws text; a page with controls and none is the ContentPresenter shape, where each {Binding} resolved against null."
+        }
     }
 
     $blankContainers = @(Find-ForgeBlankContainers -Tree $Tree -PackageName $PackageName)
     foreach ($c in $blankContainers) {
         $state.BlankContainers.Add([pscustomobject]@{ Route = $RouteLabel; Bounds = $c.Bounds; Class = $c.Class; Descendants = $c.Descendants })
-        Add-Failure -Kind 'BlankContainer' -Route $RouteLabel `
+        Add-Failure -Kind 'BlankContainer' -Route $RouteLabel -Discriminator $c.Path `
             -Detail "A $($c.Width)x$($c.Height) container at $($c.Bounds) rendered $($c.Descendants) descendants and not one of them has text, a content-desc or an image."
     }
+
+    Invoke-OverflowCheck -Tree $Tree -RouteLabel $RouteLabel
 
     $a11y = Find-ForgeAccessibilityIssues -Tree $Tree -PackageName $PackageName
     foreach ($u in $a11y.UnlabelledInteractive) {
         $state.UnlabelledInteractive.Add([pscustomobject]@{ Route = $RouteLabel; Bounds = $u.Bounds; Class = $u.Class })
-        Add-Failure -Kind 'UnlabelledInteractive' -Route $RouteLabel `
+        Add-Failure -Kind 'UnlabelledInteractive' -Route $RouteLabel -Discriminator $u.Path `
             -Detail "An interactive $($u.Class) at $($u.Bounds) has no text and no content-desc anywhere inside it, so a screen reader announces an anonymous control."
+    }
+}
+
+function Invoke-OverflowCheck {
+    <#
+        Clipped and collapsed text. Reported once per (route, font scale, element), so the
+        1.0x pass and the large-font pass can both speak about the same row without the report
+        turning into a wall of duplicates.
+    #>
+    param($Tree, [string]$RouteLabel)
+
+    foreach ($o in @(Find-ForgeTextOverflow -Tree $Tree -PackageName $PackageName)) {
+        $known = @($state.TextOverflow | Where-Object {
+                $_.Route -eq $RouteLabel -and $_.Text -eq $o.Text -and $_.Shape -eq $o.Shape -and $_.FontScale -eq $state.FontScale
+            })
+        if ($known.Count -gt 0) { continue }
+
+        $state.TextOverflow.Add([pscustomobject]@{
+                Route     = $RouteLabel
+                Shape     = $o.Shape
+                Text      = $o.Text
+                Bounds    = $o.Bounds
+                FontScale = $state.FontScale
+            })
+        Add-Failure -Kind 'TextOverflow' -Route $RouteLabel -Discriminator "$($o.Shape)|$($o.Text)|$($state.FontScale)" `
+            -Detail "At font scale $($state.FontScale), `"$($o.Text)`" $($o.Detail)." `
+            -Evidence @("shape: $($o.Shape)", "bounds: $($o.Bounds)", "element path: $($o.Path)")
     }
 }
 
@@ -442,18 +653,89 @@ function Get-Actionables {
     return @($result | Sort-Object Area, Y, X)
 }
 
+function Invoke-ScrollDown {
+    <#
+        Scrolls the content region and returns the new hierarchy, or $null if nothing moved.
+
+        This is not a nicety. The settings list, the exercise library and the profile screen all
+        put most of their rows below the fold, and a crawler that never scrolls simply cannot see
+        them. Before this existed the harness had no way to reach "Licences" at all, because it is
+        the last row of a seven-row list on a screen that shows four.
+
+        The swipe deliberately stays inside the middle band of the screen: starting near the
+        bottom edge triggers the Android gesture-navigation bar, and starting near the top pulls
+        the notification shade down over the app.
+    #>
+    param($Tree, [string]$Label)
+
+    $startY = [int]($Tree.ScreenHeight * 0.72)
+    $endY = [int]($Tree.ScreenHeight * 0.32)
+    $x = [int]($Tree.ScreenWidth / 2)
+
+    Invoke-ForgeSwipe -AdbPath $adb -Serial $Serial -X1 $x -Y1 $startY -X2 $x -Y2 $endY -SettleSeconds ($SettleSeconds * 0.6)
+
+    $after = Get-Tree -Label "scroll-$Label"
+    if ($null -eq $after) { return $null }
+    if ((Get-ForgeScreenFingerprint -Tree $after) -eq (Get-ForgeScreenFingerprint -Tree $Tree)) { return $null }
+    return $after
+}
+
+function Get-RouteKeywordsFor {
+    param([string]$Route)
+    if (-not $routeByName.ContainsKey($Route)) { return @($Route -replace '-', ' ') }
+    return @(Get-ForgeRouteKeywords -Route $routeByName[$Route])
+}
+
+function Add-LearnedEdge {
+    <#
+        Records that tapping a particular label on one screen led to another. The graph read from
+        source says which screens link where; this says which control does it, which is what makes
+        the second and third walks through the same screen fast.
+    #>
+    param([string]$From, [string]$Label, [string]$To)
+
+    if (-not $From -or -not $To -or $From -eq $To) { return }
+    $known = @($state.LearnedEdges | Where-Object { $_.From -eq $From -and $_.To -eq $To -and $_.Label -eq $Label })
+    if ($known.Count -gt 0) { return }
+    $state.LearnedEdges.Add([pscustomobject]@{ From = $From; Label = $Label; To = $To })
+}
+
+function Get-LearnedLabel {
+    param([string]$From, [string]$To)
+    $hit = @($state.LearnedEdges | Where-Object { $_.From -eq $From -and $_.To -eq $To })
+    if ($hit.Count -eq 0) { return $null }
+    return $hit[0].Label
+}
+
 function Restore-AppToLaunchState {
     param([string]$Why)
 
     $state.Recoveries++
     Write-Host "    recovering ($Why): restarting the app" -ForegroundColor DarkYellow
-    Stop-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName
-    Start-Sleep -Seconds 2
-    $newPid = Start-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName -SettleSeconds $LaunchSettleSeconds
-    $state.LaunchPid = $newPid
-    if (-not $newPid) { return $false }
-    [void](Invoke-Onboarding -Mode $OnboardingMode -Quiet)
-    return $true
+
+    # Retried, because the most common reason a relaunch fails on this machine is that another
+    # work stream is part-way through installing its own build. Aborting the run on that would
+    # blame Forge for somebody else's deploy, and the earlier version of this did exactly that.
+    foreach ($attempt in 1..3) {
+        Stop-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName
+        Start-Sleep -Seconds (2 * $attempt)
+        $newPid = Start-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName -SettleSeconds $LaunchSettleSeconds
+        if ($newPid) {
+            $state.LaunchPid = $newPid
+            [void](Invoke-Onboarding -Mode $OnboardingMode -Quiet)
+            return $true
+        }
+
+        $log = @(Get-ForgeLogcat -AdbPath $adb -Serial $Serial -MaxLines 400)
+        if (@($log | Where-Object { $_ -match 'installPackageLI|Force stopping ' + [regex]::Escape($PackageName) }).Count -gt 0) {
+            $state.Interference.Add("relaunch attempt $attempt failed while the package was being reinstalled by another process")
+            Write-Host "    another process is reinstalling the package; waiting and retrying" -ForegroundColor DarkYellow
+            Start-Sleep -Seconds 15
+        }
+    }
+
+    $state.LaunchPid = $null
+    return $false
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -516,10 +798,15 @@ function Invoke-Onboarding {
 function Invoke-ScreenVisit {
     param(
         [int]$Depth,
-        [string]$ArrivedVia
+        [string]$ArrivedVia,
+        [switch]$NoDescend
     )
 
     if ($state.Aborted) { return $null }
+    # Only the global budget can stop a screen being *checked*. A screen the harness has already
+    # navigated to costs one dump to check, and skipping that would throw away the reason it went
+    # there. The crawl-specific cap applies to descending further, below.
+    if (Test-GlobalBudgetExhausted) { return $null }
 
     if (-not (Test-ProcessAlive -Context $ArrivedVia)) {
         if (-not (Restore-AppToLaunchState -Why 'process gone')) {
@@ -529,6 +816,7 @@ function Invoke-ScreenVisit {
         return $null
     }
 
+    $arrivedAt = Get-ForgeDeviceLogTime -AdbPath $adb -Serial $Serial
     $tree = Get-Tree -Label $ArrivedVia
     if ($null -eq $tree) { return $null }
 
@@ -543,6 +831,7 @@ function Invoke-ScreenVisit {
     $screen = Resolve-Screen -Tree $tree
     $fingerprint = Get-ForgeScreenFingerprint -Tree $tree
     $routeLabel = if ($null -ne $screen) { $screen.Route } else { "unidentified:$fingerprint" }
+    $state.CurrentRoute = $routeLabel
 
     $firstVisit = $state.VisitedFingerprints.Add($fingerprint)
 
@@ -574,10 +863,17 @@ function Invoke-ScreenVisit {
         Save-Screenshot -Label $routeLabel
         Invoke-ScreenChecks -Tree $tree -RouteLabel $routeLabel
         Test-NoFatalSinceStart -Context $routeLabel
+        Test-NoRuntimeException -RouteLabel $routeLabel -Since $arrivedAt
     }
 
     if ($Depth -ge $MaxDepth) { return $fingerprint }
     if (-not $firstVisit) { return $fingerprint }
+    if ($NoDescend) { return $fingerprint }
+
+    # A per-screen clock, so one screen that keeps producing new-looking hierarchies cannot eat
+    # the whole run. Before this existed, a single mis-identified list could consume the entire
+    # action budget and every route after it was reported unvisited for the wrong reason.
+    $screenClock = [System.Diagnostics.Stopwatch]::StartNew()
 
     # The action list is re-derived on every iteration rather than captured once. Content settles,
     # rings finish loading and lists fill in, all of which move bounds; tapping coordinates that
@@ -585,13 +881,29 @@ function Invoke-ScreenVisit {
     # reporting nonsense. Tracking labels instead of indexes makes the loop self-correcting.
     $tried = [System.Collections.Generic.HashSet[string]]::new()
     $current = $tree
+    $scrolls = 0
 
     for ($iteration = 0; $iteration -lt $MaxActionsPerScreen; $iteration++) {
         if ($state.Aborted) { break }
-        if ($state.ActionsAttempted -ge $MaxTotalActions) { break }
+        if (Test-BudgetExhausted) { break }
+        if ($screenClock.Elapsed.TotalSeconds -ge $MaxSecondsPerRoute) {
+            Add-Warning -Kind 'RouteTimeCapped' -Route $routeLabel -Discriminator 'crawl' `
+                -Detail "Exploration of this screen stopped after $([int]$screenClock.Elapsed.TotalSeconds)s so it could not consume the whole run. Anything below it here is unexplored, not passed."
+            break
+        }
 
         $candidates = @(Get-Actionables -Tree $current | Where-Object { -not $tried.Contains($_.Label) })
-        if ($candidates.Count -eq 0) { break }
+        if ($candidates.Count -eq 0) {
+            # Most of Forge's lists continue below the fold. Scrolling is what reaches the last
+            # row of the settings list, which is where the legal documents live.
+            if ($scrolls -ge $MaxScrollsPerScreen) { break }
+            $scrolls++
+            $scrolled = Invoke-ScrollDown -Tree $current -Label $routeLabel
+            if ($null -eq $scrolled) { break }
+            $current = $scrolled
+            Invoke-ScreenChecks -Tree $current -RouteLabel $routeLabel
+            continue
+        }
 
         $action = $candidates[0]
         [void]$tried.Add($action.Label)
@@ -602,7 +914,7 @@ function Invoke-ScreenVisit {
             continue
         }
 
-        $state.ActionsAttempted++
+        Add-ActionCount
         Invoke-ForgeTap -AdbPath $adb -Serial $Serial -X $action.X -Y $action.Y -SettleSeconds $SettleSeconds
 
         if (-not (Test-ProcessAlive -Context "$routeLabel -> $($action.Label)")) {
@@ -624,6 +936,11 @@ function Invoke-ScreenVisit {
 
         $state.NavigationsObserved++
 
+        $landed = Resolve-Screen -Tree $after
+        if ($null -ne $landed -and $null -ne $screen) {
+            Add-LearnedEdge -From $screen.Route -Label $action.Label -To $landed.Route
+        }
+
         # The tap demonstrably did something, so the control is actionable. If Android did not
         # report it as clickable, assistive technology cannot activate it. This is evidence, not
         # a heuristic: the harness only reports controls it has personally proven to work.
@@ -638,10 +955,10 @@ function Invoke-ScreenVisit {
                     })
                 $detail = "'$($action.Label)' ($($action.Class)) navigated when tapped but reports clickable=false, so a screen reader cannot activate it."
                 if ($FailOnAccessibilityExposure) {
-                    Add-Failure -Kind 'ActionableNotExposed' -Route $routeLabel -Detail $detail
+                    Add-Failure -Kind 'ActionableNotExposed' -Route $routeLabel -Detail $detail -Discriminator $action.Label
                 }
                 else {
-                    Add-Warning -Kind 'ActionableNotExposed' -Route $routeLabel -Detail $detail
+                    Add-Warning -Kind 'ActionableNotExposed' -Route $routeLabel -Detail $detail -Discriminator $action.Label
                 }
             }
         }
@@ -676,7 +993,8 @@ function Restore-ToScreen {
     param(
         [string]$ExpectedFingerprint,
         $ExpectedRoute,
-        [string]$Label
+        [string]$Label,
+        [switch]$NoRewalk
     )
 
     # A tab root is not on a back stack. Tapping the tab is both the correct way home and an
@@ -705,6 +1023,20 @@ function Restore-ToScreen {
         if ($null -ne $ExpectedRoute) {
             $now = Resolve-Screen -Tree $tree
             if ($null -ne $now -and $now.Route -eq $ExpectedRoute.Route) { return $tree }
+        }
+    }
+
+    # Back landed somewhere else - usually a tab root, because a pushed page's parent is one.
+    # Walking to the route again costs a handful of taps; relaunching costs about twenty seconds
+    # and, over forty directed routes, that difference was most of the run.
+    if ($null -ne $ExpectedRoute -and $ExpectedRoute.Route -and -not $NoRewalk) {
+        $isTab = @($inventory | Where-Object { $_.Route -eq $ExpectedRoute.Route -and $_.Kind -eq 'Tab' }).Count -eq 1
+        if (-not $isTab -and -not (Test-GlobalBudgetExhausted)) {
+            $rewalk = Move-ToRoute -Target $ExpectedRoute.Route -NoRewalk
+            if ($rewalk.Reached) {
+                $tree = Get-Tree -Label "rewalk-to-$Label"
+                if ($null -ne $tree) { return $tree }
+            }
         }
     }
 
@@ -738,7 +1070,9 @@ function Open-ShellTab {
     }
 
     $target = Find-TabTarget
-    for ($pop = 0; $pop -lt 3 -and $null -eq $target; $pop++) {
+    # Popping costs about two seconds; relaunching costs about twenty-five, and over a
+    # route-directed pass that difference is most of the run. Pop generously before giving up.
+    for ($pop = 0; $pop -lt 5 -and $null -eq $target; $pop++) {
         Invoke-ForgeBack -AdbPath $adb -Serial $Serial -SettleSeconds $SettleSeconds
         $target = Find-TabTarget
     }
@@ -750,9 +1084,310 @@ function Open-ShellTab {
 
     if ($null -eq $target) { return $null }
 
-    $state.ActionsAttempted++
+    Add-ActionCount
     Invoke-ForgeTap -AdbPath $adb -Serial $Serial -X $target.X -Y $target.Y -SettleSeconds ($SettleSeconds + 1)
     return (Get-Tree -Label "tab-$($Tab.Route)")
+}
+
+# ---------------------------------------------------------------------------------------------
+# Route-directed navigation
+#
+# The crawl finds screens; this finds *particular* screens. Android will not let adb drive
+# Shell.Current.GoToAsync, so "go to the medical disclaimer" becomes "walk the path source says
+# leads there, confirming at every hop which screen actually appeared".
+# ---------------------------------------------------------------------------------------------
+function Move-ToRoute {
+    <#
+        Attempts to land on one route. Returns a result record describing what happened, which is
+        reported verbatim - a route the harness failed to reach is never counted as passing, and
+        the reason it failed is the useful half of the finding.
+    #>
+    param([string]$Target, [switch]$NoRewalk)
+
+    $clock = [System.Diagnostics.Stopwatch]::StartNew()
+    $path = Get-ForgeRoutePath -Edges $navigationEdges -Roots $tabRouteNames -Target $Target
+    if ($null -eq $path) {
+        return [pscustomobject]@{
+            Route   = $Target
+            Reached = $false
+            Reason  = 'no page in the app references this route, so nothing navigates to it. Either it is dead UI or its entry point is built at runtime from data the harness has not created.'
+            Path    = @()
+        }
+    }
+
+    $pathText = ($path -join ' -> ')
+
+    # Start from the tab the path begins at, always from a known state.
+    $rootRoute = $path[0]
+    $rootTab = @($inventory | Where-Object { $_.Route -eq $rootRoute -and $_.Kind -eq 'Tab' })
+    if ($rootTab.Count -ne 1) {
+        return [pscustomobject]@{
+            Route   = $Target
+            Reached = $false
+            Reason  = "the computed path starts at '$rootRoute', which is not a shell tab, so the harness has no reliable place to start from"
+            Path    = @($path)
+        }
+    }
+
+    if ($null -eq (Open-ShellTab -Tab $rootTab[0])) {
+        return [pscustomobject]@{
+            Route   = $Target
+            Reached = $false
+            Reason  = "the '$rootRoute' tab could not be opened, so the walk to this route never started"
+            Path    = @($path)
+        }
+    }
+
+    $current = $rootRoute
+    for ($hop = 1; $hop -lt $path.Count; $hop++) {
+        $next = $path[$hop]
+
+        if ($clock.Elapsed.TotalSeconds -ge $MaxSecondsPerRoute) {
+            return [pscustomobject]@{
+                Route   = $Target
+                Reached = $false
+                Reason  = "the walk was capped at ${MaxSecondsPerRoute}s while trying to get from '$current' to '$next' (path $pathText)"
+                Path    = @($path)
+            }
+        }
+        if (Test-BudgetExhausted) {
+            return [pscustomobject]@{
+                Route   = $Target
+                Reached = $false
+                Reason  = "the run's action or time budget was exhausted at '$current' (path $pathText)"
+                Path    = @($path)
+            }
+        }
+
+        $result = Invoke-Hop -From $current -To $next -NoRewalk:$NoRewalk
+        if (-not $result.Reached) {
+            return [pscustomobject]@{
+                Route   = $Target
+                Reached = $false
+                Reason  = "no control on '$current' led to '$next': $($result.Reason) (path $pathText)"
+                Path    = @($path)
+            }
+        }
+        $current = $next
+    }
+
+    return [pscustomobject]@{
+        Route   = $Target
+        Reached = $true
+        Reason  = "reached by walking $pathText"
+        Path    = @($path)
+    }
+}
+
+function Invoke-Hop {
+    <#
+        One step of a walk: find the control on the current screen that leads to the next route,
+        press it, and confirm where the app actually went.
+
+        Candidates are ranked rather than filtered. Ranking beats filtering here because a detail
+        page's entry point is a list row whose label is data - the exercise library's route to
+        'exercise-detail' is a row saying "Barbell back squat", which matches no keyword at all.
+        Keyword matches go first, and unmatched controls are still tried afterwards, which is what
+        reaches the parameterised routes.
+    #>
+    param([string]$From, [string]$To, [switch]$NoRewalk)
+
+    $keywords = @(Get-RouteKeywordsFor -Route $To)
+    $learned = Get-LearnedLabel -From $From -To $To
+    $tried = [System.Collections.Generic.HashSet[string]]::new()
+    $attempts = 0
+    $scrolls = 0
+
+    while ($attempts -lt $MaxCandidatesPerHop) {
+        $tree = Get-Tree -Label "hop-$From-to-$To"
+        if ($null -eq $tree) { return [pscustomobject]@{ Reached = $false; Reason = 'the hierarchy could not be dumped' } }
+        if (-not (Test-ForgeAppInForeground -Tree $tree -PackageName $PackageName)) {
+            return [pscustomobject]@{ Reached = $false; Reason = 'the app was not in the foreground' }
+        }
+
+        $fingerprint = Get-ForgeScreenFingerprint -Tree $tree
+
+        $ranked = @(Get-Actionables -Tree $tree |
+                Where-Object { -not $tried.Contains($_.Label) } |
+                Where-Object { $_.Label -notmatch $ForbiddenActionPattern } |
+                ForEach-Object {
+                    $affinity = Get-ForgeActionAffinity -Label $_.Label -Keywords $keywords
+                    if ($learned -and $_.Label -eq $learned) { $affinity = 200 }
+                    $_ | Add-Member -NotePropertyName Affinity -NotePropertyValue $affinity -PassThru
+                } |
+                Sort-Object -Property @{ Expression = 'Affinity'; Descending = $true }, Area, Y, X)
+
+        if ($ranked.Count -eq 0) {
+            if ($scrolls -ge $MaxScrollsPerScreen) {
+                return [pscustomobject]@{ Reached = $false; Reason = 'every control on the screen was tried, including after scrolling' }
+            }
+            $scrolls++
+            if ($null -eq (Invoke-ScrollDown -Tree $tree -Label "hop-$To")) {
+                return [pscustomobject]@{ Reached = $false; Reason = 'every control on the screen was tried and the screen does not scroll' }
+            }
+            continue
+        }
+
+        $action = $ranked[0]
+        [void]$tried.Add($action.Label)
+        $attempts++
+
+        Add-ActionCount
+        Invoke-ForgeTap -AdbPath $adb -Serial $Serial -X $action.X -Y $action.Y -SettleSeconds $SettleSeconds
+
+        if (-not (Test-ProcessAlive -Context "$From -> $To via '$($action.Label)'")) {
+            if (-not (Restore-AppToLaunchState -Why "process gone while walking to $To")) {
+                $state.Aborted = $true
+                $state.AbortReason = 'The app could not be relaunched during route-directed navigation.'
+            }
+            return [pscustomobject]@{ Reached = $false; Reason = "the app process died after tapping '$($action.Label)'" }
+        }
+
+        $after = Get-Tree -Label "hop-after-$($action.Label)"
+        if ($null -eq $after) { continue }
+        if ((Get-ForgeScreenFingerprint -Tree $after) -eq $fingerprint) { continue }
+
+        $state.NavigationsObserved++
+        $landed = Resolve-Screen -Tree $after
+        if ($null -ne $landed) {
+            Add-LearnedEdge -From $From -Label $action.Label -To $landed.Route
+            if ($landed.Route -eq $To) {
+                Write-Host "      $From --[$($action.Label)]--> $To" -ForegroundColor DarkGreen
+                return [pscustomobject]@{ Reached = $true; Reason = "tapped '$($action.Label)'" }
+            }
+        }
+
+        # It went somewhere else. Check it anyway - a screen is a screen - then come back and try
+        # the next candidate. Not descending keeps the walk affordable.
+        [void](Invoke-ScreenVisit -Depth 2 -ArrivedVia "en-route-to-$To" -NoDescend)
+        if ($state.Aborted) { return [pscustomobject]@{ Reached = $false; Reason = 'the run aborted mid-walk' } }
+
+        $back = Restore-ToScreen -ExpectedFingerprint $fingerprint -ExpectedRoute ([pscustomobject]@{ Route = $From }) -Label $From -NoRewalk:$NoRewalk
+        if ($null -eq $back) {
+            return [pscustomobject]@{ Reached = $false; Reason = "the harness could not get back to '$From' after '$($action.Label)' led somewhere else" }
+        }
+    }
+
+    return [pscustomobject]@{ Reached = $false; Reason = "$attempts control(s) were tried and none of them led there" }
+}
+
+function Invoke-DirectedRoutePass {
+    <#
+        Walks to every registered route the crawl did not reach.
+
+        Ordering matters. Shallow routes are attempted first, because reaching one of them often
+        reveals the entry point to a deeper one and makes the later walk a single hop instead of
+        three.
+    #>
+    param()
+
+    $targets = @($inventory |
+            Where-Object { $_.Kind -eq 'Registered' -and -not $state.VisitedRoutes.Contains($_.Route) } |
+            ForEach-Object {
+                $walk = Get-ForgeRoutePath -Edges $navigationEdges -Roots $tabRouteNames -Target $_.Route
+                [pscustomobject]@{
+                    Route  = $_.Route
+                    Length = $(if ($null -eq $walk) { 99 } else { $walk.Count })
+                }
+            } |
+            Sort-Object Length, Route)
+
+    Write-Host ''
+    Write-Host "Route-directed pass: $($targets.Count) route(s) the crawl did not reach" -ForegroundColor Cyan
+    $unreachable = @($targets | Where-Object { $_.Length -eq 99 })
+    if ($unreachable.Count -gt 0) {
+        Write-Host "  $($unreachable.Count) of them have no inbound reference in source and cannot be walked to at all: $(($unreachable | ForEach-Object { $_.Route }) -join ', ')" -ForegroundColor DarkYellow
+    }
+
+    foreach ($target in $targets) {
+        if ($state.Aborted) { break }
+        if (Test-BudgetExhausted) {
+            # Nothing is recorded here. The route accounting below works out the honest reason -
+            # which is "nothing links here" for some of these and "the run ended first" for the
+            # rest, and those are different findings.
+            continue
+        }
+        if ($state.VisitedRoutes.Contains($target.Route)) { continue }
+
+        Write-Host "  -> $($target.Route)" -ForegroundColor White
+        $result = Move-ToRoute -Target $target.Route
+        $state.RouteAttempts.Add($result)
+
+        if ($result.Reached) {
+            # Land on it properly and explore exactly one level. Exploring is worth doing - it is
+            # what found the crash on the workout summary's Done button - but descending further
+            # from forty different routes is what makes a run outlast its budget.
+            [void](Invoke-ScreenVisit -Depth ([Math]::Max(1, $MaxDepth - 1)) -ArrivedVia "directed:$($target.Route)")
+        }
+        else {
+            Write-Host "     unreached: $($result.Reason)" -ForegroundColor DarkYellow
+        }
+    }
+}
+
+function Invoke-FontScalePass {
+    <#
+        Re-opens every route already reached, at a large system font scale, running only the
+        overflow check.
+
+        This is the cheapest way to find the class of defect where a row is laid out against the
+        default text size and clips the moment a user turns text up - which many people who need
+        a fitness app to be legible mid-set have done. The scale is always restored, including on
+        failure: leaving a shared emulator at 1.3x would silently change what every other work
+        stream sees.
+    #>
+    param([string[]]$Routes)
+
+    Write-Host ''
+    Write-Host "Large-font pass at scale $LargeFontScale over $($Routes.Count) reached route(s)" -ForegroundColor Cyan
+
+    $original = Get-ForgeFontScale -AdbPath $adb -Serial $Serial
+    try {
+        Set-ForgeFontScale -AdbPath $adb -Serial $Serial -Scale $LargeFontScale
+        $state.FontScale = $LargeFontScale
+
+        # The configuration change restarts activities; give the app a clean start at the new size.
+        Stop-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName
+        Start-Sleep -Seconds 2
+        $state.LaunchPid = Start-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName -SettleSeconds $LaunchSettleSeconds
+        if (-not $state.LaunchPid) {
+            Add-Failure -Kind 'LaunchFailedAtLargeFont' -Route 'run' -Discriminator $LargeFontScale `
+                -Detail "The app did not stay alive after being launched at font scale $LargeFontScale."
+            return
+        }
+        [void](Invoke-Onboarding -Mode $OnboardingMode -Quiet)
+
+        foreach ($route in $Routes) {
+            if ($state.Aborted) { break }
+            if (Test-BudgetExhausted) { break }
+            if (-not $routeByName.ContainsKey($route)) { continue }
+
+            $reached = $false
+            $entry = $routeByName[$route]
+            if ($entry.Kind -eq 'Tab') {
+                $reached = ($null -ne (Open-ShellTab -Tab $entry))
+            }
+            else {
+                $reached = (Move-ToRoute -Target $route).Reached
+            }
+
+            if (-not $reached) {
+                Add-Warning -Kind 'LargeFontRouteUnreached' -Route $route -Discriminator $LargeFontScale `
+                    -Detail "This route was reached at 1.0x but could not be reached again at font scale $LargeFontScale, so its layout at that scale is unverified."
+                continue
+            }
+
+            $tree = Get-Tree -Label "largefont-$route"
+            if ($null -eq $tree) { continue }
+            Save-Screenshot -Label "largefont-$route"
+            Invoke-ScreenChecks -Tree $tree -RouteLabel $route -OverflowOnly
+        }
+    }
+    finally {
+        Set-ForgeFontScale -AdbPath $adb -Serial $Serial -Scale $original
+        $state.FontScale = '1.0'
+        Write-Host "  font scale restored to $original" -ForegroundColor DarkGray
+    }
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -765,11 +1400,12 @@ Clear-ForgeLogcat -AdbPath $adb -Serial $Serial
 Stop-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName
 Start-Sleep -Seconds 2
 
+$state.FontScale = Get-ForgeFontScale -AdbPath $adb -Serial $Serial
 $state.LaunchPid = Start-ForgeApp -AdbPath $adb -Serial $Serial -PackageName $PackageName -SettleSeconds $LaunchSettleSeconds
 if (-not $state.LaunchPid) {
     $log = @(Get-ForgeLogcat -AdbPath $adb -Serial $Serial)
     $cause = Get-ForgeProcessDeathCause -LogLines $log -PackageName $PackageName
-    Add-Failure -Kind 'LaunchFailed' -Route 'launch' -Detail "The app did not stay alive after launch: $($cause.Detail)" -Evidence $cause.Block
+    Add-Failure -Kind 'LaunchFailed' -Route 'launch' -Detail "The app did not stay alive after launch: $($cause.Detail)" -Evidence $cause.Block -Discriminator 'launch'
 }
 else {
     Write-Host "  pid $($state.LaunchPid)" -ForegroundColor Green
@@ -784,6 +1420,7 @@ else {
 
         Write-Host ''
         Write-Host 'Crawling' -ForegroundColor Cyan
+        Write-Host "  the crawl may spend at most $MaxCrawlActions actions, so the route-directed pass is never starved" -ForegroundColor DarkGray
         [void](Invoke-ScreenVisit -Depth 0 -ArrivedVia 'launch')
 
         # Sweep the shell tabs explicitly. The crawl reaches them anyway, but only if it does not
@@ -794,7 +1431,7 @@ else {
         foreach ($tab in $tabs) {
             if ($state.Aborted) { break }
             if ($state.VisitedRoutes.Contains($tab.Route)) { continue }
-            if ($state.ActionsAttempted -ge $MaxTotalActions) { break }
+            if (Test-GlobalBudgetExhausted) { break }
 
             $label = if ($tab.TabLabel) { $tab.TabLabel } else { $tab.Route }
             $opened = Open-ShellTab -Tab $tab
@@ -805,11 +1442,21 @@ else {
 
             [void](Invoke-ScreenVisit -Depth 1 -ArrivedVia "tab:$label")
         }
+
+        if ($RouteMode -eq 'Directed') {
+            $state.Phase = 'directed'
+            Invoke-DirectedRoutePass
+        }
+
+        if ($FontScalePass -and -not $state.Aborted) {
+            $state.Phase = 'fontscale'
+            Invoke-FontScalePass -Routes @($state.VisitedRoutes)
+        }
     }
     catch {
         $state.Aborted = $true
         $state.AbortReason = "The crawl stopped on an unexpected error: $($_.Exception.Message)"
-        Add-Failure -Kind 'HarnessError' -Route 'run' -Detail $state.AbortReason -Evidence @(($_.ScriptStackTrace -split "`r?`n"))
+        Add-Failure -Kind 'HarnessError' -Route 'run' -Detail $state.AbortReason -Evidence @(($_.ScriptStackTrace -split "`r?`n")) -Discriminator $_.Exception.Message
     }
 }
 
@@ -825,20 +1472,32 @@ if ($finalVersion.LastUpdateTime -ne $installed.LastUpdateTime) {
 }
 
 if ($state.Aborted) {
-    Add-Failure -Kind 'RunAborted' -Route 'run' -Detail $state.AbortReason
+    Add-Failure -Kind 'RunAborted' -Route 'run' -Detail $state.AbortReason -Discriminator 'aborted'
+}
+
+foreach ($problem in $ignoreList.Problems) {
+    Add-Failure -Kind 'IgnoreListInvalid' -Route 'run' -Discriminator $problem `
+        -Detail "$problem  Accepting a finding requires a reason and an owner, so the run fails until the ignore list is fixed."
 }
 
 # ---------------------------------------------------------------------------------------------
 # Route accounting
 # ---------------------------------------------------------------------------------------------
 $skippedLabels = @($state.SkippedActions | ForEach-Object { $_.Label })
+$attemptByRoute = @{}
+foreach ($attempt in $state.RouteAttempts) { $attemptByRoute[$attempt.Route] = $attempt }
+
 $routeReport = [System.Collections.Generic.List[psobject]]::new()
 $unvisited = [System.Collections.Generic.List[psobject]]::new()
 $skipped = [System.Collections.Generic.List[psobject]]::new()
 
 foreach ($r in $inventory) {
     if ($state.VisitedRoutes.Contains($r.Route)) {
-        $routeReport.Add([pscustomobject]@{ Route = $r.Route; Kind = $r.Kind; PageType = $r.PageType; Status = 'visited'; Detail = 'reached and checked' })
+        $how = 'reached and checked'
+        if ($attemptByRoute.ContainsKey($r.Route) -and $attemptByRoute[$r.Route].Reached) {
+            $how = "reached and checked - $($attemptByRoute[$r.Route].Reason)"
+        }
+        $routeReport.Add([pscustomobject]@{ Route = $r.Route; Kind = $r.Kind; PageType = $r.PageType; Status = 'visited'; Detail = $how })
         continue
     }
 
@@ -857,8 +1516,27 @@ foreach ($r in $inventory) {
         continue
     }
 
-    $reason = 'no entry point to this screen was found within the crawl depth and action budget'
-    if ($state.Aborted) { $reason = 'the run aborted before this screen was reached' }
+    # A directed attempt always produces a specific reason, which is far more useful than the
+    # generic one. "No control on 'settings' led to 'licences'" tells the reader where to look;
+    # "not found within the crawl budget" tells them nothing.
+    if ($attemptByRoute.ContainsKey($r.Route)) {
+        $reason = $attemptByRoute[$r.Route].Reason
+    }
+    elseif ($RouteMode -ne 'Directed') {
+        $reason = 'no entry point to this screen was found within the crawl depth and action budget (route-directed navigation was disabled)'
+    }
+    elseif ($null -eq (Get-ForgeRoutePath -Edges $navigationEdges -Roots $tabRouteNames -Target $r.Route)) {
+        # Known without attempting it, and worth saying whether or not the budget got this far:
+        # nothing in the app navigates here, so no walk could ever have reached it. That is a
+        # finding about the app rather than a limit of the run, and folding it into "ran out of
+        # time" would hide it.
+        $reason = 'no page in the app navigates to this route, so there is no entry point to walk to. Either it is unreachable UI or its entry point is built at runtime from data the harness has not created.'
+    }
+    else {
+        $reason = 'a path to this route exists in source but the route-directed pass ran out of budget before attempting it'
+    }
+    if ($state.Aborted) { $reason = "the run aborted before this screen was reached ($reason)" }
+
     $routeReport.Add([pscustomobject]@{ Route = $r.Route; Kind = $r.Kind; PageType = $r.PageType; Status = 'unvisited'; Detail = $reason })
     $unvisited.Add([pscustomobject]@{ Route = $r.Route; Reason = $reason })
 }
@@ -873,6 +1551,8 @@ if ($lastDump.Count -gt 0) {
     catch { Write-Verbose "Could not re-read the last dump for screen size: $_" }
 }
 
+$split = Split-ForgeFindings -Findings @($state.Failures.ToArray()) -Entries $ignoreList.Entries
+
 $result = [pscustomobject]@{
     Serial                = $Serial
     PackageName           = $PackageName
@@ -882,21 +1562,33 @@ $result = [pscustomobject]@{
     DurationSeconds       = $stopwatch.Elapsed.TotalSeconds
     ScreenWidth           = $screenSize.Width
     ScreenHeight          = $screenSize.Height
+    RouteMode             = $RouteMode
+    FontScalePass         = [bool]$FontScalePass
+    LargeFontScale        = $(if ($FontScalePass) { $LargeFontScale } else { $null })
     OnboardingOutcome     = $(if ($state.LaunchPid) { $onboardingOutcome } else { 'not attempted (launch failed)' })
     Routes                = @($inventory)
     RouteReport           = @($routeReport.ToArray())
     VisitedRoutes         = @($state.VisitedRoutes)
     UnvisitedRoutes       = @($unvisited.ToArray())
     SkippedRoutes         = @($skipped.ToArray())
+    RouteAttempts         = @($state.RouteAttempts.ToArray())
+    NavigationEdges       = @($navigationEdges)
+    LearnedEdges          = @($state.LearnedEdges.ToArray())
     ScreenVisits          = @($state.ScreenVisits.ToArray())
     UnidentifiedScreens   = @($state.UnidentifiedScreens.ToArray())
-    Failures              = @($state.Failures.ToArray())
+    Failures              = @($split.Active)
+    AcceptedFindings      = @($split.Accepted)
+    IgnoreListPath        = $IgnoreListPath
     Warnings              = @($state.Warnings.ToArray())
     Interference          = @($state.Interference.ToArray())
     ProcessDeaths         = @($state.ProcessDeaths.ToArray())
     FatalExceptions       = @($state.FatalExceptions.ToArray())
+    RuntimeExceptions     = @($state.RuntimeExceptions.ToArray())
     BlankScreens          = @($state.BlankScreens.ToArray())
     BlankContainers       = @($state.BlankContainers.ToArray())
+    UnboundScreens        = @($state.UnboundScreens.ToArray())
+    VisibleErrors         = @($state.VisibleErrors.ToArray())
+    TextOverflow          = @($state.TextOverflow.ToArray())
     UnlabelledInteractive = @($state.UnlabelledInteractive.ToArray())
     ActionableNotExposed  = @($state.ActionableNotExposed.ToArray())
     DumpFailures          = @($state.DumpFailures.ToArray())
@@ -904,12 +1596,14 @@ $result = [pscustomobject]@{
     ActionsAttempted      = $state.ActionsAttempted
     NavigationsObserved   = $state.NavigationsObserved
     Recoveries            = $state.Recoveries
+    Aborted               = $state.Aborted
+    AbortReason           = $state.AbortReason
 }
 
 Write-ForgeSmokeConsoleReport -Result $result
 
-$markdownPath = Join-Path $OutputDirectory 'smoke-report.md'
-$jsonPath = Join-Path $OutputDirectory 'smoke-report.json'
+$markdownPath = $script:MarkdownReportPath
+$jsonPath = $script:JsonReportPath
 Write-ForgeSmokeMarkdownReport -Result $result -Path $markdownPath
 Write-ForgeSmokeJsonReport -Result $result -Path $jsonPath
 
@@ -918,5 +1612,10 @@ Write-Host "Report   : $markdownPath"
 Write-Host "Raw data : $jsonPath"
 Write-Host "Dumps    : $dumpDirectory"
 
+# Exit codes are the harness's contract with a caller that is not reading the console:
+#   0  nothing new to look at
+#   1  findings that no ignore entry accepts
+#   2  the harness itself could not complete, so 0 findings does not mean 0 defects
+if ($state.Aborted) { exit 2 }
 if ($result.Failures.Count -gt 0) { exit 1 }
 exit 0

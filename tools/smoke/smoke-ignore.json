@@ -1,0 +1,28 @@
+{
+  "$comment": [
+    "Findings the smoke harness may report without failing the run.",
+    "",
+    "Every entry must carry a reason and an owner. The harness validates this and fails the run",
+    "on a malformed entry, so an accepted finding can never mean 'somebody was in a hurry'.",
+    "",
+    "Matching is deliberately narrow. Use the stable id printed beside every finding in",
+    "artifacts/smoke/smoke-report.md - it is derived from the kind, the route and the element,",
+    "not from the run, so it survives a reordered crawl and a different device:",
+    "",
+    "  { \"id\": \"a1b2c3d4e5\", \"reason\": \"...\", \"owner\": \"...\" }",
+    "",
+    "A kind-plus-route entry is also allowed, optionally narrowed by a substring of the detail,",
+    "for a finding whose element moves between runs:",
+    "",
+    "  { \"kind\": \"TextOverflow\", \"route\": \"shop\", \"contains\": \"Restore purchases\",",
+    "    \"reason\": \"...\", \"owner\": \"...\" }",
+    "",
+    "There is no way to accept a whole kind everywhere. An entry with a kind and neither a route",
+    "nor a substring is rejected, because that is a blanket suppression and it is exactly how a",
+    "check quietly stops being a check.",
+    "",
+    "Accepted findings stay in the report and in the JSON, with their reason and owner. They just",
+    "do not fail the run."
+  ],
+  "entries": []
+}
