@@ -123,3 +123,91 @@ Preconditions to assert before running the backfill:
   future release seeds them, an owned template is a template only one person can see.
 
 Both exclusions belong in the `WHERE` clause of the backfill, not in a follow-up cleanup.
+
+---
+
+# Phase 4 delta — `ExercisePersonalisation`
+
+Favourites and recency moved off the shared catalogue row onto a per-profile join table. Unlike
+phases 1 to 3, this migration **is** authored in the repository (`20260822065848_ExercisePersonalisation`),
+because `DatabaseSchemaParityTests` compares the model against the migration chain and a model
+change without a matching migration is unlandable. See the note at the end of this section.
+
+## Table added
+
+`ExerciseProfileState`
+
+| Column | Type | Nullable |
+| --- | --- | --- |
+| `Id` | TEXT | NOT NULL, PK |
+| `UserProfileId` | TEXT | NOT NULL |
+| `ExerciseId` | TEXT | NOT NULL |
+| `IsFavourite` | INTEGER | NOT NULL |
+| `LastUsedUtc` | TEXT | NULL |
+| `CreatedUtc` | TEXT | NOT NULL |
+| `ModifiedUtc` | TEXT | NOT NULL |
+| `DeletedUtc` | TEXT | NULL |
+
+Indexes: `UNIQUE (UserProfileId, ExerciseId)` and `(ExerciseId)`.
+
+The uniqueness is the real invariant. Without it a failed upsert adds a second row instead of
+replacing the first, and the library then shows whichever the query happened to return — a
+favourite that unstars itself on refresh. The `ExerciseId` index serves deleting a custom exercise,
+which has to find every profile's opinion of it, not just the deleting profile's.
+
+No foreign key to `Exercise`, for the same reason phases 1 to 3 declared none to `UserProfile`:
+both sides are soft-deleted and the delete already removes the states.
+
+## Columns and indexes removed
+
+| Table | Removed |
+| --- | --- |
+| `Exercise` | `IsFavourite`, `LastUsedUtc` |
+| `Exercise` | `IX_Exercise_IsFavourite`, `IX_Exercise_LastUsedUtc` |
+
+`Exercise` keeps `IsUserCreated`. It is row provenance rather than per-person state, and the seed
+importer depends on it at startup with no profile resolved.
+
+## Backfill — and an ordering bug the scaffolder introduced
+
+EF scaffolded the drop **before** the create, with no data step, and warned that the operation
+"may result in the loss of data". That warning was accurate: every pinned exercise and every
+"recently used" marker on the device would have been discarded silently. The migration reorders to
+create, backfill, then drop.
+
+The attribution rule matches `ProfileOwnership`: carry the state over only when the device has
+exactly one live profile; with none or several, carry nothing. Guessing which of two people pinned
+a movement is the one outcome worse than an empty shortlist.
+
+Two details worth keeping if this is ever regenerated:
+
+- **A row is written only for an exercise the user expressed something about** — `IsFavourite = 1
+  OR LastUsedUtc IS NOT NULL`. Seeding one row per exercise per profile would multiply the shipped
+  catalogue by the profile count and record nothing.
+- **`CreatedUtc`/`ModifiedUtc` are copied from the exercise row, not computed from `now`.** The
+  exact text encoding EF uses for a `DateTimeOffset` on SQLite is a provider detail; writing it
+  wrongly would not fail the migration, it would throw the next time the library was read. A value
+  the provider already wrote cannot be in the wrong format.
+
+`ExercisePersonalisationBackfillTests` pins all of this against real SQLite from a database built at
+the previous migration, including reading the timestamp back through EF — which is the assertion
+that the encoding is right.
+
+## Note on who authored this migration
+
+Phases 1 to 3 deliberately shipped no migration, because generated migration files conflict badly
+between parallel branches. That constraint has not gone away, but it now collides with
+`DatabaseSchemaParityTests`, which fails any model change that has no matching migration. A phase 4
+that omitted the migration could not be merged at all.
+
+If a concurrently authored migration lands first — the engagement stream's `Streak : IProfileOwned`
+is the likely one — this migration should be removed and regenerated rather than merged by hand, so
+the model snapshot is rebuilt from the real chain:
+
+```
+dotnet ef migrations remove --project src/Forge.Infrastructure
+dotnet ef migrations add ExercisePersonalisation --project src/Forge.Infrastructure --output-dir Persistence/Migrations
+```
+
+The hand-written `Up`/`Down` bodies above then have to be reapplied; the scaffolder will not
+reproduce the reordering or the backfill.

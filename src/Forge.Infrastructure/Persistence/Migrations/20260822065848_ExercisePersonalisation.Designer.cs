@@ -3,6 +3,7 @@ using System;
 using Forge.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Forge.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ForgeDbContext))]
-    partial class ForgeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260822065848_ExercisePersonalisation")]
+    partial class ExercisePersonalisation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
@@ -53,16 +56,11 @@ namespace Forge.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("UnlockedUtc")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("UserProfileId")
-                        .HasColumnType("TEXT");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Category");
 
-                    b.HasIndex("UserProfileId");
-
-                    b.HasIndex("UserProfileId", "Code")
+                    b.HasIndex("Code")
                         .IsUnique();
 
                     b.ToTable("Achievement");
@@ -74,20 +72,32 @@ namespace Forge.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("BestDays")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset>("CreatedUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("CurrentDays")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTimeOffset?>("DeletedUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("FreezesRemaining")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("GamificationEnabled")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset>("ModifiedUtc")
+                    b.Property<string>("History")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ProtectedPeriods")
-                        .IsRequired()
+                    b.Property<DateOnly?>("LastCountedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("ModifiedUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("UserProfileId")

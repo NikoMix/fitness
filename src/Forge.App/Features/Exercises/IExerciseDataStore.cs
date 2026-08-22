@@ -52,6 +52,27 @@ public interface IExerciseDataStore
     /// <param name="cancellationToken">Cancels the write.</param>
     /// <returns><see langword="true"/> when something was deleted, or a failure.</returns>
     Task<ExerciseDataResult<bool>> DeleteCustomAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Pins or unpins an exercise for the active profile.
+    /// </summary>
+    /// <remarks>
+    /// Takes an identifier rather than an <see cref="Exercise"/> because a favourite is not a
+    /// property of the shared catalogue row. Passing the entity would suggest that saving the
+    /// entity saves the favourite, which is exactly the mistake this split exists to prevent.
+    /// </remarks>
+    /// <param name="exerciseId">The exercise to pin or unpin.</param>
+    /// <param name="isFavourite">Whether it should be pinned.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>The stored state to attach to the in-memory exercise, or a failure.</returns>
+    Task<ExerciseDataResult<ExerciseProfileState>> SetFavouriteAsync(Guid exerciseId, bool isFavourite, CancellationToken cancellationToken);
+
+    /// <summary>Records that the active profile just opened or selected an exercise.</summary>
+    /// <param name="exerciseId">The exercise that was used.</param>
+    /// <param name="usedUtc">The UTC moment of use.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>The stored state to attach to the in-memory exercise, or a failure.</returns>
+    Task<ExerciseDataResult<ExerciseProfileState>> MarkUsedAsync(Guid exerciseId, DateTimeOffset usedUtc, CancellationToken cancellationToken);
 }
 
 /// <summary>The outcome of a data-store call.</summary>
