@@ -42,6 +42,4 @@ under the MIT licence.
 
 ## Attribution
 
-Before each store submission, verify exact package names, versions and licence texts from the
-dependency lock files and include any notices those licences require.
 TODO(owner: confirm the final component list and paste any licence notices that must be reproduced verbatim, particularly for DevExpress and the SQLCipher bundle).

@@ -64,7 +64,7 @@ public static class LegalContent
         new("Termination",
             "You may stop using Forge at any time by deleting your data or uninstalling. The publisher may end your licence if you materially breach these terms, in which case you must stop using the app. Uninstalling does not entitle you to a refund from the publisher, since the store handles payment."),
         new("Governing law",
-            "These terms are governed by the law of [TODO for the publisher: governing law, for example the laws of England and Wales], and the courts of [TODO for the publisher: courts having jurisdiction] have jurisdiction. If you are a consumer, you may also have the right to bring proceedings in your country of residence."),
+            "These terms are governed by [TODO for the publisher: governing law, for example the laws of England and Wales], and [TODO for the publisher: courts having jurisdiction, for example the courts of England and Wales] have jurisdiction. If you are a consumer, you may also have the right to bring proceedings in your country of residence."),
         new("Changes",
             "These terms may be updated with app releases. The published version is the current one. Continued use after an update means you accept the updated terms."),
         new("Contact",
@@ -108,7 +108,7 @@ public static class LegalContent
         new(".NET and .NET MAUI",
             "Forge is built on the .NET platform and .NET MAUI, published by Microsoft and the .NET Foundation under the MIT licence."),
         new("Attribution",
-            "Before each store submission, verify exact package names, versions and licence texts from the dependency lock files and include any notices those licences require. [TODO for the publisher: confirm the final component list and paste any licence notices that must be reproduced verbatim, particularly for DevExpress and the SQLCipher bundle]."),
+            "[TODO for the publisher: confirm the final component list and paste any licence notices that must be reproduced verbatim, particularly for DevExpress and the SQLCipher bundle]."),
     ];
 }
 

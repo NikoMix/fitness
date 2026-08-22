@@ -102,7 +102,7 @@ Uninstalling does not entitle you to a refund from the publisher, since the stor
 
 ## Governing law
 
-These terms are governed by the law of TODO(owner: governing law, for example the laws of England and Wales), and the courts of TODO(owner: courts having jurisdiction) have jurisdiction. If you are a
+These terms are governed by TODO(owner: governing law, for example the laws of England and Wales), and TODO(owner: courts having jurisdiction, for example the courts of England and Wales) have jurisdiction. If you are a
 consumer, you may also have the right to bring proceedings in your country of residence.
 
 ## Changes

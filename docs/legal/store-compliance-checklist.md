@@ -95,7 +95,7 @@ no telemetry. Re-open both forms and the privacy policy if any of these is ever 
 
 ## P2 — Release hygiene
 
-- [ ] Third-party licence page lists DevExpress MAUI, CommunityToolkit, EF Core, SQLite and any additional packages with exact versions and required notices.
+- [ ] Third-party licence page lists DevExpress MAUI, CommunityToolkit, EF Core, SQLite and any additional packages with exact versions and required notices. Verify names and versions against the dependency lock files rather than from memory, and reproduce verbatim any notice a licence requires.
 - [ ] Backup/export messaging clearly states that no cloud recovery exists.
 - [ ] Screenshots and store copy do not imply cloud sync, account recovery or clinician oversight.
 - [ ] Test delete-data flow on Android and iOS with an instrumented build.

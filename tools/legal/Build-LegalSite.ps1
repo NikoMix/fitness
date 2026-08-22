@@ -85,6 +85,105 @@ function Add-Problem {
 }
 
 # --------------------------------------------------------------------------------------------
+# Publisher details
+#
+# The legal documents carry TODO(owner: ...) markers for the handful of facts only the publisher
+# can supply. Rather than have someone hand-edit prose in eight files - and hand-edit it again the
+# next time a support address changes - the values live in docs/legal/publisher.psd1 and are
+# substituted here, so the documents stay the source of truth for wording and the publisher file
+# is the source of truth for facts.
+#
+# An unfilled value deliberately keeps its marker. Guessing a legal entity or a governing law
+# would not be a placeholder, it would be a false statement in a document users and regulators are
+# entitled to rely on.
+# --------------------------------------------------------------------------------------------
+
+$script:PublisherPath = Join-Path $LegalPath 'publisher.psd1'
+$script:Publisher = @{}
+$script:UnmappedPlaceholders = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+
+# Descriptions that are actions for the publisher rather than values to substitute. They keep their
+# marker for ever and that is correct - listing them here is what lets an unrecognised description
+# be reported as a mapping bug instead of being mistaken for one of these.
+$script:UnsubstitutablePlaceholders = @(
+    'confirm the final component list'
+)
+
+if (Test-Path $script:PublisherPath) {
+    $script:Publisher = Import-PowerShellDataFile -Path $script:PublisherPath
+}
+
+function Get-PublisherValue {
+    param([string]$Key)
+
+    if (-not $script:Publisher.ContainsKey($Key)) { return $null }
+
+    $value = [string]$script:Publisher[$Key]
+    if ([string]::IsNullOrWhiteSpace($value)) { return $null }
+
+    return $value.Trim()
+}
+
+function Resolve-PublisherPlaceholder {
+    <#
+        Maps a TODO(owner: ...) description to a filled publisher value, or returns null so the
+        caller renders the marker.
+
+        The entity variants compose from the same three fields rather than being three things to
+        fill in, because a legal entity name typed three times is a legal entity name that ends up
+        inconsistent across three documents.
+    #>
+    param([string]$Description)
+
+    $entity = Get-PublisherValue 'LegalEntity'
+
+    switch -Regex ($Description.Trim()) {
+        '^registered legal entity name and, if applicable, company registration number$' {
+            if (-not $entity) { return $null }
+            $number = Get-PublisherValue 'RegistrationNumber'
+            return $(if ($number) { "$entity (company number $number)" } else { $entity })
+        }
+        '^registered legal entity name and registered postal address$' {
+            $address = Get-PublisherValue 'PostalAddress'
+            if (-not $entity -or -not $address) { return $null }
+            return "$entity, $address"
+        }
+        '^registered legal entity name$' { return $entity }
+        '^final public policy URL' { return Get-PublisherValue 'PrivacyPolicyUrl' }
+        '^privacy contact email address' { return Get-PublisherValue 'PrivacyEmail' }
+        '^support email address' { return Get-PublisherValue 'SupportEmail' }
+        '^deletion request email address' { return Get-PublisherValue 'DeletionEmail' }
+        '^security contact address' { return Get-PublisherValue 'SecurityEmail' }
+        '^legal contact email address$' {
+            # Falls back to the privacy address rather than leaving a gap: for a solo publisher
+            # these are the same mailbox, and an unfilled marker here would block a release over a
+            # distinction that does not exist.
+            $legal = Get-PublisherValue 'LegalEmail'
+            if ($legal) { return $legal }
+            return Get-PublisherValue 'PrivacyEmail'
+        }
+        '^realistic response window' { return Get-PublisherValue 'ResponseWindow' }
+        '^governing law' { return Get-PublisherValue 'GoverningLaw' }
+        '^courts having jurisdiction' { return Get-PublisherValue 'Courts' }
+        '^relevant data protection authority' { return Get-PublisherValue 'SupervisoryAuthority' }
+        default {
+            # No rule matched. Either a new placeholder was added without a mapping, or an existing
+            # description was reworded and this table was not updated - and the symptom of both is
+            # a placeholder that quietly stays unfilled no matter what the publisher types into
+            # publisher.psd1. Recorded so the build says so rather than leaving it to be discovered
+            # at store review.
+            $description = $Description.Trim()
+            $known = @($script:UnsubstitutablePlaceholders | Where-Object { $description.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) })
+            if ($known.Count -eq 0) {
+                $null = $script:UnmappedPlaceholders.Add($description)
+            }
+
+            return $null
+        }
+    }
+}
+
+# --------------------------------------------------------------------------------------------
 # Inline rendering
 # --------------------------------------------------------------------------------------------
 
@@ -100,7 +199,12 @@ function ConvertTo-HtmlText {
     $html = [regex]::Replace($html, '`([^`]+)`', { param($m) '<code>' + $m.Groups[1].Value + '</code>' })
     $html = [regex]::Replace($html, '\[([^\]]+)\]\(([^)\s]+)\)', { param($m) '<a href="' + $m.Groups[2].Value + '">' + $m.Groups[1].Value + '</a>' })
     $html = [regex]::Replace($html, '\*\*([^*]+)\*\*', { param($m) '<strong>' + $m.Groups[1].Value + '</strong>' })
-    $html = [regex]::Replace($html, 'TODO\(owner:\s*([^)]+)\)', { param($m) '<mark class="todo">TODO for the publisher: ' + $m.Groups[1].Value + '</mark>' })
+    $html = [regex]::Replace($html, 'TODO\(owner:\s*([^)]+)\)', {
+            param($m)
+            $resolved = Resolve-PublisherPlaceholder $m.Groups[1].Value
+            if ($resolved) { return [System.Net.WebUtility]::HtmlEncode($resolved) }
+            return '<mark class="todo">TODO for the publisher: ' + $m.Groups[1].Value + '</mark>'
+        })
 
     return $html
 }
@@ -116,7 +220,12 @@ function ConvertTo-PlainText {
     $plain = [regex]::Replace($Text, '`([^`]+)`', { param($m) $m.Groups[1].Value })
     $plain = [regex]::Replace($plain, '\[([^\]]+)\]\(([^)\s]+)\)', { param($m) $m.Groups[1].Value })
     $plain = [regex]::Replace($plain, '\*\*([^*]+)\*\*', { param($m) $m.Groups[1].Value })
-    $plain = [regex]::Replace($plain, 'TODO\(owner:\s*([^)]+)\)', { param($m) '[TODO for the publisher: ' + $m.Groups[1].Value + ']' })
+    $plain = [regex]::Replace($plain, 'TODO\(owner:\s*([^)]+)\)', {
+            param($m)
+            $resolved = Resolve-PublisherPlaceholder $m.Groups[1].Value
+            if ($resolved) { return $resolved }
+            return '[TODO for the publisher: ' + $m.Groups[1].Value + ']'
+        })
 
     return $plain
 }
@@ -443,6 +552,12 @@ foreach ($doc in $documents) {
 # --------------------------------------------------------------------------------------------
 # Emit
 # --------------------------------------------------------------------------------------------
+
+if ($script:UnmappedPlaceholders.Count -gt 0) {
+    foreach ($description in $script:UnmappedPlaceholders) {
+        Add-Problem -File 'docs/legal/publisher.psd1' -Line 0 -Message "No publisher mapping for TODO(owner: $description). Add a rule to Resolve-PublisherPlaceholder in tools/legal/Build-LegalSite.ps1, or the placeholder can never be filled in."
+    }
+}
 
 if ($script:Problems.Count -gt 0) {
     Write-Host ''
