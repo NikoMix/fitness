@@ -1,4 +1,5 @@
 using Forge.Domain.Common;
+using Forge.Domain.Profile;
 
 namespace Forge.Domain.Training;
 
@@ -65,8 +66,11 @@ public sealed class Exercise : Entity
 }
 
 /// <summary>A single training session, whether planned or unplanned.</summary>
-public sealed class WorkoutSession : Entity
+public sealed class WorkoutSession : Entity, IProfileOwned
 {
+    /// <summary>The profile that trained this session.</summary>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>When the session started, in UTC.</summary>
     public DateTimeOffset StartedUtc { get; set; } = DateTimeOffset.UtcNow;
 

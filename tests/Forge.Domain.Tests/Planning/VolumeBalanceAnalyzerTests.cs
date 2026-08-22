@@ -6,6 +6,8 @@ namespace Forge.Domain.Tests.Planning;
 
 public sealed class VolumeBalanceAnalyzerTests
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
+
     [Fact]
     public void Analyzer_counts_weekly_sets_by_pattern_and_muscle()
     {
@@ -41,14 +43,14 @@ public sealed class VolumeBalanceAnalyzerTests
 
     private static TrainingPlan PlanWith(params (MovementPattern Pattern, string Muscle, int Sets)[] exercises)
     {
-        var plan = new TrainingPlan { Name = "Test" };
-        var day = new PlanDay { Name = "Day" };
+        var plan = new TrainingPlan { UserProfileId = Owner, Name = "Test" };
+        var day = new PlanDay { UserProfileId = Owner, Name = "Day" };
         foreach (var item in exercises)
         {
-            var exercise = new PlannedExercise { ExerciseName = item.Pattern.ToString(), Pattern = item.Pattern, PrimaryMuscle = item.Muscle };
+            var exercise = new PlannedExercise { UserProfileId = Owner, ExerciseName = item.Pattern.ToString(), Pattern = item.Pattern, PrimaryMuscle = item.Muscle };
             for (var index = 1; index <= item.Sets; index++)
             {
-                exercise.Sets.Add(new PlannedSet { Ordinal = index, TargetRepsMin = 8, TargetRepsMax = 10 });
+                exercise.Sets.Add(new PlannedSet { UserProfileId = Owner, Ordinal = index, TargetRepsMin = 8, TargetRepsMax = 10 });
             }
 
             day.Exercises.Add(exercise);

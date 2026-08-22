@@ -1,7 +1,8 @@
 # Multiple profiles on one device
 
-Status: foundation landed. Most of Forge is **not** profile-separated yet, and the list below is
-the ordered work to finish it.
+Status: phases 1 to 3 landed. Every screen that shows a person's own logging is now scoped per
+profile. What remains is listed in phase 4 below, and the switcher continues to state it in the
+product rather than implying a separation that does not exist.
 
 ## Why this exists
 
@@ -105,8 +106,10 @@ never auto-selected on launch, and is deleted like any other. There is no separa
 no second code path through persistence, because a second write path is where a real user's data
 eventually gets written into demo storage or wiped along with it.
 
-A "reset guest data" action was considered and **left out**: with only `BodyMetric` owned it would
-clear almost nothing while implying a full wipe.
+A "reset guest data" action was considered and left out at the time because, with only `BodyMetric`
+owned, it would have cleared almost nothing while implying a full wipe. Now that training,
+nutrition, recovery and plans are all owned, deleting the guest profile genuinely clears them, so
+the delete is the reset and a second action would only add a weaker route to the same outcome.
 
 ---
 
@@ -117,19 +120,19 @@ clear almost nothing while implying a full wipe.
 | Profile tab | **Changes.** Name, goal, height, equipment, training days, completion ring, and the weight history are the new profile's. |
 | Profile switcher | **Changes.** Correct active row, correct per-profile measurement counts. |
 | Onboarding / goal wizard | **Changes.** Reads and writes the active profile. |
-| Today | Partly. Body-weight figures follow the profile; training, nutrition and hydration do not. |
-| Train, workout history, active workout | **No change.** Everyone's sessions and sets, shared. |
-| Plans | **No change.** One shared set of plans; editing one edits it for everyone. |
-| Nutrition, hydration | **No change.** Totals combine everybody's food and drinks into one day. |
-| Insights / Progress | Mixed, and this is the worst of them. Body-weight trends are scoped; strength trends, volume and records are computed from everyone's sets. |
-| Coaching / readiness | **No change.** Advice is computed from mixed check-ins and mixed set history. |
-| Exercise library | Catalogue is shared on purpose. Favourites, custom exercises and "recently used" are shared too, which is not on purpose. |
-| Recipes | **No change.** |
-| Streaks, achievements | No change — and no leak either: those screens are still placeholder view models with no database access. |
-| Reminders | **No change.** Notification scheduling reads unscoped tables. |
-| Backup / export | **No change.** Exports the whole database, i.e. every profile. |
+| Today | **Changes.** Body weight, training, nutrition and hydration all follow the profile. |
+| Train, workout history, active workout | **Changes.** Sessions and sets belong to the profile that performed them. A set is stamped with the owner of the workout it was logged in, so switching mid-session cannot reattribute it. |
+| Plans | **Changes.** Each profile has its own plans and its own active plan. Shipped templates are shared; adopting one makes an owned copy. |
+| Nutrition, hydration | **Changes.** Totals count only the active profile's food and drinks. |
+| Insights / Progress | **Changes.** Strength trends, volume, records, consistency and the body-weight trend are all computed from the active profile's rows only. |
+| Coaching / readiness | **Changes.** Advice is computed from the active profile's check-ins, soreness and set history. |
+| Exercise library | Catalogue is shared on purpose. Favourites, custom exercises and "recently used" are still shared, which is not on purpose — see phase 4. |
+| Recipes | **Changes** for recipes a user saves. The shipped catalogue is shared on purpose. |
+| Streaks, achievements | **No change.** `Streak` and `Achievement` have not adopted the seam yet, and reminders still read one shared streak. Those screens are otherwise placeholder view models with no database access. |
+| Reminders | **Changes**, except streak protection. Workout, hydration and check-in reminders read only the active profile; the streak-protection reminder still reads a shared streak. |
+| Backup / export | **No change.** Exports the whole database, i.e. every profile. Import attributes incoming rows to the active profile. |
 
-The switcher states this in the product, above the profile list, before anything is tapped.
+The switcher states whatever is still shared, derived from the code, above the profile list.
 
 ---
 
@@ -138,45 +141,59 @@ The switcher states this in the product, above the profile list, before anything
 Each numbered item is intended to be mechanical. Work top-down: the domain changes in phase 1 are
 what make the query changes compile.
 
-### Phase 1 — one-token domain changes (no behaviour change on their own)
+### Phase 1 — one-token domain changes (no behaviour change on their own) — **done except 1 and 9**
 
-| # | File | Change |
-| --- | --- | --- |
-| 1 | `Forge.Domain/Engagement/Streak.cs` | `class Streak : Entity, IProfileOwned` — the property already exists. |
-| 2 | `Forge.Domain/Training/Exercise.cs` (`WorkoutSession`) | Add `public required Guid UserProfileId { get; init; }` + `IProfileOwned`. |
-| 3 | `Forge.Domain/Training/SetEntry.cs` | Same. |
-| 4 | `Forge.Domain/Workout/ActiveWorkoutState.cs` | Same. |
-| 5 | `Forge.Domain/Planning/PlanEntities.cs` | Same on `TrainingPlan`, `PlanDay`, `PlannedExercise`, `PlannedSet`. |
-| 6 | `Forge.Domain/Nutrition/FoodItem.cs` (`FoodLogEntry`, `HydrationEntry`) | Same. `FoodItem` itself stays shared — see phase 4. |
-| 7 | `Forge.Domain/Recovery/MorningCheckIn.cs`, `SorenessTracker.cs` | Same. |
-| 8 | `Forge.Domain/Nutrition/Recipes/Recipe.cs` | Same. |
-| 9 | `Forge.Domain/Engagement/Achievement.cs` | Same. |
+| # | File | Change | Status |
+| --- | --- | --- | --- |
+| 1 | `Forge.Domain/Engagement/Streak.cs` | `class Streak : Entity, IProfileOwned` — the property already exists. | outstanding |
+| 2 | `Forge.Domain/Training/Exercise.cs` (`WorkoutSession`) | Add `public required Guid UserProfileId { get; init; }` + `IProfileOwned`. | done |
+| 3 | `Forge.Domain/Training/SetEntry.cs` | Same. | done |
+| 4 | `Forge.Domain/Workout/ActiveWorkoutState.cs` | Same. | done |
+| 5 | `Forge.Domain/Planning/PlanEntities.cs` | Same on `TrainingPlan`, `PlanDay`, `PlannedExercise`, `PlannedSet`. | done |
+| 6 | `Forge.Domain/Nutrition/FoodItem.cs` (`FoodLogEntry`, `HydrationEntry`) | Same. `FoodItem` itself stays shared — see phase 4. | done |
+| 7 | `Forge.Domain/Recovery/MorningCheckIn.cs`, `SorenessTracker.cs` | Same. | done |
+| 8 | `Forge.Domain/Nutrition/Recipes/Recipe.cs` | Same. | done |
+| 9 | `Forge.Domain/Engagement/Achievement.cs` | Same. | outstanding |
 
-Then in `Forge.Infrastructure/Persistence/Configurations/**`, add `builder.HasIndex(e => e.UserProfileId)`
-to each corresponding configuration. Every one of these tables is filtered by owner on every read, so
-without the index each read becomes a full scan.
+`builder.HasIndex(e => e.UserProfileId)` was added alongside each of these, with the owner leading
+the composite indexes rather than trailing them: every read of those tables filters on the owner
+first, and an index that does not start with that column cannot satisfy the filter.
 
-`ProfileDataAreasTests.Training_history_is_still_shared_today` will start failing as these land.
-That is the intended signal: update the test and this document together.
+Two decisions worth knowing when reading the code:
 
-### Phase 2 — scope the reads (the leaks that matter most, worst first)
+- **`MorningCheckIn.UserProfileId` is `{ get; set; }`, not `required init`,** unlike every other
+  owned entity. The check-in is composed by a screen from slider values and is stamped when
+  `CoachingDataService.SaveMorningCheckInAsync` persists it. The alternative was to teach a view
+  model about profile scope, which is where that knowledge drifts out of step with the code that
+  actually writes the row.
+- **`ActiveWorkoutState.ToSetEntry` became an instance method.** A static overload taking the owner
+  as a separate argument would allow a caller to stamp a set with a profile that did not perform it.
+  Taking it from the state removes the possibility, and it is the reason a profile switch mid-workout
+  cannot reattribute sets already logged.
 
-| # | File | Sites |
-| --- | --- | --- |
-| 10 | `Forge.App/Features/Insights/Services/InsightsDataService.cs` | Lines 65–80: `SetEntry`, `WorkoutSession`, `BodyMetric`, `HydrationEntry`, `TrainingPlan`. Six `.OwnedBy(scope)` calls. Highest impact — this feeds Insights, Progress and Today. |
-| 11 | `Forge.App/Features/Workout/WorkoutPersistenceService.cs` | ~20 `context.Set<T>()` queries over `WorkoutSession`, `SetEntry`, `ActiveWorkoutState`. Use the `IQueryable` overload. Also stamp `UserProfileId` on every `Add`. This is where a set can be logged against the wrong person. |
-| 12 | `Forge.App/Features/Plans/PlanPersistenceService.cs` | Lines 26, 39, 48, 86–89. Scope reads; stamp the owner on create. |
-| 13 | `Forge.App/Features/Nutrition/Services/NutritionPersistenceService.cs` | Line 213–217 session: scope `FoodLogEntry` and `HydrationEntry`; leave `FoodItem` unscoped. |
-| 14 | `Forge.App/Features/Coaching/Services/CoachingDataService.cs` | Lines 21, 37–38, 61–63, 75, 81: `SetEntry`, `SorenessEntry`, `MorningCheckIn`. `IQueryable` overload. |
-| 15 | `Forge.App/Services/Notifications/ReminderRefreshService.cs` | Lines 47–52: `TrainingPlan`, `WorkoutSession`, `HydrationEntry`, `MorningCheckIn`, `Streak`. Reminders currently fire from mixed data. |
-| 16 | `Forge.App/Features/Nutrition/Recipes/RecipeCatalogueService.cs` | Line 35. Scope user recipes; keep shipped ones shared. |
+### Phase 2 — scope the reads — **done**
 
-### Phase 3 — extend the delete
+| # | File | Sites | Status |
+| --- | --- | --- | --- |
+| 10 | `Forge.App/Features/Insights/Services/InsightsDataService.cs` | `SetEntry`, `WorkoutSession`, `BodyMetric`, `HydrationEntry`, `TrainingPlan`, `MorningCheckIn`. | done |
+| 11 | `Forge.App/Features/Workout/WorkoutPersistenceService.cs` | ~20 `context.Set<T>()` queries, `IQueryable` overload, plus an owner on every `Add`. | done |
+| 12 | `Forge.App/Features/Plans/PlanPersistenceService.cs` | Scoped reads; owner stamped on create; `GetPlanAsync` rechecks ownership. | done |
+| 13 | `Forge.App/Features/Nutrition/Services/NutritionPersistenceService.cs` | `FoodLogEntry` and `HydrationEntry` scoped; `FoodItem` left shared. | done |
+| 14 | `Forge.App/Features/Coaching/Services/CoachingDataService.cs` | `SetEntry`, `SorenessEntry`, `MorningCheckIn`. | done |
+| 15 | `Forge.App/Services/Notifications/ReminderRefreshService.cs` | `TrainingPlan`, `WorkoutSession`, `HydrationEntry`, `MorningCheckIn` scoped. **`Streak` is not**, because it does not implement the seam yet (item 1). | partly |
+| 16 | `Forge.App/Features/Nutrition/Recipes/RecipeCatalogueService.cs` | User recipes scoped; shipped ones kept shared through an explicit union. | done |
 
-| # | File | Change |
-| --- | --- | --- |
-| 17 | `Forge.App/Features/Profile/ProfileStore.cs` | Add each newly owned type to `DeletableEntityTypes` **and** to the loop in `DeleteProfileAsync`. Until a type is in both, the deletion dialog correctly reports it as retained. The list is explicit rather than reflected because iOS builds ahead of time and `MakeGenericMethod` over a runtime-resolved entity type throws on device. |
-| 18 | `tests/Forge.Domain.Tests/Profile/MultiProfilePersistenceTests.cs` | Extend the `DeleteProfileAsync` mirror and the isolation tests to the new types. |
+A correction to what this document previously claimed: **`InsightsDataService` was reading
+`BodyMetric` unscoped**, so the body-weight trend on Progress was not separated either, despite the
+table above saying it was. `BodyMetric` carried an owner and only `ProfileStore` filtered on it. It
+is scoped now.
+
+### Phase 3 — extend the delete — **done**
+
+| # | File | Change | Status |
+| --- | --- | --- | --- |
+| 17 | `Forge.App/Features/Profile/ProfileStore.cs` | Every newly owned type added to `DeletableEntityTypes` and to `DeleteProfileAsync`. Still explicit rather than reflected, because iOS builds ahead of time and `MakeGenericMethod` over a runtime-resolved entity type throws on device. | done |
+| 18 | `tests/Forge.Domain.Tests/Profile/MultiProfilePersistenceTests.cs` | Delete mirror and isolation tests extended to the new types, plus a test asserting the mirror covers every type `ProfileDataAreas` reports as deletable. | done |
 
 ### Phase 4 — the mixed cases that need a decision, not a filter
 
@@ -184,7 +201,7 @@ That is the intended signal: update the test and this document together.
 | --- | --- | --- |
 | 19 | `Exercise.IsFavourite`, `LastUsedUtc`, `IsUserCreated` | The catalogue is shared on purpose; these three are per-person state living on a shared row. A `UserProfileId` on `Exercise` is the wrong fix — it would fork the catalogue per profile and multiply the shipped content. Needs a small join entity (`ExerciseProfileState`) instead. |
 | 20 | `FoodItem.IsUserCreated` | Same shape. A user-added food is arguably fine to share on a family device; decide deliberately rather than by default. |
-| 21 | `Forge.Infrastructure/Backup/ForgeBackupService.cs`, `ForgeDataExporter`, `ForgeDataImporter` | Backup and export copy whole tables, so an export hands over every profile's health data. Under GDPR Article 20 a portability export should cover the requesting person. Needs a scoped export mode and an explicit "everything on this device" option. |
+| 21 | `Forge.Infrastructure/Backup/ForgeBackupService.cs`, `ForgeDataExporter`, `ForgeDataImporter` | Backup and export copy whole tables, so an export hands over every profile's health data. Under GDPR Article 20 a portability export should cover the requesting person. Needs a scoped export mode and an explicit "everything on this device" option. **Import now attributes incoming rows to the active profile**, which was forced by the owner becoming required; the export side is untouched. |
 | 22 | `Forge.App/Features/Legal/Services/LocalDataErasureService.cs` | Erasure is device-wide by design and stays that way; the profile delete is deliberately not a second, weaker route to "delete everything". |
 | 23 | `Forge.App/Features/Engagement/**` | `StreaksPageViewModel` and `AchievementsPageViewModel` are placeholders with hard-coded values. Wire them to scoped queries when they are implemented, rather than retrofitting later. |
 | 24 | App lock (`ForgeRoutes.AppLock`) | A switcher without a lock means anybody holding the device can read any profile. Not a data-separation bug, but it is the difference between "separate" and "private", and it should be decided before this is marketed as multi-user. |
@@ -202,10 +219,13 @@ That is the intended signal: update the test and this document together.
 ## Schema note
 
 There are no EF migrations in the repository yet; `DatabaseInitializer` falls back to
-`EnsureCreatedAsync`. The two new `UserProfile` columns therefore appear on any freshly created
-database but will **not** be added to a database created before this change. That is acceptable
-pre-release. The first migration to be authored must include them, and phase 1 above will need one
-regardless.
+`EnsureCreatedAsync`. Phases 1 to 3 add a `UserProfileId` column to twelve tables and change one
+unique index, none of which reaches a database created before this change.
+
+The full delta, including the **required backfill** and the two rows that must deliberately *not* be
+backfilled, is in [`multi-profile-schema-delta.md`](multi-profile-schema-delta.md). The backfill is
+not optional: scoped reads are fail-closed, so an existing row left with no owner is readable by
+nobody and the user's entire history disappears from the UI while still sitting in the database.
 
 ## Tests
 
@@ -216,9 +236,12 @@ regardless.
 - `ProfileScopeTests` — ownership, fail-closed behaviour, disjoint and total scoping.
 - `ProfileDeletionTests` — partition totality and disjointness, no-leak across many profiles, plan
   wording, and the self-correcting "owned but not deletable is reported as retained" rule.
-- `ProfileDataAreasTests` — every persisted entity is described; separation is derived, not declared.
+- `ProfileDataAreasTests` — every persisted entity is described; separation is derived, not declared;
+  every area holding one person's own logging is separated and the two catalogues are not.
 - `ProfileNameRulesTests` — duplicate names refused case-insensitively.
 - `MultiProfilePersistenceTests` — against a real SQLite database through the real repositories:
-  activation survives a restart, scoped queries translate and filter server-side, an unresolved scope
-  reads nothing, and deleting each profile in turn leaves every survivor's rows byte-for-byte
-  unchanged.
+  activation survives a restart, scoped queries over `SetEntry` and `WorkoutSession` translate and
+  filter server-side, an unresolved scope reads nothing and deletes nothing, two profiles can check
+  in on the same morning, deleting a profile clears its training, nutrition, recovery and plans
+  without touching the shared catalogue, and the delete mirror covers every type
+  `ProfileDataAreas` reports as deletable.

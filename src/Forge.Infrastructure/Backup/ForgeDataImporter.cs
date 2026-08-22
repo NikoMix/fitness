@@ -1,6 +1,7 @@
 using System.Globalization;
 using Forge.Core.Abstractions.Backup;
 using Forge.Domain.Measurement;
+using Forge.Domain.Profile;
 using Forge.Domain.Training;
 using Forge.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -41,12 +42,20 @@ public sealed class ForgeDataImporter(ForgeDbContext dbContext) : IDataImporter
             var exercises = exerciseRows.ToDictionary(static e => e.Name, StringComparer.OrdinalIgnoreCase);
             var workoutGroups = parsed.Sets.GroupBy(static set => new { set.WorkoutName, set.StartedUtc }).ToList();
 
+            // An import is somebody bringing their own training history onto this device, so it is
+            // attributed to whoever is using the app right now. Leaving the owner unset would write
+            // rows that no profile can read, which looks to the user like an import that silently
+            // did nothing.
+            var profiles = await dbContext.Set<UserProfile>().ToListAsync(cancellationToken);
+            var owner = ActiveProfileSelector.SelectScope(profiles).ProfileId;
+
             for (var index = 0; index < workoutGroups.Count; index++)
             {
                 var group = workoutGroups[index];
                 progress?.Report(new BackupProgress($"Importing {group.Key.WorkoutName}", index * 100d / Math.Max(1, workoutGroups.Count)));
                 var workout = new WorkoutSession
                 {
+                    UserProfileId = owner,
                     Title = group.Key.WorkoutName,
                     StartedUtc = group.Key.StartedUtc,
                     CompletedUtc = group.Key.StartedUtc,
@@ -68,6 +77,7 @@ public sealed class ForgeDataImporter(ForgeDbContext dbContext) : IDataImporter
 
                     await dbContext.Set<SetEntry>().AddAsync(new SetEntry
                     {
+                        UserProfileId = owner,
                         WorkoutSessionId = workout.Id,
                         ExerciseId = exercise.Id,
                         Ordinal = importedSet.Ordinal,

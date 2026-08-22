@@ -15,6 +15,7 @@ public sealed class FoodLogEntryConfiguration : IEntityTypeConfiguration<FoodLog
         builder.HasKey(e => e.Id);
         builder.HasIndex(e => e.ConsumedUtc);
         builder.HasIndex(e => e.FoodItemId);
+        builder.HasIndex(e => new { e.UserProfileId, e.ConsumedUtc });
         builder.Property(e => e.MealSlot).HasConversion<string>().HasMaxLength(32);
 
         builder.HasOne(e => e.Food)

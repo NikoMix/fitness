@@ -1,5 +1,6 @@
 using Forge.Domain.Common;
 using Forge.Domain.Measurement;
+using Forge.Domain.Profile;
 
 namespace Forge.Domain.Nutrition;
 
@@ -34,8 +35,11 @@ public sealed class FoodItem : Entity
 }
 
 /// <summary>One logged food consumption event.</summary>
-public sealed class FoodLogEntry : Entity
+public sealed class FoodLogEntry : Entity, IProfileOwned
 {
+    /// <summary>The profile that ate this.</summary>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>The food that was logged.</summary>
     public required Guid FoodItemId { get; init; }
 
@@ -53,8 +57,11 @@ public sealed class FoodLogEntry : Entity
 }
 
 /// <summary>One logged drink event.</summary>
-public sealed class HydrationEntry : Entity
+public sealed class HydrationEntry : Entity, IProfileOwned
 {
+    /// <summary>The profile that drank this.</summary>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>Volume consumed.</summary>
     public Volume Volume { get; set; } = Volume.Zero;
 

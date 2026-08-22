@@ -7,6 +7,8 @@ namespace Forge.Domain.Tests.Analytics;
 
 public sealed class VolumeAggregatorTests
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
+
     [Fact]
     public void Empty_sets_produce_empty_aggregates()
     {
@@ -61,6 +63,7 @@ public sealed class VolumeAggregatorTests
     private static SetEntry Set(Guid exerciseId, Guid sessionId, decimal kilograms, int reps, DateTimeOffset completed, bool isWarmUp = false)
         => new()
         {
+            UserProfileId = Owner,
             WorkoutSessionId = sessionId,
             ExerciseId = exerciseId,
             Ordinal = 1,

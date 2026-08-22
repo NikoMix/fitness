@@ -21,6 +21,7 @@ public sealed class TrainingPlanConfiguration : IEntityTypeConfiguration<Trainin
         builder.Navigation(plan => plan.Days).AutoInclude();
         builder.HasIndex(plan => plan.IsTemplate);
         builder.HasIndex(plan => plan.IsActive);
+        builder.HasIndex(plan => new { plan.UserProfileId, plan.IsActive });
     }
 }
 
@@ -38,6 +39,7 @@ public sealed class PlanDayConfiguration : IEntityTypeConfiguration<PlanDay>
         builder.Navigation(day => day.Exercises).AutoInclude();
         builder.HasIndex(day => new { day.TrainingPlanId, day.Ordinal });
         builder.HasIndex(day => day.ScheduledDay);
+        builder.HasIndex(day => day.UserProfileId);
     }
 }
 
@@ -61,6 +63,7 @@ public sealed class PlannedExerciseConfiguration : IEntityTypeConfiguration<Plan
         builder.Navigation(exercise => exercise.Sets).AutoInclude();
         builder.HasIndex(exercise => new { exercise.PlanDayId, exercise.Ordinal });
         builder.HasIndex(exercise => exercise.Pattern);
+        builder.HasIndex(exercise => exercise.UserProfileId);
     }
 
     private static List<string> DeserializeList(string? value)
@@ -85,5 +88,6 @@ public sealed class PlannedSetConfiguration : IEntityTypeConfiguration<PlannedSe
                .HasColumnName("TargetLoadKilograms");
         builder.Property(set => set.TargetRpe).HasPrecision(4, 1);
         builder.HasIndex(set => new { set.PlannedExerciseId, set.Ordinal });
+        builder.HasIndex(set => set.UserProfileId);
     }
 }

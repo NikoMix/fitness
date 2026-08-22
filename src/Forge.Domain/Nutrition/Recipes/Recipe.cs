@@ -1,5 +1,6 @@
 using Forge.Domain.Common;
 using Forge.Domain.Measurement;
+using Forge.Domain.Profile;
 
 namespace Forge.Domain.Nutrition.Recipes;
 
@@ -57,8 +58,18 @@ public enum RecipeIngredientUnit
 }
 
 /// <summary>Recipe aggregate with ingredients, method, tags and nutrition maths.</summary>
-public sealed class Recipe : Entity
+public sealed class Recipe : Entity, IProfileOwned
 {
+    /// <summary>
+    /// The profile that saved this recipe.
+    /// </summary>
+    /// <remarks>
+    /// Shipped catalogue recipes carry <see cref="Guid.Empty"/> and are shown to every profile on
+    /// the device on purpose: they are identical published content, not somebody's data. A recipe a
+    /// user saves themselves carries their identifier and is not shown to anyone else.
+    /// </remarks>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>Recipe display name.</summary>
     public required string Name { get; set; }
 

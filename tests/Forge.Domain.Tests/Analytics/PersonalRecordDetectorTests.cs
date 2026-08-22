@@ -7,6 +7,7 @@ namespace Forge.Domain.Tests.Analytics;
 
 public sealed class PersonalRecordDetectorTests
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
     private static readonly Guid SquatId = Guid.CreateVersion7();
     private static readonly Guid SessionOne = Guid.CreateVersion7();
     private static readonly Guid SessionTwo = Guid.CreateVersion7();
@@ -53,6 +54,7 @@ public sealed class PersonalRecordDetectorTests
     private static SetEntry Set(decimal kilograms, int reps, DateTimeOffset completed, Guid session, bool isWarmUp = false)
         => new()
         {
+            UserProfileId = Owner,
             WorkoutSessionId = session,
             ExerciseId = SquatId,
             Ordinal = 1,

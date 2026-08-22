@@ -1,9 +1,11 @@
 using Forge.App.Composition;
+using Forge.App.Features.Profile;
 using Forge.Core.Abstractions.Data;
 using Forge.Core.Abstractions.Health;
 using Forge.Domain.Analytics;
 using Forge.Domain.Coaching;
 using Forge.Domain.Measurement;
+using Forge.Domain.Profile;
 using Forge.Domain.Recovery;
 using Forge.Domain.Training;
 using Forge.Infrastructure.Persistence;
@@ -12,15 +14,15 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Forge.App.Features.Coaching.Services;
 
-internal sealed class CoachingDataService(ForgeStartupService startup, IDataSessionFactory sessions, IServiceProvider services) : ICoachingDataService
+internal sealed class CoachingDataService(ForgeStartupService startup, IDataSessionFactory sessions, IServiceProvider services, ProfileStore profiles) : ICoachingDataService
 {
     public async Task<NextSessionRecommendation> GetNextSessionRecommendationAsync(CancellationToken cancellationToken)
     {
-        await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
         await using var context = CreateContext();
         // Ordered client-side: SQLite has no DateTimeOffset type, so ORDER BY over one throws at
         // runtime even though it compiles. See WorkoutPersistenceService.LoadOrStartAsync.
-        var workingSets = await context.Set<SetEntry>().Where(set => !set.IsWarmUp).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var workingSets = await context.Set<SetEntry>().OwnedBy(scope).Where(set => !set.IsWarmUp).ToListAsync(cancellationToken).ConfigureAwait(false);
         var sets = workingSets.OrderByDescending(set => set.CompletedUtc).Take(12).ToList();
         var latest = sets.FirstOrDefault();
         if (latest is null)
@@ -37,8 +39,9 @@ internal sealed class CoachingDataService(ForgeStartupService startup, IDataSess
                 []));
         }
 
+        // The exercise catalogue is shared between profiles on purpose and is read unscoped.
         var exercise = await context.Set<Exercise>().SingleOrDefaultAsync(item => item.Id == latest.ExerciseId, cancellationToken).ConfigureAwait(false);
-        var soreness = await context.Set<SorenessEntry>().ToListAsync(cancellationToken).ConfigureAwait(false);
+        var soreness = await context.Set<SorenessEntry>().OwnedBy(scope).ToListAsync(cancellationToken).ConfigureAwait(false);
         var request = new NextSessionRecommendationRequest(
             latest.ExerciseId,
             exercise?.Name ?? "Exercise",
@@ -59,29 +62,40 @@ internal sealed class CoachingDataService(ForgeStartupService startup, IDataSess
 
     public async Task<ReadinessScoreResult> GetReadinessAsync(CancellationToken cancellationToken)
     {
-        await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
         await using var context = CreateContext();
-        var checkIn = await context.Set<MorningCheckIn>().OrderByDescending(entry => entry.Date).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false)
-            ?? new MorningCheckIn();
-        var soreness = await context.Set<SorenessEntry>().ToListAsync(cancellationToken).ConfigureAwait(false);
-        var trainingLoad = await LoadTrainingLoadAsync(context, cancellationToken).ConfigureAwait(false);
+
+        // Date is a DateOnly, which SQLite stores as sortable text, so this ORDER BY is safe to
+        // run in the database. The DateTimeOffset restriction elsewhere in this file does not
+        // apply to it.
+        var checkIn = await context.Set<MorningCheckIn>().OwnedBy(scope).OrderByDescending(entry => entry.Date).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false)
+            ?? new MorningCheckIn { UserProfileId = scope.ProfileId };
+        var soreness = await context.Set<SorenessEntry>().OwnedBy(scope).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var trainingLoad = await LoadTrainingLoadAsync(context, scope, cancellationToken).ConfigureAwait(false);
         var healthSleep = await TryReadSleepHoursAsync(cancellationToken).ConfigureAwait(false);
 
         return ReadinessScore.Calculate(new ReadinessInput(checkIn, trainingLoad, soreness, healthSleep));
     }
 
+    /// <summary>Saves the morning check-in against the profile that is training today.</summary>
+    /// <remarks>
+    /// The owner is stamped here rather than by the caller. <c>MorningCheckInViewModel</c> composes
+    /// the entity from slider values and has no profile scope; giving it one would put the privacy
+    /// boundary in a view model, where it drifts out of step with the code that writes the row.
+    /// </remarks>
     public async Task SaveMorningCheckInAsync(MorningCheckIn checkIn, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(checkIn);
-        await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
+        checkIn.UserProfileId = scope.ProfileId;
         await using var session = sessions.Create();
         await session.Repository<MorningCheckIn>().AddAsync(checkIn, cancellationToken).ConfigureAwait(false);
         await session.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<TrainingLoadRatio?> LoadTrainingLoadAsync(ForgeDbContext context, CancellationToken cancellationToken)
+    private static async Task<TrainingLoadRatio?> LoadTrainingLoadAsync(ForgeDbContext context, ProfileScope scope, CancellationToken cancellationToken)
     {
-        var sets = await context.Set<SetEntry>().Where(set => !set.IsWarmUp).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var sets = await context.Set<SetEntry>().OwnedBy(scope).Where(set => !set.IsWarmUp).ToListAsync(cancellationToken).ConfigureAwait(false);
         var points = sets.Select(set => new TrainingLoadPoint(DateOnly.FromDateTime(set.CompletedUtc.LocalDateTime), set.Volume));
         return TrainingLoadCalculator.Calculate(points, DateOnly.FromDateTime(DateTime.Now));
     }
@@ -106,6 +120,12 @@ internal sealed class CoachingDataService(ForgeStartupService startup, IDataSess
         return result.Samples.OfType<SleepHealthSample>().Select(sample => (decimal)sample.Duration.TotalHours).DefaultIfEmpty().Max() is var hours && hours > 0m
             ? decimal.Round(hours, 2)
             : null;
+    }
+
+    private async Task<ProfileScope> ResolveScopeAsync(CancellationToken cancellationToken)
+    {
+        await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        return await profiles.GetActiveScopeAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async Task EnsureDatabaseReadyAsync(CancellationToken cancellationToken)

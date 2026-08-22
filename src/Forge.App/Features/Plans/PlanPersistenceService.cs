@@ -1,6 +1,8 @@
 using Forge.App.Composition;
+using Forge.App.Features.Profile;
 using Forge.Core.Abstractions.Data;
 using Forge.Domain.Planning;
+using Forge.Domain.Profile;
 
 namespace Forge.App.Features.Plans;
 
@@ -10,6 +12,16 @@ public interface IPlanPersistenceService
 
     Task<TrainingPlan?> GetPlanAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>Creates an empty plan owned by the active profile, without saving it.</summary>
+    /// <param name="cancellationToken">Cancels the read that resolves the owner.</param>
+    /// <returns>An unsaved plan the editor can populate.</returns>
+    /// <remarks>
+    /// The editor asks for a draft rather than constructing one itself so that the profile boundary
+    /// stays in the persistence layer. A view model that had to know the active profile would end
+    /// up resolving it on a different schedule from the service that saves its work.
+    /// </remarks>
+    Task<TrainingPlan> CreateDraftPlanAsync(CancellationToken cancellationToken);
+
     Task SavePlanAsync(TrainingPlan plan, CancellationToken cancellationToken);
 
     Task<TrainingPlan> AdoptTemplateAsync(TrainingPlan source, CancellationToken cancellationToken);
@@ -17,15 +29,16 @@ public interface IPlanPersistenceService
     Task DeletePlanAsync(Guid id, CancellationToken cancellationToken);
 }
 
-internal sealed class PlanPersistenceService(ForgeStartupService startup, IDataSessionFactory sessions) : IPlanPersistenceService
+internal sealed class PlanPersistenceService(ForgeStartupService startup, IDataSessionFactory sessions, ProfileStore profiles) : IPlanPersistenceService
 {
     public async Task<IReadOnlyList<TrainingPlan>> ListUserPlansAsync(CancellationToken cancellationToken)
     {
-        await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
         await using var session = sessions.Create();
         var plans = session.Repository<TrainingPlan>();
 
         return (await plans.ListAsync(cancellationToken).ConfigureAwait(false))
+            .OwnedBy(scope)
             .Where(plan => !plan.IsTemplate)
             .OrderByDescending(plan => plan.IsActive)
             .ThenBy(plan => plan.Name, StringComparer.CurrentCultureIgnoreCase)
@@ -34,22 +47,41 @@ internal sealed class PlanPersistenceService(ForgeStartupService startup, IDataS
 
     public async Task<TrainingPlan?> GetPlanAsync(Guid id, CancellationToken cancellationToken)
     {
-        await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
         await using var session = sessions.Create();
         var plans = session.Repository<TrainingPlan>();
-        return await plans.GetAsync(id, cancellationToken).ConfigureAwait(false);
+
+        // Fetched by identifier and then checked for ownership, rather than trusted because the
+        // caller had the identifier. A plan id can outlive a profile switch in a navigation
+        // parameter, and opening it afterwards would otherwise show another profile's programme.
+        var plan = await plans.GetAsync(id, cancellationToken).ConfigureAwait(false);
+        return plan is not null && scope.Owns(plan) ? plan : null;
+    }
+
+    public async Task<TrainingPlan> CreateDraftPlanAsync(CancellationToken cancellationToken)
+    {
+        var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
+        return new TrainingPlan
+        {
+            UserProfileId = scope.ProfileId,
+            Name = "My plan",
+            Description = "A custom training plan.",
+            IsActive = true
+        };
     }
 
     public async Task SavePlanAsync(TrainingPlan plan, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(plan);
-        await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
         await using var session = sessions.Create();
         var plans = session.Repository<TrainingPlan>();
 
-        var existingPlans = await plans.ListAsync(cancellationToken).ConfigureAwait(false);
+        // Only this profile's plans are considered when deciding which one is active. Without the
+        // scope, activating a plan would deactivate everybody else's on a shared device.
+        var existingPlans = (await plans.ListAsync(cancellationToken).ConfigureAwait(false)).OwnedBy(scope).ToList();
         plan.IsTemplate = false;
-        if (plan.IsActive || existingPlans.All(existing => existing.IsTemplate || existing.Id == plan.Id))
+        if (plan.IsActive || existingPlans.TrueForAll(existing => existing.IsTemplate || existing.Id == plan.Id))
         {
             plan.IsActive = true;
             foreach (var existing in existingPlans.Where(existing => !existing.IsTemplate && existing.Id != plan.Id && existing.IsActive))
@@ -59,7 +91,7 @@ internal sealed class PlanPersistenceService(ForgeStartupService startup, IDataS
             }
         }
 
-        if (existingPlans.Any(existing => existing.Id == plan.Id))
+        if (existingPlans.Exists(existing => existing.Id == plan.Id))
         {
             await plans.UpdateAsync(plan, cancellationToken).ConfigureAwait(false);
         }
@@ -74,14 +106,15 @@ internal sealed class PlanPersistenceService(ForgeStartupService startup, IDataS
     public async Task<TrainingPlan> AdoptTemplateAsync(TrainingPlan source, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
-        var adoptedPlan = source.CreateEditableCopy();
+        var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
+        var adoptedPlan = source.CreateEditableCopy(scope.ProfileId);
         await SavePlanAsync(adoptedPlan, cancellationToken).ConfigureAwait(false);
         return adoptedPlan;
     }
 
     public async Task DeletePlanAsync(Guid id, CancellationToken cancellationToken)
     {
-        await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
         await using var session = sessions.Create();
         var plans = session.Repository<TrainingPlan>();
         var days = session.Repository<PlanDay>();
@@ -89,7 +122,7 @@ internal sealed class PlanPersistenceService(ForgeStartupService startup, IDataS
         var sets = session.Repository<PlannedSet>();
 
         var plan = await plans.GetAsync(id, cancellationToken).ConfigureAwait(false);
-        if (plan is null)
+        if (plan is null || !scope.Owns(plan))
         {
             return;
         }
@@ -111,6 +144,12 @@ internal sealed class PlanPersistenceService(ForgeStartupService startup, IDataS
 
         await plans.SoftDeleteAsync(plan.Id, cancellationToken).ConfigureAwait(false);
         await session.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<ProfileScope> ResolveScopeAsync(CancellationToken cancellationToken)
+    {
+        await EnsureDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        return await profiles.GetActiveScopeAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async Task EnsureDatabaseReadyAsync(CancellationToken cancellationToken)

@@ -1,5 +1,6 @@
 using Forge.Domain.Common;
 using Forge.Domain.Measurement;
+using Forge.Domain.Profile;
 
 namespace Forge.Domain.Training;
 
@@ -11,8 +12,18 @@ namespace Forge.Domain.Training;
 /// conditions - mid-workout, one-handed, by someone out of breath. It records what actually
 /// happened rather than what was prescribed, so that progress analysis reflects reality.
 /// </remarks>
-public sealed class SetEntry : Entity
+public sealed class SetEntry : Entity, IProfileOwned
 {
+    /// <summary>
+    /// The profile that performed this set.
+    /// </summary>
+    /// <remarks>
+    /// Required rather than defaulted so that every creation site has to name an owner. A set
+    /// written without one is either attributed to the wrong person or invisible to everybody,
+    /// and neither failure is detectable by reading the log afterwards.
+    /// </remarks>
+    public required Guid UserProfileId { get; init; }
+
     /// <summary>The session this set belongs to.</summary>
     public required Guid WorkoutSessionId { get; init; }
 

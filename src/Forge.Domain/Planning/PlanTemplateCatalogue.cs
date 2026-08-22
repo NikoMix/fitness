@@ -40,6 +40,9 @@ public static class PlanTemplateCatalogue
     {
         var plan = new TrainingPlan
         {
+            // A shipped template belongs to nobody. Adopting one produces an owned copy; the
+            // template itself is never written to the database under a profile.
+            UserProfileId = Guid.Empty,
             Name = name,
             Description = description,
             IsTemplate = true,
@@ -57,7 +60,7 @@ public static class PlanTemplateCatalogue
 
     private static PlanDay Day(string name, DayOfWeek weekday, int ordinal, params PlannedExercise[] exercises)
     {
-        var day = new PlanDay { Name = name, ScheduledDay = weekday, Ordinal = ordinal };
+        var day = new PlanDay { UserProfileId = Guid.Empty, Name = name, ScheduledDay = weekday, Ordinal = ordinal };
         foreach (var exercise in exercises)
         {
             day.Exercises.Add(exercise);
@@ -70,6 +73,7 @@ public static class PlanTemplateCatalogue
     {
         var exercise = new PlannedExercise
         {
+            UserProfileId = Guid.Empty,
             ExerciseName = name,
             Pattern = pattern,
             PrimaryMuscle = muscle,
@@ -81,6 +85,7 @@ public static class PlanTemplateCatalogue
         {
             exercise.Sets.Add(new PlannedSet
             {
+                UserProfileId = Guid.Empty,
                 Ordinal = set,
                 TargetRepsMin = minReps,
                 TargetRepsMax = maxReps,

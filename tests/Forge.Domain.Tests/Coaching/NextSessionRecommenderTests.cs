@@ -35,7 +35,7 @@ public sealed class NextSessionRecommenderTests
     public void Blocks_severe_soreness_for_target_muscle()
     {
         var result = NextSessionRecommender.Recommend(Request(soreness:
-            [new SorenessEntry { MuscleGroup = "Quadriceps", Level = SorenessTracker.SevereSorenessLevel }]
+            [new SorenessEntry { UserProfileId = Guid.CreateVersion7(), MuscleGroup = "Quadriceps", Level = SorenessTracker.SevereSorenessLevel }]
         ));
 
         result.Status.ShouldBe(NextSessionRecommendationStatus.BlockedBySafety);

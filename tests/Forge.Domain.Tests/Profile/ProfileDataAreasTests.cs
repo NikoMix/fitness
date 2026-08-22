@@ -49,8 +49,9 @@ public sealed class ProfileDataAreasTests
     public void An_area_is_only_separated_when_every_one_of_its_types_is_owned()
     {
         // A plan whose root carries an owner but whose days do not is still a leak the moment
-        // anything reads the children directly.
-        var mixed = new ProfileDataArea("Mixed", [typeof(BodyMetric), typeof(Forge.Domain.Training.WorkoutSession)], "…");
+        // anything reads the children directly. Exercise stands in for the unowned half because the
+        // catalogue is shared on purpose and is expected to stay that way.
+        var mixed = new ProfileDataArea("Mixed", [typeof(BodyMetric), typeof(Forge.Domain.Training.Exercise)], "…");
 
         mixed.Separation.ShouldBe(ProfileSeparation.Shared);
     }
@@ -62,12 +63,52 @@ public sealed class ProfileDataAreasTests
     }
 
     [Fact]
-    public void Training_history_is_still_shared_today()
+    public void Training_history_is_separated_today()
     {
-        // If this ever fails, the migration described in docs/design/multi-profile.md has landed
-        // and both this test and that document should be updated together.
-        ProfileDataAreas.Shared().Select(area => area.Name).ShouldContain("Workout history");
+        // The migration described in docs/design/multi-profile.md has landed for training. This
+        // test is the counterpart of the one it replaced: it fails if workout history is ever
+        // moved back to shared, which would make the switcher's wording a lie in the other
+        // direction.
+        ProfileDataAreas.Separated().Select(area => area.Name).ShouldContain("Workout history");
+        ProfileDataAreas.Separated().Select(area => area.Name).ShouldContain("Workout in progress");
+        ProfileDataAreas.Separated().Select(area => area.Name).ShouldContain("Training plans");
+    }
+
+    [Fact]
+    public void The_catalogues_are_still_shared_today()
+    {
+        // The exercise and food catalogues are shared on purpose: they are shipped reference
+        // content, not anybody's record. Phase 4 of docs/design/multi-profile.md covers the
+        // per-person state that currently lives on those shared rows - favourites, recently used
+        // and user-created flags - which is a join entity, not a filter.
+        ProfileDataAreas.Shared().Select(area => area.Name).ShouldContain("Exercise library");
+        ProfileDataAreas.Shared().Select(area => area.Name).ShouldContain("Food catalogue");
         ProfileDataAreas.IsFullySeparated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Every_logging_area_a_user_would_expect_to_follow_the_profile_does()
+    {
+        // Stated as an explicit list rather than as "everything except the catalogues", so that
+        // adding an area does not silently join the separated set without anyone deciding.
+        string[] mustBeSeparated =
+        [
+            "Body measurements",
+            "Workout history",
+            "Workout in progress",
+            "Training plans",
+            "Food log",
+            "Hydration",
+            "Recipes",
+            "Check-ins and soreness",
+        ];
+
+        var separated = ProfileDataAreas.Separated().Select(area => area.Name).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var area in mustBeSeparated)
+        {
+            separated.ShouldContain(area, $"{area} holds one person's own logging and must not be visible to another profile");
+        }
     }
 
     [Fact]
@@ -118,5 +159,15 @@ public sealed class ProfileDataAreasTests
             .ShouldAllBe(type => typeof(IProfileOwned).IsAssignableFrom(type));
 
         ProfileDataAreas.DeletableEntityTypes().ShouldContain(typeof(BodyMetric));
+        ProfileDataAreas.DeletableEntityTypes().ShouldContain(typeof(Forge.Domain.Training.SetEntry));
+    }
+
+    [Fact]
+    public void The_shared_catalogues_are_never_offered_to_a_delete()
+    {
+        // Deleting shared rows during a profile delete would destroy shipped content, and worse,
+        // any user-created exercise or food that the remaining profiles still reference.
+        ProfileDataAreas.DeletableEntityTypes().ShouldNotContain(typeof(Forge.Domain.Training.Exercise));
+        ProfileDataAreas.DeletableEntityTypes().ShouldNotContain(typeof(Forge.Domain.Nutrition.FoodItem));
     }
 }

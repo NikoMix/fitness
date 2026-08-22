@@ -46,7 +46,7 @@ public sealed class DataSessionTests : IAsyncLifetime
             await session.Repository<Exercise>()
                 .AddAsync(new Exercise { Id = exerciseId, Name = "Deadlift", Pattern = MovementPattern.Hinge }, TestContext.Current.CancellationToken);
             await session.Repository<TrainingPlan>()
-                .AddAsync(new TrainingPlan { Id = planId, Name = "Strength" }, TestContext.Current.CancellationToken);
+                .AddAsync(new TrainingPlan { Id = planId, UserProfileId = Guid.CreateVersion7(), Name = "Strength" }, TestContext.Current.CancellationToken);
 
             var written = await session.SaveChangesAsync(TestContext.Current.CancellationToken);
 

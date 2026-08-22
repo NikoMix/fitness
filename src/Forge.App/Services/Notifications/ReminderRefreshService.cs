@@ -1,9 +1,11 @@
 using System.Globalization;
+using Forge.App.Features.Profile;
 using Forge.Core.Abstractions.Data;
 using Forge.Core.Abstractions.Notifications;
 using Forge.Domain.Engagement;
 using Forge.Domain.Nutrition;
 using Forge.Domain.Planning;
+using Forge.Domain.Profile;
 using Forge.Domain.Recovery;
 using Forge.Domain.Training;
 using Microsoft.Maui.Storage;
@@ -19,11 +21,19 @@ public interface IReminderRefreshService
     Task<IReadOnlyList<PlannedReminder>> RefreshAsync(DateTimeOffset now, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Data-backed implementation of Forge reminder refresh.</summary>
+/// <summary>
+/// Data-backed implementation of Forge reminder refresh.
+/// </summary>
+/// <remarks>
+/// Reminders are scoped to the active profile. Unscoped, a notification told one person they had
+/// already trained today because somebody else on the device had, which is worse than a missing
+/// reminder: it is the app asserting something about the reader's own day that is not true.
+/// </remarks>
 public sealed class ReminderRefreshService(
     IDataSessionFactory sessions,
     INotificationScheduler notifications,
-    ReminderSchedulingPolicy policy) : IReminderRefreshService
+    ReminderSchedulingPolicy policy,
+    ProfileStore profiles) : IReminderRefreshService
 {
     private const string SettingsPrefix = "forge.notifications.";
     private const int DefaultDailyCap = LocalNotificationScheduler.MaxNonCriticalNotificationsPerLocalDay;
@@ -42,13 +52,20 @@ public sealed class ReminderRefreshService(
         var localNow = TimeZoneInfo.ConvertTime(now, timeZone);
         var localDate = DateOnly.FromDateTime(localNow.DateTime);
         var preferences = ReadPreferences();
+        var scope = await profiles.GetActiveScopeAsync(cancellationToken);
 
         await using var session = sessions.Create();
         var activePlan = (await session.Repository<TrainingPlan>().ListAsync(cancellationToken))
+            .OwnedBy(scope)
             .FirstOrDefault(plan => plan.IsActive);
-        var workouts = await session.Repository<WorkoutSession>().ListAsync(cancellationToken);
-        var hydration = await session.Repository<HydrationEntry>().ListAsync(cancellationToken);
-        var checkIns = await session.Repository<MorningCheckIn>().ListAsync(cancellationToken);
+        var workouts = (await session.Repository<WorkoutSession>().ListAsync(cancellationToken)).OwnedBy(scope).ToList();
+        var hydration = (await session.Repository<HydrationEntry>().ListAsync(cancellationToken)).OwnedBy(scope).ToList();
+        var checkIns = (await session.Repository<MorningCheckIn>().ListAsync(cancellationToken)).OwnedBy(scope).ToList();
+
+        // Streaks are still read unscoped. Streak already carries a UserProfileId but does not
+        // implement IProfileOwned yet, so there is nothing to filter on; one profile's streak
+        // therefore still drives everybody's streak-protection reminder. See phase 1 of
+        // docs/design/multi-profile.md.
         var streaks = await session.Repository<Streak>().ListAsync(cancellationToken);
         var streak = streaks.Count > 0 ? streaks[0] : null;
 
@@ -57,7 +74,7 @@ public sealed class ReminderRefreshService(
         var hydrationToday = hydration
             .Where(entry => ToLocalDate(entry.ConsumedUtc, timeZone) == localDate)
             .Sum(entry => entry.Volume.Millilitres);
-        var checkInToday = checkIns.Any(checkIn => checkIn.Date == localDate);
+        var checkInToday = checkIns.Exists(checkIn => checkIn.Date == localDate);
         var scheduledSession = FindTodaySession(activePlan, localDate);
 
         var pending = await notifications.GetPendingAsync(cancellationToken);

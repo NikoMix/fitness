@@ -5,6 +5,8 @@ namespace Forge.Domain.Tests.Workout;
 
 public sealed class RestPrescriptionTests
 {
+    private static readonly Guid Owner = Guid.CreateVersion7();
+
     [Fact]
     public void Default_prescription_shortens_warm_up_rest()
     {
@@ -52,7 +54,7 @@ public sealed class RestPrescriptionTests
             100m,
             5,
             Rest: RestPrescription.FromWorkingSetRest(TimeSpan.FromMinutes(5)));
-        var state = ActiveWorkoutState.Start(Guid.CreateVersion7(), DateTimeOffset.UnixEpoch, squat);
+        var state = ActiveWorkoutState.Start(Owner, Guid.CreateVersion7(), DateTimeOffset.UnixEpoch, squat);
 
         var next = state.ResolveNextRest(isWarmUp: false);
 
@@ -65,7 +67,7 @@ public sealed class RestPrescriptionTests
     public void Exercise_without_a_prescription_falls_back_to_the_supplied_default()
     {
         var curl = new ActiveWorkoutExercise(Guid.CreateVersion7(), "Cable curl", "Biceps", 20m, 12);
-        var state = ActiveWorkoutState.Start(Guid.CreateVersion7(), DateTimeOffset.UnixEpoch, curl);
+        var state = ActiveWorkoutState.Start(Owner, Guid.CreateVersion7(), DateTimeOffset.UnixEpoch, curl);
 
         var next = state.ResolveNextRest(isWarmUp: false, RestPrescription.FromWorkingSetRest(TimeSpan.FromSeconds(45)));
 
@@ -82,7 +84,7 @@ public sealed class RestPrescriptionTests
             80m,
             5,
             Rest: RestPrescription.FromWorkingSetRest(TimeSpan.FromMinutes(3)));
-        var state = ActiveWorkoutState.Start(Guid.CreateVersion7(), DateTimeOffset.UnixEpoch, press);
+        var state = ActiveWorkoutState.Start(Owner, Guid.CreateVersion7(), DateTimeOffset.UnixEpoch, press);
 
         var next = state.ResolveNextRest(isWarmUp: true);
 
