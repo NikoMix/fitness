@@ -206,20 +206,20 @@
   {
     "story": "S25.01.01",
     "verdict": "PARTIAL",
-    "evidence": "AC1: src/Forge.App/Features/Settings/DeleteMyDataPage.xaml:26 lists the SQLite database, the encryption key, cached media, preferences and export temp files; AC2: DeleteMyDataPageViewModel.cs:9,22,38 gates the destructive command on typing DELETE exactly; AC3: LocalDataErasureService.cs:38-57 is pure local file and secure-storage work with no network step; AC4: tools/release/Invoke-ReleasePreflight.ps1:293-305 fails on unresolved owner placeholders and :226-240 on unapproved launch gates",
-    "gaps": "The requirement asks for reachability from Profile and Legal settings; there is no deletion entry in the Legal group of Settings (SettingsPageViewModel.cs:23-26), only under Data management. The screen's copy is hard-coded XAML rather than generated from the versioned docs/legal documents, against the requirement that all user-facing legal copy be versioned"
+    "evidence": "AC1: src/Forge.App/Features/Settings/DeleteMyDataPage.xaml:25-27 lists the SQLite database, encryption key, cached media, preferences and export temp files; AC2: src/Forge.App/Features/Settings/ViewModels/DeleteMyDataPageViewModel.cs:20 and :33-34 gate erasure on typing DELETE exactly; AC3: src/Forge.App/Features/Legal/Services/LocalDataErasureService.cs:38-53 performs local preference, secure-storage, cache and app-data deletion with no network step; AC4: tools/release/Invoke-ReleasePreflight.ps1:226 and :293-305 fail release checks for unresolved gates and placeholders",
+    "gaps": "Delete my data is still only reached through Settings -> Data management (src/Forge.App/Features/Settings/ViewModels/SettingsPageViewModel.cs:21; src/Forge.App/Features/Settings/DataManagementPage.xaml:52-58); the Legal settings group has no deletion entry (SettingsPageViewModel.cs:23-26). DeleteMyDataPage.xaml hard-codes deletion and legal copy at :16-18, :25-27 and :34-40 instead of sourcing it from versioned docs/legal content."
   },
   {
     "story": "S25.01.02",
     "verdict": "PARTIAL",
-    "evidence": "AC1: src/Forge.App/Features/Legal/Services/LocalDataErasureService.cs:38-57 clears Preferences, calls SecureStorage.Default.RemoveAll() (removing the SQLCipher key and the entitlement envelope), deletes cache and app-data contents recursively and recreates the directories, then throws an aggregated IOException naming failures rather than reporting success",
-    "gaps": "AC2 not demonstrably met: ReleaseDataSessionAsync (:111-123) only creates and disposes a session; it does not clear SQLite connection pools, which is what prevents a sharing violation against an open handle. AC3 unmet end to end: the service throws IOException but DeleteMyDataPageViewModel.cs:57 catches only NotSupportedException, so a failed deletion surfaces as an unhandled exception rather than a safe retry screen. There is no LocalDataErasureServiceTests - the store-blocking erasure path has no test. IDataErasureService is also registered twice - PendingDataErasureService at SettingsFeatureRegistration.cs:40 and the real service at ShopFeatureRegistration.cs:35 - and last-wins DI picks the correct one only because FeatureRegistration.cs:69-70 happens to be alphabetical"
+    "evidence": "AC1/AC2: src/Forge.App/Features/Legal/Services/LocalDataErasureService.cs:47 releases pooled database handles before deletion and :50-56 clears preferences, secure storage, cache and app data; src/Forge.Core/Abstractions/Data/IDatabaseFileRelease.cs:23-33 defines the release seam; src/Forge.Infrastructure/Persistence/SqliteDatabaseFileRelease.cs:16-19 calls SqliteConnection.ClearAllPools(); tests/Forge.Infrastructure.Tests/Persistence/DatabaseFileReleaseTests.cs:49-82 and :107-128 prove released pooled handles permit delete and recreate; AC3 retry UI: src/Forge.App/Features/Settings/ViewModels/DeleteMyDataPageViewModel.cs:52-63 catches IOException, UnauthorizedAccessException and NotSupportedException and shows fixed retry copy; DI: src/Forge.App/Features/Legal/LegalFeatureRegistration.cs:35 is the only IDataErasureService registration",
+    "gaps": "Fixed since the previous verdict: the SQLite pool-release gap, the unsafe exception handling, and the duplicate IDataErasureService registration decided by alphabetical ordering are all resolved. Remaining: there is still no LocalDataErasureServiceTests or failure-injection coverage for the whole store-blocking erasure path; DatabaseFileReleaseTests.cs:49-82 only pins the SQLite pool-release seam."
   },
   {
     "story": "S25.01.03",
-    "verdict": "NOT-DONE",
-    "evidence": "DeleteMyDataPageViewModel.cs:54-55 erases and then shows a completion alert",
-    "gaps": "AC1 unmet: no navigation stack clear - the user stays on the deletion page and the back button still reaches every previous route. AC2 unmet: onboarding is not relaunched and there is no post-delete verification screen. AC3 unmet: there is no health-consent state to re-arm because Forge holds none. No DataDeletedEvent exists"
+    "verdict": "PARTIAL",
+    "evidence": "src/Forge.App/Features/Onboarding/FirstRunGate.cs:12-18 routes to Welcome on launch when no profile exists, so a relaunch after a real delete does reach onboarding; src/Forge.App/Features/Legal/Services/LocalDataErasureService.cs:50 clears Preferences; src/Forge.App/Features/Settings/ViewModels/DeleteMyDataPageViewModel.cs:49-50 erases data and shows a completion alert",
+    "gaps": "Upgraded from NOT-DONE because onboarding is in fact reached after relaunch via FirstRunGate. AC1 still unmet: successful deletion does not clear the current Shell navigation stack or replace the root route, so the back button still reaches every previous route in the same session. AC3 still unmet: there is no DataDeletedEvent or in-memory reset path, and src/Forge.App/Services/Health/HealthConnectionService.cs:95-99 still refreshes from existing platform health permissions instead of requiring a fresh in-app opt-in. There is no post-delete verification screen explaining local deletion and OS health-permission management."
   },
   {
     "story": "S25.02.01",
@@ -296,8 +296,8 @@
   {
     "story": "S25.06.01",
     "verdict": "PARTIAL",
-    "evidence": "AC1: src/Forge.App/Features/Settings/DeleteMyDataPage.xaml:33-43 places an 'Export backup before deleting' card above the destructive confirmation, wired through DeleteMyDataPageViewModel.cs:25 to LocalDataErasureService.ExportBackupBeforeErasureAsync (:31-35); AC2: skipping it does not block deletion - EraseAllDataCommand depends only on the typed confirmation; docs/legal/privacy-policy.md:128-131 describes portability as the local export rather than a server request",
-    "gaps": "The link routes to Backup and restore, which produces the whole-device unencrypted archive, rather than to the Article 20 scoped export at ExportData or DataPortability. There is no IDataExportAvailabilityService, so export availability is assumed rather than checked. If the duplicate IDataErasureService registration ever resolves to PendingDataErasureService the button shows 'Backup export not wired' instead (PendingDataErasureService.cs:22-25)"
+    "evidence": "AC1: src/Forge.App/Features/Settings/DeleteMyDataPage.xaml:32-40 places an Export first card before the destructive confirmation at :44-57; src/Forge.App/Features/Settings/ViewModels/DeleteMyDataPageViewModel.cs:22-24 invokes the export command; src/Forge.App/Features/Legal/Services/LocalDataErasureService.cs:31-35 routes that command to ForgeRoutes.BackupRestore; AC2: erasure remains gated only by confirmation text at DeleteMyDataPageViewModel.cs:20 and :33-34; docs/legal/privacy-policy.md:128-131 describes access and portability through the in-app export",
+    "gaps": "Fixed since the previous verdict: the duplicate PendingDataErasureService registration is obsolete because that file no longer exists and IDataErasureService is registered once. Remaining: the Export first action still opens Backup and restore rather than the E26 Article 20 Export data route (src/Forge.App/Features/Legal/Services/LocalDataErasureService.cs:31-35; src/Forge.App/Features/Settings/ViewModels/DataManagementPageViewModel.cs:42-43 shows ExportData is a separate route). No src/Forge.Core/Export/IDataExportAvailabilityService.cs exists, so export availability is not queried. No PrivacySummary surface or file exists for the required portability copy."
   },
   {
     "story": "S25.06.02",
@@ -464,8 +464,8 @@
   {
     "story": "F25.01",
     "verdict": "PARTIAL",
-    "evidence": "A real, deliberate deletion flow: typed DELETE gate (DeleteMyDataPageViewModel.cs:22,38), an artefact list (DeleteMyDataPage.xaml:26) and a working erasure service (LocalDataErasureService.cs:38-57)",
-    "gaps": "S25.01.03 is NOT-DONE - no navigation reset to onboarding and no post-delete verification screen. S25.01.02 has no test, does not clear connection pools, surfaces IOException unhandled, and depends on an alphabetical accident in duplicate DI registration"
+    "evidence": "A real, deliberate deletion flow: typed DELETE gate (src/Forge.App/Features/Settings/ViewModels/DeleteMyDataPageViewModel.cs:20, :33-34), an artefact list (src/Forge.App/Features/Settings/DeleteMyDataPage.xaml:25-27) and an erasure service that releases pooled database handles before deleting (src/Forge.App/Features/Legal/Services/LocalDataErasureService.cs:47, :50-56)",
+    "gaps": "All three stories are PARTIAL. Fixed since the previous verdict: connection pools are now cleared through IDatabaseFileRelease, the view model catches IOException and UnauthorizedAccessException instead of leaking them, the duplicate IDataErasureService registration decided by alphabetical ordering is gone, and relaunch after deletion does reach onboarding via FirstRunGate. Remaining: S25.01.02 has no LocalDataErasureServiceTests or failure-injection coverage; S25.01.03 does not clear the Shell navigation stack on success, has no post-delete verification screen and no DataDeletedEvent, so health permission state can still be reflected from the OS; S25.01.01 is reachable only from Data management, not the Legal settings group, and its copy is hard-coded rather than sourced from versioned docs/legal content."
   },
   {
     "story": "F25.02",
@@ -542,8 +542,8 @@
   {
     "story": "E25",
     "verdict": "PARTIAL",
-    "evidence": "The compliance machinery is genuinely built: docs/legal is a single source of truth generated into the app with a CI drift check that passes (ci.yml:119-121), a publish workflow that refuses placeholders (pages.yml:61-72), a complete iOS privacy manifest enforced by preflight (PrivacyInfo.xcprivacy, Test-IosPrivacyManifest.ps1), structured launch gates (launch-gates.yml) and a working typed-confirmation deletion flow",
-    "gaps": "0 of 18 stories DONE (13 PARTIAL, 5 NOT-DONE). The content half is missing: 8 TODO(owner) markers render in-app (Test-NoOwnerPlaceholders.ps1 reports them in LegalContent.cs), GitHub Pages is not enabled so the public policy URL 404s, and there is no age gate, no terms acceptance record, no health consent record, no data inventory and no Privacy Summary. Most seriously, AndroidManifest.xml:11 leaves Auto Backup enabled with no rules, so unencrypted backup archives are eligible for Google Drive"
+    "evidence": "A deliberate local deletion flow, a released-handle erasure path, a published privacy policy document set under docs/legal, and release preflight checks that fail on unresolved owner placeholders and unapproved launch gates (tools/release/Invoke-ReleasePreflight.ps1:226, :293-305)",
+    "gaps": "0 of 18 stories DONE (14 PARTIAL, 4 NOT-DONE). The content half is missing: 8 TODO(owner) markers render in-app (Test-NoOwnerPlaceholders.ps1 reports them in LegalContent.cs), GitHub Pages is not enabled so the public policy URL 404s, and there is no age gate, no terms acceptance record, no health consent record, no data inventory and no Privacy Summary. Most seriously, AndroidManifest.xml:11 leaves Auto Backup enabled with no rules, so unencrypted backup archives are eligible for Google Drive."
   },
   {
     "story": "E26",

@@ -4,30 +4,35 @@ Read-only reconciliation of `backlog/epics/E07-*.yml` through `E10-*.yml` agains
 
 A feature is DONE only when every story under it is; an epic only when every feature is.
 
+> **Re-verified after `10c0888`, `e4d971b` and `e41e311`.** This report was written at 19:11; three
+> commits landed after it and closed gaps it had recorded. Headline finding 1 below is no longer
+> true, `S07.03.03` and `S08.02.01` moved NOT-DONE to PARTIAL, and 43 records had their evidence
+> re-cited. The summary table and the story sections reflect the re-verified state.
+
 ## Summary
 
 | Epic | Title | Stories | DONE | PARTIAL | NOT-DONE | DEFERRED | UNCLEAR |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| E07 | Exercise Library and Content Catalogue | 20 | 0 | 15 | 5 | 0 | 0 |
-| E08 | Exercise Media, Video and Form Guidance | 20 | 2 | 7 | 11 | 0 | 0 |
+| E07 | Exercise Library and Content Catalogue | 20 | 0 | 16 | 4 | 0 | 0 |
+| E08 | Exercise Media, Video and Form Guidance | 20 | 2 | 8 | 10 | 0 | 0 |
 | E09 | Training Plan Builder and Programmes | 20 | 0 | 13 | 7 | 0 | 0 |
 | E10 | Workout Execution and Exercise Mode | 22 | 5 | 10 | 7 | 0 | 0 |
-| **Total** | | **82** | **7** | **45** | **30** | **0** | **0** |
+| **Total** | | **82** | **7** | **47** | **28** | **0** | **0** |
 
 ## Headline findings
 
 Four things a reader of this backlog would reasonably assume are working, and are not.
 
-**1. No plan ever drives a workout, and the target shown mid-set is a constant.**
-The only route into an active workout is Train's *Start workout*, which navigates to the route with no
-plan parameter (`src/Forge.App/Features/Train/TrainViewModel.cs:14-16`). The session queue is then built
-from the whole exercise catalogue with every entry given a hard-coded 60 kg and 8 reps
-(`src/Forge.App/Features/Workout/ActiveWorkoutPageViewModel.cs:828-834`), falling back to 20 kg and 8 reps
-when the queue is empty (`:845-847`). The screen renders those as a "Target" tile beside "Actual"
-(`ActiveWorkoutPage.xaml:52-55`), so a user reads a fabricated number as a prescription. E09 builds plans
-and E10 executes workouts, and nothing connects them: `WorkoutSession` has no plan reference, the schedule
-grid has no tap gesture, and no code path turns a `PlanDay` into a workout queue. This is the same defect
-class as the hard-coded `5 days Current / 12 Best` streak numbers.
+**1. ~~No plan ever drives a workout, and the target shown mid-set is a constant.~~ Fixed by `10c0888`.**
+This was true when the report was written and is not true now. `TrainViewModel.cs:195-198` passes a
+plan-day id into the active workout route, `WorkoutPersistenceService.cs:210-239` builds the session
+queue from that plan day and records `TrainingPlanId`/`PlanDayId` on the session, and
+`PlanWorkoutProjection.cs:61-91` copies the planned sets, load, reps and rest onto each queued
+exercise, so the "Target" tile now shows a prescription rather than a hard-coded 60 kg and 8 reps.
+The schema change is carried by migration `20260822204327_PlanWorkoutLink`. What remains is
+presentation rather than wiring: "Set 1 of 3", target RPE and a prescribed-rest line are still
+missing above the fold (`S10.01.01`), and a completed session still links to a plan day but not to
+the plan *version* that produced it (`S09.05.02`).
 
 **2. Exercise video is wired end to end and can never play.**
 `ExerciseMediaCatalogue` resolves media only from `IMediaCache`
@@ -77,8 +82,10 @@ sets, reps, load, RPE and rest are all display-only, and *Add exercise* inserts 
 
 ### Where a second opinion would help
 
-- **S08.02.01** — I concluded video playback is dead end-to-end from static reading. Confirming it needs
-  one device run: download a pack, open an exercise detail, tap Watch, and see whether the player renders.
+- **S08.02.01** — I concluded video playback is dead end-to-end from static reading. **Resolved by
+  `e4d971b`:** playback now resolves store-delivered pack files through `MediaSource.FromFile`, and
+  the story is PARTIAL rather than NOT-DONE. A device run is still worth doing to confirm the
+  download-then-watch journey end to end.
 - **S10.02.03** (keep-awake) — I marked it DONE because both acceptance criteria pass, even though its
   "pausing beyond 15 minutes" requirement is vacuous, pause having never been built (S10.05.02).
   **Resolved:** hold DONE, and the vacuous-AC signal is now recorded as a note against S10.05.02, so the
@@ -184,13 +191,13 @@ Declared equipment is read from the profile and drives the alternatives screen, 
 
 *Gaps:* AC1 and AC2 both fail in the library - no Hide unavailable switch and no 'Missing Equipment' label naming the missing item; equipment chips are an inclusion filter, not an availability filter.
 
-#### S07.03.03 — Respect declared injuries and movement limitations — **NOT-DONE**
+#### S07.03.03 — Respect declared injuries and movement limitations — **PARTIAL**
 
-The domain has limitation filtering - ExerciseFilter.FromDeclaredInjuries maps injuries to excluded movement patterns and Matches honours them - and it is unit-tested, but nothing in the app ever supplies it. ExerciseLibraryViewModel.BuildFilter omits the injuries argument entirely, and UserProfile.MovementLimitations is free text that no filter consumes. This is code that exists and behaviour that does not reach a user.
+Upgraded from NOT-DONE by `e4d971b`. The report previously found limitation filtering that existed in the domain but never reached a user; the app now supplies it. `MovementLimitationDeclaration` interprets the free-text profile field, `ExerciseLibraryViewModel` builds a filter from the declared limitations by default, and the library carries both an unread-limitation prompt and not-medical-advice copy. What it does not have is the structured taxonomy the criteria describe: a declaration is mapped onto whole movement patterns, so an overhead or shoulder limitation hides Push and Pull wholesale — overhead press disappears, but so do neutral-grip rows and pull movements that the limitation does not implicate.
 
-*Evidence:* src/Forge.Domain/Training/ExerciseFilter.cs:50-62, :110-133, :142-145; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:528-533 calls ExerciseFilter.For without injuries; the only callers of FromDeclaredInjuries are tests/Forge.Domain.Tests/Training/ExerciseFilterTests.cs:68 and :79; src/Forge.Domain/Profile/UserProfile.cs:58
+*Evidence:* src/Forge.Domain/Training/MovementLimitationDeclaration.cs:31-163; src/Forge.Domain/Training/ExerciseFilter.cs:50-62, :120-143, :152-155; src/Forge.App/Features/Exercises/ExerciseLibraryViewModel.cs:127-158, :580-586, :598-629; src/Forge.App/Features/Exercises/ExerciseLibraryPage.xaml:82-96
 
-*Gaps:* Structured limitation tags do not exist (MovementLimitations is free text); no Hide contraindicated / Show with warning / Ignore choice; no 'not medical advice' notice gating the first use; AC1 and AC2 both fail.
+*Gaps:* AC1 only partially met - filtering is by movement pattern, not by structured overhead / deep-knee / spinal-loading / high-impact contraindication tags, so it over-hides; there is no Hide contraindicated / Show with warning / Ignore mode choice; AC2 fails because no first-use notice requires Continue before filters apply.
 
 #### S07.03.04 — Persist favourites and recently used exercises — **PARTIAL**
 
@@ -310,17 +317,17 @@ No media item stores creator, licence, source, release status or attribution req
 
 ### F08.02 — Play demonstration media on exercise details — **PARTIAL**
 
-#### S08.02.01 — Embed MediaElement demonstration playback — **NOT-DONE**
+#### S08.02.01 — Embed MediaElement demonstration playback — **PARTIAL**
 
-The player is wired but can never play. CommunityToolkit MediaElement is bound with autoplay, loop, mute and keep-screen-on, and MediaFailed swaps in a text message. But ExerciseMediaCatalogue resolves media only from IMediaCache, and IMediaCache.DownloadAsync is called from nowhere in src - only from tests - so the cache is always empty, ResolveExerciseMediaAsync always returns Absent, HasMedia is always false and the entire player card is hidden by IsVisible. The Play Asset Delivery path that does download packs is a different service: the detail page gates its Watch button on IMediaPackService while the video page reads IMediaCache, so the two never meet. Even the source string is wrong for MediaElement - it is prefixed embed:// or filesystem://, which a MediaSource converter resolves as an absolute non-file URI rather than a local file.
+Upgraded from NOT-DONE by `e4d971b`. The report previously found a player that could never play: nothing populated `IMediaCache`, the detail page gated on `IMediaPackService` while the video page read `IMediaCache`, and the source string was prefixed `embed://` or `filesystem://`, which is not a valid MediaElement source. All three are fixed. `ExerciseMediaCatalogue` now resolves media from the store-delivered packs the app actually downloads, and playback uses `MediaSource.FromFile`/`FromResource`, so a downloaded pack produces a playing video.
 
-*Evidence:* src/Forge.Infrastructure/Media/ExerciseMediaCatalogue.cs:14-27; grep for DownloadAsync across src returns only the FileSystemMediaCache definition at src/Forge.Infrastructure/Media/FileSystemMediaCache.cs:72 - no caller; src/Forge.App/Features/Exercises/ExerciseVideoAvailability.cs:34-58 uses IMediaPackService; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:66-77 and :111-116; src/Forge.App/Features/Media/ExerciseVideoPage.xaml:28 IsVisible={Binding HasMedia}
+*Evidence:* src/Forge.Infrastructure/Media/ExerciseMediaCatalogue.cs:46-105; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:89-105, :148-153; src/Forge.App/Features/Media/ExerciseVideoPage.xaml:28-44, :89-124; src/Forge.App/Features/Media/ExerciseVideoPage.xaml.cs:59-62; src/Forge.App/Features/Media/Library/VideoLibraryViewModel.cs:294-306
 
-*Gaps:* AC1 fails - no cached demo can exist because nothing populates the cache, and a Ready asset pack does not feed this code path; AC2's Retry action does not exist (MediaFailed only rewrites a label); the embed://filesystem:// source prefixes are not valid MediaElement sources.
+*Gaps:* AC2 still fails - a missing or corrupt asset only rewrites a label and offers no Retry or Text Guidance action; AC3 still fails - no release package-budget check exists; bundled packaged sources are still not returned by ExerciseMediaCatalogue, and the checksum-verified cache is not implemented.
 
 #### S08.02.02 — Add loop, speed, scrub and frame-step controls — **PARTIAL**
 
-A scrubber with drag start/complete handling, a frame-step pair at 1/30 s, a play/pause toggle, a full-screen toggle and speed buttons are all implemented in code-behind against real MediaElement APIs, and every control carries a semantic description. The speed set does not match the story, loop is hard-coded with no control, and none of it is reachable because playback never resolves a source (S08.02.01).
+A scrubber with drag start/complete handling, a frame-step pair at 1/30 s, a play/pause toggle, a full-screen toggle and speed buttons are all implemented in code-behind against real MediaElement APIs, and every control carries a semantic description. Since `e4d971b` this is reachable, because playback now resolves a source (S08.02.01). The speed set still does not match the story and loop is hard-coded with no control.
 
 *Evidence:* src/Forge.App/Features/Media/ExerciseVideoPage.xaml:52-83; src/Forge.App/Features/Media/ExerciseVideoPage.xaml.cs:8 (FrameStep 1/30 s), :68-97; src/Forge.App/Features/Media/ExerciseVideoViewModel.cs:95-102 clamps 0.25-2.0
 
@@ -408,7 +415,7 @@ Setup guidance is derived rather than authored and lands in the 2-5 range for ev
 
 *Evidence:* src/Forge.Domain/Training/ExerciseGuidance.cs:117-151 produces 2-5 ordered setup steps; src/Forge.App/Features/Exercises/ExerciseDetailViewModel.cs:224
 
-*Gaps:* AC1 partially met - the count is right but no required/optional status is shown; AC2 fails - no range-of-motion note and no limitation-sensitive text, because contraindication tags do not exist (S07.03.03).
+*Gaps:* AC1 partially met - the count is right but no required/optional status is shown; AC2 fails - no range-of-motion note and no limitation-sensitive text, because structured contraindication tags do not exist (S07.03.03).
 
 ### F08.05 — Support private form recording and media storage — **PARTIAL**
 

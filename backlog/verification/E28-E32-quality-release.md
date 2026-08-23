@@ -94,30 +94,34 @@ architecture, coverage and device matrix checks are green for the same commit") 
 before any store upload") are both unmet in the automated path. Tagging a red commit produces
 signed artefacts today.
 
-### 4. The ban on rendering `ex.Message` to users has a designed solution, three users and at least six bypasses
+### 4. The ban on rendering `ex.Message` to users has a designed solution, three users and at least five remaining bypasses
 
 `ForgeUserFacingException.DescribeFor` (`src/Forge.Core/Abstractions/ForgeUserFacingException.cs:49-55`)
 exists precisely to stop this, and its own doc comment records that the pattern shipped twice. It is
 called from **three** places, all in Workout (`ActiveWorkoutPageViewModel.cs:818,991`,
 `WorkoutHistoryPageViewModel.cs:71`).
 
-Meanwhile raw exception text still reaches users from at least six paths:
+Meanwhile raw exception text still reaches users from at least five paths:
 
 | Location | What the user sees |
 | --- | --- |
-| `Features/Settings/ViewModels/DeleteMyDataPageViewModel.cs:59` | `DisplayAlert("Erasure not wired", ex.Message, "OK")` |
-| `Features/Backup/ViewModels/ExportDataViewModel.cs:104` | `Status = $"Export failed: {ex.Message}"` |
+| `Features/Backup/ViewModels/ExportDataViewModel.cs:102-105` | `Status = $"Export failed: {ex.Message}"` |
 | `Features/Backup/ViewModels/DataPortabilityViewModel.cs:117` | `Status = $"Export failed and no file was shared: {ex.Message}"` |
 | `Features/Backup/ViewModels/BackupRestoreViewModel.cs:61` | `Status = $"Backup failed: {ex.Message}"` |
 | `Features/Nutrition/Recipes/RecipesViewModel.cs:162` | `ErrorMessage = ex.Message` (bound) |
 | `Features/Exercises/ExerciseDataStore.cs:161-167` | `$"The local exercise database is unavailable: {exception.Message}"` |
 
-The first one is the worst. `DeleteMyDataPage` is on the reviewer-facing list in
-`docs/release/store-listing.md:231`, and a store reviewer exercising Delete my data on a build where
-`PendingDataErasureService` throws `NotSupportedException` is shown a dialog titled **"Erasure not
-wired"**. Google requires a working in-app deletion route; that dialog is a rejection.
+The worst one has since been fixed. `DeleteMyDataPageViewModel` previously showed
+`DisplayAlert("Erasure not wired", ex.Message, "OK")`, and `DeleteMyDataPage` is on the
+reviewer-facing list in `docs/release/store-listing.md:231` — a store reviewer exercising Delete my
+data on a build where `PendingDataErasureService` threw `NotSupportedException` would have been shown
+a dialog titled **"Erasure not wired"**, which against Google's working-deletion requirement is a
+rejection. `afca838` deleted that service and `61aa900` rewrote the handler:
+`DeleteMyDataPageViewModel.cs:52-63` now catches `IOException`, `UnauthorizedAccessException` and
+`NotSupportedException` and routes through `ForgeUserFacingException.DescribeFor`, making it the
+fourth caller.
 
-Nothing static catches any of this. The only detector is the on-device smoke harness's rendered-text
+Nothing static catches the rest. The only detector is the on-device smoke harness's rendered-text
 scan (`docs/testing/smoke-harness.md:253-266`), which can only fire if the error actually occurs
 during a walk. There is no CI guard, and this is the one guard-shaped gap in the repository that
 would most obviously have paid for itself.
@@ -348,8 +352,9 @@ hoc helpers (`tests/Forge.Domain.Tests/Training/TestExercise.cs`,
 There is no `tests/Forge.App.Tests` project and no ViewModel test anywhere. Every view model in
 `src/Forge.App/Features/**/*ViewModel.cs` is untested, including the busy-state, validation-message
 and error-state paths the story names. This is also why the `ex.Message` leaks in finding 4 survive:
-`ExportDataViewModel.cs:104` and `DeleteMyDataPageViewModel.cs:59` are exactly the failure branches
-AC2 describes, and nothing exercises them.
+`ExportDataViewModel.cs:102-105` is exactly the failure branch AC2 describes, and nothing exercises
+it. (`DeleteMyDataPageViewModel` was a second example and has since been fixed by hand rather than
+by a test, which is the point: nothing would have caught it, and nothing will catch the next one.)
 *Gaps: all three requirements; AC1 and AC2 unmet.*
 
 **S29.02.04 Define coverage thresholds that reward valuable tests — PARTIAL.**
@@ -940,11 +945,11 @@ nothing for a screen to list.
 
 **S32.04.01 Show what data Forge holds about me — NOT-DONE.**
 No `IDataInventoryService` and no row counts anywhere in the UI. The nearest screen,
-`DataManagementPage`, shows **bytes**, not counts (`DataManagementPageViewModel.cs:20`), and
-`PendingDataErasureService.cs:9-15` likewise produces byte figures with `PreferencesBytes` and
-`ExportTempBytes` hard-coded to `0`. Nothing reports counts for workouts, sets, meals, hydration,
-body metrics, achievements, imports or backups, so AC1's exact-count assertion and AC2's 500 ms
-refresh have nothing to test.
+`DataManagementPage`, shows **bytes**, not counts (`DataManagementPageViewModel.cs:19-20`), and
+`StorageUsageService.cs:6-10,32-38` measures only database and downloaded-media bytes. Nothing
+reports counts for workouts, sets, meals, hydration, body metrics, achievements, imports or backups,
+so AC1's exact-count assertion and AC2's 500 ms refresh have nothing to test. (This report also
+cited `PendingDataErasureService.cs:9-15`; that file was deleted by `afca838` and no longer exists.)
 *Gaps: all three requirements; the screen that exists reports a different quantity.*
 
 **S32.04.02 Report Forge storage usage by category — PARTIAL.**
