@@ -19,6 +19,13 @@ public sealed class NextSessionRecommender
         var contraindication = FindContraindication(request);
         if (contraindication is not null)
         {
+            // A declared limitation names a body area, not a muscle, so it gets its own sentence.
+            // Reusing the muscle wording would have the app tell somebody who wrote "knee" that
+            // their profile flags Quadriceps as injured, which is a claim they never made.
+            var blockedExplanation = contraindication.DeclaredArea is { Length: > 0 } declaredArea
+                ? $"Forge is not recommending {request.ExerciseName} because you asked it to work around your {declaredArea}, and {contraindication.Reason}."
+                : $"Forge will not recommend training {request.PrimaryMuscle} because the profile flags {contraindication.MuscleGroup} as injured: {contraindication.Reason}.";
+
             return new NextSessionRecommendation(
                 NextSessionRecommendationStatus.BlockedBySafety,
                 request.CurrentLoad,
@@ -26,7 +33,7 @@ public sealed class NextSessionRecommender
                 request.TargetRepsMax,
                 request.CurrentSetCount,
                 IsOverridable: true,
-                $"Forge will not recommend training {request.PrimaryMuscle} because the profile flags {contraindication.MuscleGroup} as injured: {contraindication.Reason}.",
+                blockedExplanation,
                 [$"Safety block: {contraindication.Reason}"],
                 "Override only if you have decided this movement is appropriate for you today; Forge is not medical advice.",
                 ReadinessScoreResult.DefaultMedicalDisclaimer);

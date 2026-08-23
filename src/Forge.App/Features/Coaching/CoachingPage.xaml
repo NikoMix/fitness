@@ -22,6 +22,18 @@
                     <Label Text="{Binding Load}" Style="{StaticResource HeadlineText}" />
                     <Label Text="{Binding Reps}" Style="{StaticResource TitleText}" />
                     <Label Text="{Binding Explanation}" Style="{StaticResource BodyText}" />
+                    <!--
+                        What Forge made of the declared limitation, stated whether or not it
+                        understood any of it. Onboarding already echoed the sentence back, so
+                        silence here would read as agreement.
+                    -->
+                    <Label Text="{Binding LimitationSummary}"
+                           IsVisible="{Binding HasLimitationSummary}"
+                           Style="{StaticResource BodyText}"
+                           TextColor="{dx:ThemeColor OnSurfaceVariant}" />
+                    <Label Text="Forge maps whole movement patterns, not individual movements, and it is not a clinician."
+                           IsVisible="{Binding HasUninterpretedLimitation}"
+                           Style="{StaticResource CaptionText}" />
                     <Label Text="{Binding MedicalDisclaimer}" Style="{StaticResource CaptionText}" />
                     <dx:DXButton Content="Override recommendation"
     SemanticProperties.Description="Override recommendation" IsVisible="{Binding IsOverrideVisible}" Style="{StaticResource SecondaryButton}" Command="{Binding OverrideCommand}" />

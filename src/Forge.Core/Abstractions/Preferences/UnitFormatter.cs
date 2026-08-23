@@ -11,14 +11,17 @@ public sealed class UnitFormatter(IUnitPreferences preferences) : IUnitFormatter
     private const double KilojoulesPerKilocalorie = 4.184;
 
     /// <inheritdoc />
+    public string MassUnitSuffix => preferences.MassUnit == MassUnitPreference.Pounds ? "lb" : "kg";
+
+    /// <inheritdoc />
+    public string CircumferenceUnitSuffix => preferences.LengthUnit == LengthUnitPreference.Centimeters ? "cm" : "in";
+
+    /// <inheritdoc />
     public string FormatMass(double kilograms, int decimals = 1, CultureInfo? culture = null)
     {
         culture ??= CultureInfo.CurrentCulture;
-        var value = preferences.MassUnit == MassUnitPreference.Pounds
-            ? kilograms * PoundsPerKilogram
-            : kilograms;
-        var suffix = preferences.MassUnit == MassUnitPreference.Pounds ? "lb" : "kg";
-        return $"{Math.Round(value, decimals).ToString($"N{decimals}", culture)} {suffix}";
+        var value = ToDisplayMass(kilograms);
+        return $"{Math.Round(value, decimals).ToString($"N{decimals}", culture)} {MassUnitSuffix}";
     }
 
     /// <inheritdoc />
@@ -34,6 +37,14 @@ public sealed class UnitFormatter(IUnitPreferences preferences) : IUnitFormatter
         var feet = totalInches / 12;
         var inches = totalInches % 12;
         return string.Create(culture, $"{feet} ft {inches} in");
+    }
+
+    /// <inheritdoc />
+    public string FormatCircumference(double centimeters, int decimals = 0, CultureInfo? culture = null)
+    {
+        culture ??= CultureInfo.CurrentCulture;
+        var value = ToDisplayCircumference(centimeters);
+        return $"{Math.Round(value, decimals).ToString($"N{decimals}", culture)} {CircumferenceUnitSuffix}";
     }
 
     /// <inheritdoc />
@@ -64,4 +75,22 @@ public sealed class UnitFormatter(IUnitPreferences preferences) : IUnitFormatter
         culture ??= CultureInfo.CurrentCulture;
         return culture.DateTimeFormat.GetDayName(preferences.FirstDayOfWeek);
     }
+
+    /// <inheritdoc />
+    public double ToDisplayMass(double kilograms) =>
+        preferences.MassUnit == MassUnitPreference.Pounds ? kilograms * PoundsPerKilogram : kilograms;
+
+    /// <inheritdoc />
+    public double ToKilograms(double displayMass) =>
+        preferences.MassUnit == MassUnitPreference.Pounds ? displayMass / PoundsPerKilogram : displayMass;
+
+    /// <inheritdoc />
+    public double ToDisplayCircumference(double centimeters) =>
+        preferences.LengthUnit == LengthUnitPreference.Centimeters ? centimeters : centimeters * InchesPerCentimeter;
+
+    /// <inheritdoc />
+    public double ToCentimeters(double displayCircumference) =>
+        preferences.LengthUnit == LengthUnitPreference.Centimeters
+            ? displayCircumference
+            : displayCircumference / InchesPerCentimeter;
 }

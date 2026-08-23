@@ -16,10 +16,16 @@ namespace Forge.App.Features.Coaching.Services;
 
 internal sealed class CoachingDataService(ForgeStartupService startup, IDataSessionFactory sessions, IServiceProvider services, ProfileStore profiles) : ICoachingDataService
 {
-    public async Task<NextSessionRecommendation> GetNextSessionRecommendationAsync(CancellationToken cancellationToken)
+    public async Task<NextSessionAdvice> GetNextSessionRecommendationAsync(CancellationToken cancellationToken)
     {
         var scope = await ResolveScopeAsync(cancellationToken).ConfigureAwait(false);
         await using var context = CreateContext();
+
+        // What the profile declared, read once and used for both the block and the sentence that
+        // says whether the block happened. Reading it twice would let the two disagree.
+        var declaration = await LoadDeclaredLimitationsAsync(context, scope, cancellationToken).ConfigureAwait(false);
+        var limitationSummary = MovementLimitationCoaching.DescribeUnderstanding(declaration);
+
         // Ordered client-side: SQLite has no DateTimeOffset type, so ORDER BY over one throws at
         // runtime even though it compiles. See WorkoutPersistenceService.LoadOrStartAsync.
         var workingSets = await context.Set<SetEntry>().OwnedBy(scope).Where(set => !set.IsWarmUp).ToListAsync(cancellationToken).ConfigureAwait(false);
@@ -27,16 +33,19 @@ internal sealed class CoachingDataService(ForgeStartupService startup, IDataSess
         var latest = sets.FirstOrDefault();
         if (latest is null)
         {
-            return NextSessionRecommender.Recommend(new NextSessionRecommendationRequest(
-                Guid.CreateVersion7(),
-                "First workout",
-                "General",
-                [],
-                Mass.Zero,
-                8,
-                10,
-                3,
-                []));
+            return Advise(
+                NextSessionRecommender.Recommend(new NextSessionRecommendationRequest(
+                    Guid.CreateVersion7(),
+                    "First workout",
+                    "General",
+                    [],
+                    Mass.Zero,
+                    8,
+                    10,
+                    3,
+                    [])),
+                declaration,
+                limitationSummary);
         }
 
         // The exercise catalogue is shared between profiles on purpose and is read unscoped.
@@ -54,10 +63,13 @@ internal sealed class CoachingDataService(ForgeStartupService startup, IDataSess
             sets.Where(set => set.ExerciseId == latest.ExerciseId)
                 .Select(set => new SessionPerformance(DateOnly.FromDateTime(set.CompletedUtc.LocalDateTime), set.Load, set.Repetitions, set.RepsInReserve, set.IsWarmUp))
                 .ToList(),
-            Contraindications: [],
+            Contraindications: MovementLimitationCoaching.ContraindicationsFor(
+                declaration,
+                exercise?.PrimaryMuscle,
+                exercise?.Pattern ?? MovementPattern.Unspecified),
             Soreness: soreness);
 
-        return NextSessionRecommender.Recommend(request);
+        return Advise(NextSessionRecommender.Recommend(request), declaration, limitationSummary);
     }
 
     public async Task<ReadinessScoreResult> GetReadinessAsync(CancellationToken cancellationToken)
@@ -92,6 +104,48 @@ internal sealed class CoachingDataService(ForgeStartupService startup, IDataSess
         await session.Repository<MorningCheckIn>().AddAsync(checkIn, cancellationToken).ConfigureAwait(false);
         await session.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Reads the active profile's free-text limitation and interprets it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The reading is delegated to <see cref="MovementLimitationDeclaration"/> rather than done
+    /// here. Coaching is the fourth consumer of the same sentence - the library, the alternatives
+    /// screen and onboarding's own echo are the others - and a second interpretation living in a
+    /// data service would eventually tell one screen something the other three deny.
+    /// </para>
+    /// <para>
+    /// An unresolved scope reads nothing, so no other profile's declaration can leak in. A profile
+    /// that named nothing yields <see cref="MovementLimitationDeclaration.Empty"/>, which
+    /// contraindicates nothing and says nothing.
+    /// </para>
+    /// </remarks>
+    private static async Task<MovementLimitationDeclaration> LoadDeclaredLimitationsAsync(
+        ForgeDbContext context,
+        ProfileScope scope,
+        CancellationToken cancellationToken)
+    {
+        if (!scope.IsResolved)
+        {
+            return MovementLimitationDeclaration.Empty;
+        }
+
+        var profileId = scope.ProfileId;
+        var declaration = await context.Set<UserProfile>()
+            .Where(profile => profile.Id == profileId)
+            .Select(profile => profile.MovementLimitations)
+            .SingleOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return MovementLimitationDeclaration.FromDeclaration(declaration);
+    }
+
+    private static NextSessionAdvice Advise(
+        NextSessionRecommendation recommendation,
+        MovementLimitationDeclaration declaration,
+        string limitationSummary) =>
+        new(recommendation, declaration.RecognisedAreas, declaration.UninterpretedPhrases, limitationSummary);
 
     private static async Task<TrainingLoadRatio?> LoadTrainingLoadAsync(ForgeDbContext context, ProfileScope scope, CancellationToken cancellationToken)
     {

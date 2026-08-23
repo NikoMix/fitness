@@ -45,7 +45,7 @@
                             <dx:LineSeries DisplayName="Estimated 1RM (kg)" MarkersVisible="True">
                                 <dx:LineSeries.Data>
                                     <dx:SeriesDataAdapter DataSource="{Binding EstimatePoints}" ArgumentDataMember="DateLabel">
-                                        <dx:ValueDataMember Type="Value" Member="EstimatedOneRepMaxKilograms" />
+                                        <dx:ValueDataMember Type="Value" Member="EstimatedOneRepMax" />
                                     </dx:SeriesDataAdapter>
                                 </dx:LineSeries.Data>
                             </dx:LineSeries>

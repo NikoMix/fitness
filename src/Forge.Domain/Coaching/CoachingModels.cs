@@ -11,8 +11,28 @@ public sealed record SessionPerformance(
     int? RepsInReserve,
     bool IsWarmUp = false);
 
-/// <summary>Active profile safety constraint supplied to coaching logic.</summary>
-public sealed record TrainingContraindication(string MuscleGroup, string Reason, bool IsInjury = true, bool IsActive = true);
+/// <summary>
+/// Active profile safety constraint supplied to coaching logic.
+/// </summary>
+/// <param name="MuscleGroup">
+/// The muscle the block is matched on. It has to be spelled the way the exercise catalogue spells
+/// it, because that is what <c>NextSessionRecommender</c> compares against.
+/// </param>
+/// <param name="Reason">A lower-case clause completing "... because ...", shown to the user.</param>
+/// <param name="IsInjury">Whether the constraint is an injury rather than a preference.</param>
+/// <param name="IsActive">Whether the constraint applies today.</param>
+/// <param name="DeclaredArea">
+/// What the user actually named, when the block came from a declared limitation rather than from a
+/// muscle. A knee is not a muscle, so a knee limitation reaches the recommender as a block on the
+/// muscles a knee-loading pattern trains. Without this field the recommendation would have to say
+/// "the profile flags Quadriceps as injured", which nobody declared and which is simply untrue.
+/// </param>
+public sealed record TrainingContraindication(
+    string MuscleGroup,
+    string Reason,
+    bool IsInjury = true,
+    bool IsActive = true,
+    string? DeclaredArea = null);
 
 /// <summary>Input to the next-session recommender.</summary>
 public sealed record NextSessionRecommendationRequest(
