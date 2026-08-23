@@ -205,7 +205,10 @@ binding to a formatter-derived property or a markup extension.
 
 - `Forge.Domain/Measurement/Mass.cs:80` — `ToString()` returns `$"{Kilograms:0.##} kg"`. Any
   `{mass}` interpolation anywhere prints kilograms with no call site looking wrong. This is the
-  46th-string generator.
+  46th-string generator. Measured: **15 call sites interpolate a mass-like value without
+  `.Kilograms`**, spread across Insights, the body-metric entry form, `PersonalRecordDetector`,
+  `NextSessionRecommender` and the diagnostic redactor — none of which contains the string `kg`,
+  so no unit sweep that greps for `kg` will ever find them.
 - `Forge.Domain/Workout/WorkoutTarget.cs:162` — `WorkoutTargetNarrator.UnitText()` returns the
   literal `"kg"`, and feeds the active workout's target tile via
   `ActiveWorkoutPageViewModel:968`. The target tile cannot be made unit-aware without either
