@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using Forge.App.Features.Insights.Services;
-using Forge.App.Navigation;
+using Forge.Core.Abstractions.Preferences;
+using Microsoft.Extensions.Logging;
 
 namespace Forge.App.Features.Insights.ViewModels;
 
@@ -11,14 +11,44 @@ namespace Forge.App.Features.Insights.ViewModels;
 /// The smoothed body weight trend, with the raw entries kept alongside it.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The smoothed line is drawn as a line and the raw entries as points, rather than as two lines in
 /// different colours. Two colours alone would leave a colour-blind reader, or anyone looking at a
 /// phone in bright sun, unable to tell which line was the average. Different shapes survive both.
+/// </para>
+/// <para>
+/// Everything on this screen is plotted and worded in the user's own mass unit.
+/// <see cref="IUnitFormatter"/> supplies both the number and the suffix, so the plotted series, the
+/// narration and the per-entry detail cannot disagree with each other the way a hard-coded "kg"
+/// beside a converted value does.
+/// </para>
 /// </remarks>
-public sealed partial class BodyMetricsViewModel(IInsightsDataService dataService) : ObservableObject
+public sealed partial class BodyMetricsViewModel : ObservableObject
 {
+    private readonly IInsightsDataService dataService;
+    private readonly IUnitFormatter units;
+
+    /// <summary>Initialises the view model.</summary>
+    /// <param name="dataService">Reads and writes body metrics locally.</param>
+    /// <param name="units">Formats stored kilograms in the user's chosen unit.</param>
+    /// <param name="logger">Receives exceptions raised while saving.</param>
+    public BodyMetricsViewModel(
+        IInsightsDataService dataService,
+        IUnitFormatter units,
+        ILogger<BodyMetricsViewModel> logger)
+    {
+        this.dataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
+        this.units = units ?? throw new ArgumentNullException(nameof(units));
+
+        ArgumentNullException.ThrowIfNull(logger);
+        Entry = new BodyMetricEntryForm(dataService, units, logger, LoadAsync);
+    }
+
     /// <summary>Raw and smoothed weight per day, oldest first.</summary>
     public ObservableCollection<BodyMetricPointViewModel> Points { get; } = [];
+
+    /// <summary>The form that records a new measurement.</summary>
+    public BodyMetricEntryForm Entry { get; }
 
     [ObservableProperty]
     private bool hasData;
@@ -60,11 +90,14 @@ public sealed partial class BodyMetricsViewModel(IInsightsDataService dataServic
         {
             var view = await dataService.LoadBodyMetricsAsync(cancellationToken).ConfigureAwait(false);
 
-            var points = view.Points.Select(BodyMetricPointViewModel.From).ToList();
+            // The unit is read once per load rather than per point, so every number on the screen
+            // is stated in the same unit even if the preference changes while this is rendering.
+            var suffix = units.MassUnitSuffix;
+            var points = view.Points.Select(point => BodyMetricPointViewModel.From(point, units)).ToList();
             var narration = ChartNarrator.Describe(
                 "Smoothed body weight",
-                [.. points.Select(point => new NarratedPoint(point.DateLabel, point.SmoothedKilograms))],
-                "kg");
+                [.. points.Select(point => new NarratedPoint(point.DateLabel, point.SmoothedWeight))],
+                suffix);
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
@@ -86,12 +119,13 @@ public sealed partial class BodyMetricsViewModel(IInsightsDataService dataServic
                 ReadinessNote = view.Trend.Readiness.CanChart ? string.Empty : view.Trend.Readiness.Explanation;
                 PartialWindowNote = view.Trend.PartialWindowNote;
                 ChartSummary = narration;
+                Entry.RefreshUnitLabels();
 
                 TrendSummary = view.Trend.Trend.Direction == Domain.Analytics.TrendDirection.NoClaim
                     ? view.Trend.Trend.Explanation
                     : string.Create(
                         CultureInfo.CurrentCulture,
-                        $"{Direction(view.Trend.Trend.Direction)} by about {Math.Abs(view.Trend.Trend.MagnitudePerDay):0.###} kg per day across {view.Trend.Trend.SampleCount} entries, measured from the smoothed line.");
+                        $"{Direction(view.Trend.Trend.Direction)} by about {units.ToDisplayMass(Math.Abs((double)view.Trend.Trend.MagnitudePerDay)):0.###} {suffix} per day across {view.Trend.Trend.SampleCount} entries, measured from the smoothed line.");
             });
         }
         finally
@@ -107,37 +141,41 @@ public sealed partial class BodyMetricsViewModel(IInsightsDataService dataServic
         Domain.Analytics.TrendDirection.Stable => "Holding steady",
         _ => "No trend claimed"
     };
-
-    [RelayCommand]
-    private static Task AddBodyMetricAsync() => Shell.Current.GoToAsync(ForgeRoutes.Profile);
 }
 
 /// <summary>One day of body weight, formatted for display.</summary>
 /// <param name="DateLabel">Short date label.</param>
-/// <param name="RawKilograms">The entry as recorded.</param>
-/// <param name="SmoothedKilograms">The trailing moving average.</param>
+/// <param name="RawWeight">The entry as recorded, in the user's chosen unit.</param>
+/// <param name="SmoothedWeight">The trailing moving average, in the user's chosen unit.</param>
 /// <param name="Detail">Both figures in words, with a note when the average is still filling.</param>
 public sealed record BodyMetricPointViewModel(
     string DateLabel,
-    double RawKilograms,
-    double SmoothedKilograms,
+    double RawWeight,
+    double SmoothedWeight,
     string Detail)
 {
     /// <summary>Projects a trend point into display form.</summary>
     /// <param name="point">The trend point.</param>
+    /// <param name="units">Converts and formats the stored kilograms.</param>
     /// <returns>The display model.</returns>
-    public static BodyMetricPointViewModel From(BodyMetricTrendPoint point)
+    /// <remarks>
+    /// The plotted values are converted as well as the text. A chart that plots kilograms under a
+    /// "lb" narration is the same defect as the wrong suffix and harder to see, because the shape
+    /// of the line stays right.
+    /// </remarks>
+    public static BodyMetricPointViewModel From(BodyMetricTrendPoint point, IUnitFormatter units)
     {
         ArgumentNullException.ThrowIfNull(point);
+        ArgumentNullException.ThrowIfNull(units);
 
-        var detail = string.Create(
-            CultureInfo.CurrentCulture,
-            $"{point.RawKilograms:0.##} kg recorded · {point.SmoothedKilograms:0.##} kg averaged{(point.IsFullWindow ? string.Empty : " (partial window)")}");
+        var raw = units.FormatMass((double)point.RawKilograms, 2);
+        var smoothed = units.FormatMass((double)point.SmoothedKilograms, 2);
+        var detail = $"{raw} recorded · {smoothed} averaged{(point.IsFullWindow ? string.Empty : " (partial window)")}";
 
         return new BodyMetricPointViewModel(
             point.Date.ToString("d MMM", CultureInfo.CurrentCulture),
-            (double)point.RawKilograms,
-            (double)point.SmoothedKilograms,
+            units.ToDisplayMass((double)point.RawKilograms),
+            units.ToDisplayMass((double)point.SmoothedKilograms),
             detail);
     }
 }

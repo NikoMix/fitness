@@ -1,6 +1,7 @@
 using Forge.App.Composition;
 using Forge.App.Features.Profile;
 using Forge.Core.Abstractions.Data;
+using Forge.Core.Abstractions.Preferences;
 using Forge.Domain.Analytics;
 using Forge.Domain.Common;
 using Forge.Domain.Measurement;
@@ -63,6 +64,47 @@ public interface IInsightsDataService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The body metrics view.</returns>
     Task<BodyMetricsView> LoadBodyMetricsAsync(CancellationToken cancellationToken);
+
+    /// <summary>Records one body measurement against the active profile.</summary>
+    /// <param name="entry">The measurement to record.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>What happened, so the screen can say so without inspecting the database again.</returns>
+    Task<BodyMetricSaveResult> SaveBodyMetricAsync(BodyMetricEntry entry, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// One body measurement as the entry screen collected it.
+/// </summary>
+/// <remarks>
+/// Weight is required and the rest are optional, which matches how people actually weigh
+/// themselves: the scale reading is daily, the tape measure is occasional. Every value is already
+/// in Forge's canonical storage units - converting from what the user typed is the view model's
+/// job, because that is where the unit preference is known.
+/// </remarks>
+/// <param name="Date">The local date the measurement belongs to.</param>
+/// <param name="Weight">Body weight. Must be above zero.</param>
+/// <param name="BodyFatPercentage">Optional body-fat percentage.</param>
+/// <param name="WaistCircumference">Optional waist circumference.</param>
+public sealed record BodyMetricEntry(
+    DateOnly Date,
+    Mass Weight,
+    Percentage? BodyFatPercentage = null,
+    Length? WaistCircumference = null);
+
+/// <summary>What a body-metric write did.</summary>
+public enum BodyMetricSaveResult
+{
+    /// <summary>A new entry was added for that date.</summary>
+    Added = 0,
+
+    /// <summary>An entry already existed for that date and was replaced.</summary>
+    Replaced = 1,
+
+    /// <summary>No profile is active, so nothing was written. Writing anyway would orphan the row.</summary>
+    NoActiveProfile = 2,
+
+    /// <summary>The entry carried no usable weight.</summary>
+    Rejected = 3
 }
 
 /// <summary>What the Today dashboard needs from local storage.</summary>
@@ -201,7 +243,7 @@ public sealed record TodayRingData(string Label, double Progress, string Detail)
 /// <param name="WhenUtc">When it happened.</param>
 public sealed record TodayActivityData(string Title, string Detail, DateTimeOffset WhenUtc);
 
-internal sealed class InsightsDataService(ForgeStartupService startup, IDataSessionFactory sessions, ProfileStore profiles) : IInsightsDataService
+internal sealed class InsightsDataService(ForgeStartupService startup, IDataSessionFactory sessions, ProfileStore profiles, IUnitFormatter units) : IInsightsDataService
 {
     private const int HydrationTargetMillilitres = 2000;
     private const int MaximumRecordsShown = 30;
@@ -287,6 +329,94 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
         }, cancellationToken);
 
     /// <summary>
+    /// Records one body measurement.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The whole owned table is materialised before the date is compared. <c>RecordedUtc</c> is a
+    /// <see cref="DateTimeOffset"/>, which SQLite stores as offset-suffixed text, so a predicate
+    /// over it throws <see cref="InvalidOperationException"/> at runtime after compiling cleanly -
+    /// and the in-memory provider used by most tests does not reproduce it.
+    /// </para>
+    /// <para>
+    /// One entry per date, replaced rather than appended. Somebody who mistypes their weight and
+    /// re-enters it expects to have corrected it, not to have moved the day's average halfway
+    /// between the typo and the truth. This matches <c>ProfileStore.RecordWeightAsync</c>, which is
+    /// the other way a weight reaches this table.
+    /// </para>
+    /// </remarks>
+    public Task<BodyMetricSaveResult> SaveBodyMetricAsync(BodyMetricEntry entry, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        if (entry.Weight <= Mass.Zero)
+        {
+            return Task.FromResult(BodyMetricSaveResult.Rejected);
+        }
+
+        return WriteAsync(async (session, scope, token) =>
+        {
+            // Fail closed. An unowned row is invisible to every scoped read, so writing one would
+            // look like a successful save that lost the entry.
+            if (!scope.IsResolved)
+            {
+                return BodyMetricSaveResult.NoActiveProfile;
+            }
+
+            var metrics = session.Repository<BodyMetric>();
+            var owned = await OwnedAsync<BodyMetric>(session, scope, token).ConfigureAwait(false);
+            var existing = owned.Find(metric => DateOnly.FromDateTime(metric.RecordedUtc.LocalDateTime) == entry.Date);
+
+            if (existing is null)
+            {
+                await metrics.AddAsync(
+                    new BodyMetric
+                    {
+                        UserProfileId = scope.ProfileId,
+                        RecordedUtc = RecordedAt(entry.Date),
+                        Weight = entry.Weight,
+                        BodyFatPercentage = entry.BodyFatPercentage,
+                        WaistCircumference = entry.WaistCircumference,
+                    },
+                    token).ConfigureAwait(false);
+
+                await session.SaveChangesAsync(token).ConfigureAwait(false);
+                return BodyMetricSaveResult.Added;
+            }
+
+            existing.Weight = entry.Weight;
+
+            // Optional fields left blank do not erase what was measured before. Somebody logging a
+            // second weigh-in has not thereby retracted this morning's waist measurement.
+            existing.BodyFatPercentage = entry.BodyFatPercentage ?? existing.BodyFatPercentage;
+            existing.WaistCircumference = entry.WaistCircumference ?? existing.WaistCircumference;
+
+            await metrics.UpdateAsync(existing, token).ConfigureAwait(false);
+            await session.SaveChangesAsync(token).ConfigureAwait(false);
+            return BodyMetricSaveResult.Replaced;
+        }, cancellationToken);
+    }
+
+    /// <summary>
+    /// The instant to stamp on an entry so it reads back on the date the user chose.
+    /// </summary>
+    /// <remarks>
+    /// Every read groups by the <em>local</em> date of <c>RecordedUtc</c>. Midday is used for a
+    /// back-dated entry because midnight in a positive-offset zone converts to the previous day in
+    /// UTC, and the entry would then be filed under the day before the one that was picked.
+    /// </remarks>
+    private static DateTimeOffset RecordedAt(DateOnly date)
+    {
+        if (date == DateOnly.FromDateTime(DateTime.Now))
+        {
+            return DateTimeOffset.UtcNow;
+        }
+
+        var localMidday = date.ToDateTime(new TimeOnly(12, 0));
+        return new DateTimeOffset(localMidday, TimeZoneInfo.Local.GetUtcOffset(localMidday));
+    }
+
+    /// <summary>
     /// Runs one read on a background thread over a single session, confined to the active profile.
     /// </summary>
     /// <remarks>
@@ -316,6 +446,31 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
             // from the container would open a separate connection for each of them.
             await using var session = sessions.Create();
             return await read(session, scope, cancellationToken).ConfigureAwait(false);
+        }, cancellationToken);
+
+    /// <summary>
+    /// Runs one write on a background thread over a single session, confined to the active profile.
+    /// </summary>
+    /// <remarks>
+    /// The read counterpart's reasoning applies unchanged, and one thing is added: the session is
+    /// the only unit of work involved, so the read that finds an existing row and the write that
+    /// replaces it share a change tracker. Resolving a repository separately would give the write
+    /// its own context, and <c>SaveChangesAsync</c> would then commit an empty tracker and report
+    /// success.
+    /// </remarks>
+    private Task<T> WriteAsync<T>(Func<IDataSession, ProfileScope, CancellationToken, Task<T>> write, CancellationToken cancellationToken)
+        => Task.Run(async () =>
+        {
+            await startup.InitialiseAsync(cancellationToken).ConfigureAwait(false);
+            if (!startup.Succeeded)
+            {
+                throw new InvalidOperationException("Forge startup did not complete successfully.", startup.Failure);
+            }
+
+            var scope = await profiles.GetActiveScopeAsync(cancellationToken).ConfigureAwait(false);
+
+            await using var session = sessions.Create();
+            return await write(session, scope, cancellationToken).ConfigureAwait(false);
         }, cancellationToken);
 
     private static async Task<List<T>> LiveAsync<T>(IDataSession session, CancellationToken cancellationToken)
@@ -482,7 +637,7 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
             excluded);
     }
 
-    private static List<PersonalRecordDisplay> BuildPersonalRecords(
+    private List<PersonalRecordDisplay> BuildPersonalRecords(
         IReadOnlyList<SetEntry> sets,
         IReadOnlyList<Exercise> exercises)
     {
@@ -507,31 +662,41 @@ internal sealed class InsightsDataService(ForgeStartupService startup, IDataSess
     }
 
     /// <summary>
-    /// Formats a record in the units it was actually achieved in.
+    /// Formats a record in the units it was actually achieved in, and in the units the user reads.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Every record carries its magnitude in a <see cref="Mass"/> so that records of one kind can
     /// be compared, including "most repetitions", where the repetition count is stored in the
     /// kilogram field. Rendering that field as kilograms turned a twelve-repetition record into
-    /// "12 kg", which is not a formatting slip but a different quantity.
+    /// "12 kg", which is not a formatting slip but a different quantity. That is also why nothing
+    /// here converts <see cref="PersonalRecord.Repetitions"/>: a rep count is not a mass, and
+    /// putting it through the unit formatter would turn twelve reps into "26.46 lb".
+    /// </para>
+    /// <para>
+    /// The masses that really are masses go through <see cref="IUnitFormatter"/>. Personal records
+    /// were one of the screens that showed kilograms to somebody who had chosen imperial.
+    /// </para>
     /// </remarks>
-    private static string FormatHeadline(PersonalRecord record) => record.Type switch
+    private string FormatHeadline(PersonalRecord record) => record.Type switch
     {
-        PersonalRecordType.HeaviestLoad => $"{record.Load.Kilograms:0.##} kg",
-        PersonalRecordType.EstimatedOneRepMax => $"≈ {record.Value.Kilograms:0.##} kg",
-        PersonalRecordType.MostRepsAtLoad => $"{record.Repetitions} reps at {record.Load.Kilograms:0.##} kg",
-        PersonalRecordType.GreatestSessionVolume => $"{record.Value.Kilograms:0.##} kg total volume",
-        _ => $"{record.Value.Kilograms:0.##} kg"
+        PersonalRecordType.HeaviestLoad => Load(record.Load),
+        PersonalRecordType.EstimatedOneRepMax => $"≈ {Load(record.Value)}",
+        PersonalRecordType.MostRepsAtLoad => $"{record.Repetitions} reps at {Load(record.Load)}",
+        PersonalRecordType.GreatestSessionVolume => $"{Load(record.Value)} total volume",
+        _ => Load(record.Value)
     };
 
-    private static string FormatDetail(PersonalRecord record, OneRepMaxFormula formula) => record.Type switch
+    private string FormatDetail(PersonalRecord record, OneRepMaxFormula formula) => record.Type switch
     {
         PersonalRecordType.EstimatedOneRepMax =>
-            $"Calculated from {record.Load.Kilograms:0.##} kg × {record.Repetitions} with the {formula} formula. This is an estimate, not a lift you have performed.",
+            $"Calculated from {Load(record.Load)} × {record.Repetitions} with the {formula} formula. This is an estimate, not a lift you have performed.",
         PersonalRecordType.GreatestSessionVolume =>
-            $"Summed across one session's working sets. The heaviest set that day was {record.Load.Kilograms:0.##} kg × {record.Repetitions}.",
-        _ => $"Measured from a working set of {record.Load.Kilograms:0.##} kg × {record.Repetitions}."
+            $"Summed across one session's working sets. The heaviest set that day was {Load(record.Load)} × {record.Repetitions}.",
+        _ => $"Measured from a working set of {Load(record.Load)} × {record.Repetitions}."
     };
+
+    private string Load(Mass mass) => units.FormatMass((double)mass.Kilograms, 2);
 
     private static string FormatRecordType(PersonalRecordType type) => type switch
     {

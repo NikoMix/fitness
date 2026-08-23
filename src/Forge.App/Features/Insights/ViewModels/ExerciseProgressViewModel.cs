@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Forge.App.Features.Insights.Services;
 using Forge.App.Navigation;
+using Forge.Core.Abstractions.Preferences;
 using Forge.Domain.Training;
 
 namespace Forge.App.Features.Insights.ViewModels;
@@ -17,7 +18,7 @@ namespace Forge.App.Features.Insights.ViewModels;
 /// with repetition count, and someone who reads the top of this line as a tested maximum will pick
 /// a first working set that is too heavy.
 /// </remarks>
-public sealed partial class ExerciseProgressViewModel(IInsightsDataService dataService) : ObservableObject
+public sealed partial class ExerciseProgressViewModel(IInsightsDataService dataService, IUnitFormatter units) : ObservableObject
 {
     /// <summary>One estimate per training day, oldest first.</summary>
     public ObservableCollection<ExerciseEstimateViewModel> EstimatePoints { get; } = [];
@@ -65,11 +66,11 @@ public sealed partial class ExerciseProgressViewModel(IInsightsDataService dataS
         {
             var view = await dataService.LoadExerciseProgressAsync(cancellationToken).ConfigureAwait(false);
 
-            var points = view.EstimatePoints.Select(ExerciseEstimateViewModel.From).ToList();
+            var points = view.EstimatePoints.Select(point => ExerciseEstimateViewModel.From(point, units)).ToList();
             var narration = ChartNarrator.Describe(
                 $"Estimated one-rep max for {view.ExerciseName}",
-                [.. points.Select(point => new NarratedPoint(point.DateLabel, point.EstimatedOneRepMaxKilograms))],
-                "kg");
+                [.. points.Select(point => new NarratedPoint(point.DateLabel, point.EstimatedOneRepMax))],
+                units.MassUnitSuffix);
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
@@ -110,25 +111,31 @@ public sealed partial class ExerciseProgressViewModel(IInsightsDataService dataS
 
 /// <summary>One day's estimate, formatted for display.</summary>
 /// <param name="DateLabel">Short date label.</param>
-/// <param name="EstimatedOneRepMaxKilograms">The estimate.</param>
+/// <param name="EstimatedOneRepMaxKilograms">The estimate, in canonical kilograms.</param>
+/// <param name="EstimatedOneRepMax">The estimate in the unit the user reads, which is what the chart plots.</param>
 /// <param name="Detail">The set the estimate came from, and the formula used.</param>
 public sealed record ExerciseEstimateViewModel(
     string DateLabel,
     double EstimatedOneRepMaxKilograms,
+    double EstimatedOneRepMax,
     string Detail)
 {
     /// <summary>Projects an estimate point into display form.</summary>
     /// <param name="point">The estimate point.</param>
+    /// <param name="units">Converts and formats the stored kilograms.</param>
     /// <returns>The display model.</returns>
-    public static ExerciseEstimateViewModel From(ExerciseEstimatePoint point)
+    public static ExerciseEstimateViewModel From(ExerciseEstimatePoint point, IUnitFormatter units)
     {
         ArgumentNullException.ThrowIfNull(point);
+        ArgumentNullException.ThrowIfNull(units);
+
+        var estimate = units.FormatMass((double)point.EstimatedOneRepMaxKilograms, 2);
+        var source = units.FormatMass((double)point.SourceLoadKilograms, 2);
 
         return new ExerciseEstimateViewModel(
             point.Date.ToString("d MMM", CultureInfo.CurrentCulture),
             (double)point.EstimatedOneRepMaxKilograms,
-            string.Create(
-                CultureInfo.CurrentCulture,
-                $"≈ {point.EstimatedOneRepMaxKilograms:0.##} kg estimated from {point.SourceLoadKilograms:0.##} kg × {point.SourceRepetitions} using {point.Formula}"));
+            units.ToDisplayMass((double)point.EstimatedOneRepMaxKilograms),
+            $"≈ {estimate} estimated from {source} × {point.SourceRepetitions} using {point.Formula}");
     }
 }

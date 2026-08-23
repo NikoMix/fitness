@@ -34,8 +34,78 @@
                                  Glyph="≈"
                                  Headline="Add your first body metric"
                                  Message="Forge defaults to a visible moving average so that water, food and weighing time do not dominate the picture. It will not draw a line until there is enough history for one to mean something."
-                                 ActionText="Open profile"
-                                 ActionCommand="{Binding AddBodyMetricCommand}" />
+                                 ActionText="Add a weight"
+                                 ActionCommand="{Binding Entry.OpenCommand}" />
+
+            <dx:DXButton Content="Add a weight"
+                         IsVisible="{Binding HasData}"
+                         SemanticProperties.Description="Add a body measurement"
+                         Style="{StaticResource PrimaryButton}"
+                         Command="{Binding Entry.OpenCommand}" />
+
+            <!--
+                The entry form. This is the whole of Gap 2: history, the chart, the change-since-last
+                delta and the unit formatting were all built and working, and the only way to add a
+                data point was to re-run the six-step onboarding wizard.
+
+                It is a plain ContentView inside the card rather than a ContentPresenter. A
+                ContentPresenter outside a ControlTemplate opts out of binding-context inheritance,
+                so every {Binding} below would resolve against null and render blank while the
+                build stayed clean.
+
+                Every field is labelled with the user's own unit, taken from IUnitFormatter rather
+                than written as "kg" here. Someone on imperial who reads "kg", types pounds and is
+                stored as kilograms has been handed a wrong history by a label.
+            -->
+            <controls:ForgeCard IsVisible="{Binding Entry.IsOpen}"
+                                Title="Add a body metric"
+                                Subtitle="Weight is required. The rest are optional.">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <dx:DateEdit Date="{Binding Entry.Date}"
+                                 MinDate="{Binding Entry.MinimumDate}"
+                                 MaxDate="{Binding Entry.MaximumDate}"
+                                 LabelText="Date"
+                                 SemanticProperties.Description="Date of the measurement"
+                                 Style="{StaticResource ForgeTextEdit}" />
+
+                    <dx:TextEdit Text="{Binding Entry.WeightText}"
+                                 LabelText="{Binding Entry.WeightLabel}"
+                                 SemanticProperties.Description="{Binding Entry.WeightDescription}"
+                                 Keyboard="Numeric"
+                                 Style="{StaticResource ForgeTextEdit}" />
+
+                    <dx:TextEdit Text="{Binding Entry.BodyFatText}"
+                                 LabelText="Body fat (%, optional)"
+                                 SemanticProperties.Description="Body fat percentage, optional"
+                                 Keyboard="Numeric"
+                                 Style="{StaticResource ForgeTextEdit}" />
+
+                    <dx:TextEdit Text="{Binding Entry.WaistText}"
+                                 LabelText="{Binding Entry.WaistLabel}"
+                                 SemanticProperties.Description="{Binding Entry.WaistDescription}"
+                                 Keyboard="Numeric"
+                                 Style="{StaticResource ForgeTextEdit}" />
+
+                    <Label Text="Leave body fat and waist blank if you did not measure them. Blank means &quot;not measured&quot;, and it never overwrites an earlier measurement."
+                           Style="{StaticResource CaptionText}" />
+
+                    <dx:DXButton Content="Save entry"
+                                 IsEnabled="{Binding Entry.CanSave}"
+                                 SemanticProperties.Description="Save this body measurement"
+                                 Style="{StaticResource PrimaryButton}"
+                                 Command="{Binding Entry.SaveCommand}" />
+
+                    <dx:DXButton Content="Cancel"
+                                 SemanticProperties.Description="Cancel and close the entry form"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Command="{Binding Entry.CancelCommand}" />
+                </VerticalStackLayout>
+            </controls:ForgeCard>
+
+            <Label Text="{Binding Entry.StatusMessage}"
+                   IsVisible="{Binding Entry.HasStatus}"
+                   Style="{StaticResource BodyText}"
+                   SemanticProperties.Description="{Binding Entry.StatusMessage}" />
 
             <controls:ForgeCard IsVisible="{Binding HasData}"
                                 Title="Weight trend"
@@ -54,14 +124,14 @@
                             <dx:LineSeries DisplayName="Moving average">
                                 <dx:LineSeries.Data>
                                     <dx:SeriesDataAdapter DataSource="{Binding Points}" ArgumentDataMember="DateLabel">
-                                        <dx:ValueDataMember Type="Value" Member="SmoothedKilograms" />
+                                        <dx:ValueDataMember Type="Value" Member="SmoothedWeight" />
                                     </dx:SeriesDataAdapter>
                                 </dx:LineSeries.Data>
                             </dx:LineSeries>
                             <dx:PointSeries DisplayName="Recorded entries">
                                 <dx:PointSeries.Data>
                                     <dx:SeriesDataAdapter DataSource="{Binding Points}" ArgumentDataMember="DateLabel">
-                                        <dx:ValueDataMember Type="Value" Member="RawKilograms" />
+                                        <dx:ValueDataMember Type="Value" Member="RawWeight" />
                                     </dx:SeriesDataAdapter>
                                 </dx:PointSeries.Data>
                             </dx:PointSeries>

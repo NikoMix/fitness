@@ -55,10 +55,10 @@
                                   HeightRequest="{StaticResource ChartHeight}"
                                   AutomationProperties.IsInAccessibleTree="False">
                         <dx:ChartView.Series>
-                            <dx:BarSeries DisplayName="Volume (kg)">
+                            <dx:BarSeries DisplayName="Volume">
                                 <dx:BarSeries.Data>
                                     <dx:SeriesDataAdapter DataSource="{Binding MuscleGroups}" ArgumentDataMember="Label">
-                                        <dx:ValueDataMember Type="Value" Member="VolumeKilograms" />
+                                        <dx:ValueDataMember Type="Value" Member="Volume" />
                                     </dx:SeriesDataAdapter>
                                 </dx:BarSeries.Data>
                             </dx:BarSeries>
@@ -101,10 +101,10 @@
                                   HeightRequest="{StaticResource ChartHeight}"
                                   AutomationProperties.IsInAccessibleTree="False">
                         <dx:ChartView.Series>
-                            <dx:LineSeries DisplayName="Volume (kg)" MarkersVisible="True">
+                            <dx:LineSeries DisplayName="Volume" MarkersVisible="True">
                                 <dx:LineSeries.Data>
                                     <dx:SeriesDataAdapter DataSource="{Binding FocusWeeks}" ArgumentDataMember="WeekLabel">
-                                        <dx:ValueDataMember Type="Value" Member="VolumeKilograms" />
+                                        <dx:ValueDataMember Type="Value" Member="Volume" />
                                     </dx:SeriesDataAdapter>
                                 </dx:LineSeries.Data>
                             </dx:LineSeries>
@@ -142,10 +142,10 @@
                                   HeightRequest="{StaticResource ChartHeight}"
                                   AutomationProperties.IsInAccessibleTree="False">
                         <dx:ChartView.Series>
-                            <dx:BarSeries DisplayName="Volume (kg)">
+                            <dx:BarSeries DisplayName="Volume">
                                 <dx:BarSeries.Data>
                                     <dx:SeriesDataAdapter DataSource="{Binding MovementPatterns}" ArgumentDataMember="Label">
-                                        <dx:ValueDataMember Type="Value" Member="VolumeKilograms" />
+                                        <dx:ValueDataMember Type="Value" Member="Volume" />
                                     </dx:SeriesDataAdapter>
                                 </dx:BarSeries.Data>
                             </dx:BarSeries>

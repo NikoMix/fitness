@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Forge.App.Features.Insights.Services;
 using Forge.App.Navigation;
+using Forge.Core.Abstractions.Preferences;
 using Forge.Domain.Analytics;
 
 namespace Forge.App.Features.Insights.ViewModels;
@@ -17,7 +18,7 @@ namespace Forge.App.Features.Insights.ViewModels;
 /// nonetheless reads as a statement about how someone trains, and the bar chart is what makes it
 /// read that way; the list says the same thing without the implied verdict.
 /// </remarks>
-public sealed partial class InsightsViewModel(IInsightsDataService dataService) : ObservableObject
+public sealed partial class InsightsViewModel(IInsightsDataService dataService, IUnitFormatter units) : ObservableObject
 {
     /// <summary>Training days required before a breakdown is drawn rather than only listed.</summary>
     public const int MinimumTrainingDaysForBreakdown = 3;
@@ -125,15 +126,19 @@ public sealed partial class InsightsViewModel(IInsightsDataService dataService) 
             var patterns = Project(overview.MovementPatterns);
             var chartable = overview.Totals.TrainingDays >= MinimumTrainingDaysForBreakdown;
 
+            // Read once so the two narrations and the focus card cannot end up quoting different
+            // units within the same render.
+            var suffix = units.MassUnitSuffix;
+
             var muscleNarration = ChartNarrator.Describe(
                 "Volume by muscle group",
-                [.. muscles.Select(slice => new NarratedPoint(slice.Label, slice.VolumeKilograms))],
-                "kg");
+                [.. muscles.Select(slice => new NarratedPoint(slice.Label, slice.Volume))],
+                suffix);
 
             var patternNarration = ChartNarrator.Describe(
                 "Volume by movement pattern",
-                [.. patterns.Select(slice => new NarratedPoint(slice.Label, slice.VolumeKilograms))],
-                "kg");
+                [.. patterns.Select(slice => new NarratedPoint(slice.Label, slice.Volume))],
+                suffix);
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
@@ -178,8 +183,8 @@ public sealed partial class InsightsViewModel(IInsightsDataService dataService) 
             : $"{insight.PairedDays} days have both a sleep entry and logged training, out of {insight.SleepNightsRecorded} sleep entries and {insight.TrainingDaysRecorded} training days. Days without training are left out entirely rather than counted as zero, which would invent the very pattern this is looking for.";
     }
 
-    private static List<TrainingSliceViewModel> Project(IEnumerable<TrainingTrendSlice> slices)
-        => slices.Take(MaximumSlicesShown).Select(TrainingSliceViewModel.From).ToList();
+    private List<TrainingSliceViewModel> Project(IEnumerable<TrainingTrendSlice> slices)
+        => slices.Take(MaximumSlicesShown).Select(slice => TrainingSliceViewModel.From(slice, units)).ToList();
 
     /// <summary>Puts one muscle group or movement pattern into the weekly trend card.</summary>
     /// <param name="slice">The slice to focus, or <see langword="null"/> to clear the card.</param>
@@ -214,8 +219,8 @@ public sealed partial class InsightsViewModel(IInsightsDataService dataService) 
         FocusNote = readiness.CanChart ? string.Empty : readiness.Explanation;
         FocusSummary = ChartNarrator.Describe(
             $"Weekly volume for {slice.Label}",
-            [.. slice.Weeks.Select(week => new NarratedPoint(week.WeekLabel, week.VolumeKilograms))],
-            "kg");
+            [.. slice.Weeks.Select(week => new NarratedPoint(week.WeekLabel, week.Volume))],
+            units.MassUnitSuffix);
     }
 
     private void RaiseDerived()
@@ -250,12 +255,14 @@ public sealed partial class InsightsViewModel(IInsightsDataService dataService) 
 
 /// <summary>One muscle group or movement pattern, formatted for display.</summary>
 /// <param name="Label">Muscle group or pattern name.</param>
-/// <param name="VolumeKilograms">Total working volume attributed to it.</param>
+/// <param name="VolumeKilograms">Total working volume attributed to it, in canonical kilograms.</param>
+/// <param name="Volume">The same volume in the unit the user reads, which is what the chart plots.</param>
 /// <param name="Detail">Sets, weeks and mean load behind the figure.</param>
 /// <param name="Weeks">Weekly volume and intensity for this slice, oldest first.</param>
 public sealed record TrainingSliceViewModel(
     string Label,
     double VolumeKilograms,
+    double Volume,
     string Detail,
     IReadOnlyList<TrainingWeekViewModel> Weeks)
 {
@@ -264,22 +271,27 @@ public sealed record TrainingSliceViewModel(
 
     /// <summary>Projects an aggregated slice into display form.</summary>
     /// <param name="slice">The aggregated slice.</param>
+    /// <param name="units">Converts and formats the stored kilograms.</param>
     /// <returns>The display model.</returns>
-    public static TrainingSliceViewModel From(TrainingTrendSlice slice)
+    public static TrainingSliceViewModel From(TrainingTrendSlice slice, IUnitFormatter units)
     {
         ArgumentNullException.ThrowIfNull(slice);
+        ArgumentNullException.ThrowIfNull(units);
 
         var weeks = slice.Weeks.Count == 1 ? "1 week" : $"{slice.Weeks.Count} weeks";
         var sets = slice.TotalWorkingSets == 1 ? "1 working set" : $"{slice.TotalWorkingSets} working sets";
         var latest = slice.Weeks.Count == 0 ? null : slice.Weeks[^1];
         var intensity = latest is { LoadedWorkingSets: > 0 }
-            ? string.Create(CultureInfo.CurrentCulture, $" · mean load {latest.MeanLoad.Kilograms:0.##} kg in the week of {latest.WeekStarting:d MMM}")
+            ? string.Create(
+                CultureInfo.CurrentCulture,
+                $" · mean load {units.FormatMass((double)latest.MeanLoad.Kilograms, 2)} in the week of {latest.WeekStarting:d MMM}")
             : string.Empty;
 
         return new TrainingSliceViewModel(
             slice.Label,
             (double)slice.TotalVolume.Kilograms,
-            string.Create(CultureInfo.CurrentCulture, $"{slice.TotalVolume.Kilograms:0.##} kg · {sets} across {weeks}{intensity}"),
-            [.. slice.Weeks.Select(TrainingWeekViewModel.From)]);
+            units.ToDisplayMass((double)slice.TotalVolume.Kilograms),
+            $"{units.FormatMass((double)slice.TotalVolume.Kilograms, 2)} · {sets} across {weeks}{intensity}",
+            [.. slice.Weeks.Select(week => TrainingWeekViewModel.From(week, units))]);
     }
 }
