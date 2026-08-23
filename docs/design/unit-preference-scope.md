@@ -226,11 +226,11 @@ The methods that would genuinely have been new are a **distance** formatter (km 
 **plate denomination** formatter for decision 3, which is not really formatting and belongs closer
 to `PlateInventory`.
 
-Flagged because it was asked: `tools/ci/Test-CodeReachability.ps1` **does not exist in this
-worktree**. `tools/ci/` currently holds `Test-CoverageThreshold`, `Test-DataAccessPatterns`,
-`Test-LocalizationManifests`, `Test-NoOwnerPlaceholders`, `Test-RouteReachability`,
-`Test-RouteRegistrations`, `Test-ServiceRegistrations` and `Test-XamlAttributes`. The reachability
-guard is presumably on another branch and had not merged here.
+Flagged because it was asked: `tools/ci/Test-CodeReachability.ps1` exists on `main` (added by
+`2cb4f81`, "Tell a DI registration apart from a use") but **not in this branch's worktree**, whose
+base predates it. Nothing here could be checked against it. Anything eventually added to
+`IUnitFormatter` should be run past it, since a formatter method that exists, is tested, and is
+called by nothing would be a poor addition to a codebase where that is the most common defect.
 
 ## A CI guard for the 46th string
 
