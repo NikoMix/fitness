@@ -95,6 +95,30 @@ function Get-ComparableBody {
     return ($Body -replace "`r`n", "`n").TrimEnd()
 }
 
+function Get-GapCommentBody {
+    param([string]$Key, $Verdict)
+
+    $headline = switch ($Verdict.Verdict) {
+        'PARTIAL' { 'Some acceptance criteria are met; the rest are listed below.' }
+        'NOT-DONE' { 'Not implemented, or too thin to meet the acceptance criteria.' }
+        'UNCLEAR' { 'Verification could not establish the state from reading the code.' }
+    }
+
+    $body = (Get-GapMarker $Key) + "`n"
+    $body += "**Verification verdict: ``$($Verdict.Verdict)``**`n`n$headline`n`n"
+
+    if (-not [string]::IsNullOrWhiteSpace($Verdict.Evidence)) {
+        $body += "**What is in place**`n$($Verdict.Evidence)`n`n"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Verdict.Gaps)) {
+        $body += "**What is missing**`n$($Verdict.Gaps)`n`n"
+    }
+
+    $body += "Recorded by ``tools/backlog-sync/Invoke-BacklogReconcile.ps1`` from ``backlog/verification/$($Verdict.Source)``. "
+    $body += 'Re-running the reconcile updates this comment in place.'
+    return $body
+}
+
 function Write-Step { param($m) Write-Host "`n=== $m ===" -ForegroundColor Cyan }
 function Write-Ok { param($m) Write-Host "  [ok]    $m" -ForegroundColor Green }
 function Write-Act { param($m) Write-Host "  [close] $m" -ForegroundColor Yellow }
@@ -287,6 +311,47 @@ if ($unjudged.Count -gt 0) {
 # --------------------------------------------------------------------------------------------
 Write-Step 'Plan'
 
+# Index every gap comment the script has written before, in one paginated sweep over the whole
+# repository. The obvious implementation asks each issue for its comments, but that read costs about
+# as much as the write it guards, so on a 696-issue backfill it doubled the run for no information
+# most of the time. One repo-wide listing answers the same question in a handful of calls.
+#
+# This runs before the plan rather than during the apply so that a -Backfill dry run can say what it
+# will actually do. Planning it blind counted every labelled issue and quoted 24 minutes for a run
+# that had nothing left to write.
+#
+# Invoke-Gh throws once it exhausts its retries, and that is deliberately not caught: a partial
+# index would look exactly like "no comment exists here" and post a second comment onto issues that
+# already have one. Failing the run is the recoverable outcome; silently duplicating is not.
+$script:GapComments = @{}
+if ($Backfill -or $Apply) {
+    Write-Host '  indexing existing gap comments...'
+    $page = 1
+    $seen = 0
+    while ($true) {
+        $json = Invoke-Gh -GhArgs @('api', "repos/$Repo/issues/comments?per_page=100&page=$page")
+        $batch = @($json | ConvertFrom-Json)
+        if ($batch.Count -eq 0) { break }
+
+        foreach ($comment in $batch) {
+            $seen++
+            if (-not $comment.body) { continue }
+            if ($comment.body -notmatch '<!-- forge:reconcile-gap key=([EFS][\d.]+) -->') { continue }
+            $commentKey = $Matches[1]
+            if ($comment.issue_url -match '/issues/(\d+)$') {
+                $script:GapComments["$($Matches[1])|$commentKey"] = [pscustomobject]@{
+                    Id   = $comment.id
+                    Body = $comment.body
+                }
+            }
+        }
+
+        $page++
+        if ($page -gt 60) { break }
+    }
+    Write-Host "  comments scanned: $seen; existing gap comments: $($script:GapComments.Count)"
+}
+
 $actions = [System.Collections.Generic.List[psobject]]::new()
 
 foreach ($key in $verdicts.Keys | Sort-Object) {
@@ -330,12 +395,19 @@ foreach ($key in $verdicts.Keys | Sort-Object) {
     }
 
     if ($hasWanted -and $stale.Count -eq 0) {
-        # Already correct. Only revisit it to add the gap comment earlier runs never wrote.
+        # Already correct. Only revisit it to write the gap comment earlier runs never wrote, and
+        # only when that comment would actually change.
         if ($Backfill) {
-            $actions.Add([pscustomobject]@{
-                    Key = $key; Issue = $issue; Verdict = $verdict; Kind = 'backfill'
-                    Close = $false; Reopen = $false; AddLabel = ''; RemoveLabels = @(); Comment = $true
-                })
+            $mapKey = "$($issue.Number)|$key"
+            $existing = if ($script:GapComments.ContainsKey($mapKey)) { $script:GapComments[$mapKey] } else { $null }
+            $wantedBody = Get-GapCommentBody -Key $key -Verdict $verdict
+
+            if (-not ($existing -and (Get-ComparableBody $existing.Body) -eq (Get-ComparableBody $wantedBody))) {
+                $actions.Add([pscustomobject]@{
+                        Key = $key; Issue = $issue; Verdict = $verdict; Kind = 'backfill'
+                        Close = $false; Reopen = $false; AddLabel = ''; RemoveLabels = @(); Comment = $true
+                    })
+            }
         }
         continue
     }
@@ -394,36 +466,11 @@ if ($DryRun) {
 # --------------------------------------------------------------------------------------------
 Write-Step 'Applying'
 
-function Get-GapCommentBody {
-    param($Item)
-
-    $verdict = $Item.Verdict
-    $headline = switch ($verdict.Verdict) {
-        'PARTIAL' { 'Some acceptance criteria are met; the rest are listed below.' }
-        'NOT-DONE' { 'Not implemented, or too thin to meet the acceptance criteria.' }
-        'UNCLEAR' { 'Verification could not establish the state from reading the code.' }
-    }
-
-    $body = (Get-GapMarker $Item.Key) + "`n"
-    $body += "**Verification verdict: ``$($verdict.Verdict)``**`n`n$headline`n`n"
-
-    if (-not [string]::IsNullOrWhiteSpace($verdict.Evidence)) {
-        $body += "**What is in place**`n$($verdict.Evidence)`n`n"
-    }
-    if (-not [string]::IsNullOrWhiteSpace($verdict.Gaps)) {
-        $body += "**What is missing**`n$($verdict.Gaps)`n`n"
-    }
-
-    $body += "Recorded by ``tools/backlog-sync/Invoke-BacklogReconcile.ps1`` from ``backlog/verification/$($verdict.Source)``. "
-    $body += 'Re-running the reconcile updates this comment in place.'
-    return $body
-}
-
 function Set-GapComment {
     param($Item)
 
     $number = $Item.Issue.Number
-    $body = Get-GapCommentBody $Item
+    $body = Get-GapCommentBody -Key $Item.Key -Verdict $Item.Verdict
     $mapKey = "$number|$($Item.Key)"
 
     # One authoritative comment per issue: update the previous one rather than stacking a new
@@ -473,40 +520,6 @@ function Set-GapComment {
 $applied = @{ close = 0; reopen = 0; label = 0; relabel = 0; backfill = 0; tidy = 0 }
 $failed = 0
 $skipped = 0
-
-# Index every gap comment the script has written before, in one paginated sweep over the whole
-# repository. The obvious implementation asks each issue for its comments, but that read costs about
-# as much as the write it guards, so on a 696-issue backfill it doubled the run for no information
-# most of the time. One repo-wide listing answers the same question in a handful of calls, and makes
-# an interrupted run cheap to resume.
-$script:GapComments = @{}
-if (@($actions | Where-Object { $_.Comment }).Count -gt 0) {
-    Write-Host '  indexing existing gap comments...'
-    $page = 1
-    $seen = 0
-    while ($true) {
-        $json = Invoke-Gh -GhArgs @('api', "repos/$Repo/issues/comments?per_page=100&page=$page")
-        $batch = @($json | ConvertFrom-Json)
-        if ($batch.Count -eq 0) { break }
-
-        foreach ($comment in $batch) {
-            $seen++
-            if (-not $comment.body) { continue }
-            if ($comment.body -notmatch '<!-- forge:reconcile-gap key=([EFS][\d.]+) -->') { continue }
-            $key = $Matches[1]
-            if ($comment.issue_url -match '/issues/(\d+)$') {
-                $script:GapComments["$($Matches[1])|$key"] = [pscustomobject]@{
-                    Id   = $comment.id
-                    Body = $comment.body
-                }
-            }
-        }
-
-        $page++
-        if ($page -gt 60) { break }
-    }
-    Write-Host "  comments scanned: $seen; existing gap comments: $($script:GapComments.Count)"
-}
 
 foreach ($item in $actions) {
     $number = $item.Issue.Number
