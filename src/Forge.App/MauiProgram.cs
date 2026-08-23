@@ -7,6 +7,7 @@ using Forge.App.Navigation;
 using Forge.App.Hosting;
 using Forge.App.Branding;
 using Forge.App.Composition;
+using Forge.App.Diagnostics;
 using Forge.App.Features;
 using Forge.Core.Abstractions;
 using Microsoft.Extensions.Logging;
@@ -98,7 +99,27 @@ public static class MauiProgram
 
         StartupTimeline.Mark("services-registered");
 
+        // The file sink, the crash boundary and the diagnostic log service.
+        //
+        // Until this line existed, the block below was the ENTIRE logging configuration, so a
+        // Release build registered no provider at all and every logging call in the app wrote to
+        // nothing - including the ones in DatabaseInitializer, ForgeStartupService and
+        // AppLockCoordinator that exist precisely to record that something has already gone
+        // wrong. Forge has no crash reporter and no telemetry backend by design, so the on-device
+        // file is the only evidence that will ever exist when it does.
+        //
+        // The mark on either side is not decoration. This runs on the critical path to the first
+        // frame, and the whole design of the sink - nothing opened, nothing created, nothing
+        // probed until the first entry is written on a background thread - only matters if it is
+        // measured. See docs/diagnostics/logging.md.
+        builder.AddForgeDiagnostics();
+
+        StartupTimeline.Mark("logging-configured");
+
 #if DEBUG
+        // Kept alongside the file sink rather than replaced by it. Debug output goes to the IDE
+        // and to logcat, which is where a developer is already looking; the file is what a user
+        // can send.
         builder.Logging.AddDebug();
 #endif
 

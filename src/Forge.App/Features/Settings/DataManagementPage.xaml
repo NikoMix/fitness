@@ -47,6 +47,47 @@
                 </VerticalStackLayout>
             </dx:DXBorder>
 
+            <dx:DXBorder Style="{StaticResource AdvisoryCard}"
+                         IsVisible="{Binding HasRecentCrash}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Forge closed unexpectedly" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding RecentCrashSummary}" Style="{StaticResource BodyText}" />
+                    <Label Text="A diagnostic log was saved on this device. You can read it and send it below, or leave it where it is."
+                           Style="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
+            <dx:DXBorder Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="{StaticResource SpaceM}">
+                    <Label Text="Diagnostic log" Style="{StaticResource TitleText}" />
+                    <Label Text="{Binding DiagnosticStatus}" Style="{StaticResource BodyText}" />
+                    <!--
+                        Written to be read, not to be agreed to.
+
+                        Forge has no crash reporter and no analytics, so this file is the only
+                        evidence that will ever exist when something goes wrong. That makes it
+                        worth offering - and it makes it worth being exact about, because the
+                        person deciding is deciding about a file next to a database Forge went to
+                        considerable trouble to encrypt. Saying "no personal data" would be a
+                        claim; saying what was removed and what was kept is a description.
+                    -->
+                    <Label Text="Forge records what it was doing when something goes wrong. Body measurements, food and drink, injuries, notes, names, dates and file paths are removed before anything is written. What stays is the times Forge was running, error type names and internal code locations."
+                           Style="{StaticResource SecondaryText}" />
+                    <Label Text="Nothing is ever sent anywhere unless you send it."
+                           Style="{StaticResource SecondaryText}" />
+                    <dx:DXButton Content="Send the diagnostic log"
+                                 SemanticProperties.Description="Send the diagnostic log"
+                                 SemanticProperties.Hint="Opens the share sheet so you can attach the log to a message. Nothing is sent until you choose where."
+                                 Style="{StaticResource SecondaryButton}"
+                                 Command="{Binding ShareDiagnosticsCommand}" />
+                    <dx:DXButton Content="Delete the diagnostic log"
+                                 SemanticProperties.Description="Delete the diagnostic log"
+                                 SemanticProperties.Hint="Removes every saved log file from this device"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Command="{Binding DeleteDiagnosticsCommand}" />
+                </VerticalStackLayout>
+            </dx:DXBorder>
+
             <dx:DXBorder Style="{StaticResource AdvisoryCard}">
                 <VerticalStackLayout Spacing="{StaticResource SpaceM}">
                     <Label Text="Delete my data" Style="{StaticResource TitleText}" />

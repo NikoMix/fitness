@@ -1,11 +1,14 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Forge.Core.Abstractions;
+using Forge.Core.Abstractions.Diagnostics;
 using Forge.Core.Abstractions.Preferences;
 
 namespace Forge.App.Features.Settings.ViewModels;
 
-public sealed partial class DeleteMyDataPageViewModel(IDataErasureService dataErasureService) : ObservableObject
+public sealed partial class DeleteMyDataPageViewModel(
+    IDataErasureService dataErasureService,
+    IDiagnosticLog diagnosticLog) : ObservableObject
 {
     private const string ConfirmationWord = "DELETE";
 
@@ -46,7 +49,19 @@ public sealed partial class DeleteMyDataPageViewModel(IDataErasureService dataEr
 
         try
         {
-            await dataErasureService.EraseAllLocalDataAsync(CancellationToken.None);
+            // Suspended across the erasure, not merely deleted afterwards.
+            //
+            // The sink lives under the app data directory that erasure walks, and it re-creates
+            // its own directory on the next entry. A single log line landing between erasure's
+            // file pass and its directory pass leaves a directory that will not delete, and this
+            // screen would then tell somebody who asked to be forgotten that their data could not
+            // be erased. Suspending also settles the substantive question: no log of the deleted
+            // data survives the deletion.
+            using (diagnosticLog.SuspendForErasure())
+            {
+                await dataErasureService.EraseAllLocalDataAsync(CancellationToken.None);
+            }
+
             await page.DisplayAlertAsync("Data erased", "All local Forge data has been erased.", "OK");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
