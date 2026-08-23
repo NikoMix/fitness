@@ -159,12 +159,22 @@ is verified deliberately rather than assumed.
 Stated as a design so the next contributor implements rather than re-derives. Not implemented and
 not verified on a device — treat it as a proposal.
 
-1. **Do not change `EfRepository.ListAsync` to `AsNoTracking`.** The list-mutate-`UpdateAsync`-save
-   pattern is used across the codebase, and `SavePlanAsync:142-146` depends on it right here: the
-   loop that deactivates the *other* plans mutates tracked instances and relies on the change
-   tracker to persist them. Making `ListAsync` no-tracking would turn that into a silent no-op —
-   the plan the user activated would light up while the previously active one stayed active too.
-   Silent write loss is the exact failure `IDataSessionFactory` exists to prevent.
+1. **Do not change `EfRepository.ListAsync` to `AsNoTracking` — but not for the reason first given
+   here.** The original wording claimed `SavePlanAsync:142-146` relies on the change tracker to
+   persist the deactivation of the other plans, and that no-tracking would turn that loop into a
+   silent no-op. **That is wrong**: line 145 calls `plans.UpdateAsync(existing, ...)` explicitly,
+   so a detached instance would be attached as Modified and would still be written. A repository
+   sweep found **zero** call sites in `src/` that mutate a listed entity and save without an
+   explicit `UpdateAsync`/`AddAsync`, so the silent-write-loss failure mode described here does not
+   currently exist anywhere.
+
+   The correct objection is narrower and is about burden of proof rather than a known break.
+   `ListAsync` is the single read used by every feature, tracking is the default every one of those
+   call sites was written against, and a 40-line static sweep is weak evidence for changing the
+   semantics of the seam the whole app funnels through — particularly when the same crash can be
+   fixed locally by merging onto the tracked instance, which is what this document recommends.
+   Whoever revisits this should know that no-tracking is **not** ruled out by a demonstrated
+   failure; it is ruled out by nobody having done the work to show it is safe.
 2. **Merge onto the tracked instance instead of attaching the detached one.** Inside
    `SavePlanAsync`, once `existingPlans` has been materialised, take the tracked plan with the
    matching id and copy the scalars across, then reconcile each level by id:
