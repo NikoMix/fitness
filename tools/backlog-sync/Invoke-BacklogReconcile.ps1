@@ -87,6 +87,14 @@ $AllStatusLabels = @($StatusLabelFor.Values)
 # Marks a comment as this script's, so a re-run can tell its own gap report from human discussion.
 function Get-GapMarker { param($Key) "<!-- forge:reconcile-gap key=$Key -->" }
 
+# Line endings and the trailing newline survive a round trip through GitHub inconsistently, and
+# neither carries meaning here, so neither should decide whether a comment needs rewriting.
+function Get-ComparableBody {
+    param([string]$Body)
+    if ($null -eq $Body) { return '' }
+    return ($Body -replace "`r`n", "`n").TrimEnd()
+}
+
 function Write-Step { param($m) Write-Host "`n=== $m ===" -ForegroundColor Cyan }
 function Write-Ok { param($m) Write-Host "  [ok]    $m" -ForegroundColor Green }
 function Write-Act { param($m) Write-Host "  [close] $m" -ForegroundColor Yellow }
@@ -366,8 +374,15 @@ if ($DryRun) {
     }
     if ($actions.Count -gt 40) { Write-Host "  ... and $($actions.Count - 40) more" }
 
-    # Comments are a second mutation on top of the label change.
-    $mutations = $actions.Count + @($actions | Where-Object { $_.Comment }).Count
+    # Count what will actually be sent: a close, a reopen, a label edit and a comment are each a
+    # separate mutation, and a backfill is only ever the comment.
+    $mutations = 0
+    foreach ($item in $actions) {
+        if ($item.Close) { $mutations++ }
+        if ($item.Reopen) { $mutations++ }
+        if ($item.AddLabel -or $item.RemoveLabels.Count -gt 0) { $mutations++ }
+        if ($item.Comment) { $mutations++ }
+    }
     $mins = [math]::Ceiling($mutations * $Throttle / 60)
     Write-Host ''
     Write-Host "Estimated apply time: ~$mins minutes for $mutations mutations at ${Throttle}s each." -ForegroundColor Cyan
@@ -408,38 +423,47 @@ function Set-GapComment {
     param($Item)
 
     $number = $Item.Issue.Number
-    $marker = Get-GapMarker $Item.Key
     $body = Get-GapCommentBody $Item
+    $mapKey = "$number|$($Item.Key)"
 
     # One authoritative comment per issue: update the previous one rather than stacking a new
-    # comment on every re-verification.
-    $existingId = $null
-    try {
-        $json = Invoke-Gh -GhArgs @('api', "repos/$Repo/issues/$number/comments?per_page=100")
-        foreach ($comment in @($json | ConvertFrom-Json)) {
-            if ($comment.body -and $comment.body.Contains($marker)) { $existingId = $comment.id; break }
-        }
-    }
-    catch {
-        # A failed read must not be mistaken for "no comment exists", or this duplicates.
-        throw "could not read existing comments: $($_.Exception.Message)"
+    # comment on every re-verification. The lookup comes from the preloaded index, not a per-issue
+    # read, because that read cost more than the write it was guarding.
+    $existing = if ($script:GapComments.ContainsKey($mapKey)) { $script:GapComments[$mapKey] } else { $null }
+
+    if ($existing) {
+        # An unchanged comment is not worth a mutation. This is what makes an interrupted backfill
+        # free to resume rather than a second full pass.
+        #
+        # Both sides are normalised before comparing. The body is sent through a file, and
+        # Set-Content terminates it with a newline that GitHub then stores, so a stored comment is
+        # never byte-identical to the string that produced it. Comparing them raw made every re-run
+        # rewrite all 696 comments and report nothing as unchanged.
+        if ((Get-ComparableBody $existing.Body) -eq (Get-ComparableBody $body)) { return 'unchanged' }
     }
 
     $tmp = [System.IO.Path]::GetTempFileName()
     try {
         Set-Content -LiteralPath $tmp -Value $body -Encoding utf8NoBOM
-        if ($existingId) {
+        if ($existing) {
             Invoke-Gh -IsMutation -GhArgs @(
-                'api', '--method', 'PATCH', "repos/$Repo/issues/comments/$existingId",
+                'api', '--method', 'PATCH', "repos/$Repo/issues/comments/$($existing.Id)",
                 '-F', "body=@$tmp"
             ) | Out-Null
+            return 'updated'
         }
-        else {
-            Invoke-Gh -IsMutation -GhArgs @(
-                'api', '--method', 'POST', "repos/$Repo/issues/$number/comments",
-                '-F', "body=@$tmp"
-            ) | Out-Null
+
+        $created = Invoke-Gh -IsMutation -GhArgs @(
+            'api', '--method', 'POST', "repos/$Repo/issues/$number/comments",
+            '-F', "body=@$tmp"
+        )
+        # Record it, so an interrupted run that is restarted updates rather than duplicates.
+        try {
+            $id = ($created | ConvertFrom-Json).id
+            if ($id) { $script:GapComments[$mapKey] = [pscustomobject]@{ Id = $id; Body = $body } }
         }
+        catch { }
+        return 'created'
     }
     finally {
         Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
@@ -448,6 +472,41 @@ function Set-GapComment {
 
 $applied = @{ close = 0; reopen = 0; label = 0; relabel = 0; backfill = 0; tidy = 0 }
 $failed = 0
+$skipped = 0
+
+# Index every gap comment the script has written before, in one paginated sweep over the whole
+# repository. The obvious implementation asks each issue for its comments, but that read costs about
+# as much as the write it guards, so on a 696-issue backfill it doubled the run for no information
+# most of the time. One repo-wide listing answers the same question in a handful of calls, and makes
+# an interrupted run cheap to resume.
+$script:GapComments = @{}
+if (@($actions | Where-Object { $_.Comment }).Count -gt 0) {
+    Write-Host '  indexing existing gap comments...'
+    $page = 1
+    $seen = 0
+    while ($true) {
+        $json = Invoke-Gh -GhArgs @('api', "repos/$Repo/issues/comments?per_page=100&page=$page")
+        $batch = @($json | ConvertFrom-Json)
+        if ($batch.Count -eq 0) { break }
+
+        foreach ($comment in $batch) {
+            $seen++
+            if (-not $comment.body) { continue }
+            if ($comment.body -notmatch '<!-- forge:reconcile-gap key=([EFS][\d.]+) -->') { continue }
+            $key = $Matches[1]
+            if ($comment.issue_url -match '/issues/(\d+)$') {
+                $script:GapComments["$($Matches[1])|$key"] = [pscustomobject]@{
+                    Id   = $comment.id
+                    Body = $comment.body
+                }
+            }
+        }
+
+        $page++
+        if ($page -gt 60) { break }
+    }
+    Write-Host "  comments scanned: $seen; existing gap comments: $($script:GapComments.Count)"
+}
 
 foreach ($item in $actions) {
     $number = $item.Issue.Number
@@ -479,15 +538,23 @@ foreach ($item in $actions) {
             Invoke-Gh -IsMutation -GhArgs $editArgs | Out-Null
         }
 
+        $commentResult = ''
         if ($item.Comment) {
-            Set-GapComment -Item $item
+            $commentResult = Set-GapComment -Item $item
         }
 
-        $applied[$item.Kind]++
-        switch ($item.Kind) {
-            'close' { Write-Act "#$number $($item.Key)" }
-            'reopen' { Write-Reopen "#$number $($item.Key) REOPENED -> $($item.AddLabel)" }
-            default { Write-Keep "#$number $($item.Key) -> $($item.Kind)" }
+        # A backfill whose comment was already correct sent nothing at all; counting it as applied
+        # would overstate what the run did.
+        if ($item.Kind -eq 'backfill' -and $commentResult -eq 'unchanged') {
+            $skipped++
+        }
+        else {
+            $applied[$item.Kind]++
+            switch ($item.Kind) {
+                'close' { Write-Act "#$number $($item.Key)" }
+                'reopen' { Write-Reopen "#$number $($item.Key) REOPENED -> $($item.AddLabel)" }
+                default { Write-Keep "#$number $($item.Key) -> $($item.Kind)" }
+            }
         }
     }
     catch {
@@ -500,6 +567,7 @@ Write-Step 'Result'
 foreach ($kind in 'close', 'reopen', 'label', 'relabel', 'backfill', 'tidy') {
     Write-Host ("  {0,-9} : {1}" -f $kind, $applied[$kind])
 }
+Write-Host "  unchanged : $skipped (comment already correct)"
 Write-Host "  failed    : $failed"
 
 if ($failed -gt 0) { exit 1 }
