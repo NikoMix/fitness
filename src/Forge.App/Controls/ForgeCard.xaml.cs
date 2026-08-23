@@ -56,10 +56,17 @@ public partial class ForgeCard : ContentView
             return;
         }
 
-        BodyPresenter.Content = Content;
+        // Detach the caller's content from this card before handing it to the body host. Assigning
+        // it while it is still this card's Content makes MAUI log "already a child of ... Remove
+        // before adding" twice on every card on every launch, which is a lot of noise in the one
+        // diagnostic channel a released build has. Order matters and nothing else does: the body
+        // still ends up inside BodyPresenter, which still sits inside the chrome, so the binding
+        // context inherits exactly as before.
+        var body = Content;
         restoringChrome = true;
         Content = chrome;
         restoringChrome = false;
+        BodyPresenter.Content = body;
     }
 
     private static void OnHeaderChanged(BindableObject bindable, object oldValue, object newValue)
